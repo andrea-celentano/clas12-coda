@@ -1,0 +1,624 @@
+hi/file 66 dsc2_1290.his
+*hi/file 66 dsc2hist.his
+*hi/file 66 dsc2hist.sb.his
+
+*Param. * Current  * Default   * Explanation                   *
+*XSIZ   * 20.00    * 20.00     * Size along X                  *
+*YSIZ   * 20.00    * 20.00     * Size along Y                  *
+*GSIZ   *  0.60    *  0.28     * Global title SIZe             *
+*YGTI   *  0.80    *  1.50     * Y position of Global TItle    *
+*TSIZ   *  0.28    *  0.28     * histogram Title SIZe          *
+*ASIZ   *  0.28    *  0.28     * Axis label SIZe               *
+*CSIZ   *  0.28    *  0.28     * Comment and stat SIZe         *
+*PSIZ   *  0.28    *  0.28     * Page number SIZe              *
+*VSIZ   *  0.28    *  0.28     * axis Values SIZe              *
+*LASI   * 755.129  *  0.018    * Label axis size               *
+*LAOF   * 539.378  *  0.013    * Label axis offset             *
+*TMSI   * 809.067  *  0.019    * Tick marks size               *
+*HMAX   *   0.90   *  0.90     * Histogram MAXimum for scale   *
+*STAT   * 1000000  *   1111    * STAT values to be plotted     *
+*FIT    *     101  *    101    * FIT values to be plotted      *
+
+gra/set YSIZ 24.
+gra/set TSIZ 0.18
+gra/set VSIZ 0.18
+gra/set CSIZ 0.45
+gra/set HMAX 0.70
+
+zone 4 4
+opt stat
+meta 10 -111
+***opt fit  1111111
+***set stat 1111111
+set fit  101
+set stat 1000000
+***opt logy
+*
+hi/li
+*
+*
+
+hi/co 701(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 702(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 703(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 704(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 705(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 706(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 707(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 708(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 709(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 710(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 711(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 712(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 713(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 714(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 715(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 716(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+wait
+
+hi/co 801(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 802(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 803(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 804(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 805(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 806(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 807(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 808(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 809(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 810(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 811(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 812(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 813(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 814(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 815(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 816(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+wait
+
+
+hi/co 901(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 902(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 903(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 904(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 905(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 906(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 907(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 908(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 909(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 910(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 911(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 912(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 913(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 914(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 915(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 916(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+wait
+
+hi/co 1001(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1002(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1003(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1004(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1005(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1006(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1007(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1008(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1009(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1010(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1011(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1012(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1013(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1014(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1015(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1016(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+wait
+
+close 66
+hi/del 0
+
+*-------------------------------------------
+
+hi/file 66 dsc2_1290.his
+
+gra/set YSIZ 24.
+gra/set TSIZ 0.18
+gra/set VSIZ 0.18
+gra/set CSIZ 0.45
+gra/set HMAX 0.70
+
+zone 4 4
+opt stat
+meta 10 -111
+set fit  101
+set stat 1111
+
+
+hi/pl 10701
+hi/pl 20701
+hi/pl 30701
+hi/pl 40701
+
+hi/pl 10702
+hi/pl 20702
+hi/pl 30702
+hi/pl 40702
+
+hi/pl 10703
+hi/pl 20703
+hi/pl 30703
+hi/pl 40703
+
+hi/pl 10704
+hi/pl 20704
+hi/pl 30704
+hi/pl 40704
+wait
+
+hi/pl 10705
+hi/pl 20705
+hi/pl 30705
+hi/pl 40705
+
+hi/pl 10706
+hi/pl 20706
+hi/pl 30706
+hi/pl 40706
+
+hi/pl 10707
+hi/pl 20707
+hi/pl 30707
+hi/pl 40707
+
+hi/pl 10708
+hi/pl 20708
+hi/pl 30708
+hi/pl 40708
+wait
+
+hi/pl 10709
+hi/pl 20709
+hi/pl 30709
+hi/pl 40709
+
+hi/pl 10710
+hi/pl 20710
+hi/pl 30710
+hi/pl 40710
+
+hi/pl 10711
+hi/pl 20711
+hi/pl 30711
+hi/pl 40711
+
+hi/pl 10712
+hi/pl 20712
+hi/pl 30712
+hi/pl 40712
+wait
+
+hi/pl 10713
+hi/pl 20713
+hi/pl 30713
+hi/pl 40713
+
+hi/pl 10714
+hi/pl 20714
+hi/pl 30714
+hi/pl 40714
+
+hi/pl 10715
+hi/pl 20715
+hi/pl 30715
+hi/pl 40715
+
+hi/pl 10716
+hi/pl 20716
+hi/pl 30716
+hi/pl 40716
+wait
+
+*-------------------------------------------
+
+hi/pl 10801
+hi/pl 20801
+hi/pl 30801
+hi/pl 40801
+
+hi/pl 10802
+hi/pl 20802
+hi/pl 30802
+hi/pl 40802
+
+hi/pl 10803
+hi/pl 20803
+hi/pl 30803
+hi/pl 40803
+
+hi/pl 10804
+hi/pl 20804
+hi/pl 30804
+hi/pl 40804
+wait
+
+hi/pl 10805
+hi/pl 20805
+hi/pl 30805
+hi/pl 40805
+
+hi/pl 10806
+hi/pl 20806
+hi/pl 30806
+hi/pl 40806
+
+hi/pl 10807
+hi/pl 20807
+hi/pl 30807
+hi/pl 40807
+
+hi/pl 10808
+hi/pl 20808
+hi/pl 30808
+hi/pl 40808
+wait
+
+hi/pl 10809
+hi/pl 20809
+hi/pl 30809
+hi/pl 40809
+
+hi/pl 10810
+hi/pl 20810
+hi/pl 30810
+hi/pl 40810
+
+hi/pl 10811
+hi/pl 20811
+hi/pl 30811
+hi/pl 40811
+
+hi/pl 10812
+hi/pl 20812
+hi/pl 30812
+hi/pl 40812
+wait
+
+hi/pl 10813
+hi/pl 20813
+hi/pl 30813
+hi/pl 40813
+
+hi/pl 10814
+hi/pl 20814
+hi/pl 30814
+hi/pl 40814
+
+hi/pl 10815
+hi/pl 20815
+hi/pl 30815
+hi/pl 40815
+
+hi/pl 10816
+hi/pl 20816
+hi/pl 30816
+hi/pl 40816
+wait
+
+close 66
+hi/del 0
+
+*-------------------------------------------
+
+hi/file 66 dsc2_1290.his
+
+gra/set YSIZ 24.
+gra/set TSIZ 0.18
+gra/set VSIZ 0.18
+gra/set CSIZ 0.45
+gra/set HMAX 0.70
+
+zone 4 4
+opt stat
+meta 10 -111
+set fit  101
+set stat 1111
+
+
+hi/pl 10901
+hi/pl 20901
+hi/pl 30901
+hi/pl 40901
+
+hi/pl 10902
+hi/pl 20902
+hi/pl 30902
+hi/pl 40902
+
+hi/pl 10903
+hi/pl 20903
+hi/pl 30903
+hi/pl 40903
+
+hi/pl 10904
+hi/pl 20904
+hi/pl 30904
+hi/pl 40904
+wait
+
+hi/pl 10905
+hi/pl 20905
+hi/pl 30905
+hi/pl 40905
+
+hi/pl 10906
+hi/pl 20906
+hi/pl 30906
+hi/pl 40906
+
+hi/pl 10907
+hi/pl 20907
+hi/pl 30907
+hi/pl 40907
+
+hi/pl 10908
+hi/pl 20908
+hi/pl 30908
+hi/pl 40908
+wait
+
+hi/pl 10909
+hi/pl 20909
+hi/pl 30909
+hi/pl 40909
+
+hi/pl 10910
+hi/pl 20910
+hi/pl 30910
+hi/pl 40910
+
+hi/pl 10911
+hi/pl 20911
+hi/pl 30911
+hi/pl 40911
+
+hi/pl 10912
+hi/pl 20912
+hi/pl 30912
+hi/pl 40912
+wait
+
+hi/pl 10913
+hi/pl 20913
+hi/pl 30913
+hi/pl 40913
+
+hi/pl 10914
+hi/pl 20914
+hi/pl 30914
+hi/pl 40914
+
+hi/pl 10915
+hi/pl 20915
+hi/pl 30915
+hi/pl 40915
+
+hi/pl 10916
+hi/pl 20916
+hi/pl 30916
+hi/pl 40916
+wait
+
+*-------------------------------------------
+
+hi/pl 11001
+hi/pl 21001
+hi/pl 31001
+hi/pl 41001
+
+hi/pl 11002
+hi/pl 21002
+hi/pl 31002
+hi/pl 41002
+
+hi/pl 11003
+hi/pl 21003
+hi/pl 31003
+hi/pl 41003
+
+hi/pl 11004
+hi/pl 21004
+hi/pl 31004
+hi/pl 41004
+wait
+
+hi/pl 11005
+hi/pl 21005
+hi/pl 31005
+hi/pl 41005
+
+hi/pl 11006
+hi/pl 21006
+hi/pl 31006
+hi/pl 41006
+
+hi/pl 11007
+hi/pl 21007
+hi/pl 31007
+hi/pl 41007
+
+hi/pl 11008
+hi/pl 21008
+hi/pl 31008
+hi/pl 41008
+wait
+
+hi/pl 11009
+hi/pl 21009
+hi/pl 31009
+hi/pl 41009
+
+hi/pl 11010
+hi/pl 21010
+hi/pl 31010
+hi/pl 41010
+
+hi/pl 11011
+hi/pl 21011
+hi/pl 31011
+hi/pl 41011
+
+hi/pl 11012
+hi/pl 21012
+hi/pl 31012
+hi/pl 41012
+wait
+
+hi/pl 11013
+hi/pl 21013
+hi/pl 31013
+hi/pl 41013
+
+hi/pl 11014
+hi/pl 21014
+hi/pl 31014
+hi/pl 41014
+
+hi/pl 11015
+hi/pl 21015
+hi/pl 31015
+hi/pl 41015
+
+hi/pl 11016
+hi/pl 21016
+hi/pl 31016
+hi/pl 41016
+wait
+
+close 66
+hi/del 0
+

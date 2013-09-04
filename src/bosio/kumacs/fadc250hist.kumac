@@ -1,0 +1,134 @@
+hi/file 66 fadc250hist.his
+*
+meta 10 -111
+*
+zone 4 4
+*
+hi/pl 501
+hi/pl 502
+hi/pl 503
+hi/pl 504
+hi/pl 505
+hi/pl 506
+hi/pl 507
+hi/pl 508
+hi/pl 509
+hi/pl 510
+hi/pl 511
+hi/pl 512
+hi/pl 513
+hi/pl 514
+hi/pl 515
+hi/pl 516
+wait
+*
+hi/pl 10501
+hi/pl 10502
+hi/pl 10503
+hi/pl 10504
+hi/pl 10505
+hi/pl 10506
+hi/pl 10507
+hi/pl 10508
+hi/pl 10509
+hi/pl 10510
+hi/pl 10511
+hi/pl 10512
+hi/pl 10513
+hi/pl 10514
+hi/pl 10515
+hi/pl 10516
+wait
+*
+hi/pl 20501
+hi/pl 20502
+hi/pl 20503
+hi/pl 20504
+hi/pl 20505
+hi/pl 20506
+hi/pl 20507
+hi/pl 20508
+hi/pl 20509
+hi/pl 20510
+hi/pl 20511
+hi/pl 20512
+hi/pl 20513
+hi/pl 20514
+hi/pl 20515
+hi/pl 20516
+wait
+*
+hi/pl 414000
+hi/pl 414001
+hi/pl 414002
+hi/pl 414003
+hi/pl 414004
+hi/pl 414005
+hi/pl 414006
+hi/pl 414007
+hi/pl 414008
+hi/pl 414009
+hi/pl 414010
+hi/pl 414011
+hi/pl 414012
+hi/pl 414013
+hi/pl 414014
+hi/pl 414015
+wait
+*
+hi/pl 414016
+hi/pl 414017
+hi/pl 414018
+hi/pl 414019
+hi/pl 414020
+hi/pl 414021
+hi/pl 414022
+hi/pl 414023
+hi/pl 414024
+hi/pl 414025
+hi/pl 414026
+hi/pl 414027
+hi/pl 414028
+hi/pl 414029
+hi/pl 414030
+hi/pl 414031
+wait
+*
+hi/pl 414032
+hi/pl 414033
+hi/pl 414034
+hi/pl 414035
+hi/pl 414036
+hi/pl 414037
+hi/pl 414038
+hi/pl 414039
+hi/pl 414040
+hi/pl 414041
+hi/pl 414042
+hi/pl 414043
+hi/pl 414044
+hi/pl 414045
+hi/pl 414046
+hi/pl 414047
+wait
+*
+hi/pl 414048
+hi/pl 414049
+hi/pl 414050
+hi/pl 414051
+hi/pl 414052
+hi/pl 414053
+hi/pl 414054
+hi/pl 414055
+hi/pl 414056
+hi/pl 414057
+hi/pl 414058
+hi/pl 414059
+hi/pl 414060
+hi/pl 414061
+hi/pl 414062
+hi/pl 414063
+wait
+*
+close 66
+exit

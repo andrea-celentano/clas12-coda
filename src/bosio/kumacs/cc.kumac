@@ -1,0 +1,27 @@
+hi/file 66 cchist.his
+zone 3 4
+***opt stat
+***opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+opt logy
+*
+hi/pl 1125
+hi/pl 1126
+hi/pl 1127
+hi/pl 1128
+hi/pl 1129
+hi/pl 1130
+hi/pl 1131
+hi/pl 1132
+hi/pl 1133
+hi/pl 1134
+hi/pl 1135
+hi/pl 1136
+*
+
+
+
+
+

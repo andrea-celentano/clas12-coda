@@ -1,0 +1,14 @@
+hi/file 66 test.his
+zone 3 3
+***opt stat
+***opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+hi/pl 913
+*
+
+
+
+
+

@@ -1,0 +1,35 @@
+hi/file 66 svthist.his
+*
+*opt stat
+*opt fit 1111111
+*
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+zone 1 3
+hi/pl 1025
+hi/pl 1031
+hi/pl 1032
+wait
+*
+zone 2 4
+DO ID1 = 3,4
+DO ID2 = 0,7
+  IDN = 2000 + [ID1]*10 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+zone 4 4
+DO ID1 = 0,63
+DO ID2 = 1,16
+  IDN = [ID1]*16 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+*close 66

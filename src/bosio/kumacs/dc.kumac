@@ -1,0 +1,53 @@
+hi/file 66 test.his
+zone 2 3
+opt stat
+***opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+*hi/pl 0
+*
+*hi/pl 204051
+*hi/pl 204052
+*hi/pl 204053
+*hi/pl 204054
+*hi/pl 204055
+*hi/pl 204056
+*
+*hi/pl 204061
+*hi/pl 204062
+*hi/pl 204063
+*hi/pl 204064
+*hi/pl 204065
+*hi/pl 204066
+*
+*hi/pl 204201
+*hi/pl 204202
+*hi/pl 204203
+*hi/pl 204204
+*hi/pl 204205
+*hi/pl 204206
+*
+*hi/pl 206081
+*hi/pl 206082
+*hi/pl 206083
+*hi/pl 206084
+*hi/pl 206085
+*hi/pl 206086
+*
+hi/pl 207091
+hi/pl 207092
+hi/pl 207093
+hi/pl 207094
+hi/pl 207095
+hi/pl 207096
+*
+*hi/pl 209151
+*hi/pl 209152
+*hi/pl 209153
+*hi/pl 209154
+*hi/pl 209155
+*hi/pl 209156
+*

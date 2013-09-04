@@ -1,0 +1,14 @@
+hi/file 66 dc12.his
+zone 1 1
+*opt stat
+***opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+*hi/pl 0
+*
+***hi/pl 202 lego
+hi/pl 202
+*

@@ -1,0 +1,250 @@
+hi/file 66 ftofhist.his
+*
+*opt stat
+*opt fit 1111111
+*
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+zone 1 4
+*
+DO ID1 = 1,3
+DO ID2 = 1,4
+  IDN = 4300 + [ID1]*100 + [ID2]
+  hi/pl [IDN](-50.:50.)
+ENDDO
+wait
+DO ID2 = 5,8
+  IDN = 4300 + [ID1]*100 + [ID2]
+  hi/pl [IDN](-50.:50.)
+ENDDO
+wait
+DO ID2 = 9,12
+  IDN = 4300 + [ID1]*100 + [ID2]
+  hi/pl [IDN](-50.:50.)
+ENDDO
+wait
+DO ID2 = 13,16
+  IDN = 4300 + [ID1]*100 + [ID2]
+  hi/pl [IDN](-50.:50.)
+ENDDO
+wait
+DO ID2 = 17,20
+  IDN = 4300 + [ID1]*100 + [ID2]
+  hi/pl [IDN](-50.:50.)
+ENDDO
+wait
+DO ID2 = 21,24
+  IDN = 4300 + [ID1]*100 + [ID2]
+  hi/pl [IDN](-50.:50.)
+ENDDO
+wait
+ENDDO
+*
+zone 1 1
+hi/pl 12(310.:350.)
+wait
+*
+zone 1 7
+hi/pl 113
+hi/pl 115
+hi/pl 320
+hi/pl 322
+hi/pl 412
+hi/pl 414
+hi/pl 531
+wait
+*
+zone 4 4
+hi/pl 100
+hi/pl 101
+hi/pl 102
+hi/pl 103
+hi/pl 104
+hi/pl 105
+hi/pl 106
+hi/pl 107
+hi/pl 108
+hi/pl 109
+hi/pl 110
+hi/pl 111
+hi/pl 112
+hi/pl 113
+hi/pl 114
+hi/pl 115
+wait
+*
+hi/pl 116
+hi/pl 117
+hi/pl 118
+hi/pl 119
+hi/pl 120
+hi/pl 121
+hi/pl 122
+hi/pl 123
+hi/pl 124
+hi/pl 125
+hi/pl 126
+hi/pl 127
+hi/pl 128
+hi/pl 129
+hi/pl 130
+hi/pl 131
+wait
+*
+zone 4 4
+hi/pl 200
+hi/pl 201
+hi/pl 202
+hi/pl 203
+hi/pl 204
+hi/pl 205
+hi/pl 206
+hi/pl 207
+hi/pl 208
+hi/pl 209
+hi/pl 210
+hi/pl 211
+hi/pl 212
+hi/pl 213
+hi/pl 214
+hi/pl 215
+wait
+*
+hi/pl 216
+hi/pl 217
+hi/pl 218
+hi/pl 219
+hi/pl 220
+hi/pl 221
+hi/pl 222
+hi/pl 223
+hi/pl 224
+hi/pl 225
+hi/pl 226
+hi/pl 227
+hi/pl 228
+hi/pl 229
+hi/pl 230
+hi/pl 231
+wait
+*
+zone 4 4
+hi/pl 300
+hi/pl 301
+hi/pl 302
+hi/pl 303
+hi/pl 304
+hi/pl 305
+hi/pl 306
+hi/pl 307
+hi/pl 308
+hi/pl 309
+hi/pl 310
+hi/pl 311
+hi/pl 312
+hi/pl 313
+hi/pl 314
+hi/pl 315
+wait
+*
+hi/pl 316
+hi/pl 317
+hi/pl 318
+hi/pl 319
+hi/pl 320
+hi/pl 321
+hi/pl 322
+hi/pl 323
+hi/pl 324
+hi/pl 325
+hi/pl 326
+hi/pl 327
+hi/pl 328
+hi/pl 329
+hi/pl 330
+hi/pl 331
+wait
+*
+zone 4 4
+hi/pl 400
+hi/pl 401
+hi/pl 402
+hi/pl 403
+hi/pl 404
+hi/pl 405
+hi/pl 406
+hi/pl 407
+hi/pl 408
+hi/pl 409
+hi/pl 410
+hi/pl 411
+hi/pl 412
+hi/pl 413
+hi/pl 414
+hi/pl 415
+wait
+*
+hi/pl 416
+hi/pl 417
+hi/pl 418
+hi/pl 419
+hi/pl 420
+hi/pl 421
+hi/pl 422
+hi/pl 423
+hi/pl 424
+hi/pl 425
+hi/pl 426
+hi/pl 427
+hi/pl 428
+hi/pl 429
+hi/pl 430
+hi/pl 431
+wait
+*
+zone 4 4
+hi/pl 500
+hi/pl 501
+hi/pl 502
+hi/pl 503
+hi/pl 504
+hi/pl 505
+hi/pl 506
+hi/pl 507
+hi/pl 508
+hi/pl 509
+hi/pl 510
+hi/pl 511
+hi/pl 512
+hi/pl 513
+hi/pl 514
+hi/pl 515
+wait
+*
+hi/pl 516
+hi/pl 517
+hi/pl 518
+hi/pl 519
+hi/pl 520
+hi/pl 521
+hi/pl 522
+hi/pl 523
+hi/pl 524
+hi/pl 525
+hi/pl 526
+hi/pl 527
+hi/pl 528
+hi/pl 529
+hi/pl 530
+hi/pl 531
+wait
+*
+zone 1 3
+hi/pl 2115(0.:150.)
+hi/pl 2215(0.:150.)
+hi/pl 2315(0.:150.)
+wait
+*close 66

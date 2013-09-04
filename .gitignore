@@ -1,0 +1,11 @@
+Darwin_powerpc/
+Linux_i686/
+Linux_ppc/
+Linux_x86_64/
+SunOS_i86pc/
+SunOS_sun4u/
+VXWORKS_ppc/
+common/
+*.o
+*.so
+*.a

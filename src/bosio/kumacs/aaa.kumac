@@ -1,0 +1,29 @@
+hi/file 66 tdcecal1.his
+*
+opt stat
+*opt fit 1111111
+*
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+zone 1 1
+*
+********hi/pl 11
+********wait
+*
+********hi/pl 12
+********wait
+*
+zone 1 2
+hi/pl 6000
+hi/pl 6001
+wait
+*
+zone 1 2
+***hi/fit 106001(1931.:1936.) g
+hi/pl 106000
+hi/pl 106001
+wait
+*
+*exit

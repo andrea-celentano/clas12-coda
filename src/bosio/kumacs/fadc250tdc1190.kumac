@@ -1,0 +1,110 @@
+hi/file 66 fadc250tdc1190.his
+zone 4 4
+opt stat
+***opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+hi/pl 1
+hi/pl 2
+hi/pl 3
+hi/pl 4
+hi/pl 5
+hi/pl 6
+hi/pl 7
+hi/pl 8
+hi/pl 9
+hi/pl 10
+hi/pl 11
+hi/pl 12
+hi/pl 13
+hi/pl 14
+hi/pl 15
+hi/pl 16
+wait
+*
+hi/pl 21(550.:3350.)
+hi/pl 22(550.:3350.)
+hi/pl 23(550.:3350.)
+hi/pl 24(550.:3350.)
+hi/pl 25(550.:3350.)
+hi/pl 26(550.:3350.)
+hi/pl 27(550.:3350.)
+hi/pl 28(550.:3350.)
+hi/pl 29(550.:3350.)
+hi/pl 30(550.:3350.)
+hi/pl 31(550.:3350.)
+hi/pl 32(550.:3350.)
+hi/pl 33(550.:3350.)
+hi/pl 34(550.:3350.)
+hi/pl 35(550.:3350.)
+hi/pl 36(550.:3350.)
+wait
+*
+zone 1 1
+*
+hi/co 21(600.:3300.) 61
+max 61 4000 
+hi/fit 61 p
+wait
+hi/co 22(600.:3300.) 62
+max 62 4000 
+hi/fit 62 p
+wait
+hi/co 23(600.:3300.) 63
+max 63 4000 
+hi/fit 63 p
+wait
+hi/co 24(600.:3300.) 64
+max 64 4000 
+hi/fit 64 p
+wait
+hi/co 25(600.:3300.) 65
+max 65 4000 
+hi/fit 65 p
+wait
+hi/co 27(600.:3300.) 67
+max 67 4000 
+hi/fit 67 p
+wait
+hi/co 28(600.:3300.) 68
+max 68 4000 
+hi/fit 68 p
+wait
+hi/co 29(600.:3300.) 69
+max 69 4000 
+hi/fit 69 p
+wait
+hi/co 30(600.:3300.) 70
+max 70 4000 
+hi/fit 70 p
+wait
+hi/co 31(600.:3300.) 71
+max 71 4000 
+hi/fit 71 p
+wait
+hi/co 32(600.:3300.) 72
+max 72 4000 
+hi/fit 72 p
+wait
+hi/co 33(600.:3300.) 73
+max 73 4000 
+hi/fit 73 p
+wait
+hi/co 34(600.:3300.) 74
+max 74 4000 
+hi/fit 74 p
+wait
+hi/co 35(600.:3300.) 75
+max 75 4000 
+hi/fit 75 p
+wait
+hi/co 36(600.:3300.) 76
+max 76 4000 
+hi/fit 76 p
+wait
+
+*
+close 66

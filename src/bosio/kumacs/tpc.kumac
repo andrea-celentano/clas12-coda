@@ -1,0 +1,65 @@
+hi/file 66 test.his
+zone 4 4
+***opt stat
+***opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+zone 1 2
+opt liny
+hi/pl 20096
+opt logy
+hi/pl 120096
+*
+*hi/pl 120000
+*hi/pl 120001
+*hi/pl 120002
+*hi/pl 120003
+*hi/pl 120004
+*hi/pl 120005
+*hi/pl 120006
+*hi/pl 120007
+*hi/pl 120008
+*hi/pl 120009
+*hi/pl 120010
+*hi/pl 120011
+*hi/pl 120012
+*hi/pl 120013
+*hi/pl 120014
+*hi/pl 120015
+*
+**hi/pl 3 box
+**hi/pl 4 box
+**hi/pl *
+*
+*hi/fit 1 g
+*hi/fit 2 g
+*hi/fit 3 g
+*hi/fit 4 g
+*hi/fit 5 g
+*hi/fit 6 g
+*hi/fit 7 g
+*hi/fit 8 g
+*hi/fit 9 g
+*hi/fit 10 g
+*hi/fit 11 g
+*hi/fit 12 g
+*hi/fit 13 g
+*hi/fit 14 g
+*hi/fit 15 g
+*hi/fit 16 g
+*hi/fit 17 g
+*hi/fit 18 g
+*hi/fit 19 g
+*hi/fit 20 g
+*hi/fit 21 g
+*hi/fit 22 g
+*hi/fit 23 g
+*hi/fit 24 g
+*
+*exit
+
+
+
+
+

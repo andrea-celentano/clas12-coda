@@ -1,0 +1,356 @@
+hi/file 66 dsc2_1290.his
+
+gra/set YSIZ 24.
+gra/set TSIZ 0.18
+gra/set VSIZ 0.18
+gra/set CSIZ 0.45
+gra/set HMAX 0.70
+
+zone 4 4
+opt stat
+meta 10 -111
+set fit  101
+set stat 1111
+
+
+hi/pl 10901
+hi/pl 20901
+hi/pl 30901
+hi/pl 40901
+
+hi/pl 10902
+hi/pl 20902
+hi/pl 30902
+hi/pl 40902
+
+hi/pl 10903
+hi/pl 20903
+hi/pl 30903
+hi/pl 40903
+
+hi/pl 10904
+hi/pl 20904
+hi/pl 30904
+hi/pl 40904
+wait
+
+hi/pl 10905
+hi/pl 20905
+hi/pl 30905
+hi/pl 40905
+
+hi/pl 10906
+hi/pl 20906
+hi/pl 30906
+hi/pl 40906
+
+hi/pl 10907
+hi/pl 20907
+hi/pl 30907
+hi/pl 40907
+
+hi/pl 10908
+hi/pl 20908
+hi/pl 30908
+hi/pl 40908
+wait
+
+hi/pl 10909
+hi/pl 20909
+hi/pl 30909
+hi/pl 40909
+
+hi/pl 10910
+hi/pl 20910
+hi/pl 30910
+hi/pl 40910
+
+hi/pl 10911
+hi/pl 20911
+hi/pl 30911
+hi/pl 40911
+
+hi/pl 10912
+hi/pl 20912
+hi/pl 30912
+hi/pl 40912
+wait
+
+hi/pl 10913
+hi/pl 20913
+hi/pl 30913
+hi/pl 40913
+
+hi/pl 10914
+hi/pl 20914
+hi/pl 30914
+hi/pl 40914
+
+hi/pl 10915
+hi/pl 20915
+hi/pl 30915
+hi/pl 40915
+
+hi/pl 10916
+hi/pl 20916
+hi/pl 30916
+hi/pl 40916
+wait
+
+hi/pl 10917
+hi/pl 20917
+hi/pl 30917
+hi/pl 40917
+
+hi/pl 10918
+hi/pl 20918
+hi/pl 30918
+hi/pl 40918
+
+hi/pl 10919
+hi/pl 20919
+hi/pl 30919
+hi/pl 40919
+
+hi/pl 10920
+hi/pl 20920
+hi/pl 30920
+hi/pl 40920
+wait
+
+hi/pl 10921
+hi/pl 20921
+hi/pl 30921
+hi/pl 40921
+
+hi/pl 10922
+hi/pl 20922
+hi/pl 30922
+hi/pl 40922
+
+hi/pl 10923
+hi/pl 20923
+hi/pl 30923
+hi/pl 40923
+
+hi/pl 10924
+hi/pl 20924
+hi/pl 30924
+hi/pl 40924
+wait
+
+hi/pl 10925
+hi/pl 20925
+hi/pl 30925
+hi/pl 40925
+
+hi/pl 10926
+hi/pl 20926
+hi/pl 30926
+hi/pl 40926
+
+hi/pl 10927
+hi/pl 20927
+hi/pl 30927
+hi/pl 40927
+
+hi/pl 10928
+hi/pl 20928
+hi/pl 30928
+hi/pl 40928
+wait
+
+hi/pl 10929
+hi/pl 20929
+hi/pl 30929
+hi/pl 40929
+
+hi/pl 10930
+hi/pl 20930
+hi/pl 30930
+hi/pl 40930
+
+hi/pl 10931
+hi/pl 20931
+hi/pl 30931
+hi/pl 40931
+
+hi/pl 10932
+hi/pl 20932
+hi/pl 30932
+hi/pl 40932
+wait
+
+*********************************
+
+hi/pl 11001
+hi/pl 21001
+hi/pl 31001
+hi/pl 41001
+
+hi/pl 11002
+hi/pl 21002
+hi/pl 31002
+hi/pl 41002
+
+hi/pl 11003
+hi/pl 21003
+hi/pl 31003
+hi/pl 41003
+
+hi/pl 11004
+hi/pl 21004
+hi/pl 31004
+hi/pl 41004
+wait
+
+hi/pl 11005
+hi/pl 21005
+hi/pl 31005
+hi/pl 41005
+
+hi/pl 11006
+hi/pl 21006
+hi/pl 31006
+hi/pl 41006
+
+hi/pl 11007
+hi/pl 21007
+hi/pl 31007
+hi/pl 41007
+
+hi/pl 11008
+hi/pl 21008
+hi/pl 31008
+hi/pl 41008
+wait
+
+hi/pl 11009
+hi/pl 21009
+hi/pl 31009
+hi/pl 41009
+
+hi/pl 11010
+hi/pl 21010
+hi/pl 31010
+hi/pl 41010
+
+hi/pl 11011
+hi/pl 21011
+hi/pl 31011
+hi/pl 41011
+
+hi/pl 11012
+hi/pl 21012
+hi/pl 31012
+hi/pl 41012
+wait
+
+hi/pl 11013
+hi/pl 21013
+hi/pl 31013
+hi/pl 41013
+
+hi/pl 11014
+hi/pl 21014
+hi/pl 31014
+hi/pl 41014
+
+hi/pl 11015
+hi/pl 21015
+hi/pl 31015
+hi/pl 41015
+
+hi/pl 11016
+hi/pl 21016
+hi/pl 31016
+hi/pl 41016
+wait
+
+hi/pl 11017
+hi/pl 21017
+hi/pl 31017
+hi/pl 41017
+
+hi/pl 11018
+hi/pl 21018
+hi/pl 31018
+hi/pl 41018
+
+hi/pl 11019
+hi/pl 21019
+hi/pl 31019
+hi/pl 41019
+
+hi/pl 11020
+hi/pl 21020
+hi/pl 31020
+hi/pl 41020
+wait
+
+hi/pl 11021
+hi/pl 21021
+hi/pl 31021
+hi/pl 41021
+
+hi/pl 11022
+hi/pl 21022
+hi/pl 31022
+hi/pl 41022
+
+hi/pl 11023
+hi/pl 21023
+hi/pl 31023
+hi/pl 41023
+
+hi/pl 11024
+hi/pl 21024
+hi/pl 31024
+hi/pl 41024
+wait
+
+hi/pl 11025
+hi/pl 21025
+hi/pl 31025
+hi/pl 41025
+
+hi/pl 11026
+hi/pl 21026
+hi/pl 31026
+hi/pl 41026
+
+hi/pl 11027
+hi/pl 21027
+hi/pl 31027
+hi/pl 41027
+
+hi/pl 11028
+hi/pl 21028
+hi/pl 31028
+hi/pl 41028
+wait
+
+hi/pl 11029
+hi/pl 21029
+hi/pl 31029
+hi/pl 41029
+
+hi/pl 11030
+hi/pl 21030
+hi/pl 31030
+hi/pl 41030
+
+hi/pl 11031
+hi/pl 21031
+hi/pl 31031
+hi/pl 41031
+
+hi/pl 11032
+hi/pl 21032
+hi/pl 31032
+hi/pl 41032
+
+
+close 66
+hi/del 0
+

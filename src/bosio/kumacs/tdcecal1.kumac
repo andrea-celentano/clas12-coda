@@ -1,0 +1,67 @@
+hi/file 66 tdcecal1.his
+*
+*opt stat
+*opt fit 1111111
+*
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+zone 1 1
+*
+*
+*
+hi/pl 11
+wait
+*
+hi/pl 106001
+wait
+*
+hi/pl 106002
+wait
+*
+hi/pl 116001
+wait
+*
+hi/pl 116002
+wait
+*
+zone 4 4
+*
+*
+*
+DO ID1 = 0,7
+DO ID2 = 0,15
+  IDN = 100000 + 6000 + [ID1]*16 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+DO ID1 = 0,7
+DO ID2 = 0,15
+  IDN = 100000 + 16000 + [ID1]*16 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+*
+*
+DO ID1 = 0,7
+DO ID2 = 0,15
+  IDN = 6000 + [ID1]*16 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+DO ID1 = 0,7
+DO ID2 = 0,15
+  IDN = 16000 + [ID1]*16 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+*close 66

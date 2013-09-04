@@ -1,0 +1,67 @@
+hi/file 66 test.his.800_900k
+*
+opt nbox
+opt ndat
+opt liny
+opt ngri
+ve/del *
+trace off
+*
+set ysize 27.
+set xsiz 20.
+zone 2 4
+opt stat
+meta 10 -111
+set hmax 0.8
+graphics/set vsiz 0.20           | Size for axis values
+graphics/set csiz 0.40           | Size for comments
+graphics/set TFON 2              | Size for Text (and Title) FONT and PREC
+graphics/set TSIZ 0.28           | histogram Title SIZe
+graphics/set YHTI 0.80           | Y position of Histogram TItle
+
+***opt fit 1111111
+***set stat 1111111
+
+
+hi/pl  1(465.:535.)
+hi/pl  2(465.:535.)
+hi/pl  3(465.:535.)
+hi/pl  4(465.:535.)
+hi/pl  5(465.:535.)
+hi/pl  6(465.:535.)
+hi/pl  7(465.:535.)
+hi/pl  8(465.:535.)
+wait
+hi/pl  9(465.:535.)
+hi/pl 10(465.:535.)
+hi/pl 11(465.:535.)
+hi/pl 12(465.:535.)
+hi/pl 13(465.:535.)
+hi/pl 14(465.:535.)
+hi/pl 15(465.:535.)
+hi/pl 16(465.:535.)
+
+wait
+
+hi/pl 17(5980.:6300.)
+hi/pl 18(5980.:6300.)
+hi/pl 19(5980.:6300.)
+hi/pl 20(5980.:6300.)
+hi/pl 21(5980.:6300.)
+hi/pl 22(5980.:6300.)
+hi/pl 23(5980.:6300.)
+hi/pl 24(5980.:6300.)
+wait
+hi/pl 25(5980.:6300.)
+hi/pl 26(5980.:6300.)
+hi/pl 27(5980.:6300.)
+hi/pl 28(5980.:6300.)
+hi/pl 29(5980.:6300.)
+hi/pl 30(5980.:6300.)
+hi/pl 31(5980.:6300.)
+hi/pl 32(5980.:6300.)
+
+
+close 66
+
+*exit

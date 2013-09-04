@@ -1,0 +1,71 @@
+hi/file 66 fadc250hist.his
+zone 4 4
+opt stat
+***opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+hi/pl 501
+hi/pl 502
+hi/pl 503
+hi/pl 504
+hi/pl 505
+hi/pl 506
+hi/pl 507
+hi/pl 508
+hi/pl 509
+hi/pl 510
+hi/pl 511
+hi/pl 512
+hi/pl 513
+hi/pl 514
+hi/pl 515
+hi/pl 516
+wait
+*
+hi/pl 10501
+hi/pl 10502
+hi/pl 10503
+hi/pl 10504
+hi/pl 10505
+hi/pl 10506
+hi/pl 10507
+hi/pl 10508
+hi/pl 10509
+hi/pl 10510
+hi/pl 10511
+hi/pl 10512
+hi/pl 10513
+hi/pl 10514
+hi/pl 10515
+hi/pl 10516
+wait
+*
+hi/pl 11301
+hi/pl 11302
+hi/pl 11303
+hi/pl 11304
+hi/pl 11305
+hi/pl 11306
+hi/pl 11307
+hi/pl 11308
+hi/pl 11309
+hi/pl 11310
+hi/pl 11311
+hi/pl 11312
+hi/pl 11313
+hi/pl 11314
+hi/pl 11315
+hi/pl 11316
+wait
+*
+zone 1 3
+hi/pl 516
+hi/pl 10516
+hi/pl 11316
+wait
+*
+close 66
+exit

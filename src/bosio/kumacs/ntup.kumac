@@ -1,0 +1,24 @@
+hi/file 66 /work/ftof/ftofntup251.his_10
+*
+opt stat
+*
+nt/cut $33 tdcS1L19>1.AND.tdcS1R19>1.AND.-40000.<(tdcS1L19-tdcS1R19)<40000.
+nt/cut $34 1.<adcS1L19<6000.AND.1.<adcS1R19<6000.
+nt/cut $35 tdcS1L20>1.AND.tdcS1R20>1.AND.-40000.<(tdcS1L20-tdcS1R20)<40000.
+nt/cut $36 1.<adcS1L20<6000.AND.1.<adcS1R20<6000.
+*
+zone 1 2
+nt/pl 2.adcS1L19%(tdcS1L19-tdcS1R19) $33.AND.$34
+nt/pl 2.adcS1R19%(tdcS1L19-tdcS1R19) $33.AND.$34
+wait
+*
+zone 1 2
+nt/pl 2.adcS1L20%(tdcS1L20-tdcS1R20) $35.AND.$36
+nt/pl 2.adcS1R20%(tdcS1L20-tdcS1R20) $35.AND.$36
+wait
+*
+zone 1 2
+nt/pl 2.(adcS1L19-adcS1R19)%(tdcS1L19-tdcS1R19) $33.AND.$34
+nt/pl 2.(adcS1L20-adcS1R20)%(tdcS1L20-tdcS1R20) $35.AND.$36
+wait
+*

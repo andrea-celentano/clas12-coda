@@ -1,0 +1,27 @@
+hi/file 66 test.his
+zone 3 4
+***opt stat
+***opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+opt logy
+*
+hi/pl 11125
+hi/pl 11126
+hi/pl 11127
+hi/pl 11128
+hi/pl 11129
+hi/pl 11130
+hi/pl 11131
+hi/pl 11132
+hi/pl 11133
+hi/pl 11134
+hi/pl 11135
+hi/pl 11136
+*
+
+
+
+
+

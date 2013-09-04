@@ -1,0 +1,12 @@
+hi/file 66 fadc250hist.his
+*
+meta 10 -111
+*
+zone 1 2
+*
+hi/pl 416
+hi/pl 10516
+wait
+*
+close 66
+exit

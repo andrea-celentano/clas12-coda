@@ -1,0 +1,84 @@
+#
+#  Bootscript for svt1 (VXS crate for clas12 svt)
+#
+
+# adds router
+cd "$CODA/VXWORKS_ppc/bootscripts"
+< routeadd_mot.boot
+
+# initializations for all rocs
+cd "$CODA/VXWORKS_ppc/bootscripts"
+< all.boot
+
+
+
+
+
+
+
+
+# ppc_vme.boot - generic boot script for all VME crate controllers
+
+#  standard CLAS libraries
+cd "$CODA/VXWORKS_ppc/obj"
+ld < all_rocs.o
+
+#set env variables
+cd "$CODA/VXWORKS_ppc/bootscripts"
+< vxbootenv.boot
+
+# load CLAS translation library
+cd "$CODA/VXWORKS_ppc/lib"
+###ld < libcodatt.so
+ld < $CODA/src/codatt/VXWORKS_ppc/lib/libcodatt.so
+
+# load coda_roc
+cd "$CODA/VXWORKS_ppc/bin"
+###ld < coda_roc
+ld < $CODA/src/dac/VXWORKS_ppc/bin/coda_roc
+ld < tcpServer.o
+ld < blaster.o
+ld < blastee.o
+
+# load libraries used by first readout list
+cd "$CODA/VXWORKS_ppc/lib"
+###ld < librol.so
+ld < $CODA/src/rol/VXWORKS_ppc/lib/librol.so
+
+###
+### following part for parallel readout and dual cpu
+###
+
+### Load Interrupt and mempart libraries
+cd "$CODA/VXWORKS_ppc/obj"
+ld < vmeIntLib.o
+ld < dmaPLib.o
+dmaPartInit()
+
+### Load User readout routines
+ld < vmeUserLib.o
+vmeUserInit()
+
+taskDelay(sysClkRateGet()*5)
+
+
+
+
+
+
+
+taskSpawn "ROC",200,0,500000,coda_roc,"-session","classvt","-objects","svt1 ROC","-i"
+
+taskDelay(sysClkRateGet()*5)
+taskSpawn "TCP_SERVER",250,0,100000,tcpServer
+
+
+### for FADC tests
+#proconhost
+#netonhost
+#putenv "RAW=TRUE"
+
+taskDelay(sysClkRateGet()*10)
+
+proconhost
+netonhost

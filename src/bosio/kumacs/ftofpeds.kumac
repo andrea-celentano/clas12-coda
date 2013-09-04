@@ -1,0 +1,27 @@
+hi/file 66 ftofhist.his
+meta 10 -111
+*
+opt stat
+opt fit 1111111
+*
+zone 2 4
+*
+DO ID1 = 1,10
+*
+DO ID2 = 0,7
+  IDN = 1050 + [ID1]*100 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+*
+DO ID2 = 8,15
+  IDN = 1050 + [ID1]*100 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+*
+ENDDO
+*
+wait
+exit
+

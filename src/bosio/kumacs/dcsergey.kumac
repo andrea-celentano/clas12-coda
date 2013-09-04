@@ -1,0 +1,25 @@
+hi/file 66 dcsergey.his
+zone 2 3
+opt stat
+***opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+*hi/pl 0
+*
+hi/pl 101
+hi/pl 102
+hi/pl 103
+hi/pl 104
+hi/pl 105
+hi/pl 106
+*
+hi/pl 201 lego
+hi/pl 202 lego
+hi/pl 203 lego
+hi/pl 204 lego
+hi/pl 205 lego
+hi/pl 206 lego
+*

@@ -1,0 +1,637 @@
+
+/* ttsvt.c - translate CLAS12 SVT data into EVIO format */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
+#include "coda.h"
+#include "tt.h"
+
+
+
+#undef DEBUG
+
+#define ABS(x) ((x) < 0 ? -(x) : (x))
+
+#define LSWAP(x)        ((((x) & 0x000000ff) << 24) | \
+                         (((x) & 0x0000ff00) <<  8) | \
+                         (((x) & 0x00ff0000) >>  8) | \
+                         (((x) & 0xff000000) >> 24))
+
+#define CCOPEN(btag,fmt,bnum) \
+{ \
+  int len1, n1; \
+  char *ch; \
+  len1 = strlen(fmt); /* format length in bytes */ \
+  n1 = (len1+5)/4; /* format length in words */ \
+  dabufp_save1 = dabufp ++; /*remember '0xf' bank length location*/ \
+  *dabufp++ = (btag<<16) + (0xf<<8) + bnum; /*bank header*/ \
+  /* tagsegment header following by format */ \
+  *dabufp++ = (len1<<20) + (0x6<<16) + n1; \
+  ch = (char *)dabufp; \
+  strncpy(ch,fmt,len1); \
+  ch[len1]='\0';ch[len1+1]='\4';ch[len1+2]='\4';ch[len1+3]='\4';ch[len1+4]='\4'; \
+  dabufp += n1; \
+  /* 'internal' bank header */ \
+  dabufp_save2 = dabufp ++;  /*remember 'internal' bank length location*/ \
+  *dabufp++ = (0<<16) + (0x0<<8) + 0; \
+} \
+b08 = (unsigned char *)dabufp
+
+#define CCCLOSE \
+{ \
+  unsigned int padding; \
+  dabufp = (unsigned int *) ( ( ((unsigned int)b08+3)/4 ) * 4); \
+  padding = (unsigned int)dabufp - (unsigned int)b08; \
+  /*dabufp_save1[1] |= (padding&0x3)<<14;*/ \
+  dabufp_save2[1] |= (padding&0x3)<<14; \
+  /*printf("CCCLOSE: 0x%x %d --- 0x%x %d --> padding %d\n",dabufp,dabufp,b08,b08,((dabufp_save2[1])>>14)&0x3);*/ \
+  *dabufp_save1 = (dabufp-dabufp_save1-1); \
+  *dabufp_save2 = (dabufp-dabufp_save2-1); \
+  len += (*dabufp_save1+1); \
+  b08 = NULL; \
+}
+
+
+#define CPOPEN(btag,btyp,bnum) \
+{ \
+  dabufp_save1 = dabufp ++; /*remember beginning of the bank address*/ \
+  *dabufp++ = (btag<<16) + (btyp<<8) + bnum; /*bank header*/ \
+  b08 = (unsigned char *)dabufp; \
+}
+
+
+#define CPCLOSE \
+{ \
+  unsigned int padding; \
+  dabufp = (unsigned int *) ( ( ((unsigned int)b08+3)/4 ) * 4); \
+  padding = (unsigned int)dabufp - (unsigned int)b08; \
+  dabufp_save1[1] |= (padding&0x3)<<14; \
+  /*printf("CPCLOSE: 0x%x %d --- 0x%x %d --> padding %d\n",dabufp,dabufp,b08,b08,((dabufp_save2[1])>>14)&0x3);*/ \
+  *dabufp_save1 = (dabufp-dabufp_save1-1); \
+  len += (*dabufp_save1+1); \
+  b08 = NULL; \
+}
+
+#define DATA_TYPE_BLKHDR		0x00
+#define DATA_TYPE_BLKTLR		0x01
+#define DATA_TYPE_EVTHDR		0x02
+#define DATA_TYPE_TRGTIME		0x03
+#define DATA_TYPE_BCOTIME		0x04
+#define DATA_TYPE_FSSREVT		0x08
+#define DATA_TYPE_DNV			0x0E
+#define DATA_TYPE_FILLER		0x0F
+
+
+static char* Version = " VERSION: ttvme.c v1.0 - initial release " ;
+static char* CompileTime = DAYTIME;
+
+/***********************************************************************************
+
+  Routine             : TT_TranslateSVTBank
+
+  Parameters          : bufin - input(CODA from ROL1), bufout - output(EVIO)
+
+  Discription         : This routine translates one event from crate with CLAS12 SVT
+                        
+***********************************************************************************/
+
+ /* 22-max# of blocks=slots, 256-max# of events*/
+#define MAXBLOCK 22
+#define MAXEVENT 256
+
+int
+TT_TranslateSVTBank(long *bufin, long *bufout, TTSPtr ttp)
+{
+  int nB, iB[MAXBLOCK], sB[MAXBLOCK];
+  int nE[MAXBLOCK], iE[MAXBLOCK][MAXEVENT], lenE[MAXBLOCK][MAXEVENT];
+  unsigned int *svt;
+  int i, j, k, m, iii, ind, len, bank, rlen, printing, nnE;
+  int nr = 0;
+  int ncol = 2;
+  int a_channel, a_ch, a_bco_start, a_bco_stop, a_nevents, a_blocknumber, a_triggernumber;
+  int a_windowwidth, a_pulsenumber, a_firstsample;
+  int a_valid1, a_valid2, a_nwords, a_slot, a_slot2;
+  int a_qualityfactor, a_pulseintegral, a_pulsetime;
+  int a_trigtime[4];
+  int a_hfcbid, a_chipid, a_bco, a_adc;
+
+  unsigned int *dabufp_save1, *dabufp_save2;
+  unsigned int *StartOfBank;
+  unsigned int *dabufp, word, oldbco;
+  char *ch;
+  unsigned char *b08;
+  unsigned short *b16;
+  unsigned int *b32, *Nhits;
+  unsigned long long *b64, timestamp;
+  int latency;
+  int islot, ichan, ii, jj, npulses, type;
+
+  /*
+return(0);
+  */
+
+  /* input info */
+  rlen = bufin[0]; /* the number of 32bit data words */
+  svt = (unsigned int *)&bufin[1]; /* first data word */
+
+  /*
+  if(rlen<=10) return(0);
+  */
+
+#ifndef VXWORKS
+  /* swap input buffer (assume that data from VME is big-endian, and we are on little-endian Intel) */
+  for(ii=0; ii<rlen; ii++) svt[ii] = LSWAP(svt[ii]);
+#endif
+
+
+#ifdef DEBUG
+  printf("\n**********************\nmini-bos bank: rlen=%d\n",rlen);
+#endif
+
+
+
+
+
+
+
+  /**************/
+  /* raw format */
+
+  /* set pointer to the 3rd word of the output buffer (first 2 words will be CODA header filles by rol2) */
+  dabufp = (unsigned int *)&bufout[2];
+
+  len = 0;
+  b08 = NULL;
+
+  CPOPEN(0xe104,1,1);
+
+  /* all banks including headers are created already in rol1, just copy here */
+  for(ii=0; ii<rlen; ii++)
+  {
+    dabufp[ii] = svt[ii];
+    b08 += 4;
+    word = svt[ii];
+#ifdef DEBUG
+    printf("[%5d] 0x%08x -> ",ii,word);
+#endif
+	if(word & 0x80000000)
+	{
+	  type = (word>>27)&0xF;
+	  switch(type)
+	  {
+		case DATA_TYPE_BLKHDR:
+#ifdef DEBUG
+		  printf(" {BLKHDR} SLOTID: %d", (word>>22)&0x1f);
+		  printf(" NEVENTS: %d", (word>>11)&0x7ff);
+		  printf(" BLOCK: %d\n", (word>>0)&0x7ff);
+#endif
+		  break;
+		case DATA_TYPE_BLKTLR:
+#ifdef DEBUG
+		  printf(" {BLKTLR} SLOTID: %d", (word>>22)&0x1f);
+		  printf(" NWORDS: %d\n", (word>>0)&0x3fffff);
+#endif
+		  break;
+		case DATA_TYPE_EVTHDR:
+#ifdef DEBUG
+		  printf(" {EVTHDR} EVENT: %d\n", (word>>0)&0x7ffffff);
+#endif
+		  break;
+		case DATA_TYPE_TRGTIME:
+		  timestamp = (((unsigned long long)word&0xffffff)<<24) | (svt[ii+1]&0xffffff);
+#ifdef DEBUG
+		  printf(" {TRGTIME} timestamp=%lld (bco style = %lld)\n",timestamp,((timestamp / (long long)(26*8)) % 256));
+#endif
+		  break;
+        case DATA_TYPE_BCOTIME:
+#ifdef DEBUG
+          printf(" {BCOTIME} START: %u STOP: %u\n", (word>>0) & 0xFF, (word>>16) & 0xFF);
+#endif
+          break;
+		case DATA_TYPE_FSSREVT:
+
+          /* calculate 'latency' and put it in a data instead of 'bco' */
+          oldbco = (word>>4)&0xFF;
+          latency = ABS( ((timestamp / (long long)(26*8)) % 256) - (long long)((word>>4)&0xFF) ); /* 26*8 is bco period (ns) */
+          dabufp[ii] = (dabufp[ii]&0xFFFFF00F)|((latency&0xff)<<4);
+          word = dabufp[ii];
+
+
+#ifdef DEBUG
+		  printf(" {FSSREVT}");
+		  printf(" HFCBID: %1u", (word>>22)&0x1);
+		  printf(" CHIPID: %1u", (word>>19)&0x7);
+		  printf(" CH: %3u", (word>>12)&0x7F);
+		  printf(" BCO: %3u (old=%3u)", (word>>4)&0xFF, oldbco);
+		  printf(" ADC: %1u", (word>>0)&0x7);
+
+          printf(" latency=%d BCO's (%d ns)\n",latency,latency*(26*8));
+#endif
+		  break;
+		case DATA_TYPE_DNV:
+		  printf(" {***DNV***}\n");
+          goto exit;
+		  break;
+		case DATA_TYPE_FILLER:
+#ifdef DEBUG
+		  printf(" {FILLER}\n");
+#endif
+		  break;
+		default:
+		  printf(" {***DATATYPE ERROR***}\n");
+          goto exit;
+		  break;
+	  }
+	}
+#ifdef DEBUG
+	else
+	{
+	  printf("\n");
+	}
+#endif
+  }
+#ifdef DEBUG
+  printf("\n");
+#endif
+
+exit:
+
+  CPCLOSE;
+
+
+
+  /* returns full fragment length (long words) */  
+
+#ifdef DEBUG 
+  printf("return len=%d\n**********************\n\n",len);
+#endif
+
+  return(len);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*******************************************************/
+/* FIRST PASS: check data; fill nB, iB[22], nE and iE[22][256] */
+
+#ifdef DEBUG
+  printf("\nFIRST PASS\n\n");
+#endif
+
+  ii=0;
+  printing=1;
+  nB=0; /*cleanup block counter*/
+  for(ii=0; ii<rlen; ii++)
+  {
+    word = svt[ii];
+#ifdef DEBUG
+    printf("PASS1: [%5d] 0x%08x -> ",ii,word);
+#endif
+	if(word & 0x80000000)
+	{
+	  type = (word>>27)&0xF;
+	  switch(type)
+	  {
+		case DATA_TYPE_BLKHDR:
+          a_slot = (word>>22)&0x1f;
+          a_nevents = (word>>11)&0x7ff;
+          a_blocknumber = (word>>0)&0x7ff;
+#ifdef DEBUG
+		  printf("PASS1: {BLKHDR} SLOTID: %d", a_slot);
+		  printf("PASS1: NEVENTS: %d", a_nevents);
+		  printf("PASS1: BLOCK: %d\n", a_blocknumber);
+          printf("PASS1: >>> update iB and nB\n");
+#endif
+          iB[nB] = ii;     /*remember block start index*/
+          sB[nB] = a_slot; /*remember slot number*/
+          nE[nB] = 0;      /*cleanup event counter in current block*/
+          nB++;            /*increment block counter*/
+		  break;
+
+		case DATA_TYPE_BLKTLR:
+          a_slot2 = (word>>22)&0x1f;
+          a_nwords = (word>>0)&0x3fffff;
+#ifdef DEBUG
+		  printf("PASS1: {BLKTLR} SLOTID: %d", a_slot2);
+		  printf("PASS1: NWORDS: %d\n", a_nwords);
+#endif
+
+          /*"close" previous event if any*/
+          k = nB-1; /*current block index*/
+          if(nE[k] > 0)
+	      {
+            m = nE[k]-1; /*current event number*/
+            lenE[k][m] = ii-iE[k][m]; /*#words in current event*/
+	      }
+
+          if(a_slot2 != a_slot)
+	      {
+            if(printing)
+            {
+              printf("PASS1: [%3d] ERROR1 in FADC data: blockheader slot %d != blocktrailer slot %d\n",
+				 ii,a_slot,a_slot2);
+              printing=0;
+	        }
+	      }
+          if(a_nwords != (ii-iB[nB-1]+1))
+          {
+            if(printing)
+            {
+              printf("PASS1: [%3d] ERROR2 in FADC data: trailer #words %d != actual #words %d\n",
+				 ii,a_nwords,ii-iB[nB-1]+1);
+              printing=0;
+	        }
+          }
+		  break;
+
+		case DATA_TYPE_EVTHDR:
+          a_triggernumber = (word>>0)&0x7ffffff;
+#ifdef DEBUG
+		  printf("PASS1: {EVTHDR} EVENT: %d\n", a_triggernumber);
+          printf("PASS1: >>> update iE and nE\n");
+#endif
+
+          /*"close" previous event if any*/
+          k = nB-1; /*current block index*/
+          if(nE[k] > 0)
+	      {
+            m = nE[k]-1; /*current event number*/
+            lenE[k][m] = ii-iE[k][m]; /*#words in current event*/
+	      }
+
+          /*"open" next event*/
+          nE[k]++; /*increment event counter in current block*/
+          m = nE[k]-1; /*current event number*/
+          iE[k][m]=ii; /*remember event start index*/
+
+		  break;
+
+		case DATA_TYPE_TRGTIME:
+		  timestamp = (((unsigned long long)word&0xffffff)<<24) | (svt[ii+1]&0xffffff);
+#ifdef DEBUG
+		  printf("PASS1: {TRGTIME} timestamp=%lld (bco style = %lld)\n",timestamp,((timestamp / (long long)(26*8)) % 256));
+#endif
+		  break;
+
+        case DATA_TYPE_BCOTIME:
+#ifdef DEBUG
+          printf("PASS1: {BCOTIME} START: %u STOP: %u\n", (word>>0) & 0xFF, (word>>16) & 0xFF);
+#endif
+          break;
+
+		case DATA_TYPE_FSSREVT:
+
+          /* calculate 'latency' and put it in a data instead of 'bco' */
+          oldbco = (word>>4)&0xFF;
+          latency = ABS( ((timestamp / (long long)(26*8)) % 256) - (long long)((word>>4)&0xFF) ); /* 26*8 is bco period (ns) */
+          svt[ii] = (svt[ii]&0xFFFFF00F)|((latency&0xff)<<4);
+          word = svt[ii];
+
+#ifdef DEBUG
+		  printf(" {FSSREVT}");
+		  printf(" HFCBID: %1u", (word>>22)&0x1);
+		  printf(" CHIPID: %1u", (word>>19)&0x7);
+		  printf(" CH: %3u", (word>>12)&0x7F);
+		  printf(" BCO: %3u (old=%3u)", (word>>4)&0xFF, oldbco);
+		  printf(" ADC: %1u", (word>>0)&0x7);
+
+          printf(" latency=%d BCO's (%d ns)\n",latency,latency*(26*8));
+#endif
+		  break;
+
+		case DATA_TYPE_DNV:
+		  printf(" {***DNV***}\n");
+          goto exit1;
+		  break;
+
+		case DATA_TYPE_FILLER:
+#ifdef DEBUG
+		  printf(" {FILLER}\n");
+#endif
+		  break;
+
+		default:
+		  printf(" {***DATATYPE ERROR***}\n");
+          goto exit1;
+		  break;
+	  }
+	}
+#ifdef DEBUG
+	else
+	{
+	  printf("\n");
+	}
+#endif
+  }
+
+
+
+  /*check if the number of events in every block is the same*/
+  nnE = nE[0];
+  for(k=1; k<nB; k++)
+  {
+    if(nE[k]!=nnE)
+	{
+      if(printing)
+      {
+        printf("PASS1: SEVERE ERROR: different event number in difefrent blocks\n");
+        printing=0;
+        return(0);
+	  }      
+	}
+  }
+
+
+
+  /********************************************************/
+  /* SECOND PASS: disantangling and filling output buffer */
+
+#ifdef DEBUG
+  printf("\nSECOND PASS\n\n");
+#endif
+
+
+  /* set pointer to the 3rd word of the output buffer (first 2 words will be CODA header filles by rol2) */
+  dabufp = (unsigned int *)&bufout[2];
+
+  len = 0;
+  b08 = NULL;
+
+
+  for(m=0; m<nnE; m++) /*loop over events*/
+  {
+
+    CCOPEN(0xe104,"c,i,l,2c,N(s,2c)",2);
+#ifdef DEBUG
+    printf("0x%08x: CCOPEN(1)\n",b08);
+#endif
+
+
+    for(k=0; k<nB; k++) /*loop over blocks*/
+    {
+#ifdef DEBUG
+      printf("Block %d, Event %2d, event index %2d, event lenght %2d\n",k, m,iE[k][m],lenE[k][m]);
+#endif
+      a_slot = sB[k];
+      ii = iE[k][m];
+      rlen = ii + lenE[k][m];
+      while(ii<rlen)
+      {
+
+        word = svt[ii];
+	    if(word & 0x80000000)
+	    {
+	      type = (word>>27)&0xF;
+
+          if(type == DATA_TYPE_EVTHDR) /*event header: remember trigger#*/
+          {
+            a_triggernumber = word&0x7FFFFFF;
+#ifdef DEBUG
+	        printf("[%3d] EVENT HEADER: trigger number %d\n",ii,
+				   a_triggernumber);
+            printf(">>> remember trigger %d\n",a_triggernumber);
+#endif
+
+            *b08++ = a_slot;
+            b32 = (unsigned int *)b08;
+            *b32 = a_triggernumber;
+            b08 += 4;
+
+	        ii++;
+          }
+          else if(type == DATA_TYPE_TRGTIME) /*trigger time: remember timestamp*/
+          {
+		    timestamp = (((unsigned long long)word&0xffffff)<<24) | (svt[ii+1]&0xffffff);
+#ifdef DEBUG
+		    printf(" {TRGTIME} timestamp=%lld (bco style = %lld)\n",timestamp,((timestamp / (long long)(26*8)) % 256));
+#endif
+
+            b64 = (unsigned long long *)b08;
+            *b64 = timestamp;
+            b08 += 8;
+
+	        ii+=2;
+          }
+          else if(type == DATA_TYPE_BCOTIME) /*bco time*/
+          {
+            a_bco_start = word & 0xFF;
+            a_bco_stop = (word>>16) & 0xFF;
+#ifdef DEBUG
+            printf("[%3d] {BCOTIME} START: %u STOP: %u\n",ii, a_bco_start, a_bco_stop);
+#endif
+
+            *b08 ++ = a_bco_start;
+            *b08 ++ = a_bco_stop;
+
+            /*set pointer for the number of hits*/
+            Nhits = (unsigned int *)b08;
+            Nhits[0] = 0;
+            b08 += 4;
+
+		    ii++;
+	      }
+          else if(type == DATA_TYPE_FSSREVT) /*data*/
+          {
+            a_hfcbid = (word>>22)&0x1;
+		    a_chipid = (word>>19)&0x7;
+            a_ch = (word>>12)&0x7F;
+            a_channel = (a_hfcbid<<9) | ((a_chipid-1)<<7) | a_ch;
+            a_bco = (word>>4)&0xFF;
+            a_adc = (word>>0)&0x7;
+
+#ifdef DEBUG
+		    printf(" {FSSREVT}");
+		    printf(" HFCBID: %1u", a_hfcbid);
+		    printf(" CHIPID: %1u", a_chipid);
+		    printf(" CH: %3u (chan=%4u)", a_ch, a_channel);
+		    printf(" BCO: %3u (old=%3u)", a_bco, oldbco);
+		    printf(" ADC: %1u", a_adc);
+
+            printf(" latency=%d BCO's (%d ns)\n",latency,latency*(26*8));
+#endif
+
+            Nhits[0] ++; /* increment hits counter */
+
+#ifdef DEBUG
+		    printf("0x%08x: channel %d\n",b08,a_channel);
+#endif
+
+            *b08++ = a_channel; /* channel number */
+
+            b16 = (unsigned short *)b08;
+            *b16 = a_channel;
+            b08 += 2;
+
+            *b08++ = a_bco;
+            *b08++ = a_adc;
+
+	        ii++;
+          }
+          else if(type == DATA_TYPE_DNV)
+          {
+	        printf("[%3d] : DATA NOT VALID\n",ii);
+	        ii++;
+          }
+          else if(type == DATA_TYPE_FILLER)
+          {
+#ifdef DEBUG
+	        printf("[%3d] FILLER WORD: \n",ii);
+            printf(">>> do nothing\n");
+#endif
+	        ii++;
+          }
+          else
+          {
+            if(printing) /* printing only once at every event */
+            {
+              printf("[%3d] ERROR: in FADC data format 0x%08x (bits31-27=0x%02x)\n",
+			    ii,word,(word>>27)&0x1F);
+              printing=0;
+	        }
+            ii++;
+          }
+
+	    }
+
+      } /*while*/
+
+    } /* loop over blocks */
+
+    if(b08 != NULL) CCCLOSE; /*call CCCLOSE only if CCOPEN was called*/
+#ifdef DEBUG
+    printf("0x%08x: CCCLOSE, dabufp=0x%08x\n",b08,dabufp);
+    dabufp = (unsigned int *) ( ( ((unsigned int)b08+3)/4 ) * 4);
+    printf("0x%08x: CCCLOSE, dabufp=0x%08x\n",b08,dabufp);
+    printf("-> 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+		 (unsigned int)b08+3,((unsigned int)b08+3),
+         ((unsigned int)b08+3) / 4,(((unsigned int)b08+3) / 4)*4, 
+		 (unsigned int *)((((unsigned int)b08+3) / 4)*4) );
+#endif
+
+  } /* loop over events */
+
+
+
+exit1:
+
+  /* returns full fragment length (long words) */  
+
+#ifdef DEBUG 
+  printf("return len=%d\n**********************\n\n",len);
+#endif
+
+  return(len);
+}

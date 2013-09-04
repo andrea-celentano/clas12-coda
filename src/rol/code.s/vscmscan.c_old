@@ -1,0 +1,2535 @@
+
+/* vscmscan.c - version 1/3/2013 (PRB) */
+
+
+#if defined(VXWORKS) || defined(Linux_vme)
+
+   
+
+#ifdef VXWORKS
+
+#include <vxWorks.h>
+#include <taskLib.h>
+#include <ioLib.h>
+
+#include <sockLib.h>
+#include <inetLib.h>
+#include <hostLib.h>
+
+#else
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h> 
+#include <math.h>
+
+#include "vscm.h"
+
+#ifdef VXWORKS
+#define SYNC()		{ __asm__ volatile("eieio"); __asm__ volatile("sync"); }
+#else
+#define SYNC()
+#endif
+
+#define LSWAP(x)        ((((x) & 0x000000ff) << 24) | \
+                         (((x) & 0x0000ff00) <<  8) | \
+                         (((x) & 0x00ff0000) >>  8) | \
+                         (((x) & 0xff000000) >> 24))
+
+#define GPIBENET "129.57.37.64"        /* This is for PRB's named prbgpibint1.jlab.org */
+
+#define VSCM_BASE_ADDR		0xBE0000
+
+#define VSCM_BASE_ADDR_A32	0x11000000
+/*int vscmA32Offset = 0x08000000;*/                      /* Difference in CPU A32 Base - VME A32 Base */
+
+/* Need to update this to ensure FSSR bco clock number is deskewed to VSCM bco clock number*/
+#define FSSR_SCR_BCONUM_START	240
+
+#define FSSR_DEBUG_PRINT		0
+
+volatile VSCM_regs *pVSCM_BASE;
+volatile unsigned int *pVSCMFifo;
+
+#define STRLEN 1024
+
+
+
+/***********************/
+/* start of GPIB stuff */
+
+#define REQUEST_MSG_SIZE 1024
+struct request { 
+  int reply;                      /* TRUE = request reply from server */ 
+  int msgLen;                     /* length of message text */ 
+  char message[REQUEST_MSG_SIZE]; /* message buffer */ 
+};
+
+
+int
+gpib_amp(int mv)
+{
+  char serverName[] = GPIBENET;
+  struct request myRequest;
+  struct sockaddr_in serverAddr;
+  char replyBuf[256];
+  int sFd, sockAddrSize;
+  int bytes_sent;
+  char msg[18];
+  char read[] = "volt:high?\n++read eoi\n";
+  char loc[] = "++loc\n";
+
+  char buffer[1024];
+  char *ptr = buffer;
+  int spaceleft = sizeof(buffer) - 1;
+  int rxbytes = 0;
+
+  if (mv < 0 || mv > 999)
+  {
+    fprintf(stderr, "Invalid voltage setting\n");
+    return(-1);
+  }
+
+  if ((sFd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+  {
+    fprintf(stderr, "socket()\n");
+    return(-1);
+  }
+
+  sockAddrSize = sizeof(struct sockaddr_in);
+  bzero((char *) &serverAddr, sockAddrSize);
+  serverAddr.sin_family = AF_INET;
+  serverAddr.sin_addr.s_addr = inet_addr(serverName);
+  serverAddr.sin_port = htons(1234);
+
+  if (connect(sFd, (struct sockaddr *) &serverAddr, sockAddrSize) == -1)
+  {
+    fprintf(stderr, "connect\n");
+    close(sFd);
+    return(-1);
+  }
+
+  sprintf(msg, "volt:high %03ue-3\n", mv);
+
+  bytes_sent = send(sFd, msg, sizeof(msg) - 1, 0); 
+  if (bytes_sent == -1)
+  {
+    fprintf(stderr, "set voltage\n");
+    close(sFd);
+    return(-1);
+  }
+  /*taskDelay(1);*/
+  bytes_sent = send(sFd, read, sizeof(read) - 1, 0); 
+  if (bytes_sent == -1)
+  {
+    fprintf(stderr, "read voltage\n");
+    close(sFd);
+    return(-1);
+  }
+  /*taskDelay(1);*/
+  do
+  {
+    rxbytes = 0;
+    if ((rxbytes = recv(sFd, ptr, spaceleft, 0)) < 0)
+    {
+      fprintf(stderr, "readback\n");
+      close(sFd);
+      return(-1);
+    }
+    ptr += rxbytes;
+    spaceleft -= rxbytes;
+  }
+  while ((rxbytes != 0) && spaceleft && (*(ptr-1) != '\n'));
+
+  bytes_sent = send(sFd, loc, sizeof(loc) - 1, 0); 
+  if (bytes_sent == -1)
+  {
+    fprintf(stderr, "set local\n");
+    close(sFd);
+    return(-1);
+  }
+
+  close(sFd);
+
+  if (((double)mv * 1e-3) == atof(buffer)) return(0);
+  else return(-1);
+}
+
+int
+gpib_delay(int ns)
+{
+  char serverName[] = GPIBENET;
+  struct request myRequest;
+  struct sockaddr_in serverAddr;
+  char replyBuf[17];
+  int sFd, sockAddrSize;
+  int bytes_sent;
+  char msg[128];
+  char read[] = "trig:del?\n++read eoi\n";
+  char loc[] = "++loc\n";
+
+  char buffer[1024];
+  char *ptr = buffer;
+  int spaceleft = sizeof(buffer) - 1;
+  int rxbytes = 0;
+
+  if (ns < 0 || ns > 999)
+  {
+    fprintf(stderr, "Invalid trigger delay\n");
+    return(-1);
+  }
+
+  if ((sFd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+  {
+    fprintf(stderr, "socket()\n");
+    return(-1);
+  }
+
+  sockAddrSize = sizeof(struct sockaddr_in);
+  bzero((char *) &serverAddr, sockAddrSize);
+  serverAddr.sin_family = AF_INET;
+  serverAddr.sin_addr.s_addr = inet_addr(serverName);
+  serverAddr.sin_port = htons(1234);
+
+  if (connect(sFd, (struct sockaddr *) &serverAddr, sockAddrSize) == -1)
+  {
+    fprintf(stderr, "connect\n");
+    close(sFd);
+    return(-1);
+  }
+
+  sprintf(msg, "trig:del %03ue-9\n", ns);
+
+  bytes_sent = send(sFd, msg, sizeof(msg) - 1, 0); 
+  if (bytes_sent == -1)
+  {
+    fprintf(stderr, "set trigger delay\n");
+    close(sFd);
+    return(-1);
+  }
+  /*taskDelay(1);*/
+  bytes_sent = send(sFd, read, sizeof(read) - 1, 0); 
+  if (bytes_sent == -1)
+  {
+    fprintf(stderr, "read trigger delay\n");
+    close(sFd);
+    return(-1);
+  }
+  /*taskDelay(1);*/
+  do
+  {
+    rxbytes = 0;
+    if ((rxbytes = recv(sFd, ptr, spaceleft, 0)) < 0)
+    {
+      fprintf(stderr, "readback\n");
+      close(sFd);
+      return(-1);
+    }
+    ptr += rxbytes;
+    spaceleft -= rxbytes;
+  }
+  while ((rxbytes != 0) && spaceleft && (*(ptr-1) != '\n'));
+
+  bytes_sent = send(sFd, loc, sizeof(loc) - 1, 0); 
+  if (bytes_sent == -1)
+  {
+    fprintf(stderr, "set local\n");
+    close(sFd);
+    return(-1);
+  }
+
+  close(sFd);
+
+  if (((double)ns * 1e-9) == atof(buffer)) return(0);
+  else return(-1);
+}
+
+
+/* end of GPIB stuff */
+/*********************/
+
+
+
+void
+FSSR_RegisterTest(void)         /* For a all 8 FSSR2 ASIC's connected to a VSCM (2 HFCB's) - id = (0-7)  */
+{
+	int c, r, i, s, t;
+	unsigned int res;
+
+	for (c = 0; c < 8; c++) {
+		if (c > 0) printf("\n");
+		printf("FSSR2 Chip %d\n", c + 1);
+		/* can't read 28 & 30, so stop at 27 */
+		for (r = 1; r < 28; r++) {
+			/* skip non-existant registers */
+			if (r == 21 || r == 22 || r == 23 || r == 25 || r == 26)
+				continue;
+			/* skip registers that always return 0 */
+			else if (r == 2 || r == 19 || r == 20 || r == 24)
+				continue;
+			/* kill & inject masks */
+			else if (r == 17 || r == 18) {
+
+			}
+			/* handle 8-bit registers */
+			else if ((r >= 1 && r <= 15) || r == 27) {
+				for (t = 0; t < 256; t++) {
+					FSSR_Transfer(c, r, FSSR_CMD_WRITE, 8, &t);
+					FSSR_Transfer(c, r, FSSR_CMD_READ, 9, &res);
+					printf("\rReg #%2d .. %3d", r, res & 0xFF);
+					if ((res & 0xFF) != t) {
+						printf(" FAILED\n");
+						break;
+					}
+				}
+				if (t == 256)
+					printf(" PASSED\n");
+			}
+			/* handle active lines register */
+			else if (r == 16) {
+				for (t = 0; t < 4; t++) {
+					FSSR_Transfer(c, r, FSSR_CMD_WRITE, 2, &t);
+					FSSR_Transfer(c, r, FSSR_CMD_READ, 3, &res);
+					printf("\rReg #%2d .. %1d", r, res & 0xFF);
+					if ((res & 0xFF) != t) {
+						printf(" FAILED\n");
+						break;
+					}
+				}
+				if (t == 4)
+					printf(" PASSED\n");
+
+			}
+
+		}
+	}
+	FSSR_Init();
+}
+
+
+void
+FSSR2_RegisterTest(int id)     /* For a single ASIC id = (0-7) connected to a VSCM - id (0-3) on HFCB #1, id (4-7) on HFCB #2 */
+{
+	int r, i, s, t;
+	unsigned int res;
+
+	
+		printf("\n");
+		 printf("FSSR2 Chip # %d\n", id + 1);
+		/* can't read 28 & 30, so stop at 27 */
+		for (r = 1; r < 28; r++) {
+			/* skip non-existant registers */
+			if (r == 21 || r == 22 || r == 23 || r == 25 || r == 26)
+				continue;
+			/* skip registers that always return 0 */
+			else if (r == 2 || r == 19 || r == 20 || r == 24)
+				continue;
+			/* kill & inject masks */
+			else if (r == 17 || r == 18) {
+
+			}
+			/* handle 8-bit registers */
+			else if ((r >= 1 && r <= 15) || r == 27) {
+				for (t = 0; t < 256; t++) {
+					FSSR_Transfer(id, r, FSSR_CMD_WRITE, 8, &t);
+					FSSR_Transfer(id, r, FSSR_CMD_READ, 9, &res);
+					printf("\rReg #%2d .. %3d", r, res & 0xFF);  
+					if ((res & 0xFF) != t) {
+						printf(" FAILED\n");
+						break;
+					}
+				}
+				if (t == 256)
+					printf(" PASSED\n");
+					fflush(stdout);
+			}
+			/* handle active lines register */
+			else if (r == 16) {
+				for (t = 0; t < 4; t++) {
+					FSSR_Transfer(id, r, FSSR_CMD_WRITE, 2, &t);
+					FSSR_Transfer(id, r, FSSR_CMD_READ, 3, &res);
+					printf("\rReg #%2d .. %1d", r, res & 0xFF);   
+					if ((res & 0xFF) != t) {
+						printf(" FAILED\n");
+						break;
+					}
+				}
+				if (t == 4)
+					printf(" PASSED\n");
+			}
+
+		}
+		printf("\nCompleted test of ASIC # %d\n\n", id + 1);
+	
+	FSSR_Init();
+}
+
+
+void
+FSSRFileGainScan(char *settings, char *filename, int beg_chip, int end_chip, int beg_chan, int end_chan, int start_thr)
+{
+	FILE *fd;
+	char fname[256], reg27[20];
+	int thr, ichip, ich, ii;
+	int j, k;
+	float ratio, ref, delay;
+	unsigned int scaler[128], gothitref;
+	unsigned int statusword, event, words, idle;
+	unsigned int markerror, worderror, iderror;
+	int ticks = 1;
+	int zero_count, amp, pulser_rate, min_hits;
+	int base_thr = start_thr;
+	float sec_delay;
+
+	/*Pulser Settings */
+	const int start_amp = 70;
+	const int end_amp = 100;
+	const int step_amp = 10;
+	/* ((end_amp - start_amp) / step_amp) + 1   */
+       /*	int data_arr[256][7];   */
+
+/*
+	for (j = 0; j < 256; j++) {
+		for (k = 0; k < 7; k++) {
+			data[j][k] = -1;
+		}
+	}
+
+	/*	VSCMInitSquareWave(8000, 0xFFFFFFFF);   */
+
+	pulser_rate = VSCM_SYS_CLK / VSCM_ReadReg((unsigned int)&pVSCM_BASE->PulserPeriod);
+#ifdef VXWORKS
+	min_hits = (int)(pulser_rate * (ticks / (float)sysClkRateGet()) * 0.99);
+#endif
+	printf("Min Hits: %d\n", min_hits);
+
+	VSCM_WriteReg((unsigned int)&pVSCM_BASE->ClockCfg, 0);
+/*	VSCM_ConfigDownload(settings);   */
+
+	for(ichip=beg_chip; ichip<=end_chip; ichip++) {
+
+	  /*printf("chip %d\n",ichip);fflush(stdout); */
+    FSSR_DisableAll();
+    FSSR_InjectDisableAll();
+    VSCM_FSSRStatus(ichip);
+
+	sprintf(fname,"dat/%s_chip%1d.dat", filename, ichip);
+	fd = fopen(fname, "w");
+	if(!fd) {
+		printf("Error opening file: %s\n", fname);
+		return;
+	}
+	else {
+		printf("Opened file >%s<\n",fname);
+	}
+	FSSR_ParseControl(ichip, reg27);
+	sprintf(reg27, "%s, %03d", reg27, VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8);
+	fprintf(fd, "%s\n", reg27);
+	printf("%s\n", reg27);
+	fclose(fd);
+
+    for(ich=beg_chan; ich<=end_chan; ich++) {
+	  /*if (ich != 0 && (ich + 1) % 8 != 0)  */
+	  /*continue;  */
+		fd = fopen(fname, "a");
+		fprintf(fd, "%d\n", ich);
+		printf("Chan %d\n", ich);
+
+		start_thr = base_thr;
+		thr = start_thr;
+
+		for(amp = start_amp; amp <= end_amp; amp += step_amp) {
+			thr = start_thr;
+
+			printf("Amp: %d", amp);
+			fflush(stdout);
+			fprintf(fd, "%d", amp);
+
+			if(gpib_amp(amp) == -1)
+            {
+				fprintf(stderr, "Setting pulser failed. Aborting run!\n");
+				return;
+			}
+
+			FSSR_EnableOnly(ichip, ich);
+			FSSR_InjectOnly(ichip, ich);
+			scaler[ich] = 100000;
+			zero_count = 0;
+
+			fprintf(fd, ", %d", thr);
+			printf(" Start: %d\n", thr);
+
+			while(thr<256 && zero_count < 2) {
+				FSSR_SetThreshold(ichip,0,thr);
+
+				/* disable scalers */
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /*clear all scalers   */
+	    for(ii=0; ii<128; ii++) ref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+
+        /* enable scalers   */
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+		/* disable scalers   */
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+        /* enable scalers   */
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->PulserStart, 1);
+ 
+			/*sleep  */
+        taskDelay(ticks);
+
+        /* disable scalers   */
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /* reference scaler (8ns ticks)    */
+	    ref = (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerRef);
+	    gothitref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerGotHit);
+
+	    statusword = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStatusWord);
+	    event = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEvent);
+	    words = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerWords);
+	    idle = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerIdle);
+	    markerror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerMarkErr);
+	    worderror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEncErr);
+	    iderror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerChipIdErr);
+
+        /*clear all scalers  */
+	    for(ii=0; ii<128; ii++) {
+          scaler[ii] = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+          /*if(scaler[ii]>0) printf("scaler [%3d] = %7d %d\n",ii,scaler[ii], ich);fflush(stdout);  */
+		}
+
+        ratio = ((float)scaler[ich])/(ref*(float)pulser_rate/125000000.);
+#ifdef VXWORKS
+			sec_delay = ticks / (float)sysClkRateGet();
+#endif
+			if (scaler[ich] > min_hits)
+				start_thr = thr;
+
+			if (scaler[ich] == 0)
+				zero_count++;
+			else
+				zero_count = 0;
+
+			fprintf(fd, ", %d", scaler[ich]);
+			/*
+	        printf("ichip=%d ich=%3d thr=%3d scaler=%7d gothit=%7d ref=%.1f -> ratio=%f\n",ichip,ich,thr,scaler[ich],gothitref,ref,ratio);  
+			printf("status=%d event=%d total=%d idle=%d markerr=%d worderr=%d iderr=%d\n", statusword, event, words, idle, markerror, worderror, iderror);   
+			*/
+			fflush(stdout);
+			
+			/*previous 2 lines prints out if we are getting data errors, etc where # of hits is not as expected.  */
+
+        thr++;
+      }
+		fprintf(fd, "\n");
+    }
+		fprintf(fd, "\n");
+		fclose(fd);
+	}
+	}
+}
+
+
+
+void
+FSSRFileGainScanM(char *settings, char *filename, int chip, int num_chan)
+{
+	FILE *fd;
+	char fname[256], reg27[20];
+	int thr, ichip, ich, ii, jj;
+	int j, k;
+	float ratio, ref, delay;
+	unsigned int scaler[128], gothitref;
+	unsigned int statusword, event, words, idle;
+	unsigned int markerror, worderror, iderror;
+	int ticks = 1;
+	int zero_count, amp, pulser_rate, min_hits;
+	int start_thr = 0;
+	int base_thr = start_thr;
+	float sec_delay;
+
+	unsigned int kmask[4] = {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
+	unsigned int imask[4] = {0, 0, 0, 0};
+
+	/* Pulser Settings */
+	const int start_amp = 75;
+	const int end_amp = 125;
+	const int step_amp = 25;
+	/* ((end_amp - start_amp) / step_amp) + 1 */
+	/*	int data_arr[256][7]; */
+
+/*
+	for (j = 0; j < 256; j++) {
+		for (k = 0; k < 7; k++) {
+			data[j][k] = -1;
+		}
+	}
+*/
+/*	VSCMInitSquareWave(8000, 0xFFFFFFFF); */
+
+	pulser_rate = VSCM_SYS_CLK / VSCM_ReadReg((unsigned int)&pVSCM_BASE->PulserPeriod);
+#ifdef VXWORKS
+	min_hits = (int)(pulser_rate * (ticks / (float)sysClkRateGet()) * 0.99);
+#endif
+	printf("Min Hits: %d\n", min_hits);
+
+	VSCM_WriteReg((unsigned int)&pVSCM_BASE->ClockCfg, 0);
+	VSCM_ConfigDownload(settings);
+
+	ichip = chip;
+
+    /*printf("chip %d\n",ichip);fflush(stdout); */
+    FSSR_DisableAll();
+    FSSR_InjectDisableAll();
+	/*    VSCM_FSSRStatus(ichip); */
+
+    for(ich=0; ich<=num_chan; ich++) {
+if (ich == 0 || (ich + 1) % 8 == 0) {		
+		kmask[(127-ich)>>5] = kmask[(127-ich)>>5] ^ (1<<((127-ich)&0x1f));
+		imask[(127-ich)>>5] = imask[(127-ich)>>5] | (1<<((127-ich)&0x1f));
+		FSSR_KillSelect(ichip, kmask);
+		FSSR_InjectSelect(ichip, imask);
+}
+if (ich != 127)
+continue;
+
+		VSCM_FSSRStatus(ichip);
+
+	sprintf(fname,"dat/%s_%1d.dat", filename, ich);
+	fd = fopen(fname, "w");
+	if(!fd) {
+		printf("Error opening file: %s\n", fname);
+		return;
+	}
+	else {
+		printf("Opened file >%s<\n",fname);
+	}
+	FSSR_ParseControl(ichip, reg27);
+	sprintf(reg27, "%s, %03d", reg27, VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8);
+	fprintf(fd, "%s\n", reg27);
+	printf("%s\n", reg27);
+	fclose(fd);
+
+		printf("Chan %d\n", ich);
+
+		start_thr = base_thr;
+		thr = start_thr;
+	
+		for(amp = start_amp; amp <= end_amp; amp += step_amp) {
+			thr = start_thr;
+			fd = fopen(fname, "a");
+
+			printf("Amp: %d", amp);
+			fflush(stdout);
+			fprintf(fd, "%d\n", amp);
+
+			/*sergey: ???
+			//if(gpib_amp(amp) == -1) {
+			//	fprintf(stderr, "Setting pulser failed. Aborting run!\n");
+			//	return;
+			*/
+			}
+			/*FSSR_EnableOnly(ichip, ich);*/
+			/*FSSR_InjectOnly(ichip, ich);*/
+			scaler[ich] = 100000;
+			zero_count = 0;
+
+			/*fprintf(fd, ", %d", thr);*/
+			printf(" Start: %d\n", thr);
+
+			while(thr<256 && zero_count < 2) {
+				FSSR_SetThreshold(ichip,0,thr);
+
+				/*disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /*clear all scalers
+	    for(ii=0; ii<128; ii++) ref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+
+        /*enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+        /*disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+        /*enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+ 
+        /*sleep*/
+        taskDelay(ticks);
+
+        /*disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /*reference scaler (8ns ticks)*/
+	    ref = (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerRef);
+	    gothitref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerGotHit);
+
+	    statusword = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStatusWord);
+	    event = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEvent);
+	    words = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerWords);
+	    idle = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerIdle);
+	    markerror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerMarkErr);
+	    worderror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEncErr);
+	    iderror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerChipIdErr);
+
+        /*clear all scalers*/
+	    for(ii=0; ii<128; ii++) {
+          scaler[ii] = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+          /*if(scaler[ii]>0) printf("scaler [%3d] = %7d %d\n",ii,scaler[ii], ich);fflush(stdout);*/
+		}
+
+        ratio = ((float)scaler[ich])/(ref*(float)pulser_rate/125000000.);
+#ifdef VXWORKS
+			sec_delay = ticks / (float)sysClkRateGet();
+#endif
+			if (scaler[0] > min_hits)
+				start_thr = thr;
+
+			for(jj = 0; jj <= ich; jj++) {
+				if (scaler[jj] > 0) {
+					zero_count = 0;
+					break;
+				}
+				zero_count++;
+			}
+
+/*			if (scaler[0] == 0)
+				zero_count++;
+			else
+				zero_count = 0;
+*/
+/*			fprintf(fd, ", %d", scaler[ich]);*/
+printf("\r%d", thr);
+fprintf(fd, "%d", thr);
+for(jj = 0; jj <= ich; jj++) {
+  /*printf(", %d", scaler[jj]);*/
+fprintf(fd, ", %d", scaler[jj]);
+}
+/*printf("\n");*/
+fprintf(fd, "\n");
+/*
+        printf("ichip=%d ich=%3d thr=%3d scaler=%7d gothit=%7d ref=%.1f -> ratio=%f\n",ichip,ich,thr,scaler[ich],gothitref,ref,ratio);
+			printf("status=%d event=%d total=%d idle=%d markerr=%d worderr=%d iderr=%d\n", statusword, event, words, idle, markerror, worderror, iderror);
+*/
+			fflush(stdout);
+
+        thr++;
+      }
+		fprintf(fd, "\n");
+printf("\n");
+
+		fclose(fd);
+    }
+		/*}*/
+}
+
+void
+FSSRInternalAmplitudeScan(int chan, int beg_chip, int end_chip, int beg_val, int end_val, int step)
+{
+  int thr, ichip, ich = chan, ii;
+  float ratio, ref, delay;
+  unsigned int scaler[128], gothitref;
+	char reg27[20];
+	unsigned int statusword, event, words, idle;
+	int ticks, start_thr = 20, bco_period;
+	int zero_count, amp, pulser_rate = 60;
+	float sec_delay;
+	char pulser_val[5] = "-1";
+
+	bco_period = VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8;
+	/* Set delay based on BCO, add an extra pulse and round up*/
+	ticks = ceil(((bco_period * 1e-9) * pow(2, 16) * 256) / (1 / (float)60));
+
+  VSCM_WriteReg((unsigned int)&pVSCM_BASE->ClockCfg, 0);
+
+  for(ichip=beg_chip; ichip<=end_chip; ichip++)
+  {
+		FSSR_ParseControl(ichip, reg27);
+		sprintf(reg27, "%s, %03d", reg27, VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8);
+		printf("%s\n", reg27);
+
+		/*printf("chip %d\n",ichip);fflush(stdout);*/
+    FSSR_DisableAll();
+    FSSR_InjectDisableAll();
+	/*    VSCM_FSSRStatus(ichip);*/
+    /*FSSR_ReadDCR(ichip);*/
+    for(amp=beg_val; amp<=end_val; amp += step)
+    {
+      FSSR_EnableOnly(ichip, ich);
+      FSSR_InjectOnly(ichip, ich);
+		FSSR_SetInternalPulserAmplitude(ichip, amp);
+		/*      printf("req:%d set:%d\n", amp, FSSR_ReadInternalPulserAmplitude(ichip));*/
+      printf("%d\n", amp);
+      fflush(stdout);
+      thr = start_thr;
+      scaler[ich] = 100000;
+		zero_count = 0;
+      while(thr<256 && zero_count < 2)
+      {
+
+        /*disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /*clear all scalers*/
+	    for(ii=0; ii<128; ii++) ref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+
+        /*enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+        /*disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+        FSSR_SetThreshold(ichip,0,thr);
+        /*enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+
+        FSSR_InternalPulserEnable(ichip);
+ 
+        /*sleep*/
+        taskDelay(ticks);
+
+        /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /* reference scaler (8ns ticks)*/
+	    ref = (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerRef);
+	    gothitref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerGotHit);
+
+	    statusword = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStatusWord);
+	    event = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEvent);
+	    words = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerWords);
+	    idle = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerIdle);
+
+        /*clear all scalers*/
+	    for(ii=0; ii<128; ii++)
+		{
+          scaler[ii] = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+          /*if(scaler[ii]>0) printf("scaler [%3d] = %7d %d\n",ii,scaler[ii], ich);fflush(stdout);*/
+		}
+
+        ratio = ((float)scaler[ich])/(ref*(float)pulser_rate/125000000.);
+#ifdef VXWORKS
+			sec_delay = ticks / (float)sysClkRateGet();
+#endif
+			if (scaler[ich] > 250)
+				start_thr = thr;
+
+			if (scaler[ich] == 0)
+				zero_count++;
+			else
+				zero_count = 0;
+
+			printf("%d, %d\n", thr, scaler[ich]);
+			
+        printf("ichip=%d ich=%3d thr=%3d scaler=%7d gothit=%7d ref=%f -> ratio=%f",ichip,ich,thr,scaler[ich],gothitref,ref,ratio);
+			printf(" status=%d event=%d total=%d idle=%d\n", statusword, event, words, idle);
+
+			fflush(stdout);
+
+        thr++;
+      }
+		printf("\n");
+    }
+	printf("\n");
+  }
+ }
+
+
+
+void
+VSCMADCScan(int hit_nohit, int minthreshold, int beg_chip, int end_chip, int beg_chan, int end_chan, char* filename)
+{
+	FILE *fd;
+	char fname[256], reg27[20];
+  int thr, ich, ichip, ii, d;
+  float ratio, ref, delay;
+  unsigned int scaler[128], gothitref;
+	unsigned int statusword, event, words, idle, data;
+	unsigned int fifoevents, fifowords;
+	unsigned int worderror, markerror, iderror;
+	int ticks = 10, first_pass = 1, zero_count, eventcount, datacount, type;
+	float sec_delay;
+	unsigned int adc[8] = {0,0,0,0,0,0,0,0}, bco[256] = {0}, b = 0, prevb;
+	int adc_pos, arst;
+	unsigned int trigtime = 0, prevtrig;
+	int bco_period = VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8;
+	int pulser_rate = VSCM_SYS_CLK / VSCM_ReadReg((unsigned int)&pVSCM_BASE->PulserPeriod);
+
+  for(ichip=beg_chip; ichip<=end_chip; ichip++) {
+
+	if (filename) {
+		sprintf(fname,"dat/%s_%1d.dat", filename, ichip);
+		fd = fopen(fname, "w");
+		if(!fd)
+			fprintf(stderr, "Error opening file: %s\n", fname);
+		else
+			printf("Opened file >%s<\n",fname);
+
+		FSSR_ParseControl(ichip, reg27);
+		sprintf(reg27, "%s, %03d", reg27, VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8);
+		fprintf(fd, "%s\n", reg27);
+		fclose(fd);
+	}
+
+    printf("chip %d\n",ichip);fflush(stdout);
+    FSSR_DisableAll();
+    VSCM_FSSRStatus(ichip);
+    FSSR_InjectDisableAll();
+    /*FSSR_ReadDCR(ichip);*/
+    for(ich=beg_chan; ich<=end_chan; ich++)
+    {
+      FSSR_EnableOnly(ichip, ich);
+      FSSR_InjectOnly(ichip, ich);
+      scaler[ich] = 100000;
+		FSSR_SetThreshold(ichip, 0, hit_nohit);
+
+		for (adc_pos = 1; adc_pos < 8; adc_pos++) {
+			printf("%d - %d\n", ich, adc_pos);
+			if (filename) {
+				fd = fopen(fname, "a");
+				fprintf(fd, "%d - %d\n", ich, adc_pos);
+			}
+
+			for (arst = 1; arst < 8; arst++) {
+				if (arst == adc_pos)
+					FSSR_SetThreshold(ichip, arst, minthreshold);
+				else if (arst < adc_pos)
+					FSSR_SetThreshold(ichip, arst, 0);
+				else
+					FSSR_SetThreshold(ichip, arst, 255);
+			}
+			/*
+			printf("FSSR Thresholds: %d %d %d %d %d %d %d %d\n",
+				FSSR_ReadThreshold(ichip, 0), FSSR_ReadThreshold(ichip, 1),
+				FSSR_ReadThreshold(ichip, 2), FSSR_ReadThreshold(ichip, 3),
+				FSSR_ReadThreshold(ichip, 4), FSSR_ReadThreshold(ichip, 5),
+				FSSR_ReadThreshold(ichip, 6), FSSR_ReadThreshold(ichip, 7));
+			*/
+			thr = minthreshold;
+			zero_count = 0;
+
+			while (thr < 256 && zero_count < 2) {
+			  /*Clear Event Buffers*/
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);
+
+			/*disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /*clear all scalers*/
+	    for(ii=0; ii<128; ii++) ref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+
+
+        /*enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+        /*disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+			FSSR_SetThreshold(ichip, adc_pos, thr);
+
+			/*enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->PulserStart, 1);
+
+			/*sleep*/
+        taskDelay(ticks);
+
+        /*disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /* reference scaler (8ns ticks)*/
+	    ref = (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerRef);
+	    gothitref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerGotHit);
+
+	    statusword = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStatusWord);
+	    event = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEvent);
+	    words = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerWords);
+	    idle = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerIdle);
+	    markerror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerMarkErr);
+	    worderror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEncErr);
+	    iderror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerChipIdErr);
+
+        /*clear all scalers*/
+		/*        printf("%d\n", thr);*/
+	    for(ii=0; ii<128; ii++)
+		{
+          scaler[ii] = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+		  /*         if(scaler[ii]>0) printf("scaler [%3d] = %7d %d\n",ii,scaler[ii], ich);fflush(stdout);*/
+		}
+
+        ratio = ((float)scaler[ich])/(ref*(float)pulser_rate/125000000.);
+#ifdef VXWORKS
+			sec_delay = ticks / (float)sysClkRateGet();
+#endif
+			/*			printf("%d, %d\n", thr, scaler[ich]);*/
+			fifoevents = VSCM_ReadReg((unsigned int)&pVSCM_BASE->FifoEventCnt);
+			fifowords = VSCM_ReadReg((unsigned int)&pVSCM_BASE->FifoWordCnt);
+			/*			printf("FIFO evt:%d - wrd:%d\n", fifoevents, fifowords);*/
+
+			eventcount = 0;
+			datacount = 0;
+			memset(adc, 0, sizeof(adc[0]) * 256);
+			while(eventcount != fifoevents) {
+				data = *pVSCMFifo;
+				if (data & 0x80000000) {
+					type = (data >> 27) & 0xF;
+					switch (type) {
+						case DATA_TYPE_BLKTLR:
+							eventcount++;
+							break;
+							/*
+						case DATA_TYPE_EVTHDR:
+							printf("event: %d\n", data & 0x7ffffff);
+							break;
+						case DATA_TYPE_TRGTIME:
+							printf("time: %u\n", data);
+							break;
+                            */
+						case DATA_TYPE_FSSREVT:
+							datacount++;
+							/*printf("%d: %d %u\n", d, ((data >> 27) & 0xF), data);*/
+							prevb = b;
+							b = (data >> 4) & 0xFF;
+							/* if ((prevb + (trigtime - prevtrig) / bco_period) % 256 == b)*/
+							/* printf("SYNC ");*/
+							bco[b]++;
+							adc[(data >> 0) & 0x7]++;
+							/*  printf("bco: %u\n", b);*/
+							break;
+					}
+				}
+				else {
+					if (type == DATA_TYPE_TRGTIME)
+						prevtrig = trigtime;
+						trigtime = data;
+						/*printf("trig: %u diff: %u\n", trigtime, trigtime - prevtrig);*/
+				}
+			}
+			/*
+            printf(" - data:%d\n", datacount);
+            printf("gothit:%d chan:%d data:%d status:%d event:%d words:%d idle:%d markerr:%d worderr:%d iderr:%d ref:%d\n", gothitref, scaler[ich], datacount, statusword, event, words, idle, markerror, worderror, iderror, ref);
+            for (ii = 0; ii < 256; ii++) {
+	          if (bco[ii] > 0)
+		      printf("%d: %d\n", ii, bco[ii]);
+            }
+            for (ii = 0; ii < 8; ii++)
+	          printf("%d: %d\n", ii, adc[ii]);
+            */
+				if (filename)
+					fprintf(fd, "%d, %d\n", thr, adc[adc_pos]);
+
+				printf("evts %d scaler %d data %d adc %d %d %d %d %d %d %d %d\n",
+					eventcount, scaler[ii], datacount, adc[0], adc[1], adc[2],
+					adc[3], adc[4], adc[5], adc[6], adc[7]);
+				/*
+            printf("ichip=%d ich=%3d thr=%3d scaler=%7d gothit=%7d ref=%f -> ratio=%f",ichip,ich,thr,scaler[ich],gothitref,ref,ratio);
+			printf(" status=%d event=%d total=%d idle=%d\n", statusword, event, words, idle);
+            */
+			fflush(stdout);
+
+        thr++;
+			if (adc[adc_pos] == 0)
+				zero_count++;
+			else
+				zero_count = 0;
+			}
+			printf("\n");
+			fprintf(fd, "\n");
+			fclose(fd);
+		}
+	}
+    }
+	printf("\n");
+	/*	VSCM_FSSRStatus(ichip);*/
+}
+
+
+
+
+void
+VSCMDataScan(int minthreshold, int beg_chip, int end_chip, int beg_chan, int end_chan)
+{
+int thr, ich, ichip, ii, d;
+  float ratio, ref, delay;
+  unsigned int scaler[128], gothitref;
+	unsigned int statusword, event, words, idle, data;
+	unsigned int fifoevents, fifowords;
+	unsigned int worderror, markerror, iderror;
+	int ticks = 30, first_pass = 1, zero_count, eventcount, datacount, type;
+	float sec_delay;
+	unsigned int adc[8] = {0,0,0,0,0,0,0,0}, bco[256], b = 0, prevb, chp, chn, a;
+	long long trigtime = 0, prevtrig, trig1;
+	int pdelay, max_delay, sync_cnt = 0;
+	int bco_period = VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8;
+	int pulser_rate = VSCM_SYS_CLK / VSCM_ReadReg((unsigned int)&pVSCM_BASE->PulserPeriod);
+	int c;
+	for(ii = 0; ii < 256; ii++) bco[ii] = 0;
+
+	/*	max_delay = bco_period * 1.1;*/
+max_delay=0;
+
+/*
+  VSCMInit();
+  VSCM_WriteReg((unsigned int)&pVSCM_BASE->ClockCfg, 0);
+  VSCMSetBCOClockFreq(BCO_FREQ_4MHZ);
+  VSCMSetBCOClockFreq(26); //208ns BCO clock per
+  VSCM_SetupTriggerWindow(256, 512, 26);	//2us window capture, 4us lookback
+  VSCM_SWSync();
+  FSSR_Init();
+*/
+	VSCM_FIFOClear();
+
+
+  for(ichip=beg_chip; ichip<=end_chip; ichip++)
+  {
+
+    /*printf("chip %d\n",ichip);fflush(stdout);*/
+    FSSR_DisableAll();
+    FSSR_InjectDisableAll();
+	/*VSCM_FSSRStatus(ichip);*/
+    /*FSSR_ReadDCR(ichip);*/
+    for(ich=beg_chan; ich<=end_chan; ich++)
+    {
+printf("%d\n", ich);
+		for (pdelay = 0; pdelay <= max_delay; pdelay += 1) {
+
+		  /*
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->DACTrigger, IO_MUX_PULSER | 0x80000000 | (pdelay<<16));
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->DACTrigger, IO_MUX_PULSER | 0x80000000 | (0<<16));
+
+            VSCM_WriteReg((unsigned int)&pVSCM_BASE->FpOutput[1], IO_MUX_FPINPUT1 | (pdelay<<16));
+            if (pdelay > 270 && pdelay < 545) {pdelay = 545; printf("\n");}
+            printf("%d, ", pdelay);
+           */
+/*c = ' ';
+while(c != '\n') {
+	c = getchar();
+taskDelay(1);
+printf("%c ", c);
+}*/
+/*      printf("%d\n", (ich + 1));fflush(stdout);*/
+      FSSR_EnableOnly(ichip, ich);
+      FSSR_InjectOnly(ichip, ich);
+      thr = minthreshold;
+      scaler[ich] = 100000;
+		zero_count = 0;
+		sync_cnt = 0;
+      while(thr<256 && (zero_count < 2 || first_pass == 1))
+      {
+		/*Clear Event Buffers*/
+		/*VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);*/
+
+        /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /*clear all scalers*/
+	    for(ii=0; ii<128; ii++) ref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+	    ref = (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerRef);
+
+		/* Clear event buffers*/
+		/*			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);*/
+        FSSR_SetThreshold(ichip,0,thr);
+
+        /* enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+        /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+		/* enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+		/*
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Trigger, IO_MUX_0);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Trigger, IO_MUX_FPINPUT0);
+	VSCM_SWSync();
+		FSSR_SCR(ichip);
+
+        FSSR_InternalPulserEnable(ichip);
+*/
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->PulserStart, 1);
+
+			/*sleep*/
+        taskDelay(ticks);
+
+        /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /* reference scaler (8ns ticks)*/
+	    ref = (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerRef);
+	    gothitref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerGotHit);
+
+	    statusword = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStatusWord);
+	    event = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEvent);
+	    words = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerWords);
+	    idle = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerIdle);
+	    markerror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerMarkErr);
+	    worderror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEncErr);
+	    iderror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerChipIdErr);
+
+        /*clear all scalers*/
+		/*        printf("%d\n", thr);*/
+	    for(ii=0; ii<128; ii++)
+		{
+          scaler[ii] = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+		  /*         if(scaler[ii]>0) printf("scaler [%3d] = %7d %d\n",ii,scaler[ii], ich);fflush(stdout);*/
+		}
+
+        ratio = ((float)scaler[ich])/(ref*(float)pulser_rate/125000000.);
+#ifdef VXWORKS
+			sec_delay = ticks / (float)sysClkRateGet();
+#endif
+			printf("%d, %d\n", ich, scaler[ich]);
+			fifoevents = VSCM_ReadReg((unsigned int)&pVSCM_BASE->FifoEventCnt);
+			fifowords = VSCM_ReadReg((unsigned int)&pVSCM_BASE->FifoWordCnt);
+			printf("FIFO evt:%d - wrd:%d\n", fifoevents, fifowords);
+
+			eventcount = 0;
+			datacount = 0;
+			for (ii = 0; ii < 8; ii++)
+				adc[ii] = 0;
+
+
+			while(eventcount != fifoevents) {
+				data = *pVSCMFifo;
+				if (data & 0x80000000) {
+					type = (data >> 27) & 0xF;
+					switch (type) {
+						case DATA_TYPE_BLKTLR:
+							eventcount++;
+							break;
+							/*
+						case DATA_TYPE_EVTHDR:
+							printf("event: %d\n", data & 0x7ffffff);
+							break;
+*/
+						case DATA_TYPE_TRGTIME:
+						  /*							printf("time: %u\n", data);*/
+							trig1 = data & 0xFFFFFF;
+							break;
+						case DATA_TYPE_FSSREVT:
+							datacount++;
+							/*printf("%d: %d %u\n", d, ((data >> 27) & 0xF), data);*/
+							prevb = b;
+							chp = (data >> 19) & 0x7;
+							chn = (data >> 12) & 0x7f;
+							b = (data >> 4) & 0xff;
+							a = (data >> 0) & 0x7;
+							/*
+if ((prevb + (trigtime - prevtrig) / bco_period) % 256 == b) {
+sync_cnt++;
+printf("SYNC ");
+}
+printf("%lld %lld %lld %d %f\n", trigtime, (trigtime / bco_period) % 256, trigtime - prevtrig, b, trigtime % (b * bco_period));
+printf("%lld\n", ((b + 256) - ((trigtime / bco_period) % 256)) % 256);
+*/
+							bco[b]++;
+							adc[a]++;
+							/*printf("chip: %u chn: %u trig: %lld bco: %u adc: %u\n", chp, chn, trigtime, b, a);*/
+							break;
+					}
+				}
+				else {
+					if (type == DATA_TYPE_TRGTIME)
+						prevtrig = trigtime;
+						trigtime = (trig1 << 24) + data;
+						/*printf("trig: %u diff: %u\n", trigtime, trigtime - prevtrig);*/
+				}
+			}
+printf("data:%d event:%d sync:%d\n", datacount, eventcount, sync_cnt);
+/*printf("gothit:%d chan:%d data:%d status:%d event:%d words:%d idle:%d markerr:%d worderr:%d iderr:%d ref:%f\n",
+ gothitref, scaler[ich], datacount, statusword, event, words, idle, markerror, worderror, iderror, ref);*/
+/*for (ii = 0; ii < 256; ii++) {
+	if (bco[ii] > 0)
+		printf("%d: %d\n", ii, bco[ii]);
+}*/
+for (ii = 0; ii < 8; ii++)
+	printf("%d: %d\n", ii, adc[ii]);
+
+/*        printf("ichip=%d ich=%3d thr=%3d scaler=%7d gothit=%7d ref=%f -> ratio=%f",ichip,ich,thr,scaler[ich],gothitref,ref,ratio);
+			printf(" status=%d event=%d total=%d idle=%d\n", statusword, event, words, idle);*/
+			fflush(stdout);
+
+        thr = 256;
+      }
+}		printf("\n");
+		first_pass = 1;
+    }
+	printf("\n");
+	/*	VSCM_FSSRStatus(ichip);*/
+  }
+  /*	gpib_delay(0);*/
+}
+
+void DataScanC(char *outfile) {
+	int thr, ich, ichip, ii;
+	FILE *fd;
+	float ratio, ref, delay;
+	unsigned int scaler[128], gothitref;
+	unsigned int statusword, event, words, idle, data;
+	unsigned int fifoevents, fifowords;
+	unsigned int worderror, markerror, iderror;
+	int ticks = 10, first_pass = 1, zero_count, eventcount, datacount, type;
+	float sec_delay;
+	unsigned int adc[8] = {0,0,0,0,0,0,0,0}, bco[256], b = 0, prevb, chp, chn, a;
+	unsigned int chip_hits[8] = {0,0,0,0,0,0,0,0}, hfcb;
+	unsigned int d;
+	long long trigtime = 0, prevtrig, trig1;
+	long long trig_tot = 0;
+	int pdelay, max_delay, sync_cnt = 0, bco_sync, sync_stat;
+	int bco_period = VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8;
+	int pulser_rate = VSCM_SYS_CLK / VSCM_ReadReg((unsigned int)&pVSCM_BASE->PulserPeriod);
+	int c;
+	char reg27[20];
+
+	for(ii = 0; ii < 256; ii++) bco[ii] = 0;
+
+	max_delay = bco_period * 1.1;
+max_delay=0;
+
+/*	VSCM_ConfigDownload(settings);*/
+
+	fd = fopen(outfile, "w");
+	if (!fd) {
+		fprintf(stderr, "Failed to open output file\n");
+		return;
+	}
+	else
+		printf("Opened %s as output file\n", outfile);
+
+	FSSR_ParseControl(2, reg27);
+	sprintf(reg27, "%s, %03d", reg27, VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8);
+	printf("%s\n", reg27);
+	fprintf(fd, "%s\n", reg27);
+
+	/*
+VSCMInit();
+  VSCM_WriteReg((unsigned int)&pVSCM_BASE->ClockCfg, 0);
+  VSCMSetBCOClockFreq(BCO_FREQ_4MHZ);
+  VSCMSetBCOClockFreq(26); //208ns BCO clock per
+  VSCM_SetupTriggerWindow(256, 512, 26);	//2us window capture, 4us lookback
+	VSCM_SWSync();
+  FSSR_Init();
+*/
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);
+			/*  for(ichip=beg_chip; ichip<=end_chip; ichip++)*/
+ichip = 0+1+2+3+4+5+6+7;
+/*
+  {
+    printf("chip %d\n",ichip);fflush(stdout);
+    FSSR_DisableAll();
+    FSSR_InjectDisableAll();
+    VSCM_FSSRStatus(ichip);
+    FSSR_ReadDCR(ichip);
+    for(ich=beg_chan; ich<=end_chan; ich++)
+    {
+printf("%d\n", ich);
+		for (pdelay = 0; pdelay <= max_delay; pdelay += 1) {
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->DACTrigger, IO_MUX_PULSER | 0x80000000 | (pdelay<<16));
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->DACTrigger, IO_MUX_PULSER | 0x80000000 | (100<<16));
+VSCM_WriteReg((unsigned int)&pVSCM_BASE->FpOutput[1], IO_MUX_FPINPUT1 | (pdelay<<16));
+if (pdelay > 270 && pdelay < 545) {pdelay = 545; printf("\n");}
+printf("%d, ", pdelay);
+*/
+/*c = ' ';
+while(c != '\n') {
+	c = getchar();
+taskDelay(1);
+printf("%c ", c);
+}*/
+/*
+      printf("%d\n", (ich + 1));fflush(stdout);
+      FSSR_EnableOnly(ichip, ich);
+      FSSR_InjectOnly(ichip, ich);
+      thr = minthreshold;
+      while(thr<256 && (zero_count < 2 || first_pass == 1))
+      {
+			Clear Event Buffers
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);
+*/
+
+for(d = 0; d < 20000000; d+=10){
+  /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+        /*clear all scalers*/
+        for(ich=0;ich<8;ich++){
+	    for(ii=0; ii<128; ii++) ref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ich].ScalerStrip);
+	    ref = (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ich].ScalerRef);
+}
+		/*
+ Clear event buffers
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);
+        FSSR_SetThreshold(ichip,0,thr);
+*/
+        /* enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+        /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+		/* enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+		/*
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Trigger, IO_MUX_0);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Trigger, IO_MUX_FPINPUT0);
+	VSCM_SWSync();
+		FSSR_SCR(ichip);
+        FSSR_InternalPulserEnable(ichip);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->PulserStart, 1);
+        //sleep
+        taskDelay(ticks);
+			nanosleep(10);
+*/
+        /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+        /* reference scaler (8ns ticks)*/
+ichip = 3;
+	    ref = (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerRef);
+
+	    gothitref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerGotHit);
+
+	    statusword = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStatusWord);
+	    event = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEvent);
+	    words = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerWords);
+	    idle = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerIdle);
+	    markerror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerMarkErr);
+	    worderror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEncErr);
+	    iderror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerChipIdErr);
+
+        /*clear all scalers*/
+		/*        printf("%d\n", thr);*/
+	    for(ii=0; ii<128; ii++)
+		{
+          scaler[ii] = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+		  /*         if(scaler[ii]>0) printf("scaler [%3d] = %7d %d\n",ii,scaler[ii], ich);fflush(stdout);*/
+		}
+ich=29;
+        ratio = ((float)scaler[ich])/(ref*(float)pulser_rate/125000000.);
+#ifdef VXWORKS
+			sec_delay = ticks / (float)sysClkRateGet();
+#endif
+			trig_tot += (int)ref * 8;
+			fprintf(fd, "%lld\n", trig_tot);
+			for(ii = 0; ii < scaler[ich]; ii++)
+				fprintf(fd, "0, 3, 29, %d, 0\n", ii);
+
+			fflush(fd);
+			/*			fprintf(fd, "%d, %.0f, %f\n", scaler[ich], ref, (float)scaler[ich] / (ref * 8 * 1e-9));*/
+			fifoevents = VSCM_ReadReg((unsigned int)&pVSCM_BASE->FifoEventCnt);
+			fifowords = VSCM_ReadReg((unsigned int)&pVSCM_BASE->FifoWordCnt);
+			/*			printf("FIFO evt:%d - wrd:%d\n", fifoevents, fifowords);*/
+}
+/*for (ii = 0; ii < 256; ii++) {
+	if (bco[ii] > 0)
+		printf("%d: %d\n", ii, bco[ii]);
+}*/
+for (ii = 0; ii < 8; ii++) {
+	printf("%d: %d %d\n", ii, adc[ii], chip_hits[ii]);
+}
+/*
+        printf("ichip=%d ich=%3d thr=%3d scaler=%7d gothit=%7d ref=%f -> ratio=%f",ichip,ich,thr,scaler[ich],gothitref,ref,ratio);
+			printf(" status=%d event=%d total=%d idle=%d\n", statusword, event, words, idle);
+*/
+			fflush(stdout);
+
+        thr = 256;
+		/*
+      }
+}		printf("\n");
+*/
+		first_pass = 1;
+		/*    }*/
+	printf("\n");
+	/*
+	VSCM_FSSRStatus(ichip);
+  }
+	gpib_delay(0);
+*/
+	fclose(fd);
+}
+
+void
+VSCMDataScanC(char *outfile)
+{
+	int thr, ich, ichip, ii;
+	FILE *fd;
+	float ratio, ref, delay;
+	unsigned int scaler[128], gothitref;
+	unsigned int statusword, event, words, idle, data;
+	unsigned int fifoevents, fifowords;
+	unsigned int worderror, markerror, iderror;
+	int ticks = 10, first_pass = 1, zero_count, eventcount, datacount, type;
+	float sec_delay;
+	unsigned int adc[8] = {0,0,0,0,0,0,0,0}, bco[256], b = 0, prevb, chp, chn, a;
+	unsigned int chip_hits[8] = {0,0,0,0,0,0,0,0}, hfcb;
+	unsigned int d;
+	long long trigtime = 0, prevtrig, trig1;
+	int pdelay, max_delay, sync_cnt = 0, bco_sync, sync_stat;
+	int bco_period = VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8;
+	int pulser_rate = VSCM_SYS_CLK / VSCM_ReadReg((unsigned int)&pVSCM_BASE->PulserPeriod);
+	int c;
+	char reg27[20];
+
+	for(ii = 0; ii < 256; ii++) bco[ii] = 0;
+
+	max_delay = bco_period * 1.1;
+max_delay=0;
+
+/*	VSCM_ConfigDownload(settings);*/
+
+	fd = fopen(outfile, "w");
+	if (!fd) {
+		fprintf(stderr, "Failed to open output file\n");
+		return;
+	}
+	else
+		printf("Opened %s as output file\n", outfile);
+
+	FSSR_ParseControl(2, reg27);
+	sprintf(reg27, "%s, %03d", reg27, VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8);
+	printf("%s\n", reg27);
+	fprintf(fd, "%s\n", reg27);
+
+	/*
+VSCMInit();
+  VSCM_WriteReg((unsigned int)&pVSCM_BASE->ClockCfg, 0);
+  VSCMSetBCOClockFreq(BCO_FREQ_4MHZ);
+  VSCMSetBCOClockFreq(26); //208ns BCO clock per
+  VSCM_SetupTriggerWindow(256, 512, 26);	//2us window capture, 4us lookback
+	VSCM_SWSync();
+  FSSR_Init();
+*/
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);
+			/*  for(ichip=beg_chip; ichip<=end_chip; ichip++)*/
+ichip = 0+1+2+3+4+5+6+7;
+/*
+  {
+    printf("chip %d\n",ichip);fflush(stdout);
+    FSSR_DisableAll();
+    FSSR_InjectDisableAll();
+    VSCM_FSSRStatus(ichip);
+    FSSR_ReadDCR(ichip);
+    for(ich=beg_chan; ich<=end_chan; ich++)
+    {
+printf("%d\n", ich);
+		for (pdelay = 0; pdelay <= max_delay; pdelay += 1) {
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->DACTrigger, IO_MUX_PULSER | 0x80000000 | (pdelay<<16));
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->DACTrigger, IO_MUX_PULSER | 0x80000000 | (100<<16));
+VSCM_WriteReg((unsigned int)&pVSCM_BASE->FpOutput[1], IO_MUX_FPINPUT1 | (pdelay<<16));
+if (pdelay > 270 && pdelay < 545) {pdelay = 545; printf("\n");}
+printf("%d, ", pdelay);
+*/
+/*c = ' ';
+while(c != '\n') {
+	c = getchar();
+taskDelay(1);
+printf("%c ", c);
+}*/
+/*
+      printf("%d\n", (ich + 1));fflush(stdout);
+      FSSR_EnableOnly(ichip, ich);
+      FSSR_InjectOnly(ichip, ich);
+      thr = minthreshold;
+      while(thr<256 && (zero_count < 2 || first_pass == 1))
+      {
+			//Clear Event Buffers
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);
+*/
+
+for(d = 0; d < 200000; d+=10){
+  /*disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+        /*clear all scalers*/
+        for(ich=0;ich<8;ich++){
+	    for(ii=0; ii<128; ii++) ref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ich].ScalerStrip);
+	    ref = (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ich].ScalerRef);
+}
+		/* Clear event buffers*/
+		/*			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);*/
+		/*        FSSR_SetThreshold(ichip,0,thr);*/
+
+        /* enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+        /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+		/* enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+		/*
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Trigger, IO_MUX_0);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Trigger, IO_MUX_FPINPUT0);
+	VSCM_SWSync();
+		FSSR_SCR(ichip);
+        FSSR_InternalPulserEnable(ichip);
+*/
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->PulserStart, 1);
+			/*sleep*/
+			/*        taskDelay(ticks);*/
+#ifndef VXWORKS
+			nanosleep(10);
+#endif
+			/* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+        /* reference scaler (8ns ticks)*/
+ichip = 3;
+	    ref = (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerRef);
+
+	    gothitref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerGotHit);
+
+	    statusword = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStatusWord);
+	    event = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEvent);
+	    words = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerWords);
+	    idle = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerIdle);
+	    markerror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerMarkErr);
+	    worderror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEncErr);
+	    iderror = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerChipIdErr);
+
+        /*clear all scalers*/
+		/*        printf("%d\n", thr);*/
+	    for(ii=0; ii<128; ii++)
+		{
+          scaler[ii] = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+		  /*         if(scaler[ii]>0) printf("scaler [%3d] = %7d %d\n",ii,scaler[ii], ich);fflush(stdout);*/
+		}
+ich=29;
+        ratio = ((float)scaler[ich])/(ref*(float)pulser_rate/125000000.);
+#ifdef VXWORKS
+			sec_delay = ticks / (float)sysClkRateGet();
+#endif
+			fprintf(fd, "%d, %.0f, %f\n", scaler[ich], ref, (float)scaler[ich] / (ref * 8 * 1e-9));
+			fifoevents = VSCM_ReadReg((unsigned int)&pVSCM_BASE->FifoEventCnt);
+			fifowords = VSCM_ReadReg((unsigned int)&pVSCM_BASE->FifoWordCnt);
+			/*			printf("FIFO evt:%d - wrd:%d\n", fifoevents, fifowords);*/
+}
+			eventcount = 0;
+			datacount = 0;
+			for (ii = 0; ii < 8; ii++)
+				adc[ii] = 0;
+
+			/*
+printf("gothit:%d chan:%d data:%d status:%d event:%d words:%d idle:%d markerr:%d worderr:%d iderr:%d ref:%f\n",
+ gothitref, scaler[ich], datacount, statusword, event, words, idle, markerror, worderror, iderror, ref);
+*/
+			while(eventcount != fifoevents) {
+				data = *pVSCMFifo;
+				if (data & 0x80000000) {
+					type = (data >> 27) & 0xF;
+					switch (type) {
+						case DATA_TYPE_BLKHDR:
+							break;
+						case DATA_TYPE_BLKTLR:
+							eventcount++;
+							break;
+						case DATA_TYPE_EVTHDR:
+						  /*							printf("event: %d\n", data & 0x7ffffff);*/
+							event = data & 0x7ffffff;
+							if (sync_stat)
+								sync_cnt++;
+							bco_sync = 0;
+							sync_stat = 1;
+
+							break;
+						case DATA_TYPE_TRGTIME:
+						  /*							printf("time: %u\n", data);*/
+							trig1 = data & 0xFFFFFF;
+							break;
+						case DATA_TYPE_FSSREVT:
+							datacount++;
+							/*							printf("%d: %d %u\n", d, ((data >> 27) & 0xF), data);*/
+							prevb = b;
+							hfcb = (data >> 22) & 1;
+							chp = (data >> 19) & 0x7;
+							chn = (data >> 12) & 0x7f;
+							b = (data >> 4) & 0xff;
+							a = (data >> 0) & 0x7;
+if (event < 10)
+							printf("H: %1d C: %1d CH: %3d B: %3d A: %1d\n", hfcb, chp, chn, b, a);
+							fprintf(fd, "%1d, %1d, %3d, %3d, %1d\n", hfcb, chp, chn, b, a);
+							if (bco_sync = 0)
+								bco_sync = b;
+							else if (bco_sync != b)
+								sync_stat & 0;
+							/*
+if ((prevb + (trigtime - prevtrig) / bco_period) % 256 == b) {
+sync_cnt++;
+printf("SYNC ");
+}
+printf("%lld %lld %lld %d %f\n", trigtime, (trigtime / bco_period) % 256, trigtime - prevtrig, b, trigtime % (b * bco_period));
+printf("%lld\n", ((b + 256) - ((trigtime / bco_period) % 256)) % 256);
+*/
+							bco[b]++;
+							adc[(data >> 0) & 0x7]++;
+							chip_hits[(4 * hfcb) + (chp - 1)]++;
+							/*printf("chip: %u chn: %u trig: %lld bco: %u \n", chp, chn, trigtime, b);*/
+							break;
+					}
+				}
+				else {
+					if (type == DATA_TYPE_TRGTIME)
+						prevtrig = trigtime;
+						trigtime = (trig1 << 24) + data;
+if (event < 10)
+						printf("trig: %lld\n", trigtime);
+						fprintf(fd, "%lld\n", trigtime);
+						/*printf("trig: %lld diff: %lld\n", trigtime, trigtime - prevtrig);*/
+				}
+			}
+printf("data:%d event:%d sync:%d\n", datacount, eventcount, sync_cnt);
+/*for (ii = 0; ii < 256; ii++) {
+	if (bco[ii] > 0)
+		printf("%d: %d\n", ii, bco[ii]);
+}*/
+for (ii = 0; ii < 8; ii++) {
+	printf("%d: %d %d\n", ii, adc[ii], chip_hits[ii]);
+}
+/*
+        printf("ichip=%d ich=%3d thr=%3d scaler=%7d gothit=%7d ref=%f -> ratio=%f",ichip,ich,thr,scaler[ich],gothitref,ref,ratio);
+			printf(" status=%d event=%d total=%d idle=%d\n", statusword, event, words, idle);
+*/
+			fflush(stdout);
+
+        thr = 256;
+		/*      }*/
+		/*}		printf("\n");*/
+		first_pass = 1;
+		/*    }*/
+	printf("\n");
+	/*
+	VSCM_FSSRStatus(ichip);
+  }
+	gpib_delay(0);
+*/
+	fclose(fd);
+}
+
+
+
+
+/*
+void
+DataRun(int triggers, int minutes, char* output)
+{
+	FILE* f;
+	unsigned int trigger_count = 0;
+	unsigned int buserrors;
+	int i;
+	WDOG_ID watchdogid;
+
+	data_run_timeout = 0;
+#ifdef VXWORKS
+	minutes *= sysClkRateGet() * 60;
+#endif
+	buserrors = VSCM_ReadReg((unsigned int)&pVSCM_BASE->ReadoutCfg);
+	// Enable Bus Errors
+	if (!buserrors) {
+		VSCM_WriteReg((unsigned int)&pVSCM_BASE->ReadoutCfg, 1);
+	}
+
+	f = fopen(output, "a");
+	if (f)
+		printf("Opened >%s< for output\n", output);
+	else {
+		fprintf(stderr, "Failed to open >%s<\n", output);
+		return;
+	} 
+
+	// Clear FIFOs
+	VSCM_FIFOClear();
+	// Restart timestamp counter
+	VSCM_SWSync();
+//	taskDelay(10);
+	// Hack to make sure BCOs line up
+	// need this until there is a wild chip ID
+	for (i = 0; i < 8; i++)
+		FSSR_SCR(i);
+	
+	if (minutes > 0) {
+		watchdogid = wdCreate();
+		wdStart(watchdogid, minutes, (FUNCPTR)data_run_callback, 0);
+	}
+
+//	VSCM_WriteReg((unsigned int)&pVSCM_BASE->PulserStart, 1);
+	while (trigger_count < triggers) {
+		if (VSCM_ReadReg((unsigned int)&pVSCM_BASE->FifoEventCnt) > 0) {
+			trigger_count += VSCMDumpFIFO(f);
+		}
+		if (data_run_timeout == 1)
+			break;
+	}
+
+	// Return Bus Errors to previous configuration
+	VSCM_WriteReg((unsigned int)&pVSCM_BASE->ReadoutCfg, buserrors);
+
+	fclose(f);
+}
+
+
+*/
+
+
+
+
+
+
+
+
+
+
+void
+VSCMRefScalerTest(int ticks, int loop)
+{
+	unsigned int ref;
+	int c;
+
+	for (c = 0; c < loop; c++) {
+	  /* enable scalers*/
+		VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+		/* disable scalers*/
+		VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<0));
+		/* enable scalers*/
+		VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+		if (ticks > 0)
+			taskDelay(ticks);
+		/* disable scalers*/
+		VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<0));
+		/* reference scaler (8ns ticks)*/
+		ref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[0].ScalerRef);
+
+		printf("%d\n", ref);
+	}
+}
+
+void
+VSCMThresholdScan(int minthreshold, int  pulser_rate, int beg_chip, int end_chip, int beg_chan, int end_chan)
+{
+  int thr, ich, ichip, ii, d;
+  float ratio, ref, delay;
+  unsigned int scaler[128], gothitref;
+	unsigned int statusword, event, words, idle, data;
+	unsigned int fifoevents, fifowords;
+	int ticks = 1, first_pass = 1, zero_count, eventcount, datacount;
+	float sec_delay;
+	/*
+VSCMInit();
+  VSCM_WriteReg((unsigned int)&pVSCM_BASE->ClockCfg, 0);
+  VSCMSetBCOClockFreq(BCO_FREQ_4MHZ);
+  VSCMSetBCOClockFreq(26); //208ns BCO clock per
+  VSCM_SetupTriggerWindow(256, 512, 26);	//2us window capture, 4us lookback
+	VSCM_SWSync();
+  FSSR_Init();
+*/
+  for(ichip=beg_chip; ichip<=end_chip; ichip++)
+  {
+
+    /*printf("chip %d\n",ichip);fflush(stdout);*/
+    VSCM_FSSRStatus(ichip);
+    FSSR_DisableAll();
+    FSSR_InjectDisableAll();
+    /*FSSR_ReadDCR(ichip);*/
+    for(ich=beg_chan; ich<=end_chan; ich++)
+    {
+      printf("%d\n", (ich));fflush(stdout);
+      FSSR_EnableOnly(ichip, ich);
+      FSSR_InjectOnly(ichip, ich);
+      thr = minthreshold;
+      scaler[ich] = 100000;
+		zero_count = 0;
+      while(thr<256 && (zero_count <= 20 || first_pass == 1))
+      {
+		/*Clear Event Buffers*/
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);
+
+			/* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /*clear all scalers*/
+	    for(ii=0; ii<128; ii++) ref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+
+        FSSR_SetThreshold(ichip,0,thr);
+
+        /* enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+        /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+		/* enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+		/*
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Trigger, IO_MUX_0);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Reset, 1);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->Trigger, IO_MUX_FPINPUT0);
+	VSCM_SWSync();
+		FSSR_SCR(ichip);
+        FSSR_InternalPulserEnable(ichip);
+*/
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->PulserStart, 1);
+
+			/*sleep*/
+        taskDelay(ticks);
+
+        /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /* reference scaler (8ns ticks)*/
+	    ref = (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerRef);
+	    gothitref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerGotHit);
+
+	    statusword = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStatusWord);
+	    event = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerEvent);
+	    words = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerWords);
+	    idle = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerIdle);
+
+        /*clear all scalers*/
+		/*        printf("%d\n", thr);*/
+	    for(ii=0; ii<128; ii++)
+		{
+          scaler[ii] = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+		  /*         if(scaler[ii]>0) printf("scaler [%3d] = %7d %d\n",ii,scaler[ii], ich);fflush(stdout);*/
+		}
+
+        ratio = ((float)scaler[ich])/(ref*(float)pulser_rate/125000000.);
+#ifdef VXWORKS
+			sec_delay = ticks / (float)sysClkRateGet();
+#endif
+			if (scaler[ich] < (0.99 * (sec_delay * pulser_rate)) && (first_pass == 1) && (thr > 0)) {
+				thr -= 2;
+				continue;
+			}
+			else
+				first_pass = 0;
+
+			if (scaler[ich] == 0)
+				zero_count++;
+			else
+				zero_count = 0;
+
+			printf("%d, %d\n", thr, scaler[ich]);
+			/*
+        printf("ichip=%d ich=%3d thr=%3d scaler=%7d gothit=%7d ref=%f -> ratio=%f",ichip,ich,thr,scaler[ich],gothitref,ref,ratio);
+			printf(" status=%d event=%d total=%d idle=%d\n", statusword, event, words, idle);
+*/
+			fflush(stdout);
+
+        thr++;
+      }
+		printf("\n");
+		first_pass = 1;
+    }
+	printf("\n");
+	/*	VSCM_FSSRStatus(ichip);*/
+  }
+
+}
+
+void
+VSCMFileThresholdScanADC(char *settings, char *filename, int minthreshold, int beg_chip, int end_chip, int beg_chan, int end_chan)
+{
+  FILE *fd;
+  char fname[256];
+  int thr, ich, ichip, ii;
+	int ticks = 1;
+  float ratio, ref;
+  unsigned int scaler[128], gothitref;
+	int vtp, pulser_rate;
+	char reg27[20];
+
+  VSCM_WriteReg((unsigned int)&pVSCM_BASE->ClockCfg, 0);
+  /*VSCMSetBCOClockFreq(BCO_FREQ_4MHZ);*/
+	VSCM_ConfigDownload(settings);
+	pulser_rate = VSCM_SYS_CLK / VSCM_ReadReg((unsigned int)&pVSCM_BASE->PulserPeriod);
+
+
+  for(ichip=beg_chip; ichip<=end_chip; ichip++)
+  {
+    sprintf(fname,"dat/%s_%1d.dat", filename,ichip);
+    fd = fopen(fname, "w");
+    if(!fd)
+    {
+	  printf("Error opening file: %s\n", fname);
+      return;
+    }
+    else
+	{
+      printf("Opened file >%s<\n",fname);
+      printf("Scan chips from %d to %d, channels from %d to %d\n",beg_chip, end_chip, beg_chan, end_chan);
+		FSSR_ParseControl(ichip, reg27);
+		sprintf(reg27, "%s, %03d", reg27, VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8);
+		fprintf(fd, "%s\n", reg27);
+    }
+
+    /*printf("chip %d\n",ichip);fflush(stdout);*/
+    FSSR_DisableAll();
+    FSSR_InjectDisableAll();
+    VSCM_FSSRStatus(ichip);
+    /*FSSR_ReadDCR(ichip);*/
+	/*    for(ich=beg_chan; ich<=end_chan; ich++)*/
+    for(ich=beg_chan; ich<=end_chan; ich += 5)
+    {
+      fprintf(fd,"%d\n",ich);
+      /*printf("chan %d\n",ich);fflush(stdout);*/
+      FSSR_EnableOnly(ichip, ich);
+      FSSR_InjectOnly(ichip, ich);
+for(vtp = 0; vtp < 256; vtp += 1) {
+FSSR_SetThreshold(ichip, 1, vtp);
+FSSR_SetThreshold(ichip, 2, vtp);
+FSSR_SetThreshold(ichip, 3, vtp);
+FSSR_SetThreshold(ichip, 4, vtp);
+FSSR_SetThreshold(ichip, 5, vtp);
+FSSR_SetThreshold(ichip, 6, vtp);
+FSSR_SetThreshold(ichip, 7, vtp);
+	printf("vtp=%d\n", vtp);
+       thr = minthreshold;
+      scaler[ich] = 100000;
+			fprintf(fd, "%d\n", vtp);
+			/*      fprintf(fd,"%d, %d", vtp, thr);*/
+     while(thr<256 && scaler[ich]>0)
+      {
+        /*printf("thr %d\n",thr);fflush(stdout);*/
+        FSSR_SetThreshold(ichip,0,thr);
+
+        /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /*clear all scalers*/
+	    for(ii=0; ii<128; ii++) ref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+
+        /* enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+       
+        /*sleep*/
+        taskDelay(ticks);
+
+        /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /* reference scaler (8ns ticks)*/
+	    ref = (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerRef);
+	    gothitref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerGotHit);
+
+        /*clear all scalers*/
+	    for(ii=0; ii<128; ii++)
+		{
+          scaler[ii] = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+		}
+
+        ratio = ((float)scaler[ich])/(ref*(float)pulser_rate/125000000.);
+		/*        printf("chp=%d chn=%3d thr=%3d scaler=%7d ghit=%7d ref=%.0f -> ratio=%.1f\n",ichip,ich,thr,scaler[ich],gothitref,ref,ratio);fflush(stdout);*/
+
+			printf("chp:%d ch:%3d thr:%3d hit:%7d\n", ichip, ich, thr, scaler[ich]);
+			/*        fprintf(fd,", %d",scaler[ich]);*/
+			fprintf(fd, "%d, %d\n", thr, scaler[ich]);
+
+        thr++;
+      }
+fprintf(fd, "\n");
+}
+      fprintf(fd,"\n");
+      fflush(fd);
+    }
+    printf("closing file: %s\n", fname);fflush(stdout);
+	fclose(fd);
+  }
+}
+
+void
+VSCMFileThresholdScan(char *settings, char *filename, int minthreshold, int  pulser_rate, int beg_chip, int end_chip, int beg_chan, int end_chan)
+{
+  FILE *fd;
+  char fname[256];
+  int thr, ich, ichip, ii;
+	int ticks = 1, zero_count;
+  float ratio, ref;
+  unsigned int scaler[128], gothitref;
+	int vtp;
+
+  VSCM_WriteReg((unsigned int)&pVSCM_BASE->ClockCfg, 0);
+  /*VSCMSetBCOClockFreq(BCO_FREQ_4MHZ);*/
+	VSCM_ConfigDownload(settings);
+
+  for(ichip=beg_chip; ichip<=end_chip; ichip++)
+  {
+    sprintf(fname,"dat/%s_%1d.dat", filename,ichip);
+    fd = fopen(fname, "w");
+    if(!fd)
+    {
+	  printf("Error opening file: %s\n", fname);
+      return;
+    }
+    else
+	{
+      printf("Opened file >%s<\n",fname);
+      printf("Scan chips from %d to %d, channels from %d to %d\n",beg_chip, end_chip, beg_chan, end_chan);
+    }
+
+    /*printf("chip %d\n",ichip);fflush(stdout);*/
+    FSSR_DisableAll();
+    FSSR_InjectDisableAll();
+    VSCM_FSSRStatus(ichip);
+    /*FSSR_ReadDCR(ichip);*/
+    for(ich=beg_chan; ich<=end_chan; ich++)
+    {
+      fprintf(fd,"%d\n",ich);
+      /*printf("chan %d\n",ich);fflush(stdout);*/
+      FSSR_EnableOnly(ichip, ich);
+      FSSR_InjectOnly(ichip, ich);
+      thr = minthreshold;
+      scaler[ich] = 100000;
+		zero_count = 0;
+      while(thr<256 && zero_count <= 2)
+      {
+        /*printf("thr %d\n",thr);fflush(stdout);*/
+        FSSR_SetThreshold(ichip,0,thr);
+
+        /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /*clear all scalers*/
+	    for(ii=0; ii<128; ii++) ref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+
+        /* enable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+       
+        /*sleep*/
+        taskDelay(ticks);
+
+        /* disable scalers*/
+        VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+
+        /* reference scaler (8ns ticks)*/
+	    ref = (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerRef);
+	    gothitref = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerGotHit);
+
+        /*clear all scalers*/
+	    for(ii=0; ii<128; ii++)
+		{
+          scaler[ii] = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerStrip);
+		}
+
+        ratio = ((float)scaler[ich])/(ref*(float)pulser_rate/125000000.);
+        printf("chp=%d chn=%3d thr=%3d scaler=%7d ghit=%7d ref=%.0f -> ratio=%.1f\n",ichip,ich,thr,scaler[ich],gothitref,ref,ratio);fflush(stdout);
+
+        fprintf(fd,"%d, %d\n",thr,scaler[ich]);
+
+        thr++;
+			if (scaler[ich] == 0)
+				zero_count++;
+			else
+				zero_count = 0;
+      }
+      fprintf(fd,"\n");
+      fflush(fd);
+    }
+    printf("closing file: %s\n", fname);fflush(stdout);
+	fclose(fd);
+  }
+}
+
+void CoherentScalerTest(int runs, char *outfile) {
+  FILE *fd;
+  char fname[256];
+  int thr, ich, ichip, ii;
+  float ratio;
+  unsigned int ref[8], scaler[8][128], gothitref;
+	int ticks = 1, zero_count;
+	int hit[8];
+	int i, j;
+	char reg27[20];
+
+	VSCM_FIFOClear();
+
+	fd = fopen(outfile, "w");
+	if(!fd) {
+		printf("Error opening file: %s\n", outfile);
+		return;
+	}
+   else {
+		printf("Opened file >%s<\n", outfile);
+		FSSR_ParseControl(3, reg27);
+		sprintf(reg27, "%s, %03d", reg27, VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8);
+		fprintf(fd, "%s\n", reg27);
+	}
+
+	for (i = 0; i <= runs; i++) {
+		if ((i + 1) % 1000 == 0)
+			printf("Loop %d\n", i + 1);
+		/* disable scalers*/
+		VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0);
+
+		/*clear all scalers*/
+      for (j = 0; j < 8; j++) {
+			hit[j] = 0;
+			VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[j].ScalerRef);
+			for(ii=0; ii<128; ii++) {
+				VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[j].ScalerStrip);
+			}
+		}
+	  /* enable scalers*/
+      VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+       
+      /*sleep*/
+      taskDelay(ticks);
+
+      /* disable scalers*/
+      VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0);
+
+	  /* read all scalers*/
+		for (j = 0; j < 8; j++) {
+		  /*printf("%d: ", j);*/
+			ref[j] = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[j].ScalerRef);
+			for(ii=0; ii<128; ii++) {
+				scaler[j][ii] = VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[j].ScalerStrip);
+				/*printf("%d ", scaler[j][ii]);*/
+				if (scaler[j][ii] > 0)
+					hit[j] |= 1;
+			}
+			/*printf("\n");*/
+		}
+		/*        printf("chp=%d chn=%3d thr=%3d scaler=%7d ghit=%7d ref=%.0f -> ratio=%.1f\n",ichip,ich,thr,scaler[ich],gothitref,ref,ratio);fflush(stdout);*/
+
+		/*        fprintf(fd,"%d, %d\n",thr,scaler[ich]);*/
+
+		if (i == 0)
+			continue;
+
+		for (j = 0; j < 8; j++) {
+			if (hit[j] > 0) {
+				fprintf(fd, "%d, %d\n%d", j, ref[j], scaler[j][0]);
+				for (ii = 1; ii < 128; ii++)
+					fprintf(fd, ", %d", scaler[j][ii]);
+				fprintf(fd, "\n");
+			}
+		}
+
+		fflush(fd);
+   }
+	/*	fprintf(fd,"\n");*/
+	fclose(fd);
+}
+
+void
+VSCMFileNoiseScan(char *settings, char *filename, int minthreshold, int  pulser_rate, int beg_chip, int end_chip, int beg_chan, int end_chan)
+{
+  FILE *fd;
+  char fname[256];
+  int thr, ich, ichip, ii;
+	int tick_delay = 1, tick_cnt = 1, hit_cnt = 0;
+	const int max_ticks = 120;
+	const int req_hits = 100; 
+  float ratio, ref;
+  unsigned int scaler[128], gothitref;
+	char reg27[20];
+
+  VSCM_WriteReg((unsigned int)&pVSCM_BASE->ClockCfg, 0);
+  /*VSCMSetBCOClockFreq(BCO_FREQ_4MHZ);*/
+	VSCM_ConfigDownload(settings);
+
+  for(ichip=beg_chip; ichip<=end_chip; ichip++)
+  {
+    sprintf(fname,"dat/%s_%1d.dat", filename,ichip);
+    fd = fopen(fname, "w");
+    if(!fd)
+    {
+	  printf("Error opening file: %s\n", fname);
+      return;
+    }
+    else
+	{
+      printf("Opened file >%s<\n",fname);
+      printf("Scan chips from %d to %d, channels from %d to %d\n",beg_chip, end_chip, beg_chan, end_chan);
+		FSSR_ParseControl(ichip, reg27);
+		sprintf(reg27, "%s, %03d", reg27, VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8);
+		fprintf(fd, "%s\n", reg27);
+    }
+
+    /*printf("chip %d\n",ichip);fflush(stdout);*/
+    FSSR_DisableAll();
+    FSSR_InjectDisableAll();
+    VSCM_FSSRStatus(ichip);
+    /*FSSR_ReadDCR(ichip);*/
+    for(ich=beg_chan; ich<=end_chan; ich++)
+    {
+      fprintf(fd,"%d\n",ich);
+      /*printf("chan %d\n",ich);fflush(stdout);*/
+      FSSR_EnableOnly(ichip, ich);
+      FSSR_InjectOnly(ichip, ich);
+      thr = minthreshold;
+      hit_cnt = -1;
+		while(thr<256 && hit_cnt != 0)
+      {
+			hit_cnt = 0;
+			tick_cnt = 0;
+			ref = 0.0;
+			/*			printf("thr %d\n",thr);fflush(stdout);*/
+			FSSR_SetThreshold(ichip,0,thr);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1 << ichip));
+
+		while (hit_cnt < req_hits && tick_cnt < max_ticks) { 
+			taskDelay(tick_delay);
+			/* Latch Scalers*/
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+			ref += (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerRef);
+			hit_cnt += VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerGotHit);
+			tick_cnt++;
+			/*printf("hits: %d ticks: %d\n", hit_cnt, tick_cnt);*/
+		}
+
+        /* reference scaler (8ns ticks)*/
+
+        ratio = ((float)hit_cnt) / (ref / 125000000.0);
+		/*printf("ticks: %d\n", tick_cnt);*/
+        printf("chp=%d chn=%3d thr=%3d hits=%7d ref=%.6f -> ratio=%.2f\n",ichip,ich,thr,hit_cnt,ref/125000000.0,ratio);fflush(stdout);
+
+        fprintf(fd,"%d, %d\n",thr,(unsigned int)floor(ratio + 0.5));
+
+        thr++;
+			if (hit_cnt < 50)
+				break;
+      }
+      fprintf(fd,"\n");
+      fflush(fd);
+    }
+    printf("closing file: %s\n", fname);fflush(stdout);
+	fclose(fd);
+  }
+}
+
+void VSCMCrossTalk(char *settings, char *filename, int noise, int beg_chip, int end_chip) {
+	FILE *fd;
+	char fname[256];
+	int thr, ich, ichip, ii;
+	int tick_delay = 1, tick_cnt = 1, hit_cnt = 0;
+	const int max_ticks = 120;
+	const int req_hits = 100; 
+	float ratio, ref;
+	unsigned int scaler[128], gothitref;
+	char reg27[20];
+	int beg_chan = 0, end_chan = 127, minthreshold = 0;
+	int pulser_rate = VSCM_SYS_CLK / VSCM_ReadReg((unsigned int)&pVSCM_BASE->PulserPeriod);
+
+
+  for(ichip=beg_chip; ichip<=end_chip; ichip++)
+  {
+		VSCM_ConfigDownload(settings);
+    sprintf(fname,"dat/%s_%1d.dat", filename,ichip);
+    fd = fopen(fname, "w");
+    if(!fd)
+    {
+	  printf("Error opening file: %s\n", fname);
+      return;
+    }
+    else
+	{
+      printf("Opened file >%s<\n",fname);
+      printf("Scan chips from %d to %d, channels from %d to %d\n",beg_chip, end_chip, beg_chan, end_chan);
+		FSSR_ParseControl(ichip, reg27);
+		sprintf(reg27, "%s, %03d", reg27, VSCM_ReadReg((unsigned int)&pVSCM_BASE->FssrClkCfg) * 8);
+		fprintf(fd, "%s\n", reg27);
+    }
+
+    /*printf("chip %d\n",ichip);fflush(stdout);*/
+
+	if (noise > 0) {
+		for(ii = 0; ii < 8; ii++) {
+			if (ii < beg_chip || ii > end_chip) {
+				FSSR_SetThreshold(ii, 0, 0);
+				FSSR_SetThreshold(ii, 1, 30);
+				FSSR_SetThreshold(ii, 2, 30);
+				FSSR_SetThreshold(ii, 3, 30);
+				FSSR_SetThreshold(ii, 4, 30);
+				FSSR_SetThreshold(ii, 5, 30);
+				FSSR_SetThreshold(ii, 6, 30);
+				FSSR_SetThreshold(ii, 7, 30);
+			}
+		}
+	}
+
+	FSSR_KillMask_DisableAll(ichip);
+
+    FSSR_InjectDisableAll();
+    VSCM_FSSRStatus(ichip);
+    /*FSSR_ReadDCR(ichip);*/
+    for(ich=beg_chan; ich<=end_chan; ich++)
+    {
+      fprintf(fd,"%d\n",ich);
+      /*printf("chan %d\n",ich);fflush(stdout);*/
+      FSSR_EnableOnly(ichip, ich);
+      FSSR_InjectOnly(ichip, ich);
+      thr = minthreshold;
+      hit_cnt = -1;
+		while(thr<256 && hit_cnt != 0)
+      {
+			hit_cnt = 0;
+			tick_cnt = 0;
+			ref = 0.0;
+			/*			printf("thr %d\n",thr);fflush(stdout);*/
+			FSSR_SetThreshold(ichip,0,thr);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1 << ichip));
+
+		while (hit_cnt < req_hits && tick_cnt < max_ticks) { 
+			taskDelay(tick_delay);
+			/* Latch Scalers*/
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF);
+			VSCM_WriteReg((unsigned int)&pVSCM_BASE->ScalerLatch, 0xFF & ~(1<<ichip));
+			ref += (float)VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerRef);
+			hit_cnt += VSCM_ReadReg((unsigned int)&pVSCM_BASE->Fssr[ichip].ScalerGotHit);
+			tick_cnt++;
+			/*printf("hits: %d ticks: %d\n", hit_cnt, tick_cnt);*/
+		}
+
+        /* reference scaler (8ns ticks)*/
+
+        ratio = ((float)hit_cnt) / (ref / 125000000.0);
+		/*printf("ticks: %d\n", tick_cnt);*/
+        printf("chp=%d chn=%3d thr=%3d hits=%7d ref=%.6f -> ratio=%.2f\n",ichip,ich,thr,hit_cnt,ref/125000000.0,ratio);fflush(stdout);
+
+        fprintf(fd,"%d, %d\n",thr,(unsigned int)floor(ratio + 0.5));
+
+        thr++;
+			if (hit_cnt < 50)
+				break;
+      }
+      fprintf(fd,"\n");
+      fflush(fd);
+    }
+    printf("closing file: %s\n", fname);fflush(stdout);
+    fclose(fd);
+  }
+}
+
+
+
+
+/*
+coda_roc_gef -s classvt -o "svt2 ROC" -i
+*/
+
+/* from tiLib.h
+#define TI_READOUT_EXT_INT    0
+#define TI_READOUT_TS_INT     1
+#define TI_READOUT_EXT_POLL   2
+#define TI_READOUT_TS_POLL    3
+#define TI_TSINPUT_ALL       (0x3F)
+
+#define TI_ADDR   (21<<19)
+#define TI_READOUT TI_READOUT_EXT_POLL
+*/
+
+static unsigned int *dmabuf;
+
+
+#ifndef VXWORKS
+
+/*standalone DMA initialization - not in use !!!*/
+void VSCMDMAInit()
+{
+  int ii, i1, i2, i3;
+  unsigned int i2_from_rol1;
+
+  /*from Download
+  vmeOpenDefaultWindows();
+  usrVmeDmaInit();
+  usrVmeDmaMemory(&i1, &i2, &i3);
+
+  i2_from_rol1 = i2;
+  if( (i2_from_rol1&7) == 0xc )
+  {
+    i2_from_rol1 += 1;
+  }
+  else if( (i2_from_rol1&7) == 0x8 )
+  {
+    i2_from_rol1 += 2;
+  }
+  else if( (i2_from_rol1&7) == 0x4 )
+  {
+    i2_from_rol1 += 3;
+  }
+  printf("i2_from_rol1 = 0x%08x\n",i2_from_rol1);
+  dmabuf = (unsigned int *)i2_from_rol1;
+
+  tiInit(TI_ADDR,TI_READOUT,0);
+  tiIntDisable();
+  tiDisableTSInput(TI_TSINPUT_ALL);
+  tiSetBlockLevel(1);
+  tiSetBlockBufferLevel(7);
+  tiStatus();
+
+  usrVmeDmaSetConfig(2,5,1);
+  VSCMInit();
+  sdInit();
+  sdStatus();
+  */
+
+  /*from Prestart*/
+  tiClockReset();
+  sleep(2);
+  tiTrigLinkReset();
+  sleep(2);
+
+
+  VSCMClear();
+  printf("\n\nFSSR Status:\n\n");
+  for(ii=0; ii<8; ii++) VSCM_FSSRStatus(ii);
+  printf("\n\n\n\n");
+
+  tiIntDisable();
+
+  printf("Disable all inputs\n");
+  sleep(1);
+  tiSyncReset();
+  sleep(2);
+
+
+
+  /*from Go*/
+  for(ii=0; ii<8; ii++) FSSR_SCR(ii);
+  tiEnableTriggerSource();
+
+  dmabuf = svt2getdmabuffer();
+
+  return;
+}
+
+#endif
+
+
+/*Download, Prestart, then run 'tcpClient svt2 tidEnableTriggerSource'*/
+
+void VSCMDMAReadPrint()
+{
+  int nw, val;
+
+  val = tiBReady();
+  if(1/*val*/)
+  {
+    nw = VSCMReadoutFIFO(dmabuf, 1000);
+    tiIntAck();
+    printf("nwords=%d\n",nw);
+    VSCMPrintFIFO(dmabuf,nw);
+  }
+  else
+  {
+    printf("TI is not ready\n");
+  }
+
+  return;
+}
+
+
+
+
+
+#else /* dummy version*/
+
+void
+vscmscan_dummy()
+{
+  return;
+}
+
+#endif

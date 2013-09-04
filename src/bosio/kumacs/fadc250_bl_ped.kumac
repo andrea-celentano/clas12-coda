@@ -1,0 +1,148 @@
+hi/file 66 fadc250_bl_ped.his
+zone 4 4
+opt stat
+***opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+hi/pl 1
+hi/pl 2
+hi/pl 3
+hi/pl 4
+hi/pl 5
+hi/pl 6
+hi/pl 7
+hi/pl 8
+hi/pl 9
+hi/pl 10
+hi/pl 11
+hi/pl 12
+hi/pl 13
+hi/pl 14
+hi/pl 15
+hi/pl 16
+wait
+*
+SET HCOL 7400
+*
+min 21 300
+max 21 450
+hi/pl 21(0.:238.)
+min 22 280
+max 22 430
+hi/pl 22(0.:238.)
+min 23 140
+max 23 290
+hi/pl 23(0.:238.)
+min 24 300
+max 24 450
+hi/pl 24(0.:238.)
+min 25 270
+max 25 420
+hi/pl 25(0.:238.)
+hi/pl 26(0.:238.)
+min 27 150
+max 27 300
+hi/pl 27(0.:238.)
+min 28 330
+max 28 480
+hi/pl 28(0.:238.)
+min 29 150
+max 29 300
+hi/pl 29(0.:238.)
+min 30 330
+max 30 480
+hi/pl 30(0.:238.)
+min 31 300
+max 31 450
+hi/pl 31(0.:238.)
+min 32 350
+max 32 500
+hi/pl 32(0.:238.)
+min 33 340
+max 33 490
+hi/pl 33(0.:238.)
+min 34 290
+max 34 440
+hi/pl 34(0.:238.)
+min 35 120
+max 35 270
+hi/pl 35(0.:238.)
+min 36 330
+max 36 480
+hi/pl 36(0.:238.)
+wait
+*
+SET HCOL 7407
+*
+hi/pl 41(150.:500.)
+hi/pl 42(150.:500.)
+hi/pl 43(150.:500.)
+hi/pl 44(150.:500.)
+hi/pl 45(150.:500.)
+hi/pl 46(150.:500.)
+hi/pl 47(150.:500.)
+hi/pl 48(150.:500.)
+hi/pl 49(150.:500.)
+hi/pl 50(150.:500.)
+hi/pl 51(150.:500.)
+hi/pl 52(150.:500.)
+hi/pl 53(150.:500.)
+hi/pl 54(150.:500.)
+hi/pl 55(150.:500.)
+hi/pl 56(150.:500.)
+wait
+*
+zone 1 1
+*
+
+hi/co 41(300.:450.) 61
+hi/fit 61 g
+wait
+hi/co 42(280.:430.) 62
+hi/fit 62 g
+wait
+hi/co 43(140.:290.) 63
+hi/fit 63 g
+wait
+hi/co 44(300.:450.) 64
+hi/fit 64 g
+wait
+hi/co 45(270.:420.) 65
+hi/fit 65 g
+wait
+hi/co 47(140.:290.) 67
+hi/fit 67 g
+wait
+hi/co 48(330.:480.) 68
+hi/fit 68 g
+wait
+hi/co 49(140.:290.) 69
+hi/fit 69 g
+wait
+hi/co 50(330.:480.) 70
+hi/fit 70 g
+wait
+hi/co 51(300.:450.) 71
+hi/fit 71 g
+wait
+hi/co 52(350.:500.) 72
+hi/fit 72 g
+wait
+hi/co 53(330.:480.) 73
+hi/fit 73 g
+wait
+hi/co 54(280.:430.) 74
+hi/fit 74 g
+wait
+hi/co 55(120.:270.) 75
+hi/fit 75 g
+wait
+hi/co 56(330.:480.) 76
+hi/fit 76 g
+wait
+
+*
+close 66

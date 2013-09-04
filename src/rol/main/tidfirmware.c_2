@@ -1,0 +1,56 @@
+
+/* tidfirmware.c - load firmware to tid board, file name is the only argument*/
+/*
+ HOWTO RUN:
+ goto hps1 window and kill coda_roc, vmetcpserver and any other program which may access VME bus
+ cd $CODA/src/rol/code.s/
+ $CODA/src/rol/Linux_i686/bin/tidfirmware timn35.svf
+ press <enter>
+ it takes about 10 minutes
+*/
+
+#include <stdio.h>
+
+void EMload(char *filename);
+
+#define OK 0
+
+#ifndef VXWORKS
+int
+main(int argc, char *argv[])
+{
+  int stat;
+  char *filename;
+  
+  printf("\nTID Emergency JTAG Loading via VME\n");
+  printf("----------------------------\n");
+
+  if(argc<2)
+    {
+      filename = "tids.svf";
+    }
+  else 
+    {
+      filename = argv[1];
+    }
+
+  printf("\n svg filename to be used = %s\n",filename);
+
+  stat = vmeOpenDefaultWindows();
+  if(stat != OK)
+    goto CLOSE;
+
+  stat = tidInit((21<<19),2,0);
+/*   if(stat != OK) */
+/*     goto CLOSE; */
+
+  printf("Press <Enter> to emergency load the JTAG to the TID via VME.\n");
+  getchar();
+  EMload(filename);
+
+ CLOSE:
+  vmeCloseDefaultWindows();
+
+  return(OK);
+}
+#endif

@@ -1,0 +1,448 @@
+hi/file 66 dsc2_1290.his
+*hi/file 66 dsc2hist.his
+*hi/file 66 dsc2hist.sb.his
+
+*Param. * Current  * Default   * Explanation                   *
+*XSIZ   * 20.00    * 20.00     * Size along X                  *
+*YSIZ   * 20.00    * 20.00     * Size along Y                  *
+*GSIZ   *  0.60    *  0.28     * Global title SIZe             *
+*YGTI   *  0.80    *  1.50     * Y position of Global TItle    *
+*TSIZ   *  0.28    *  0.28     * histogram Title SIZe          *
+*ASIZ   *  0.28    *  0.28     * Axis label SIZe               *
+*CSIZ   *  0.28    *  0.28     * Comment and stat SIZe         *
+*PSIZ   *  0.28    *  0.28     * Page number SIZe              *
+*VSIZ   *  0.28    *  0.28     * axis Values SIZe              *
+*LASI   * 755.129  *  0.018    * Label axis size               *
+*LAOF   * 539.378  *  0.013    * Label axis offset             *
+*TMSI   * 809.067  *  0.019    * Tick marks size               *
+*HMAX   *   0.90   *  0.90     * Histogram MAXimum for scale   *
+*STAT   * 1000000  *   1111    * STAT values to be plotted     *
+*FIT    *     101  *    101    * FIT values to be plotted      *
+
+gra/set YSIZ 24.
+gra/set TSIZ 0.18
+gra/set VSIZ 0.18
+gra/set CSIZ 0.45
+gra/set HMAX 0.70
+
+zone 4 4
+opt stat
+meta 10 -111
+***opt fit  1111111
+***set stat 1111111
+set fit  101
+set stat 1000000
+***opt logy
+*
+hi/li
+*
+*
+
+hi/co 701(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 702(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 703(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 704(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 705(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 706(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 707(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 708(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 709(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 710(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 711(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 712(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 713(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 714(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 715(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 716(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+wait
+
+hi/co 717(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 718(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 719(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 720(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 721(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 722(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 723(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 724(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 725(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 726(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 727(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 728(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 729(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 730(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 731(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 732(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+wait
+
+hi/co 801(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 802(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 803(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 804(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 805(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 806(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 807(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 808(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 809(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 810(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 811(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 812(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 813(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 814(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 815(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 816(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+wait
+
+hi/co 817(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 818(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 819(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 820(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 821(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 822(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 823(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 824(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 825(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 826(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 827(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 828(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 829(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 830(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 831(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 832(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+wait
+
+hi/co 901(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 902(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 903(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 904(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 905(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 906(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 907(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 908(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 909(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 910(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 911(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 912(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 913(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 914(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 915(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 916(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+wait
+
+hi/co 917(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 918(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 919(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 920(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 921(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 922(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 923(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 924(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 925(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 926(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 927(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 928(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 929(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 930(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 931(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 932(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+wait
+
+hi/co 1001(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1002(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1003(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1004(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1005(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1006(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1007(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1008(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1009(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1010(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1011(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1012(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1013(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1014(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1015(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1016(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+wait
+
+hi/co 1017(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1018(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1019(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1020(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1021(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1022(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1023(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1024(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1025(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1026(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1027(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1028(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1029(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1030(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1031(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+hi/co 1032(500.:1800.) 99
+hi/fit 99 p
+hi/del 99
+
+
+close 66
+hi/del 0
+
+
+*hi/pl 732
+*hi/pl 41028
+*hi/pl 41028(3300.:3700.)
+*hi/pl 41028(5000.:5400.)

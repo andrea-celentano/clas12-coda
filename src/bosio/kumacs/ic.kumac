@@ -1,0 +1,48 @@
+hi/file 66 ic.his
+zone 2 5
+***opt stat
+***opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+hi/pl 2314
+hi/pl 0114
+hi/pl 2313
+hi/pl 0113
+hi/pl 2312
+hi/pl 0112
+hi/pl 2311
+hi/pl 0111
+hi/pl 2310
+hi/pl 0110
+wait
+*
+hi/pl 2214
+hi/pl 0214
+hi/pl 2213
+hi/pl 0213
+hi/pl 2212
+hi/pl 0212
+hi/pl 2211
+hi/pl 0211
+hi/pl 2210
+hi/pl 0210
+wait
+*
+hi/pl 2114
+hi/pl 0314
+hi/pl 2113
+hi/pl 0313
+hi/pl 2112
+hi/pl 0312
+hi/pl 2111
+hi/pl 0311
+hi/pl 2110
+hi/pl 0310
+wait
+*
+
+
+
+
+

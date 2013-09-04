@@ -1,0 +1,44 @@
+hi/file 66 ctof.his
+nt/pri 2
+nt/pl 2.res res>0.
+opt stat
+opt fit
+hi/fit 1000000 g
+*zone 1 1
+*opt stat
+*opt fit 1111111
+*set stat 1111111
+*meta 10 -111
+*hi/pl *
+*
+*hi/fit 1 g
+*hi/fit 2 g
+*hi/fit 3 g
+*hi/fit 4 g
+*hi/fit 5 g
+*hi/fit 6 g
+*hi/fit 7 g
+*hi/fit 8 g
+*hi/fit 9 g
+*hi/fit 10 g
+*hi/fit 11 g
+*hi/fit 12 g
+*hi/fit 13 g
+*hi/fit 14 g
+*hi/fit 15 g
+*hi/fit 16 g
+*hi/fit 17 g
+*hi/fit 18 g
+*hi/fit 19 g
+*hi/fit 20 g
+*hi/fit 21 g
+*hi/fit 22 g
+*hi/fit 23 g
+*hi/fit 24 g
+*
+*exit
+
+
+
+
+

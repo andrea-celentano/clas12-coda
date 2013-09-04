@@ -1,0 +1,88 @@
+hi/file 66 test.his
+zone 3 3
+***opt stat
+***opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+hi/pl 101
+hi/pl 102
+hi/pl 103
+hi/pl 104
+hi/pl 105
+hi/pl 106
+hi/pl 107
+hi/pl 108
+hi/pl 109
+hi/pl 110
+hi/pl 111
+hi/pl 112
+hi/pl 113
+hi/pl 114
+hi/pl 115
+hi/pl 116
+hi/pl 117
+hi/pl 118
+*
+hi/pl 201
+hi/pl 202
+hi/pl 203
+hi/pl 204
+hi/pl 205
+hi/pl 206
+hi/pl 207
+hi/pl 208
+hi/pl 209
+hi/pl 210
+hi/pl 211
+hi/pl 212
+hi/pl 213
+hi/pl 214
+hi/pl 215
+hi/pl 216
+hi/pl 217
+hi/pl 218
+*
+hi/pl 301
+hi/pl 302
+hi/pl 303
+hi/pl 304
+hi/pl 305
+hi/pl 306
+hi/pl 307
+hi/pl 308
+hi/pl 309
+hi/pl 310
+hi/pl 311
+hi/pl 312
+hi/pl 313
+hi/pl 314
+hi/pl 315
+hi/pl 316
+hi/pl 317
+hi/pl 318
+*
+hi/pl 401
+hi/pl 402
+hi/pl 403
+hi/pl 404
+hi/pl 405
+hi/pl 406
+hi/pl 407
+hi/pl 408
+hi/pl 409
+hi/pl 410
+hi/pl 411
+hi/pl 412
+hi/pl 413
+hi/pl 414
+hi/pl 415
+hi/pl 416
+hi/pl 417
+hi/pl 418
+*
+
+
+
+
+

@@ -1,0 +1,202 @@
+hi/file 66 ftofhist.his
+*
+*opt stat
+*opt fit 1111111
+*
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+zone 4 4
+hi/pl 550
+hi/pl 551
+hi/pl 552
+hi/pl 553
+hi/pl 554
+hi/pl 555
+hi/pl 556
+hi/pl 557
+hi/pl 558
+hi/pl 559
+hi/pl 560
+hi/pl 561
+hi/pl 562
+hi/pl 563
+hi/pl 564
+hi/pl 565
+wait
+*
+zone 4 4
+hi/pl 600
+hi/pl 601
+hi/pl 602
+hi/pl 603
+hi/pl 604
+hi/pl 605
+hi/pl 606
+hi/pl 607
+hi/pl 608
+hi/pl 609
+hi/pl 610
+hi/pl 611
+hi/pl 612
+hi/pl 613
+hi/pl 614
+hi/pl 615
+wait
+*
+zone 4 4
+hi/pl 650
+hi/pl 651
+hi/pl 652
+hi/pl 653
+hi/pl 654
+hi/pl 655
+hi/pl 656
+hi/pl 657
+hi/pl 658
+hi/pl 659
+hi/pl 660
+hi/pl 661
+hi/pl 662
+hi/pl 663
+hi/pl 664
+hi/pl 665
+wait
+*
+zone 4 4
+hi/pl 700
+hi/pl 701
+hi/pl 702
+hi/pl 703
+hi/pl 704
+hi/pl 705
+hi/pl 706
+hi/pl 707
+hi/pl 708
+hi/pl 709
+hi/pl 710
+hi/pl 711
+hi/pl 712
+hi/pl 713
+hi/pl 714
+hi/pl 715
+wait
+*
+zone 4 4
+hi/pl 750
+hi/pl 751
+hi/pl 752
+hi/pl 753
+hi/pl 754
+hi/pl 755
+hi/pl 756
+hi/pl 757
+hi/pl 758
+hi/pl 759
+hi/pl 760
+hi/pl 761
+hi/pl 762
+hi/pl 763
+hi/pl 764
+hi/pl 765
+wait
+*
+zone 4 4
+hi/pl 800
+hi/pl 801
+hi/pl 802
+hi/pl 803
+hi/pl 804
+hi/pl 805
+hi/pl 806
+hi/pl 807
+hi/pl 808
+hi/pl 809
+hi/pl 810
+hi/pl 811
+hi/pl 812
+hi/pl 813
+hi/pl 814
+hi/pl 815
+wait
+*
+zone 4 4
+hi/pl 850
+hi/pl 851
+hi/pl 852
+hi/pl 853
+hi/pl 854
+hi/pl 855
+hi/pl 856
+hi/pl 857
+hi/pl 858
+hi/pl 859
+hi/pl 860
+hi/pl 861
+hi/pl 862
+hi/pl 863
+hi/pl 864
+hi/pl 865
+wait
+*
+zone 4 4
+hi/pl 900
+hi/pl 901
+hi/pl 902
+hi/pl 903
+hi/pl 904
+hi/pl 905
+hi/pl 906
+hi/pl 907
+hi/pl 908
+hi/pl 909
+hi/pl 910
+hi/pl 911
+hi/pl 912
+hi/pl 913
+hi/pl 914
+hi/pl 915
+wait
+*
+zone 4 4
+hi/pl 950
+hi/pl 951
+hi/pl 952
+hi/pl 953
+hi/pl 954
+hi/pl 955
+hi/pl 956
+hi/pl 957
+hi/pl 958
+hi/pl 959
+hi/pl 960
+hi/pl 961
+hi/pl 962
+hi/pl 963
+hi/pl 964
+hi/pl 965
+wait
+*
+zone 4 4
+hi/pl 1000
+hi/pl 1001
+hi/pl 1002
+hi/pl 1003
+hi/pl 1004
+hi/pl 1005
+hi/pl 1006
+hi/pl 1007
+hi/pl 1008
+hi/pl 1009
+hi/pl 1010
+hi/pl 1011
+hi/pl 1012
+hi/pl 1013
+hi/pl 1014
+hi/pl 1015
+wait
+*
+*
+*close 66

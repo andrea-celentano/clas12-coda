@@ -1,0 +1,45 @@
+hi/file 66 fadc250_bl.his
+zone 4 4
+opt stat
+***opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+hi/pl 1
+hi/pl 2
+hi/pl 3
+hi/pl 4
+hi/pl 5
+hi/pl 6
+hi/pl 7
+hi/pl 8
+hi/pl 9
+hi/pl 10
+hi/pl 11
+hi/pl 12
+hi/pl 13
+hi/pl 14
+hi/pl 15
+hi/pl 16
+*
+wait
+*
+hi/pl 21(0.:250.)
+hi/pl 22(0.:250.)
+hi/pl 23(0.:250.)
+hi/pl 24(0.:250.)
+hi/pl 25(0.:250.)
+hi/pl 26(0.:250.)
+hi/pl 27(0.:250.)
+hi/pl 28(0.:250.)
+hi/pl 29(0.:250.)
+hi/pl 30(0.:250.)
+hi/pl 31(0.:250.)
+hi/pl 32(0.:250.)
+hi/pl 33(0.:250.)
+hi/pl 34(0.:250.)
+hi/pl 35(0.:250.)
+hi/pl 36(0.:250.)
+*

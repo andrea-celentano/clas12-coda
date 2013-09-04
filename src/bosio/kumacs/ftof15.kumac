@@ -1,0 +1,22 @@
+hi/file 66 ftofhist.his
+*
+opt stat
+*opt fit 1111111
+*
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+zone 1 1
+*
+hi/pl 6115(150.:4000.)
+wait
+*
+hi/pl 6215(150.:4000.)
+wait
+*
+hi/pl 6315(150.:4000.)
+wait
+*
+*close 66
