@@ -137,7 +137,7 @@ main(int argc, char *argv[])
   if(dbGetStr(dbsock, tmp, hostname)==ERROR) return(ERROR);
 
   dbDisconnect(dbsock);
-  /*
+  /*  
   printf("hostname=>%s< portnum=%d\n",hostname,portnum);
   */
 
@@ -268,16 +268,18 @@ a123:
 
 #ifndef VXWORKS
   signal(SIGALRM,alarmHandler);
-  alarm(3); /* in 3 seconds connect call will be interrupted if did not finished */
+  alarm(10); /* in 3 seconds connect call will be interrupted if did not finished */
 #endif
 
   /* connect to server */ 
+  /*printf("connecting to server ...\n");*/ 
   if (connect (sFd, (struct sockaddr *) &serverAddr, sockAddrSize) == ERROR)
   {
     /*perror ("connect");*/ 
     close (sFd); 
 	return (ERROR);
   }
+  /*printf("connected !!!\n");*/ 
 
 #ifndef VXWORKS
   alarm(0); /* clear alarm so it will not interrupt us */

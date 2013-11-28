@@ -26,9 +26,10 @@ include $(CODA)/src/Makefile.include
 CLON_FLAGS += -I./$(MAIN).s -I$(CODA)/common/include \
 			-D_POSIX_PTHREAD_SEMANTICS
 
-LIBNAMES += $(CODA)/$(OSTYPE_MACHINE)/lib/libevio.so
+LIBNAMES += $(CODA)/$(OSTYPE_MACHINE)/lib/libevio.a
 
 LIBNAMES += $(CODA)/$(OSTYPE_MACHINE)/lib/libet.a
+LIBNAMES += -lexpat
 LIBNAMES += -lpthread
 
 ifneq ("$(OSTYPE)","Darwin")
@@ -51,6 +52,7 @@ install: install_lib install_bin
 	mkdir tmp
 	cp $(MAIN).s/*.h tmp
 	chmod 664 tmp/*
+	-mkdir -p $(CODA)/common/include
 	cp tmp/* $(CODA)/common/include
 	rm -rf tmp
 

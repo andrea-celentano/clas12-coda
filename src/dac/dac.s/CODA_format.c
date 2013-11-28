@@ -14,28 +14,8 @@
  *	Graham Heyes
  *	CEBAF Data Acquisition Group
  *
- * Revision History:
- *      $Log: CODA_format.c,v $
- *      Revision 2.7  1998/10/13 15:40:53  abbottd
- *      fixed event type mask in decode routines to look only at 1 byte
- *
- *      Revision 2.6  1998/05/27 13:44:57  heyes
- *      add message Q to ROC, improve EB stability on EBD transition
- *
- *      Revision 2.4  1997/04/23 17:33:49  heyes
- *      cmlog added and libmsg removed
- *
- *      Revision 2.3  1996/10/29 19:03:09  heyes
- *      new rcServer
- *
- *      Revision 2.2  1996/09/19 17:16:06  heyes
- *      Support for CODA file format
- *
- *      Revision 2.1  1996/09/19 14:14:08  heyes
- *      Initial release
- *
- *      Revision 1.2  1996/08/29 17:03:58  heyes
  *----------------------------------------------------------------------------*/
+
 #define ERROR -1
 #define OK 0
 #define NOT_TYPE 1
@@ -43,8 +23,6 @@
 #include <stdio.h>
 #include <pthread.h>
 
-#include "bosio.h"
-#include "etbosio.h"
 #include "CODA_format.h"
 #include "circbuf.h"
 

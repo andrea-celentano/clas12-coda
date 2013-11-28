@@ -63,8 +63,10 @@ IMPORT  STATUS sysBusToLocalAdrs(int, char *, char **);
 IMPORT  STATUS intDisconnect(int);
 IMPORT  STATUS sysIntEnable(int);
 IMPORT  STATUS sysIntDisable(int);
+/*
 IMPORT  STATUS sysVmeDmaDone(int, int);
 IMPORT  STATUS sysVmeDmaSend(UINT32, UINT32, int, BOOL);
+*/
 
 #define EIEIO    __asm__ volatile ("eieio")
 #define SYNC     __asm__ volatile ("sync")
@@ -80,7 +82,7 @@ LOCAL UINT32      dcrbIntVec      = DC_VME_INT_VEC;           /* default interru
 
 /* Define global variables */
 int ndcrb = 0;                                       /* Number of DCRBs in Crate */
-int dcrbA32Base   = 0x08800000;                      /* Minimum VME A32 Address for use by DCRBs */
+int dcrbA32Base   = 0x09000000;                      /* Minimum VME A32 Address for use by DCRBs */
 int dcrbA32Offset = 0x08000000;                      /* Difference in CPU A32 Base - VME A32 Base */
 int dcrbA24Offset = 0x0;                             /* Difference in CPU A24 Base - VME A24 Base */
 volatile struct dcrb_struct *DCp[(DC_MAX_BOARDS+1)]; /* pointers to DCRB memory map */
@@ -138,7 +140,7 @@ struct dcrb_data_struct dcrb_data;
  */
 
 STATUS 
-dcInit (UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
+dcInit(UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
 {
   int ii, res, errFlag = 0;
   int boardID = 0;
@@ -205,7 +207,7 @@ dcInit (UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
   bzero((char *)dcrbID,sizeof(dcrbID));
 
   printf("ndc=%d\n",ndc);fflush(stdout);
-  for (ii=0;ii<ndc;ii++) 
+  for (ii=0; ii<ndc; ii++) 
   {
       if(useList==1)
 	{
@@ -238,19 +240,18 @@ dcInit (UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
 	{
 	  /* Check that it is an DC board */
 	  if((rdata&DC_BOARD_MASK) != DC_BOARD_ID) 
-	    {
-	      printf(" ERROR: For board at 0x%x, Invalid Board ID: 0x%x\n",
+	  {
+	    printf(" ERROR: For board at 0x%x, Invalid Board ID: 0x%x\n",
 		     (UINT32) dc, rdata);
-/* 	      return(ERROR); */
-	    }
+        continue;
+	  }
 	  /* Check if this is board has a valid slot number */
 	  boardID =  ((vmeRead32(&(dc->BlockConfig)))&DC_SLOT_ID_MASK)>>11;
 	  if((boardID <= 0)||(boardID >21)) 
-	    {
-	      printf(" ERROR: Board Slot ID is not in range: %d\n",boardID);
-	      continue;
-/* 	      return(ERROR); */
-	    }
+	  {
+	    printf(" ERROR: Board Slot ID is not in range: %d\n",boardID);
+	    continue;
+	  }
 	  DCp[boardID] = (struct dcrb_struct *)(laddr_inc);
 	  dcrbRev[boardID] = vmeRead32(&(dc->FirmwareRev));
 /* 	} */
@@ -278,7 +279,7 @@ dcInit (UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
     if(!noBoardInit)
 	{
       printf("HardReseting slot %d ..\n",dcrbID[ii]);fflush(stdout);
-      dcrbHardReset(dcrbID[ii]);
+      /*dcrbHardReset(dcrbID[ii]);*/
       printf(".. done.\n");fflush(stdout);
 	}
   }
@@ -320,7 +321,7 @@ dcInit (UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
 
   printf("111\n");fflush(stdout);
 
-  if(!noBoardInit)
+    if(!noBoardInit)
     {
 	  switch(iFlag&0x7)
 	    {
@@ -364,11 +365,12 @@ dcInit (UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
     }
 
   /* Enable Clock source - Internal Clk enabled by default */ 
-  for(ii=0;ii<ndcrb;ii++) 
-    {
-      vmeWrite32(&(DCp[dcrbID[ii]]->ClockConfig),clkSrc | DC_REF_CLK_RESET);
-	  vmeWrite32(&(DCp[dcrbID[ii]]->ClockConfig),clkSrc);
-    }
+  for(ii=0; ii<ndcrb; ii++) 
+  {
+    vmeWrite32(&(DCp[dcrbID[ii]]->ClockConfig),clkSrc | DC_REF_CLK_RESET);
+	vmeWrite32(&(DCp[dcrbID[ii]]->ClockConfig),clkSrc);
+    printf("Board %d (slot %d) ClockConfig=0x%08x\n",ii,dcrbID[ii],vmeRead32(&(DCp[dcrbID[ii]]->ClockConfig)));
+  }
   taskDelay(1);
 
   /* Hard Reset FPGAs and FIFOs */
@@ -2551,6 +2553,69 @@ dcPrintScalers(int id)
 
   printf("\n Slot %d FIFO: nevents=%u nwords=%u\n",id,vmeRead32(&(DCp[id]->FifoEventCnt)),vmeRead32(&(DCp[id]->FifoWordCnt)));
 }
+
+
+/* width in ns */
+int
+dcrbTriggerPulseWidth(int id, unsigned int width)
+{
+  if(id==0) id=dcrbID[0];
+
+  if((id<=0) || (id>21) || (DCp[id] == NULL)) 
+  {
+    printf("dcSoftTrig: ERROR : DCRB in slot %d is not initialized \n",id);
+    return;
+  }
+
+  width /= 8;
+
+  vmeWrite32(&(DCp[id]->TriggerCtrl),width);
+
+  return(width);
+}
+
+
+/* returns 1 if link is UP, 0, otherwise */
+int
+dcrbLinkStatus(int id)
+{
+  if(id==0) id=dcrbID[0];
+
+  if((id<=0) || (id>21) || (DCp[id] == NULL)) 
+  {
+    printf("dcSoftTrig: ERROR : DCRB in slot %d is not initialized \n",id);
+    return;
+  }
+
+  return( ( (vmeRead32(&(DCp[id]->GtpStatus)))&0x1000 )>>12 );
+}
+
+int
+dcrbLinkReset(int id)
+{
+  if(id==0) id=dcrbID[0];
+
+  if((id<=0) || (id>21) || (DCp[id] == NULL)) 
+  {
+    printf("dcSoftTrig: ERROR : DCRB in slot %d is not initialized \n",id);
+    return;
+  }
+
+  vmeWrite32(&(DCp[id]->GtpCtrl), 0x203);
+  taskDelay(1);
+  vmeWrite32(&(DCp[id]->GtpCtrl), 0x202);
+  taskDelay(1);
+  vmeWrite32(&(DCp[id]->GtpCtrl), 0x200);
+  taskDelay(1);
+  vmeWrite32(&(DCp[id]->GtpCtrl), 0);
+  taskDelay(10);
+
+
+  return(0);
+}
+
+
+
 
 #else /* dummy version*/
 

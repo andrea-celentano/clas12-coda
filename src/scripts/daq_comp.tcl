@@ -12,7 +12,7 @@ expect clon
 
 if {[string match "*coda_roc*" $argv]} {
   set roc [lindex [split [lindex [split [lindex [split $argv] 4] '"'] 1] '\}'] 0]
-  if { [string length $roc] < 1 } { puts "\n Wrong roc name \n"; exit }
+  if { [string length $roc] < 1 } { puts "\n Wrong  roc  name \n"; exit }
   send "ssh $roc \r"
   send \r
   expect "$roc"

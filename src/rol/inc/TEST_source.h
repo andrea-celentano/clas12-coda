@@ -54,6 +54,9 @@ long preset_count;
 
 long *vme2_ir;
 
+#ifdef USE_GTP
+unsigned int gtpNFIFOEvents();
+#endif
 
 /*----------------------------------------------------------------------------*/
  /* test_trigLib.c -- Dummy trigger routines for UNIX based ROLs
@@ -77,6 +80,7 @@ testtenable(int code, int val)
 static void 
 testtdisable(int code, int val)
 {
+  printf("testtdisable reached\n");fflush(stdout);
   TESTflag = 0;
 }
 
@@ -89,6 +93,34 @@ testttype(int code)
 static int 
 testttest(int code)
 {
+  unsigned int nev;
+
+  if(TESTflag)
+  {
+#ifdef USE_GTP
+    /*printf("testttest: befor gtpNFIFOEvents()\n");fflush(stdout);*/
+    nev = gtpNFIFOEvents();
+    /*printf("testttest: after gtpNFIFOEvents()\n");fflush(stdout);*/
+#endif
+    if(nev > 0)
+    {
+      return(1);
+    }
+    else
+    {
+      return(0);
+    }
+  }
+  else
+  {
+    return(0);
+  }
+
+
+
+
+
+  /*was:
 
   TEST_count++;
 
@@ -96,6 +128,7 @@ testttest(int code)
     return(1);
   else
     return(0);
+  */
 }
 
 

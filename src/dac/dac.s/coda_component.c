@@ -9,71 +9,11 @@
  *      heyes@cebaf.gov   Tel: (804) 249-7030    Fax: (804) 249-7363          *
  *----------------------------------------------------------------------------*
  * Description:
- *	class for general CODA component + tcl init code
+ *	class for general CODA component
  *
  * Author:
  *	Graham Heyes
  *	CEBAF Data Acquisition Group
- *
- * Revision History:
- *      coda_component.c,v
- *      Revision 2.11  1997/02/11 19:25:00  heyes
- *      cvs stuff
- *
- *      Revision 2.10  1997/02/11 18:59:27  heyes
- *      Add revision info + other things
- *
- *      Revision 2.9  1997/01/16 15:30:37  heyes
- *      Increase speed of EB, inc. changes after Dec run.
- *
- *      Revision 2.8  1996/10/31 15:54:22  abbottd
- *      Changed rocp->active levels for polling, output options
- *
- *      Revision 2.7  1996/10/29 19:39:39  abbottd
- *      Fixed bug in coda_destructor for VxWorks
- *
- *      Revision 2.6  1996/10/29 19:03:11  heyes
- *      new rcServer
- *
- *      Revision 2.5  1996/10/17 14:30:05  heyes
- *      fix EB end problem
- *
- *      Revision 2.4  1996/10/08 17:58:59  heyes
- *      working threaded eb
- *
- *      Revision 2.3  1996/09/19 12:29:47  heyes
- *      Made EB into a real EB
- *
- *      Revision 2.2  1996/09/10 15:44:46  heyes
- *      signal handlers etc
- *
- *      Revision 2.1  1996/09/06 17:37:38  heyes 
- *      Fix error recovery
- *
- *      Revision 2.0  1996/09/06 17:26:01  abbottd
- *      Fixed Automatic  uid and gid detection
- *
- *      Revision 1.7  1996/09/04 13:52:20  heyes
- *      add if around gid code to behave better with old DB format
- *
- *      Revision 1.6  1996/09/04 13:49:09  heyes
- *      add gid and pid support
- *
- *      Revision 1.5  1996/08/29 17:03:56  heyes
- *      move include mempart.h to rc.h
- *
- *      Revision 1.4  1996/08/28 19:10:41  heyes
- *      added support for user selection of data destination.
- *
- *      Revision 1.3  1996/08/28 17:47:28  heyes
- *      removed all ddu_close
- *
- *      Revision 1.2  1996/08/28 17:44:56  heyes
- *      ddu_close
- *
- *      Revision 1.1.1.2  1996/08/22 15:23:01  heyes
- *      Imported sources
- *
  *
  *---------------------------------------------------------------------------*/
 /* include files follow here */
@@ -83,14 +23,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <tcl.h>
-
 
 #ifdef VXWORKS
 
 extern char *mystrdup(const char *s);
 
-/*#define NO_CMLOG 1*/
 
 #include <types.h>
 #include <errno.h>
@@ -120,8 +57,9 @@ typedef void 		(*VOIDFUNCPTR) (); /* ptr to function returning void */
 
 #endif
 
-#include "da.h"
+
 #include "rc.h"
+#include "da.h"
 #include "libdb.h"
 
 #include "circbuf.h" /* to get NIMNETBUFS */
@@ -153,7 +91,7 @@ static int udpsocket;
 static int udpport;
 static char udphost[128];
 
-static objClass localobject;
+/*static*/ objClass localobject;
 
 /*
  * Start of coda globals etc... There should be no globals !!!!
@@ -161,17 +99,20 @@ static objClass localobject;
 
 /*static*/ char configname[128]; /* Sergey: for CODA configuration name */
 
-/*static*/ char    *mysql_host = NULL;
+
+
+
 /*static*/ char    *session = NULL;
 static char    *objects = NULL;
-static char    *objectN = NULL;
-static char    *objectTy = NULL;
+/*static*/ char    *mysql_host = NULL;
 
-static int      interactive = 0;
-static int      runWatchdog = 0;
-static int      quiet = 1;
-static char    *startup_file0 = NULL;
-static char    *startup_file = NULL;
+static char Session[80];
+static char Objects[80];
+static char Mysql_host[80];
+
+static char ObjectsName[80];
+static char ObjectsClass[80];
+
 static char    *debugString = NULL;
 FUNCPTR         process_poll_proc = NULL;
 unsigned int *eventNumber;
@@ -184,16 +125,6 @@ int usrNetStackSysPoolStatus(char *title, int flag);
 int usrNetStackDataPoolStatus(char *title, int flag);
 #endif
 
-/*
- * The following variable points to the Tcl interpreter which is used by all
- * functions in this file.
- */
-Tcl_Interp *Main_Interp = NULL;
-/* extern */ int Tk_doneFlag__ = 0;
-/*
- * * Static variables used by the interactive Tcl/Tk processing
- */
-static Tcl_DString command; /* Used to assemble lines of terminal input into Tcl commands. */
 
 int            rcdebug_level__;
 int             global_code[32];
@@ -202,6 +133,7 @@ jmp_buf         global_env[8][32];
 int            global_env_depth[32];
 int            use_recover = 0;
 static int     codaDebugLevel = 0;
+
 
 
 
@@ -425,6 +357,7 @@ static int dalf;
 #include <dlfcn.h>
 #endif
 
+
 #include "rolInt.h"
 
 
@@ -557,51 +490,6 @@ isBigEndian(void)
   else                    return(0);
 }
 
-static void
-codaInitDebug()
-{
-  char	*env,
-  *tmp,
-  *tok;
-
-  env = getenv("CODA_DEBUG");
-
-  if(env )
-    {
-#ifdef VXWORKS
-      debugString = (char *)mystrdup(env);
-#else
-      debugString = (char *)strdup(env);
-#endif
-    }
-
-  if (debugString == NULL)
-    return;
-  
-  printf("\n-------------------------------------------------------\n");
-  printf("CODA_DEBUG found. debug started with the following:-\n\n");
-  tok = (char *)strtok(debugString,":");
-  while(tok)
-    {
-      if (strcmp(tok,"data") == 0)
-	{
-	  codaDebugLevel |= 1;
-	  printf("Debug level : data transport\n");
-	}
-      if (strcmp(tok,"api") == 0)
-	{
-	  codaDebugLevel |= 2;
-	  printf("Debug level : api\n");
-	}
-      if (strcmp(tok,"malloc") == 0)
-	{
-	  codaDebugLevel |= 4;
-	  printf("Debug level : fifo\n");
-	}
-      tok = (char *)strtok(NULL,":");
-    }
-  printf("\n-------------------------------------------------------\n\n");
-}
 
 void
 debug_printf(int level, char *fmt,...)
@@ -729,10 +617,12 @@ signal_thread (void *arg)
          
       case SIGINT:
         printf ("ERROR got SIGINT\n");
-	exit(-1);
+	    exit(-1);
       case SIGTERM:
+		/*
         debug_printf (2,"killed by: %s", Tcl_SignalMsg (sig_number));
         Tk_doneFlag__ = 1;
+		*/
         return;
         break;
         
@@ -741,7 +631,7 @@ signal_thread (void *arg)
         return;
     }
 
-#ifdef Linux
+#ifdef Linux_vme
 	bb_dma_free();
 #endif
 
@@ -773,387 +663,184 @@ Recover_Init ()
 #endif
 }
 
-/*
- * Tcl_AppInit, init all Tcl packages.
- */
-int
-Tcl_AppInit(Tcl_Interp *interp)
-{
-  int ret;
-
-printf("11-11\n");fflush(stdout);
-  /* Tcl Itself */
-  if((ret=Tcl_Init(interp)) == TCL_ERROR)
-  {
-    fprintf (stderr, "Tcl_Init failed: %s\n", interp->result);
-    printf("Tcl_AppInit: return 1\n");
-    return TCL_ERROR;
-  }
-
-printf("11-12\n");fflush(stdout);
-  if(Tcl_GlobalEval (interp, "set errorInfo \"not availible\"") != TCL_OK)
-  {
-    printf("Tcl_AppInit: return 2\n");
-    return TCL_ERROR;
-  }
-
-printf("11-13\n");fflush(stdout);
-
-  if (Itcl_Init (interp) == TCL_ERROR)
-  {
-    fprintf (stderr, "Itcl_Init failed: %s\n", interp->result);
-    return TCL_ERROR;
-  }
-
-#ifdef TCL_MEM_DEBUG
-  Tcl_InitMemory(interp);
-#endif
-  return TCL_OK;
-}
 
 char *user_flag1 = NULL;
 char *user_flag2 = NULL;
 unsigned long user_flag3 = 0;
 unsigned long user_flag4 = 0;
 
-TCL_PROC (coda_constructor)
+
+int
+coda_constructor()
 {
-  Itcl_Object    *obj;
   MYSQL *dbsock;
   char tmpp[256];
 
-printf("coda_constructor reached\n");fflush(stdout);
+printf("\n\ncoda_constructor reached\n");fflush(stdout);
+
   /* Allocate storage for local class information */
-  object = (objClass) ckalloc (sizeof (objClassStore));
-  bzero ((char *) object, sizeof (objClassStore));
+ localobject = (objClass) calloc (sizeof (objClassStore),1);
+  bzero ((char *) localobject, sizeof (objClassStore));
 
-  localobject = object;
+  localobject->name = (char *) calloc(81,1);
+  strcpy (localobject->name, ObjectsName);
+  printf("object->name >%s<\n",localobject->name);
 
-  /* Get name of this object and extract tail of name */
- {
-   char temp[1024];
-   strcpy(temp,"set name [info namespace tail $this]");
-   if (Tcl_Eval (interp, temp) != TCL_OK)
-     return TCL_ERROR;
- }
-  /* copy name into class structure */
+  localobject->className = ObjectsClass;
+  printf("object->className >%s<\n",localobject->className);
 
-  object->name = (char *) ckalloc (strlen (interp->result) + 1);
-  strcpy (object->name, interp->result);
-
-  /* we need to save the pointer to private object storage */
-
- {
-   char temp[1024];
-   strcpy(temp,"set this");
-   Tcl_Eval (interp, temp);				     /* find out who we are */
- }
-
-  Itcl_FindObject (interp, interp->result, &obj);		     /* find pointer to itcl object */
-
-  object->className = obj->cdefn->name;
-  object->interp = interp;
-
-  obj->ClientData = (ClientData) object;			     /* store private data */
-
-  /* tell anyone watching */
-  {
-    char tmp[400];
-    
-    sprintf(tmp,"%s {%s} %s {%s}",
-	    __FILE__,
-	    DAYTIME,
-	    CODA_USER,
-	    "$Id: coda_component.c,v 2.72 1999/12/09 14:36:25 abbottd Exp $");
-    Tcl_SetVar (interp, "tcl_modules",tmp,TCL_LIST_ELEMENT|TCL_APPEND_VALUE|TCL_GLOBAL_ONLY);
-  }
-  object->codaid = 0;
-  /* link C variables to object */
-
-  eventNumber = (unsigned long *) &object->nevents;
-  dataSent = (unsigned long *) &object->nlongs;
-
-  Tcl_LinkVar (interp, "CODA::state",(char *) &object->state,TCL_LINK_STRING); 
-  Tcl_LinkVar (interp, "CODA::name", (char *) &object->name, TCL_LINK_STRING);
-  Tcl_LinkVar (interp, "CODA::nlongs", (char *) &object->nlongs, TCL_LINK_INT);
-  Tcl_LinkVar (interp, "CODA::nevents", (char *) &object->nevents, TCL_LINK_INT);
-  Tcl_LinkVar (interp, "CODA::codaid", (char *) &object->codaid, TCL_LINK_INT);
-
- {
-   char temp[1024];
-   strcpy(temp,"set log_name $name");
-   if (Tcl_Eval (interp, temp) != TCL_OK)
-     return TCL_ERROR;
- }
+  localobject->codaid = 0;
 
   printf("CODA %s,Name : %s, Type %s Id : %d\x1b[0m\n",
 	 VERSION,
-	 object->name,
-	 object->className,
-	 object->codaid);
-  
+	 localobject->name,
+	 localobject->className,
+	 localobject->codaid);
 
-
+  eventNumber = (unsigned long *) &localobject->nevents;
+  dataSent = (unsigned long *) &localobject->nlongs;
 
   /* set state to booted and update 'state' field in database*/
- {
-   char temp[1024];
-   strcpy(temp,"statusstate booted");
-   if (Tcl_Eval (interp, temp) != TCL_OK) return TCL_ERROR;
- }
   if(codaUpdateStatus("booted") != CODA_OK) return(CODA_ERROR);
-  printf("INFO: '%s' state now '%s'\n",object->name,object->state);
- 
-
+  printf("INFO: '%s' state now '%s'\n",localobject->name,localobject->state);
 
   dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
-  sprintf(tmpp,"SELECT id FROM process WHERE name='%s'",object->name);
-  if(dbGetInt(dbsock, tmpp, &object->codaid)==CODA_ERROR)
+  sprintf(tmpp,"SELECT id FROM process WHERE name='%s'",localobject->name);
+  if(dbGetInt(dbsock, tmpp, &localobject->codaid)==CODA_ERROR)
   {
     dbDisconnect(dbsock);
     return(CODA_ERROR);
   }
   dbDisconnect(dbsock);
-  printf("-------> codaid=%d\n",object->codaid);
-
-
+  printf("-------> codaid=%d (localobject=0x%08x)\n",localobject->codaid,localobject);
 
   /* tells UDP_start() this is a first call */
   udp_loop_exit = -1;
 
+  /*set signal handler*/
+  Recover_Init();
 
-
-
-/*set signal handler*/
-Recover_Init();
-
-
-
-
-  return TCL_OK;
+  return CODA_OK;
 }
 
 
-
-
-TCL_PROC (coda_test)
-{
-  printf("DEBUG: status of object '%s' is '%s'\n",object->name,object->state);
-  return TCL_OK;
-}
-
-TCL_PROC (coda_destructor)
+int
+coda_destructor()
 {
   
-  if ((object != NULL) && (object->name != NULL)) {
-    printf("WARN: delete called in object '%s'\n",object->name);
+  if ((localobject != NULL) && (localobject->name != NULL))
+  {
+    printf("WARN: delete called in object '%s'\n",localobject->name);
 
-    Tcl_UnlinkVar (interp, "CODA::state");
-    Tcl_UnlinkVar (interp, "CODA::name");
-    Tcl_UnlinkVar (interp, "CODA::nlongs");
-    Tcl_UnlinkVar (interp, "CODA::nevents");
-    Tcl_UnlinkVar (interp, "CODA::codaid");
-
-    if (Tcl_VarEval (interp,
-		     "database query \"UPDATE process SET inuse='no',state='down' WHERE name='",
-		     object->name,
-		     "'\"",
-		     NULL) != TCL_OK) {
-      return TCL_ERROR;
-    }
+	/*
+	("database query \"UPDATE process SET inuse='no',state='down' WHERE name='",localobject->name)
+	*/
   }
-  return TCL_OK;
+  return CODA_OK;
+}
+
+int
+listSplit2(char *list, char *separator, int *argc, char argv[LISTARGV1][LISTARGV2])
+{
+  char *p, str[1024];
+  strcpy(str,list);
+  p = strtok(str,separator);
+  *argc = 0;
+  while(p != NULL)
+  {
+    /*printf("1[%d]: >%s< (%d)\n",*argc,p,strlen(p));*/
+    strcpy((char *)&argv[*argc][0], (char *)p);
+    /*printf("2[%d]: >%s< (%d)\n",*argc,(char *)&argv[*argc][0],strlen((char *)&argv[*argc][0]));*/
+    (*argc) ++;
+    if( (*argc) >= LISTARGV1)
+	{
+      printf("listSplit2 ERROR: too many args\n");
+      return(0);
+	}
+    p = strtok(NULL,separator);
+  }
+
+  return(0);
 }
 
 
-/*
- * Initialize the Tcl/Tk interpreter, plus everything else.
- * 
- * This is a highly modified version of "main()" from the file "tkMain.c"
- * in the standard Tcl/Tk distribution.
- */
+/*******************************************************************/
+/* main initialization routine, called from all coda_... processes */
 
 void
 CODA_Init(int argc, char **argv)
 {
-  Tcl_Interp *interp; /* Interpreter for this application. */
-  char       **listArgv, *args, *obj, *p, buf[20];
-  int        code, listArgc;
+  char       *args, *obj, *p, buf[20];
+  int        i, code;
   MYSQL *dbsock;
+  int  listArgc;
+  char listArgv[LISTARGV1][LISTARGV2];
 
-  /*
-   * Static variables used for parsing command line options.
-   */
-  static Tk_ArgvInfo argTable[] = {
-    {"-name", TK_ARGV_STRING, 0, (char *) &objectN,
-     "Name of object"},
-    {"-type", TK_ARGV_STRING, 0, (char *) &objectTy,
-     "Type of object"},
-    {"-objects", TK_ARGV_STRING, 0, (char *) &objects,
-     "Name and type of this object"},
-    {"-mysql_host", TK_ARGV_STRING, 0, (char *) &mysql_host,
-     "Name of host to connect to for mysql access"},
+  const char *help = "\nusage:\n\n coda_[roc/eb/er/etc]\n"
+    "              [-session Name of current Session]\n"
+    "              [-objects Name and type of this object]\n"
+    "              [-name Name of object]\n"
+    "              [-mysql_host Name of host to connect to for mysql access]\n";
+
+
+  /* parsing command line options: loop over all arguments, except the 1st (which is program name) */
+  i = 1;
+  while(i<argc)
+  {
+    if(strncasecmp(argv[i],"-h",2)==0) {
+      printf("%s",help);
+      exit(0);
+    }
+    else if (strncasecmp(argv[i],"-session",2)==0) {
+      strcpy(Session,argv[i+1]);
+      session = Session;
+      i=i+2;
+    }
+    else if (strncasecmp(argv[i],"-objects",2)==0) {
+	  strcpy(Objects,argv[i+1]);
+      objects = Objects;
+      i=i+2;
+    }
+    else if (strncasecmp(argv[i],"-mysql_host",2)==0) {
+      strcpy(Mysql_host,argv[i+1]);
+      mysql_host = Mysql_host;
+      i=i+2;
+    }
+    else if (strncasecmp(argv[i],"-",1)==0) {
+      printf("Unknown command line arg: %s %s\n\n",argv[i],argv[i+1]);
+      i=i+2;
+    }
+  }
+
+  printf("CODA_Init reached, input params: >%s< >%s<\n",Session,Objects);
+
+  if(session == NULL) session = getenv("SESSION");
+
+  if (objects == NULL || session == NULL)
+  {
+    printf("ERROR: objects and session must be defined\n");
+    exit(0);
+  }
+  else
+  {
+    printf("CODA_Init: use 'SESSION' as >%s<, objects as >%s<\n",session,objects);fflush(stdout);
+  }
+
+
+  /* ET name */
 #ifndef VXWORKS
-    {"-et_filename", TK_ARGV_STRING, 0, (char *) &et_filename,
-     "Filename of the ET system"},
-#endif
-    {"-session", TK_ARGV_STRING, 0, (char *) &session,
-     "Name of current Session"},
-    {"-i", TK_ARGV_CONSTANT, (char *) 1, (char *) &interactive,
-     "Interactive mode"},
-    {"-w", TK_ARGV_CONSTANT, (char *) 0, (char *) &runWatchdog,
-     "Startup Watchdog task"},
-    {"-q", TK_ARGV_CONSTANT, (char *) 0, (char *) &quiet,
-     "quiet mode"},
-    {"-r", TK_ARGV_CONSTANT, (char *) 1, (char *) &use_recover,
-     "Error Recover mode"},
-    {"-f", TK_ARGV_STRING, (char *) 0, (char *) &startup_file,
-     "startup_file"},
-    {"-f0", TK_ARGV_STRING, (char *) 0, (char *) &startup_file0,
-     "startup_file"},
-    {"-debug", TK_ARGV_STRING, (char *) 0, (char *) &debugString,
-     "debug mode \"data:api:\""},
-    {0, TK_ARGV_END, 0, 0, 0}
-  };
-
-  char *argv2[30];
-  int argc2;
-
-  printf("CODA_Init reached\n");
-#ifndef VXWORKS
+  if (et_filename == NULL)
   {
-    int res;
-    struct rlimit rls;
-
-#if !defined(Linux) && !defined(Darwin)    
-    res = getrlimit(RLIMIT_VMEM , &rls);
-    if (res == 0) {
-      debug_printf(2, "CORE limit was %d\n",rls.rlim_cur,rls.rlim_max);
-    } else { 
-      perror("getrlimit: ");
-    }
-    res = getrlimit(RLIMIT_AS , &rls);
-    if (res == 0) {
-      debug_printf(2, "AS limit was %d %d\n",rls.rlim_cur,rls.rlim_max);
-    } else { 
-      perror("getrlimit: ");
-    }
-#endif
-    res = getrlimit(RLIMIT_DATA , &rls);
-    if (res == 0) {
-      debug_printf(2, "DATA limit was %d %d\n",rls.rlim_cur,rls.rlim_max);
-    } else { 
-      perror("getrlimit: ");
-    }
-    res = getrlimit(RLIMIT_STACK , &rls);
-    if (res == 0) {
-      debug_printf(2, "STACK limit was %d %d\n",rls.rlim_cur,rls.rlim_max);
-    } else { 
-      perror("getrlimit: ");
-    }
-  }
-#endif /* not VXWORKS */
-
-  argc2 = argc;
-  debug_printf(2, "argv0 %s\n",argv[0]);
-  {
-    int ix;
-    for(ix=0; ix<30; ix++)
-    {
-      argv2[ix] = argv[ix];
-    }
-  }
-  /*Sergey: moved to roc_component.c: libPartInit();*/
-
-printf("CODA_Init 1\n");fflush(stdout);
-  Main_Interp = interp = Tcl_CreateInterp();
-printf("CODA_Init 2\n");fflush(stdout);
-
-  /*
-   * Parse command-line arguments.
-   */
-parseError:
-  if(Tk_ParseArgv (interp, 0, &argc, argv, argTable, 0) != TCL_OK)
-  {
-    fprintf (stderr, "%s\n", interp->result);
-    exit(3);
-  }
-
-  codaInitDebug();
-#ifdef VXWORKS
-  if (objectN == NULL) {
-    objectN = hostname();
-  }
-#else
-  debug_printf(2, "value \"%s\"\n",&argv[0][strlen(argv[0]) - 7]);
-
-  /* UNIX: use executable name to get objectTy (Sergey: isnt beautiful ?) */
-  if (!strcmp(&argv[0][strlen(argv[0]) - 7],"coda_eb")) {
-    objectTy = strdup("CDEB");
-  }
-  if (!strcmp(&argv[0][strlen(argv[0]) - 8],"coda_roc")) {
-    objectTy = strdup("ROC");
-  }
-  if (!strcmp(&argv[0][strlen(argv[0]) - 7],"coda_er")) {
-    objectTy = strdup("ER");
-  }
-  if (!strcmp(&argv[0][strlen(argv[0]) - 7],"coda_ts")) {
-    objectTy = strdup("TS");
-  }
-  if (!strcmp(&argv[0][strlen(argv[0]) - 8],"coda_mon")) {
-    objectTy = strdup("MON");
-  }
-
-  if (!strcmp(&argv[0][strlen(argv[0]) - 8],"coda_ebc")) {
-    objectTy = strdup("CDEB");
-  }
-  if (!strcmp(&argv[0][strlen(argv[0]) - 8],"coda_erc")) {
-    objectTy = strdup("ER");
-  }
-
-#endif
-
-printf("CODA_Init 11\n");fflush(stdout);
-  printf("CODA_Init: objectTy >%s<\n",objectTy);fflush(stdout);
-printf("CODA_Init 12\n");fflush(stdout);
-
-  if ((objects == NULL) && (objectN !=NULL) && (objectTy !=NULL)) {
-    static char temp[100];
-    sprintf(temp,"%s %s",objectN, objectTy);
-    objects = temp;
-  }
-
-  if(session == NULL)
-  {
-    session = getenv("SESSION");
-  }
-  printf("CODA_Init: use 'SESSION' as >%s<\n",session);fflush(stdout);
-
-
-
-  if (objects == NULL || session == NULL) {
-    argc = 2;
-    argv[1] = "-help";
-    goto parseError;
-  }
-
-  {
-    static char tmp[300];
-
-    sprintf(tmp,"DD_NAME=%s\0",session);
-    putenv(tmp);
-  }
-
-#ifndef VXWORKS
-  if (et_filename == NULL) {
     sprintf(et_name, "%s%s", "/tmp/et_sys_", session);
   }
-  else {
+  else
+  {
     strncpy(et_name, et_filename, ET_FILENAME_LENGTH - 1);
     et_name[ET_FILENAME_LENGTH - 1] = '\0';
   }
 #endif
 
+  /* mysql host */
   if(mysql_host)
   {
     static char tmp[100];
@@ -1172,61 +859,6 @@ printf("CODA_Init 12\n");fflush(stdout);
 #endif
     }
   }
-
-  /*
-   * Make command-line arguments available in the Tcl variables "argc"
-   * and "argv".  Also set the "geometry" variable from the geometry
-   * specified on the command line.
-   */
-/*printf("11: 0x%08x\n",args);*/
-  args = Tcl_Merge (argc - 1, argv + 1);
-/*printf("12: 0x%08x\n",args);*/
-/*printf("13: >%s<\n",args);*/
-  Tcl_SetVar (interp, "argv", args, TCL_GLOBAL_ONLY);
-/*printf("14\n");*/
-  ckfree (args);
-/*printf("15\n");*/
-  sprintf (buf, "%d", argc - 1);
-  Tcl_SetVar (interp, "argc", buf, TCL_GLOBAL_ONLY);
-  Tcl_SetVar (interp, "argv0", argv[0], TCL_GLOBAL_ONLY);
-
-  /*
-   * Set the "tcl_interactive" variable.
-   */
-  if (interactive)
-    Tcl_SetVar (interp, "tcl_interactive", "1", TCL_GLOBAL_ONLY);
-
-  Tcl_SetVar (interp, "tcl_modules", "", TCL_GLOBAL_ONLY);
-  Tcl_SetVar (interp, "coda_version", VERSION, TCL_GLOBAL_ONLY);
-
-
-
-printf("Tcl_AppInit CALLS !!!!!\n");
-  if(Tcl_AppInit(interp) != TCL_OK)
-  {
-    printf("Tcl_AppInit ERROR !!!!!\n");
-    fprintf (stderr, "%s\n", interp->result);
-    exit (3);
-  }
-
-
-  /* Set a global Tcl variable here indicating whether
-   * the CODA object is running on a Unix or VxWorks platform
-   */ 
-#ifdef VXWORKS
-  Tcl_SetVar(interp,"os_name","vxworks",TCL_GLOBAL_ONLY);
-#else
-  Tcl_SetVar(interp,"os_name","unix",TCL_GLOBAL_ONLY);
-#endif
-
-
- {
-   char temp[1024];
-   strcpy(temp,"set auto_path \". $auto_path $env(CODA)/common/lib/daq\"");
-   printf("11111111111111111\n");fflush(stdout);
-  Tcl_Eval(interp, temp);
-  printf("22222222222222222\n");fflush(stdout);
- }
 
   dbsock = dbConnect(mysql_host, getenv("EXPID"));
   printf("333333333333333\n");fflush(stdout);
@@ -1265,367 +897,89 @@ printf("Tcl_AppInit CALLS !!!!!\n");
         printf("string length of tmpp = %d\n",strlen(tmpp));
         exit(3);
       }
-      if(Tcl_SplitList (interp, list, &listArgc, &listArgv) != TCL_OK)
+
+
+	  listSplit2(list," ",&listArgc,listArgv);
+      if(listArgc == 4)
       {
-        fprintf (stderr, "%s\n", tmpp);
-      }
-      else
-      {
-        if(listArgc == 4)
-        {
 #ifdef VXWORKS
-	      nfsAuthUnixSet(listArgv[0],
+	    nfsAuthUnixSet(listArgv[0],
 			 atoi(listArgv[2]),
 			 atoi(listArgv[3]),
 			 0,
 			 0);
-	      nfsAuthUnixShow();
+	    nfsAuthUnixShow();
 #else
 	    /*setuid(atoi(listArgv[2]));
 	      setgid(atoi(listArgv[3]));*/
 #endif
-	    }
-        else
-        {
-	      printf ("WARNING: Could not get uid and gid info from database\n");
-	      printf ("         number of args in the id entry of sessions is %d\n",listArgc);
-	    }
-      }
+	  }
+      else
+      {
+	    printf ("WARNING: Could not get uid and gid info from database\n");
+	    printf ("         number of args in the id entry of sessions is %d\n",listArgc);
+	  }
+
     }
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
   
   {
-    int listArgc, ix;
-    char **listArgv;
-    Itcl_Namespace ns;
+    int ix;
+    int  listArgc;
+    char listArgv[LISTARGV1][LISTARGV2];	
 
-    if (Tcl_SplitList (interp, objects, &listArgc, &listArgv) != TCL_OK) {
-      fprintf (stderr, "%s\n", interp->result);
-      exit(3);
-    }
+	listSplit2(objects," ",&listArgc,listArgv);
 
-    if(CODA_class_Init(interp) != TCL_OK) {
-      char *val;
-      printf("CODA_class_Init");
-      fprintf (stderr, "ERROR:\n      %s\n", interp->result);
-      val = Tcl_GetVar(interp, "errorInfo", TCL_GLOBAL_ONLY);
-      fprintf (stderr, "TclStack:\n      %s\n",val);
-      exit (3);
-    }
-    
-    if (startup_file0) {
-      printf("here with %s\n",startup_file0);
 
-      if (Tcl_EvalFile(interp,(char *) startup_file0) != TCL_OK) {
-	fprintf (stderr, "startup file 0 :%s\n", interp->result);
-	exit(0);
-      }
-    }
     for(ix=0; ix<listArgc; ix+=2)
     {
+	  
       char *class = listArgv[ix+1];
       obj = listArgv[ix];
+      printf("session: >%s<\n",session);
+      printf("class:   >%s<\n",class);
+      printf("obj:     >%s<\n",obj);
+	  
+
+      strcpy(ObjectsName,listArgv[ix]);
+      strcpy(ObjectsClass,listArgv[ix+1]);
+      printf("session:      >%s<\n",session);/*clastest*/
+      printf("object name:  >%s<\n",ObjectsName);/*croctest4*/
+      printf("object class: >%s<\n",ObjectsClass);/*TS*/
 
 
-      printf("session: >%s<\n",session);/*clastest*/
-      printf("class:   >%s<\n",class);/*TS*/
-      printf("obj:     >%s<\n",obj);/*croctest4*/
 
-printf("CODA_Init 13\n");fflush(stdout);
 
-      if(Tcl_VarEval(interp, class, " ", obj, " ", session, NULL) != TCL_OK)
-      {
-        char *val;
-        fprintf (stderr, "CODA_Init: ERROR:\n      %s\n", interp->result);
-        val = Tcl_GetVar(interp, "errorInfo", TCL_GLOBAL_ONLY);
-        fprintf (stderr, "TclStack:\n      %s\n",val);
-        exit(3);
-      }
-printf("CODA_Init 14\n");fflush(stdout);
+
+printf("CODA_Init 13: coda_constructor starts\n");fflush(stdout);
+   
+ coda_constructor();
+
+printf("CODA_Init 14: coda_constructor ends\n");fflush(stdout);
+
+
+
+
     }  
-    {
-      char tmp[200];
-      sprintf(tmp,"puts -nonewline \"%s::%s> \"",session,obj);
-      Tcl_SetVar(interp,"tcl_prompt1",tmp, TCL_GLOBAL_ONLY);
-    }
-    if (interactive) {
-      if (!quiet) {
-	printf("This is a Tcl shell for control, debugging and access to internal parameters.\n");
-	printf("\n");
-	printf("For a list of the names of valid commands type...\n\n");
-	
-	printf("%s info commands\n\n",obj);
-      }
-      if (!quiet) {
-	printf("For a list of configuration parameters type ...\n\n");
-	printf("%s configure\n\n",obj);
-	printf("Single parameters can be read via ...\n\n");
-	printf("%s cget -[name]\n\n",obj);
-	printf("...where [name] can be replaced by a name found using \"configure\"\n");
-	printf("The versions of C files used to build this code can be found by...\n\n");
-	printf("%s version\n\n",obj);
-      }
-    }
 
-    ckfree ((char *) listArgv);
-  }
-  /*
-   * Error recovery Init. . .
-   */
-  Recover_Init ();
-  if (startup_file)
-    Tcl_EvalFile(interp,(char *) startup_file);
 
-  if (interactive && !quiet) {
-    printf("Use all other commands with care.\n");
-    printf("\n");
   }
 }
 
 
-void
-CODA_Service (objClass object)
-{
-}
-
-
-/*
- * ----------------------------------------------------------------------
- * 
- * Prompt --
- * 
- * Issue a prompt on standard output, or invoke a script to issue the prompt.
- * 
- * Results: None.
- * 
- * Side effects: A prompt gets output, and a Tcl script may be evaluated in
- * interp.
- * 
- * ----------------------------------------------------------------------
- */
-static void
-Prompt(interp, partial)
-Tcl_Interp *interp;  /* Interpreter to use for prompting */
-int         partial; /* Non-zero means there already exists a partial command,
-                        so use the secondary prompt */
-{
-  char *promptCmd;
-  int code;
-  /*
-printf("Prompt reached\n");
-  */
-  promptCmd = Tcl_GetVar (interp,
-			  partial ? "tcl_prompt2" : "tcl_prompt1", TCL_GLOBAL_ONLY);
-  if(promptCmd == NULL)
-  {
-  defaultPrompt:
-    if(!partial)
-    {
-      fputs ("% ", stdout);
-    }
-  }
-  else
-  {
-    code = Tcl_Eval (interp, promptCmd);
-    if(code != TCL_OK)
-    {
-      Tcl_AddErrorInfo (interp,
-			"\n    (script that generates prompt)");
-      fprintf (stderr, "%s\n", interp->result);
-      goto defaultPrompt;
-    }
-  }
-  fflush (stdout);
-  /*
-printf("Prompt done\n");
-  */
-}
-
-/*
- * ----------------------------------------------------------------------
- * 
- * StdinProc --
- * 
- * This procedure is invoked by the event dispatcher whenever standard input
- * becomes readable.  It grabs the next line of input characters, adds them to
- * a command being assembled, and executes the command if it's complete.
- * 
- * Results: None.
- * 
- * Side effects: Could be almost arbitrary, depending on the command that's typed.
- * 
- * ----------------------------------------------------------------------
- */
-static int oldStdin, oldStdout, oldStderr;
-
-/* ARGSUSED */
-static void
-StdinProc (clientData, mask)
-ClientData      clientData;				     /* Not used. */
-int             mask;					     /* Not used. */
-{
-  char            input[4000];
-  static int      gotPartial = 0;
-  char           *cmd;
-  int             code, count;
-  /*
-printf("StdinProc reached\n");
-  */
-  count = read (0, input, sizeof (input) - 1);
-  if (count <= 0) {
-    if (!gotPartial) {
-#ifdef VXWORKS
-      int fd;
-      char cmd[200];
-      fd = ioTaskStdGet(0,0);
-      printf("close connection file%d\n",fd);
-      if (!interactive) Tk_DeleteFileHandler (0);
-      sprintf(cmd,"close file%d\n",fd);
-      Tcl_Eval(Main_Interp,cmd);
-      ioTaskStdSet(0,0,oldStdin);
-      ioTaskStdSet(0,1,oldStdout);
-      ioTaskStdSet(0,2,oldStderr);
-      return;
-#else
- {
-   char temp[1024];
-   strcpy(temp,"exit");
-	Tcl_Eval (Main_Interp, temp);
- }
-	exit (6);
-#endif
-    } else {
-      count = 0;
-    }
-  }
-  cmd = Tcl_DStringAppend (&command, input, count);
-
-  if (count != 0) {
-    if ((input[count - 1] != '\n') && (input[count - 1] != ';')) {
-      gotPartial = 1;
-      goto prompt;
-    }
-    if (!Tcl_CommandComplete (cmd)) {
-      gotPartial = 1;
-      goto prompt;
-    }
-  }
-  gotPartial = 0;
-
-
-  /*
-   * Disable the stdin file handler while evaluating the command;
-   * otherwise if the command re-enters the event loop we might process
-   * commands from stdin before the current command is finished.  Among
-   * other things, this will trash the text of the command being
-   * evaluated.
-   */
-
-  Tk_CreateFileHandler (0, 0, StdinProc, (ClientData) 0);
-  code = Tcl_RecordAndEval (Main_Interp, cmd, 0);
-  Tk_CreateFileHandler (0, TK_READABLE, StdinProc, (ClientData) 0);
-  Tcl_DStringFree (&command);
-  if (*Main_Interp->result != 0) {
-    printf ("%s\n", Main_Interp->result);
-  }
-
-  /*
-   * Output a prompt.
-   */
-prompt:
-  Prompt (Main_Interp, gotPartial);
-}
-
-/*
- * Main program loop...
- */
-#ifdef VXWORKS
-static int watchFlag;
-
-void codaWatchdog()
-{
-  while (1) {
-
-    watchFlag = 1;
-    taskDelay (60*sysClkRateGet()); /* ten second timeout */
-
-    if (watchFlag) {
-      int i;
-      for(i=8;i<32;i++) 
-	close(i);
-      break;
-    }
-  }
-  printf("codaWatchdog done\n");
-}
-
-
-static void watching ()
-{
-  watchFlag = 0;
-  Tk_CreateTimerHandler (2000, (Tk_TimerProc *) watching, (ClientData) NULL);
-}
-#endif
-
-TCL_PROC(CODAConnectStdio)
-{
-#ifdef VXWORKS
-  FILE           *filePtr;
-  int fd;
-
-  oldStdin  = ioTaskStdGet(0,0);
-  oldStdout = ioTaskStdGet(0,1);
-  oldStderr = ioTaskStdGet(0,2);
-  if (Tcl_GetOpenFile (interp, argv[1], 1, 1, &filePtr) != TCL_OK) {
-    return TCL_ERROR;
-  }
-  fd = fileno (filePtr);
-
-  ioTaskStdSet(0,0,fd);
-  ioTaskStdSet(0,1,fd);
-  ioTaskStdSet(0,2,fd);
-
-  if (!interactive)
-  {
-    Tk_CreateFileHandler (0, TK_READABLE, StdinProc, (ClientData) 0);
-  }
-
-#endif
-  return TCL_OK;
-}
-
-TCL_PROC(CODADisconnectStdio)
-{
-#ifdef VXWORKS
-  ioTaskStdSet(0,0,oldStdin);
-  ioTaskStdSet(0,1,oldStdout);
-  ioTaskStdSet(0,2,oldStderr);
-#endif
-  return TCL_OK;
-}
 
 
 /* Sergey */
-int CODAtcpServer(void);
+static int CODAtcpServer(void);
 
-/* main loop */
+
+
+
+/*************************************************/
+/* main loop: called from all coda_... processes */
+
 void
 CODA_Execute ()
 {
@@ -1634,28 +988,6 @@ CODA_Execute ()
 #endif  
   int fd;
   int status;
-  
-  /*
-   * If the following lines are removed then tcl_interactive must be set
-   * to 0
-   */
-#ifdef VXWORKS
-  Tk_CreateTimerHandler(2000, (Tk_TimerProc *) watching, (ClientData) NULL);
-
-  /* wait for shell to start */
-  do
-  {
-    taskDelay (sysClkRateGet ());
-  }
-  while (taskNameToId ("tShell") == ERROR);
-
-  if(runWatchdog)
-  {
-    printf("\nStart watchdog\n");
-    sp(codaWatchdog);
-  }
-#endif
-
 
   /* Sergey: start CODAtcpServer as thread */
 #ifdef VXWORKS
@@ -1677,63 +1009,23 @@ CODA_Execute ()
 #endif
 
 
-  if(interactive)
-  {
-    
-#ifdef VXWORKS
-    printf("\nThis is VxWorks so disallow Tcl exit\n");
- {
-   char temp[1024];
-   strcpy(temp,"proc exit {} {puts \"exit not allowed\"}");
-    Tcl_Eval(Main_Interp,temp);
- }
-    printf("Readout controller ready to roll...\n");
-#endif
-
-    Tk_CreateFileHandler (0, TK_READABLE, StdinProc, (ClientData) 0);
-    Prompt (Main_Interp, 0);
-
-  }
-
-  Tcl_DStringInit (&command);
-  
   /*
-   * Process Tk events until the last window is destroyed, then die
-   * gracefully.  This function never returns.
+   * TODO: die gracefully.  This function never returns.
    */
-  {
-    int res;
-    recoverContext ("main program loop",res);
 
-
-#ifndef VXWORKS
-    while(!Tk_doneFlag__)
-    {
-#else
-    while(1)
-    {
-#endif
-
-      (void)Tk_DoOneEvent(0);
-
-/*printf("while 3\n");*/
-    }
-      
 #ifdef VXWORKS
-    Tcl_DStringFree(&command);
-    Tcl_DeleteInterp(Main_Interp);
-#else
- {
-   char temp[1024];
-   strcpy(temp,"exit");
-    Tcl_Eval(Main_Interp, temp);
- }
-    exit(1);
-#endif
-    exit (5);
-    }
-    
+  while(1)
+  {
+    taskDelay(sysClkRateGet());
   }
+#else
+  while(1) sleep(1);
+#endif
+
+  exit(0);
+}
+    
+
 
 
 
@@ -1748,8 +1040,7 @@ CODA_Execute ()
   /*************************************************/
   /*************************************************/
   /*************************************************/
-  /* Sergey: CLAS stuff (no TCL beyond that point) */
-
+  /* Sergey: CLAS stuff  */
 
 
 
@@ -1898,7 +1189,7 @@ UDP_establish(char *host, int port)
   /* */
   bzero((char *)&sin, sizeof(sin));
 
-  /* for vxworks - in libtklite.a; should we move it somewhere ??? */
+  /* for vxworks - in libdb.c */
   hp = gethostbyname(host);
   if(hp == 0 && (sin.sin_addr.s_addr = inet_addr(host)) == -1)
   {
@@ -2187,14 +1478,15 @@ int
 UDP_send(int socket)
 {
   char tmp[1000], tmpp[1000];
-  int i, nevents, nlongs;
+  int i, nevents, nlongs, eventdiff;
   time_t newtime, timediff;
   float event_rate, data_rate;
   static int oldevents, oldlongs;
   static time_t oldtime;
-
   int nbytes, cc, rembytes;
   char *buffer2;
+
+  if(oldtime==0) oldtime=time(0);
 
 #ifdef VXWORKS
   semTake(udp_lock, WAIT_FOREVER);
@@ -2204,9 +1496,7 @@ UDP_send(int socket)
 
   for(i=0; i<MAXUDPS; i++)
   {
-	/*
-printf("UDP_send[%d]: active=%d\n",i,udpstr[i].active);
-	*/
+	/*printf("UDP_send[%d]: active=%d\n",i,udpstr[i].active);*/
     if(udpstr[i].active==0) continue;
 
     /* for the message started from 'sta:' update statistic info */
@@ -2218,42 +1508,59 @@ printf("UDP_send[%d]: active=%d\n",i,udpstr[i].active);
       newtime = time(0); /* time in seconds */
 
       event_rate = data_rate = 0.0;
-      if(oldtime > 0)
+
+      timediff = newtime - oldtime;
+      eventdiff = nevents - oldevents;
+	  /*printf("timediff: %u (%u - %u)\n",timediff,newtime,oldtime);*/
+      if(timediff != 0)
       {
-        timediff = newtime - oldtime;
-        if(timediff != 0)
-        {
-          event_rate = (nevents - oldevents)/timediff;
-	      data_rate = 4*(nlongs - oldlongs)/timediff;
-        }
+		if(eventdiff != 0)
+	    {
+          event_rate = eventdiff/timediff;
+  	      /*printf("event_rate: %f (%u - %u)\n",event_rate,nevents,oldevents);*/
+          data_rate = 4*(nlongs - oldlongs)/timediff;
+
+          oldlongs = nlongs;
+          oldevents = nevents;
+          oldtime = newtime;
+
+	      strcpy(tmp,udpstr[i].message);
+          sprintf(tmpp," %d %9.3f %d %12.3f",nevents,event_rate,nlongs,data_rate);
+	      /*printf("UDP_send[%d]: %d %9.3f %d %12.3f\n",i,nevents,event_rate,nlongs,data_rate);*/
+          strcat(tmp,tmpp);
+		}
+        else if(timediff>=3) /* if 3 seconds without rate, send message with zero rates: */
+		{                    /* have to send something to make runcontrol happy          */
+	      strcpy(tmp,udpstr[i].message);
+          sprintf(tmpp," %d %9.3f %d %12.3f",nevents,event_rate,nlongs,data_rate);
+	      /*printf("UDP_send[%d]: %d %9.3f %d %12.3f\n",i,nevents,event_rate,nlongs,data_rate);*/
+          strcat(tmp,tmpp);
+		}
+        else
+		{
+          tmp[0] = '\0'; /* do not send anything */
+		}
       }
+      else
+	  {
+        tmp[0] = '\0'; /* do not send anything */
+	  }
 
-      oldlongs = nlongs;
-      oldevents = nevents;
-      oldtime = newtime;
-
-      strcpy(tmp,udpstr[i].message);
-      sprintf(tmpp," %d %9.3f %d %12.3f",nevents,event_rate,nlongs,data_rate);
-	  /*
-printf("UDP_send[%d]: %d %9.3f %d %12.3f\n",i,nevents,event_rate,nlongs,data_rate);
-	  */
-      strcat(tmp,tmpp);
-	
     }
     else
     {
-      strcpy(tmp,udpstr[i].message);
+      strcpy(tmp,udpstr[i].message); /* not 'sta:' messages */
     }
 
-	/*
-printf("UDP_send[%d] >%s<\n",i,tmp);
-printf(" udpport=%d\n",udpport);
+	/*	
+    printf("UDP_send[%d] >%s<\n",i,tmp);
+    printf(" udpport=%d\n",udpport);
 	*/
 
     nbytes = strlen(tmp);
     if(nbytes == 0)
     {
-      printf("UDP_send: no data - return\n");
+      /*printf("UDP_send: no data - return\n");*/
       goto exit3;
     }
 
@@ -2510,42 +1817,6 @@ UDP_start()
   }
 #endif
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   return(0);
 }
 
@@ -2556,7 +1827,7 @@ UDP_start()
 /***************************************************/
 /***************************************************/
 /***************************************************/
-/* CODAtcpServer functions - attempt to replace DP code !!! */
+/* CODAtcpServer functions - to receive commands from runcontrol */
 
 #ifdef VXWORKS
 
@@ -2593,9 +1864,9 @@ UDP_start()
 /* readiness flag */
 static int coda_request_in_progress;
 /* currently processed message */
-static char current_message[REQUEST_MSG_SIZE];
+static char coda_current_message[REQUEST_MSG_SIZE];
 /* function declarations */ 
-void CODAtcpServerWorkTask(TWORK *targ); 
+static void CODAtcpServerWorkTask(TWORK *targ); 
 
 /**************************************************************************** 
 * * CODAtcpServer - accept and process requests over a TCP socket 
@@ -2644,6 +1915,7 @@ CODAtcpServer(void)
   serverAddr.sin_family = AF_INET;
   serverAddr.sin_port = htons(portnum); /* set desired port number */
   serverAddr.sin_addr.s_addr = htonl(INADDR_ANY); /* create a TCP-based socket (???) */ 
+
 
   /* bind socket to local address */
   while(bind(sFd, (struct sockaddr *)&serverAddr, sockAddrSize) == ERROR)
@@ -2700,7 +1972,7 @@ CODAtcpServer(void)
     many requests may create network buffer shortage */
     if(coda_request_in_progress)
     {
-      printf("wait: coda request >%s< in progress\n",current_message);
+      printf("wait: coda request >%s< in progress\n",coda_current_message);
 #ifdef VXWORKS
       taskDelay(100);
 #else
@@ -2791,9 +2063,9 @@ printf("WorkTask: alloc 0x%08x\n",targ.address);fflush(stdout);
 * * RETURNS: N/A. */ 
 
 
-extern int codaExecute(char *message);
+static int codaExecute(char *message);
 
-void
+static void
 CODAtcpServerWorkTask(TWORK *targ) 
 {
   TREQUEST clientRequest;            /* request/message from client */ 
@@ -2822,7 +2094,7 @@ CODAtcpServerWorkTask(TWORK *targ)
     strcpy(message, clientRequest.message);
 
     /* store it to be used later for debugging */
-    strcpy(current_message, message);
+    strcpy(coda_current_message, message);
 
     /* try Executing the message (each component must provide codaExecute() function */
 	/*
@@ -2876,7 +2148,7 @@ printf("WorkTask: free 0x%08x\n",targ->address);fflush(stdout);
     strcpy(message, clientRequest.message);
 
     /* store it to be used later for debugging */
-    strcpy(current_message, message);
+    strcpy(coda_current_message, message);
 
     /* try Executing the message (each component must provide codaExecute() function */
     /*do not print: message may contains bad characters, it will be checked inside codaExecute
@@ -2907,6 +2179,11 @@ printf("WorkTask: free 0x%08x\n",targ->address);fflush(stdout);
 
   return;
 }
+
+
+
+
+
 
 
 /**************************/
@@ -3008,6 +2285,7 @@ listSplit1(char *list, int flag,
 
   return(0);
 }
+
 
 
 #if defined Linux || defined Darwin
@@ -3230,7 +2508,6 @@ usrNetStackDataPoolStatus(char *title, int flag)
 /* example of tcpClient's command:
 
      ./tcpClient EB5 'download test_ts2'
-
 */
 
 int codaDownload(char *confname);
@@ -3240,9 +2517,14 @@ int codaEnd();
 int codaPause();
 int codaExit();
 
+/* example
+
+codaDownload("adcecal1")
+
+*/
 
 
-int
+static int
 codaExecute(char *command)
 {
   int i, j, len, len1;

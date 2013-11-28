@@ -76,7 +76,16 @@ struct dcrb_struct {
 /* 0x0090-0x0093 */ volatile unsigned int BusyWordCnt;
 /* 0x0094-0x0097 */ volatile unsigned int BusyEventCnt;
 /* 0x0098-0x009B */ volatile unsigned int BusyBlockCnt;
-/* 0x0090-0x0107 */ volatile unsigned int Dummy0[(0x0108-0x009C)/4];
+
+/* 0x009C-0x009F */ volatile unsigned int TriggerCtrl;
+/* 0x00A0-0x00A3 */ volatile unsigned int GtpCtrl;
+/* 0x00A4-0x00A7 */ volatile unsigned int GtpCtrlTile0;
+/* 0x00A8-0x00AB */ volatile unsigned int GtpDrpCtrl;
+/* 0x00AC-0x00AF */ volatile unsigned int GtpStatus;
+/* 0x00B0-0x00B3 */ volatile unsigned int SoftErrCnt;
+/* 0x00B4-0x00B7 */ volatile unsigned int PrbsErrCnt;
+/* 0x00B8-0x0107 */ volatile unsigned int Reserved3[(0x0108-0x00B8)/4];
+ 
 /* 0x0108-0x010B */ volatile unsigned int SwAGpio;
 /* 0x010C-0x010F */ volatile unsigned int SwBGpio;
 /* 0x0110-0x0113 */ volatile unsigned int TokenInCfg;

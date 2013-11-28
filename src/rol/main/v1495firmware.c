@@ -3,7 +3,11 @@
 
 /*USAGE: must be on the VME controller, type:
 
-v1495firmware 0x11110000 FCALTrigger_panel1b.rbf
+v1495firmware 0x11A00000 ECALTrigger.rbf
+
+mv6100:
+cd "/usr/local/clas12/release/0.1/coda/src/rol/firmwares"
+v1495firmware(0x90A00000,"ECALTrigger.rbf",0,0)
 
 */
 
@@ -20,15 +24,7 @@ v1495firmware(0xfa510000,"v1495vtop.rbf",0,1)
 #include <string.h>
 
 
-#ifdef VXWORKS
-
-int
-v1495firmware()
-{
-  return(0);
-}
-
-#else
+#ifdef Linux_vme
 
 int
 main(int argc, char *argv[])
@@ -68,6 +64,14 @@ main(int argc, char *argv[])
   }
 
   exit(0);
+}
+
+#else
+
+int
+main()
+{
+  return(0);
 }
 
 #endif

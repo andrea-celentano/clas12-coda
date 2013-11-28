@@ -1750,6 +1750,15 @@ daqRun::processCommand (rccIO* chan, int command, rcMsg* cmsg)
 
 	cmd = command;
 
+	/*
+#ifdef _CODA_DEBUG
+	{
+	  daqNetData ndata = (daqNetData)(*cmsg);
+	  printf("processCommand: >%s<\n",(char *)ndata);
+    }
+#endif
+	*/
+
 	switch (cmd) {
 	case DALOADDBASE:
 		{
@@ -1797,7 +1806,9 @@ daqRun::processCommand (rccIO* chan, int command, rcMsg* cmsg)
 			// so I have to make a copy
 			char *runtype = new char[::strlen((char *)ndata) + 1];
 			::strcpy (runtype, (char *)ndata);
-
+#ifdef _CODA_DEBUG
+			printf("processCommand configure: runtype >%s<\n",(char *)ndata);
+#endif
 			if (preConfigure (runtype) != CODA_SUCCESS) {
 				delete []runtype;
 				res = new daqNetData (exptname_, "command", CODA_ERROR);

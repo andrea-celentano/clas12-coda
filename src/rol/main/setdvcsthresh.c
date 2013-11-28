@@ -1,6 +1,14 @@
 /* UNIX version only */
 
-#ifndef VXWORKS
+#if defined(VXWORKS) || defined(ARM)
+
+int
+main()
+{
+  exit(0);
+}
+
+#else
 
 /* setdvcsthresh.c
  *

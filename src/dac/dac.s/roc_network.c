@@ -46,6 +46,9 @@ extern long     vxTicks;
 #include "circbuf.h"
 #include "bigbuf.h"
 
+#define CODA_ERROR 1
+#define CODA_OK 0
+
 /****************************************************************************/
 /*************************** roc_network functions **************************/
 
@@ -780,7 +783,7 @@ waiting1:
   if( !(result = mysql_store_result(dbsock)) )
   {
     printf("ERROR in mysql_store_result()\n");
-    return(TCL_ERROR);
+    return(CODA_ERROR);
   }
   else
   {

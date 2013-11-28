@@ -7,16 +7,12 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-#ifdef USE_TK
 
-/*
-#include "tkInt_forCREG.h"
-*/
-/*
-#include "tcl.h"
-#include "tk.h"
-#include "tkPort.h"
-*/
+
+/* sergey: USE_TK is defined only in codatcl1.0/Makefile, it used when codaRegistry.c is included
+into codatcl.c and compiled there */
+
+#ifdef USE_TK
 
 #include "tkInt.h"
 

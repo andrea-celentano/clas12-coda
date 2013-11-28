@@ -148,9 +148,10 @@ rcConnect::undoit (void)
 int
 rcConnect::connect (void)
 {
+  int status;
   rcComdOption* option = rcComdOption::option ();
 
-  int status = netHandler_.connect (option->dbasename (),
+  status = netHandler_.connect (option->dbasename (),
 			      option->session (),
 			      option->msqldhost ());
   if (status != CODA_SUCCESS)
@@ -207,6 +208,7 @@ printf("CEDIT 1\n");
 
     //EditorSelectConfig(::getenv("DEFAULT_RUN"));
   }
+
 
   printf("rcConnect::connect done\n");
 

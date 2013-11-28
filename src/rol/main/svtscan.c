@@ -1,60 +1,54 @@
 
 /* svtscan.c */
+/*
+./Linux_i686_vme/bin/svtscan 3 /usr/local/clas12/parms/vscm/VSCMConfig.txt 100 1 0 7 0 127
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "vscmLib.h"
 
-#ifdef VXWORKS
 
-int
-svtScan()
-{
-  return(0);
-}
-
-#else
-
-/*
-#include "../../dac/main/tcpServer.c"
-*/
+#ifdef Linux_vme
 
 int
 main(int argc, char *argv[])
 {
+  int board_id;
   char filename[256];
-  int minthreshold, pulser_rate;
-  int ii;
   int beg_chip, end_chip, beg_chan, end_chan;
+  int start_thr, chan_mult;
+  int ii, jj, nvscm1;
 
-  if(argc!=4 && argc!=6 && argc!=8)
+  if(argc!=5 && argc!=7 && argc!=9)
   {
-    printf("usage: svtscan <filename> min_threshold pulser_rate [beg_chip(0-7) end_chip(0-7)] [beg_chan(0-127) end_chan(0-127)]\n");
+    printf("usage: svtscan <slot#> <filename> <start threshold> <channel multiplicity> [beg_chip(0-7) end_chip(0-7)] [beg_chan(0-127) end_chan(0-127)]\n");
     exit(0);
   }
   else
   {
-    strncpy(filename, argv[1], 255);
-    minthreshold = atoi(argv[2]);
-    pulser_rate = atoi(argv[3]);
-    printf("use arguments: >%s< %d %d\n",filename,minthreshold,pulser_rate);
+    board_id = atoi(argv[1]);
+    strncpy(filename, argv[2], 255);
+    start_thr = atoi(argv[3]);
+    chan_mult = atoi(argv[4]);
+    printf("use arguments: %d >%s< %d %d\n",board_id,filename,start_thr,chan_mult);
 
     beg_chip = 0;
-    end_chip = 7;
+    end_chip = 3;
     beg_chan = 0;
     end_chan = 127;
 
-    if(argc==6||argc==8)
+    if(argc==7||argc==9)
 	{
-      beg_chip = atoi(argv[4]);
-      end_chip = atoi(argv[5]);
+      beg_chip = atoi(argv[5]);
+      end_chip = atoi(argv[6]);
     }
 
-    if(argc==8)
+    if(argc==9)
 	{
-      beg_chan = atoi(argv[6]);
-      end_chan = atoi(argv[7]);
+      beg_chan = atoi(argv[7]);
+      end_chan = atoi(argv[8]);
     }
 
   }
@@ -62,17 +56,30 @@ main(int argc, char *argv[])
   /* Open the default VME windows */
   vmeOpenDefaultWindows();
 
-  VSCMInit();
+  /* initialize VSCM board(s) */
+  nvscm1 = vscmInit((unsigned int)(3<<19),(1<<19),20,1);
 
-  VSCMClear();
+  vscmPrestart("/usr/local/clas/clas12/parms/vscm/VSCMConfig.txt");
+  for(ii=0; ii<nvscm1; ii++)
+  {
+    for(jj=0; jj<8; jj++)
+    {
+      fssrSCR(vscmID[ii], jj);
+	}
+  }
 
-  /*for(ii=0; ii<8; ii++) FSSR_SCR(ii);*/
-
-/*  ExternalAmplitudeScan(filename, minthreshold, pulser_rate, beg_chip, end_chip, beg_chan, end_chan);*/
-  /*FSSRAmplitudeScan(filename, minthreshold, pulser_rate, beg_chip, end_chip, beg_chan, end_chan);*/
-//  VSCMThresholdScan(filename, minthreshold, pulser_rate, beg_chip, end_chip, beg_chan, end_chan);
+  /* scan */
+  fssrGainScan(board_id, filename, beg_chip, end_chip, beg_chan, end_chan, start_thr, chan_mult);
 
   exit(0);
+}
+
+#else
+
+int
+main()
+{
+  return(0);
 }
 
 #endif

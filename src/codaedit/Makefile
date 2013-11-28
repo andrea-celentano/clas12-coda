@@ -30,11 +30,8 @@ endif
 #-----------------------
 CLON_FLAGS += -I./$(MAIN).s -I$(CODA)/common/include $(X11INCDIR)
 
-
 CLON_FLAGS += -DUSE_CREG
 LIBNAMES += $(globallib)/libcreg.a
-
-
 
 LIBNAMES += $(globallib)/libmysql4.1.20.a
 ##LIBNAMES += -lmysqlclient
@@ -47,18 +44,15 @@ LIBNAMES += $(SYSLIBS)
 #-------------------
 # customize targets
 #-------------------
-install: install_lib
-	cp $(localbin)/* $(CODA)/$(OSTYPE_MACHINE)/bin/
-
+install: install_lib install_bin
 	rm -rf tmp
 	mkdir tmp
 	cp $(MAIN).s/codaedit.h tmp/cedit.h
-#	cp $(MAIN).s/XmTabs.h tmp
 	chmod 664 tmp/*
+	-mkdir -p $(CODA)/common/include
 	cp tmp/* $(CODA)/common/include
 	rm -rf tmp
 
-#
 
 
 

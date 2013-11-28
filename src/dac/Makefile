@@ -13,14 +13,6 @@ MAIN = dac
 #------------------
 include $(CODA)/src/Makefile.include
 
-
-
-# if want debugging mode, uncomment following lines
-#ifeq ("$(OSTYPE)","SunOS")
-#    CFLAGS = -g -KPIC -mt -DSunOS -DOSTYPE="SunOS"
-#    LDFLAGS = -g -KPIC -mt
-#endif
-
 ifeq ("$(OSTYPE_MACHINE)","SunOS_i86pc")
     CFLAGS += -DSunOS_i86pc
 endif
@@ -30,13 +22,27 @@ endif
 
 
 
+#------------------------
+# special building cases
+#------------------------
+
+ifeq ("$(OSTYPE_MACHINE)","Linux_i686_vme")
+
+bin: $(BIN_FILES_PROG) ./$(OSTYPE_MACHINE)/bin/coda_roc_gef
+
+  ./$(OSTYPE_MACHINE)/bin/coda_roc_gef : main/coda_roc.c $(LIBNAMES)
+	$(MKBINDIR)
+	$(CC) -DNEW_ROC $(CCBINOPT)
+	$(CCLINKBIN)
+
+endif
+
+
+
 #-----------------------
 # customize definitions
 #-----------------------
 CLON_FLAGS += -I./$(MAIN).s \
-	-I$(CODA)/src/tcl7.4/tcl7.4.s \
-	-I$(CODA)/src/itcl2.0/itcl2.0.s \
-	-I$(CODA)/src/tklite/tklite.s \
 	-I$(CODA)/common/include \
 	-D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS \
 	-DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRERROR=1 \
@@ -60,11 +66,10 @@ CLON_FLAGS += -DNO_X11
 
 ifeq ("$(OSTYPE)","VXWORKS")
   LIBNAMES += ./VXWORKS_ppc/lib/libdac.so
-  LIBNAMES += $(CODA)/VXWORKS_ppc/lib/libtklite.so
-  LIBNAMES += $(CODA)/VXWORKS_ppc/lib/libitcl2.0.so
   LIBNAMES += $(CODA)/VXWORKS_ppc/lib/libmysql4.1.20.so
-###  LIBNAMES += $(CODA)/VXWORKS_ppc/lib/libevio.so
-  LIBNAMES += $(CODA)/VXWORKS_ppc/lib/libtcl7.4.so
+else ifeq ("$(OSTYPE)","ARM")
+  LIBNAMES += ./ARM_i686/lib/libdac.a
+  LIBNAMES += $(CODA)/ARM_i686/lib/libmysql4.1.20.a
 else
 
 #?????????? for TT_Go etc
@@ -72,11 +77,7 @@ else
   LIBNAMES += $(CODA)/src/codatt/$(OSTYPE_MACHINE)/lib/libcodatt.a 
 
   LIBNAMES += $(globallib)/libbosio.a 
-  LIBNAMES += $(globallib)/libtklite.a 
   LIBNAMES += $(globallib)/libcreg.a
-  LIBNAMES += $(globallib)/libtcl7.4.a 
-###  LIBNAMES += $(CODA)/src/tcl7.4/$(OSTYPE_MACHINE)/lib/libtcl7.4.a 
-  LIBNAMES += $(globallib)/libitcl2.0.a  
 
 #use system mysql, and then remaining calls from our mysql
 ###  LIBNAMES += /usr/lib/mysql/libmysqlclient.a # system mysql
@@ -85,18 +86,10 @@ else
   LIBNAMES += $(globallib)/libmysql4.1.20.a # the rest of mysql (our stuff)
 #  LIBNAMES += $(CODA)/src/mysql4.1.20/Linux_i686/obj/libdb.o
 
-#
 ifeq ("$(OSTYPE)","Linux")
-  LIBNAMES += $(CODA)/src/evio-4.0/Linux-i686/lib/libevio.so
   LIBNAMES += $(CODA)/src/rol/jvme/libjvme.so
-else
-ifeq ("$(OSTYPE)","SunOS")
-  LIBNAMES += $(CODA)/src/evio-4.0/SunOS-sun4u/lib/libevio.so
-else
+endif
   LIBNAMES += $(globallib)/libevio.a
-endif
-endif
-#
   LIBNAMES += $(globallib)/libet.a
 endif
 
@@ -137,57 +130,26 @@ ifeq ("$(OSTYPE)","VXWORKS")
 	-DHAVE_UNISTD_H=1  -D_LANGUAGE_C -DDAYTIME="\"`date`\""
 endif
 
+ifeq ("$(OSTYPE)","ARM")
+  LIBNAMES += $(SYSLIBS)
+# Sergey: -rdynamic needed by Linux, it allows to search for global
+#   symbols in main program by dlopen/dlsym
+  LDFLAGS += -rdynamic
+endif
+
 
 #-------------------
 # customize targets
 #-------------------
-install: install_lib
-	cp $(localbin)/* $(CODA)/$(OSTYPE_MACHINE)/bin/
-
+install: install_lib install_bin
 	rm -rf tmp
 	mkdir tmp
+	cp $(MAIN).s/rc.h tmp/
 	cp $(MAIN).s/da.h tmp/
+	cp $(MAIN).s/obj.h tmp/
+	cp $(MAIN).s/rolInt.h tmp/
 	cp $(MAIN).s/circbuf.h tmp/
 	chmod 664 tmp/*
+	-mkdir -p $(CODA)/common/include
 	cp tmp/* $(CODA)/common/include
 	rm -rf tmp
-
-
-tcl:
-	echo "Converting 'tcl' into 'c'"
-	$(CODA)/$(OSTYPE_MACHINE)/bin/tcl2c CODA_class.tcl > \
-		main/cinclude/CODA_class.c
-	$(CODA)/$(OSTYPE_MACHINE)/bin/tcl2c LINK_class.tcl > \
-		main/cinclude/LINK_class.c
-	$(CODA)/$(OSTYPE_MACHINE)/bin/tcl2c ER_class.tcl > \
-		main/cinclude/ER_class.c
-	$(CODA)/$(OSTYPE_MACHINE)/bin/tcl2c TS_class.tcl > \
-		main/cinclude/TS_class.c
-	$(CODA)/$(OSTYPE_MACHINE)/bin/tcl2c CDEB_class.tcl > \
-		main/cinclude/CDEB_class.c
-	$(CODA)/$(OSTYPE_MACHINE)/bin/tcl2c ROC_class.tcl > \
-		main/cinclude/ROC_class.c
-	$(CODA)/$(OSTYPE_MACHINE)/bin/tcl2c MON_class.tcl > \
-		main/cinclude/MON_class.c
-#
-#
-#
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -59,11 +59,27 @@
 
 *****************************************************************************/
 
+
 #include <my_global.h>
 #include <my_sys.h>
 #include <m_string.h>
 #include <sha1.h>
 #include "mysql.h"
+
+/*sergey
+#ifdef ARM
+int
+floor(double y)
+{
+  if(y < 0)
+  {
+    if( ((int)y) == y) return((int)y);
+    else return( ((int)y) - 1 );
+  }
+  else return((int)y);
+}
+#endif
+*/
 
 /************ MySQL 3.23-4.0 authentification routines: untouched ***********/
 

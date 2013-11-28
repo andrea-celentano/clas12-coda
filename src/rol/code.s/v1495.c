@@ -673,6 +673,7 @@ ld < /usr/local/clas/devel/coda/src/rol/VXWORKS_ppc/obj/v1495.o
 cd "/usr/local/clas/devel/coda/src/rol/code.s"
 v1495firmware(0xfa510000,"PCALTrigger.rbf",0,0) - mv5100
 v1495firmware(0xf0410000,"PCALTrigger.rbf",0,0) - mv5500
+v1495firmware(0x90510000,"PCALTrigger.rbf",0,0) = mv6100
 
 
 

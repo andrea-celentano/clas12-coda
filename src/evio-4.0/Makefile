@@ -1,38 +1,33 @@
 #
-# Makefile for evio directory - use scons !!!
+# Makefile for evio/
 #
+
+#-----------------------------
+# mandatory definitions: MAIN
+#-----------------------------
+MAIN = evio
 
 #------------------
 # generic Makefile
 #------------------
-###include $(CODA)/src/Makefile.include
-OSTYPE-MACHINE = $(OSTYPE)-$(MACHINE)
+include $(CODA)/src/Makefile.include
 
+#-----------------------
+# customize definitions
+#-----------------------
+CLON_FLAGS += -I./src.s 
 
-#setenv INSTALL_DIR `pwd`
-#setenv LD_LIBRARY_PATH `pwd`/Linux-i686/lib:$LD_LIBRARY_PATH
+LIBNAMES += -lexpat -lz
 
-#setenv INSTALL_DIR `pwd`
-#setenv LD_LIBRARY_PATH `pwd`/Linux-x86_64/lib:$LD_LIBRARY_PATH
+install: install_lib
+	-mkdir -p $(globalbin)
+	cp $(localbin)/evio2xml $(globalbin)
+#
+	rm -rf tmp
+	mkdir tmp
+	cp src.s/evio.h tmp/
+	chmod 664 tmp/*
+	-mkdir -p $(CODA)/common/include
+	cp tmp/* $(CODA)/common/include
+	rm -rf tmp
 
-#setenv INSTALL_DIR `pwd`
-#setenv LD_LIBRARY_PATH `pwd`/SunOS-sun4u/lib:$LD_LIBRARY_PATH
-
-
-all:
-	/bin/csh -c "(setenv INSTALL_DIR `pwd`; scons)"
-
-install:
-	cp $(OSTYPE-MACHINE)/lib/*.so $(CODA)/$(OSTYPE_MACHINE)/lib/
-	cp $(OSTYPE-MACHINE)/bin/* $(CODA)/$(OSTYPE_MACHINE)/bin/
-
-clean:
-	rm -f src/execsrc/.$(OSTYPE-MACHINE)/*
-	rm -f src/test/.$(OSTYPE-MACHINE)/*
-	rm -f src/libsrc/.$(OSTYPE-MACHINE)/*
-	rm -f $(OSTYPE-MACHINE)/lib/*
-	rm -f $(OSTYPE-MACHINE)/bin/*
-
-distclean: clean
-	rm -f $(CODA)/$(OSTYPE_MACHINE)/lib/libevio*
-	rm -f $(CODA)/$(OSTYPE_MACHINE)/bin/evio*

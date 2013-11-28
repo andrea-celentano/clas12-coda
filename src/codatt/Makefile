@@ -13,18 +13,12 @@ MAIN = codatt
 #------------------
 include $(CODA)/src/Makefile.include
 
-# if want debugging mode, uncomment following lines
-#ifeq ("$(OSTYPE)","SunOS")
-#    CFLAGS = -g -KPIC -mt -DSunOS -DOSTYPE="SunOS"
-#endif
-
 ifeq ("$(OSTYPE_MACHINE)","SunOS_i86pc")
     CFLAGS += -DSunOS_i86pc
 endif
 ifeq ("$(OSTYPE_MACHINE)","SunOS_sun4u")
     CFLAGS += -DSunOS_sun4u
 endif
-
 
 #-----------------------
 # customize definitions
@@ -37,9 +31,11 @@ CLON_FLAGS += -I./$(MAIN).s -I$(CODA)/common/include \
 	-DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -Dvfork=fork -Dstrtod=fixstrtod \
 	-DSTDC_HEADERS=1 \
 
-LIBNAMES += $(globallib)/libbosio.a
-LIBNAMES += -lresolv
-LIBNAMES += $(SYSLIBS)
+ifneq ("$(OSTYPE)","VXWORKS")
+  LIBNAMES += $(globallib)/libbosio.a
+  LIBNAMES += -lresolv
+  LIBNAMES += $(SYSLIBS)
+endif
 
 ifeq ("$(OSTYPE)","Linux")
   LIBNAMES += -lpthread
@@ -49,7 +45,6 @@ endif
 # customize targets
 #-------------------
 install: install_lib
-
 	rm -rf tmp
 	mkdir tmp
 	cp $(MAIN).s/tt.h tmp
@@ -60,6 +55,7 @@ install: install_lib
 	cp $(MAIN).s/uthbook_fun.h tmp
 	cp $(MAIN).s/sgutil.h tmp
 	chmod 664 tmp/*
+	-mkdir -p $(CODA)/common/include
 	cp tmp/* $(CODA)/common/include
 	rm -rf tmp
 

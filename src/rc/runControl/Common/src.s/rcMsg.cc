@@ -139,7 +139,8 @@ operator >> (SOCK_Stream& in, rcMsg& msg)
   int n = in.recv_n (&msg, RCMSG_PREDATA_SIZE);
   if (n != RCMSG_PREDATA_SIZE){
 #ifdef _CODA_DEBUG
-    printf ("Receiving error for >> operator\n");
+    printf ("Receiving error 1 for >> operator, size=%d, expected %d\n",
+			n,RCMSG_PREDATA_SIZE);
 #endif
     return -1;
   }
@@ -192,7 +193,7 @@ operator >> (int in, rcMsg& msg)
   int n = read (in, &msg, RCMSG_PREDATA_SIZE);
   if (n != RCMSG_PREDATA_SIZE){
 #ifdef _CODA_DEBUG
-    printf ("Receiving error for >> operator\n");
+    printf ("Receiving error 2 for >> operator\n");
 #endif
     return -1;
   }

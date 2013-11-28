@@ -60,15 +60,23 @@ endif
 install:
 	@for i in $(CODA)/$(OSTYPE_MACHINE)/lib/codatcl ; \
     do \
-    if [ ! -d $$i ] ; then \
+      if [ ! -d $$i ] ; then \
         echo "Making directory $$i"; \
         mkdir $$i; \
-        chmod 755 $$i; \
-        else true; \
-        fi; \
+        chmod 775 $$i; \
+      else true; \
+      fi; \
     done;
 	cp ./$(OSTYPE_MACHINE)/lib/*.so $(CODA)/$(OSTYPE_MACHINE)/lib/codatcl/
-
+#
+	rm -rf tmp
+	mkdir tmp
+	cp browser/dbedit tmp
+	chmod 775 tmp/*
+	-mkdir -p $(CODA)/common/scripts
+	cp tmp/* $(CODA)/common/scripts
+	rm -rf tmp
+#
 #copy package index file: must be in the same place as shared library
 	rm -rf tmp
 	mkdir tmp

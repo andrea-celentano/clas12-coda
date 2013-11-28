@@ -286,8 +286,8 @@ tdc1190CommonInit(int itdc, UINT32 laddr)
 	 V1190_FIRMWARE_REV or V1190_FIRMWARE_REV+1 */
     if( (rdata != V1190_FIRMWARE_REV) && (rdata != (V1190_FIRMWARE_REV+1)) )
 	{
-	  printf("WARN: Firmware does not match: 0x%08x (expected 0x%08x)\n",
-		 rdata,V1190_FIRMWARE_REV);
+	  printf("WARN: Firmware does not match: 0x%08x (expected 0x%08x) (laddr=0x%08x)\n",
+			 rdata,V1190_FIRMWARE_REV, laddr);
       return ERROR;
 	} 
   }

@@ -16,7 +16,7 @@ do_ypcall: clnt_call: RPC: Timed out
 
 #define DO_PEDS
 
-#define DEBUG
+#undef DEBUG
 
 
 #define LSWAP(x)        ((((x) & 0x000000ff) << 24) | \

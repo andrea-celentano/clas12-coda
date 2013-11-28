@@ -1,17 +1,24 @@
 
 /* UNIX version only */
 
-#ifndef VXWORKS
+#if defined(VXWORKS) || defined(ARM)
 
-#include "cinclude/CODA_class.c"
+void
+coda_mon()
+{
+  printf("coda_mon is dummy for VXWORKS\n");
+}
+
+#else
+
 
 /* coda_mon.c - generic program to run monitoring processess */
 
 #include <pthread.h>
 #include <dlfcn.h>
 
-#include "da.h"
 #include "rc.h"
+#include "da.h"
 #include "libdb.h"
 
 #ifndef TRUE
@@ -25,8 +32,6 @@
 #if ((TRUE-FALSE)==0)
   True and False are defined to the same value. Is C not wonderful?
 #endif
-
-#define TCL_PROC(name) int name (objClass object, Tcl_Interp *interp, int argc, char **argv)
 
 typedef int (*IFUNCPTR) ();
 
@@ -58,7 +63,7 @@ typedef struct MONpriv
 } MON_priv;
 
 static int PrestartCount = 0;
-/*static*/ objClass localobject;
+extern objClass localobject;
 extern char configname[128]; /* coda_component.c */
 extern char *session; /* coda_component.c */
 #define MON_ERROR 1
@@ -173,30 +178,14 @@ mon_et_initialize(void)
 }
 
 
-TCL_PROC(MON_constructor)
+int
+MON_constructor()
 {
   static MON_priv MONP;
 
-  localobject = object;
-
-  object->private = (void *) &MONP;
-
-  /* tell anyone watching */
- {
-    char tmp[400];
-    
-    sprintf(tmp,"%s {%s} %s {%s}",
-	    __FILE__,
-	    DAYTIME,
-	    CODA_USER,
-	    "$Id: mon_component.c,v 2.52 2000/07/07 13:09:36 abbottd Exp $");
-    Tcl_SetVar (interp, "tcl_modules",tmp,TCL_LIST_ELEMENT|TCL_APPEND_VALUE|TCL_GLOBAL_ONLY);
-  }
+  localobject->privated = (void *) &MONP;
 
   bzero ((char *) &MONP,sizeof(MONP));
-
-  if( Tcl_VarEval(interp, "set session ",argv[1], NULL) != MON_OK)
-    return MON_ERROR;
 
   MONP.split = 512*1024*1024;
 
@@ -214,7 +203,7 @@ codaDownload(char *conf)
 {
   objClass object = localobject;
 
-  MONp monp = (MONp) object->private;
+  MONp monp = (MONp) object->privated;
   int deflt = 0;
   static char tmp[1000];
   static char tmp2[1000];
@@ -491,7 +480,7 @@ codaPrestart()
 
   objClass object = localobject;
 
-  MONp monp = (MONp) object->private;
+  MONp monp = (MONp) object->privated;
 
   printf("INFO: Prestarting\n");
 
@@ -549,34 +538,6 @@ codaExit()
   return(MON_OK);
 }
 
-/*****************************************************/
-/*****************************************************/
-/****************** TCL interface ********************/
-
-TCL_PROC(MON_download)
-{
-  return(codaDownload(argv[1]));
-}
-TCL_PROC(MON_prestart)
-{
-  return(codaPrestart());
-}
-TCL_PROC(MON_go)
-{
-  return(codaGo());
-}
-TCL_PROC(MON_end)
-{
-  return(codaEnd());
-}
-TCL_PROC(MON_pause)
-{
-  return(codaPause());
-}
-TCL_PROC(MON_exit)
-{
-  return(codaExit());
-}
 
 
 /****************/
@@ -587,19 +548,8 @@ void
 main(int argc, char **argv)
 {
   CODA_Init(argc, argv);
-  /* CODA_Service ("ROC"); */
+  MON_constructor();
   CODA_Execute ();
-}
-
-
-#else
-
-/* dummy VXWORKS version */
-
-void
-coda_mon()
-{
-  printf("coda_mon is dummy for VXWORKS\n");
 }
 
 #endif

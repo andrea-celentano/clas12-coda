@@ -5,15 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef VXWORKS
-
-int
-vmeServer()
-{
-  return(0);
-}
-
-#else
+#ifdef Linux_vme
 
 int
 main(int argc, char *argv[])
@@ -39,5 +31,12 @@ main(int argc, char *argv[])
   while(1) sleep(1);
 }
 
+#else
+
+int
+main()
+{
+  return(0);
+}
 #endif
 

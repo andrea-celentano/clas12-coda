@@ -1121,7 +1121,7 @@ main()
 #else /* vxWorks or Linux */
 
 void
-v288_dummy()
+main()
 {
   return;
 }

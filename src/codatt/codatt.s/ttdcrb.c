@@ -30,13 +30,17 @@
 #define CPCLOSE \
 { \
   unsigned int padding; \
-  printf("CPCLOSE: dabufp before = 0x%x\n",dabufp); \
+  printf("CPCLOSE: dabufp before = 0x%x\n",dabufp); fflush(stdout);	\
+  printf("CPCLOSE: b08 = 0x%x\n",b08); fflush(stdout); \
   dabufp = (unsigned int *) ( ( ((unsigned int)b08+3)/4 ) * 4); \
+  printf("CPCLOSE: dabufp after = 0x%x\n",dabufp); fflush(stdout); \
   padding = (unsigned int)dabufp - (unsigned int)b08; \
+  printf("CPCLOSE: padding = %d\n",padding); fflush(stdout); \
+  printf("CPCLOSE: dabufp_save1 = 0x%x\n",dabufp_save1); fflush(stdout);	\
   dabufp_save1[1] |= (padding&0x3)<<14; /*update bank header (2nd word) with padding info*/ \
-  printf("CPCLOSE: 0x%x %d --- 0x%x %d --> padding %d\n",dabufp,dabufp,b08,b08,((dabufp_save2[1])>>14)&0x3); \
+  printf("CPCLOSE: 0x%x %d --- 0x%x %d --> padding %d\n",dabufp,dabufp,b08,b08,((dabufp_save1[1])>>14)&0x3); fflush(stdout); \
   *dabufp_save1 = (dabufp-dabufp_save1-1); /*write bank length*/ \
-  printf("CPCLOSE: *dabufp_save1 = %d\n",*dabufp_save1); \
+  printf("CPCLOSE: *dabufp_save1 = %d\n",*dabufp_save1); fflush(stdout); \
   len += (*dabufp_save1+1); \
   b08 = NULL; \
 }
@@ -86,7 +90,7 @@ TT_TranslateDCRBBank(long *bufin, long *bufout, TTSPtr ttp)
   int a_slot_old;
   int a_channel_old;
 
-  unsigned int *dabufp_save1, *dabufp_save2;
+  unsigned int *dabufp_save1;
   unsigned int *StartOfBank;
   unsigned int *dabufp, word;
   char *ch;
@@ -149,7 +153,9 @@ return(0);
   word = dcrb[0];
 #endif
   nw = (word>>5)&0xFFFF;
-  /*printf("ROL2 TDC HEADER: 0x%08x (len=%d)\n",word,nw);*/
+#ifdef DEBUG
+  printf("ROL2 TDC HEADER: 0x%08x (len=%d)\n",word,nw);
+#endif
 dabufp[0]=nw;
   for(ii=1; ii<nw; ii++)
   {
@@ -161,7 +167,9 @@ dabufp[0]=nw;
 	ichan = (word>>21)&0x1F;
     tdc = word&0x1FFFFF;
     edge = (word>>26)&0x1;
-	/*printf("ROL2 TDC DATA: 0x%08x (channel=%d tdc=%d edge=%d)\n",word,ichan,tdc,edge);*/
+#ifdef DEBUG
+	printf("ROL2 TDC DATA: 0x%08x (channel=%d tdc=%d edge=%d)\n",word,ichan,tdc,edge);
+#endif
 dabufp[ii]=word;
 
     if(edge==0)
@@ -175,8 +183,9 @@ dabufp[ii]=word;
         tmpx2 = tdc/40;
 
         dcrbref = tmpx0-tmpx2;
-        /*printf("dcrbref=%d\n",dcrbref);*/
-
+#ifdef DEBUG
+        printf("dcrbref=%d\n",dcrbref);
+#endif
       }
     }
 

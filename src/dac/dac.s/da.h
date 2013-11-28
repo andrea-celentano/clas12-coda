@@ -13,108 +13,17 @@
  * Author:
  *	Graham Heyes
  *	CEBAF Data Acquisition Group
- *
- * Revision History:<
- *      $Log: da.h,v $
- *      Revision 1.19  1998/11/17 19:17:40  abbottd
- *      added some variables/defines for Byte swapping
- *
- *      Revision 1.18  1998/08/21 15:44:13  rwm
- *      Fixed for ET.
- *
- *      Revision 1.17  1998/06/05 04:33:24  rwm
- *      Added ifndef guards around whole file.
- *
- *      Revision 1.16  1998/05/27 13:45:04  heyes
- *      add message Q to ROC, improve EB stability on EBD transition
- *
- *      Revision 1.14  1998/03/09 14:23:55  heyes
- *      add debug level stuff
- *
- *      Revision 1.13  1998/03/03 19:52:58  heyes
- *      fix requeue for vlad
- *
- *      Revision 1.11  1997/06/10 18:58:00  heyes
- *      add DD to ROC
- *
- *      Revision 1.10  1997/06/06 14:59:30  heyes
- *      fooling with linux
- *
- *      Revision 1.9  1997/06/05 14:38:05  heyes
- *      tune for linux
- *
- *      Revision 1.8  1997/06/04 01:01:14  heyes
- *      fix Make
- *
- *      Revision 1.7  1997/05/19 19:39:47  heyes
- *      fixed ER multi restart problem
- *
- *      Revision 1.6  1997/02/28 19:40:12  heyes
- *      roc_mask added to BE
- *
- *      Revision 1.5  1997/02/25 18:49:15  heyes
- *      add error recovery to ROC and EB ./coda_roc -s ghtest -t ROC -n ROC2 -i -r
- *
- *      Revision 1.4  1997/01/16 15:30:38  heyes
- *      Increase speed of EB, inc. changes after Dec run.
- *
- *      Revision 1.3  1996/10/08 17:59:00  heyes
- *      working threaded eb
- *
- *      Revision 1.1.1.1  1996/08/21 19:18:53  heyes
- *      Imported sources
- *
-*	  Revision 1.1  1994/05/04  13:23:40  heyes
-*	  Initial revision
-*
-*	  Revision 1.1  94/03/16  07:55:32  07:55:32  heyes (Graham Heyes)
-*	  Initial revision
-*	  
-*	  Revision 1.1  94/03/15  11:52:53  11:52:53  heyes (Graham Heyes)
-*	  Initial revision
-*	  
-*	  Revision 1.1  93/10/27  08:46:27  08:46:27  heyes (Graham Heyes)
-*	  Initial revision
-*	  
- *	  Revision 1.9  93/04/29  14:32:13  14:32:13  heyes (Graham Heyes)
- *	  fix alpha test problems
- *	  
- *	  Revision 1.8  1993/03/29  14:43:44  heyes
- *	  remove referneces to VxWorks.h
- *
- *	  Revision 1.7  1993/03/24  15:31:55  heyes
- *	  remove roc id from event headers
- *
- *	  Revision 1.6  1993/03/16  14:05:32  heyes
- *	  reinsert for coda 1.2
- *
- *	  Revision 1.5  1992/08/14  15:30:54  heyes
- *	  1.1.2 release- support for VME
- *
- *	  Revision 1.4  1992/07/21  17:52:00  heyes
- *	  run time debug on vxworks
- *
- *	  Revision 1.3  1992/06/26  12:44:20  heyes
- *	  removed uio.h from Vxworks, no longer needed
- *
- *	  Revision 1.2  1992/06/25  19:01:07  heyes
- *	  insert into RCS for first time
- *
- *	  Revision 1.1  1992/06/25  18:29:25  heyes
- *	  Initial revision
- *
- *
  *----------------------------------------------------------------------------*/
 
 #ifndef _CODA_DA_H
 #define	_CODA_DA_H
 
 #ifndef FALSE
-# define FALSE 0
+#define FALSE 0
 #endif
 
 #ifndef TRUE
-# define TRUE !FALSE
+#define TRUE !FALSE
 #endif
 
 #define _DADEFINED
@@ -159,15 +68,6 @@
 #include <sys/time.h>
 
 #endif /* ifdef VXWORKS */
-
-#include <tcl.h>
-#include <tclInt.h>
-#include <tclPort.h>
-
-/* Sergey: our itcl.h from 'itcl2.0' directory */
-#include "itcl_v2.h"
-/* Sergey: use modified tk.h from 'tklite' directory installed as tk_nox.h */
-#include "tk_nox.h"
 
 
 #ifndef VXWORKS
@@ -293,17 +193,6 @@ extern char *global_routine[8][32];
 #define DATA_DEBUG 1
 #define API_DEBUG  2
 
-#define TCL_PROC(name) int name (objClass object, Tcl_Interp *interp, int argc, char **argv)
-
-#define TCL_SPROC(name) static int name (objClass object, Tcl_Interp *interp, int argc, char **argv)
-
-
-/* Linux does not have hrtime */
-#ifdef Linux
-
-typedef	long long	hrtime_t; /* or uint64_t ??? */
-
-#endif
 
 
 /* defines for listSplit1() */
@@ -353,6 +242,26 @@ Segmentation fault
 #define NANOMICRO 1000
 #endif
 #endif
+
+
+
+
+/* Linux does not have hrtime */
+#ifdef Linux
+
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
+typedef	long long	hrtime_t; /* or uint64_t ??? */
+hrtime_t/*uint64_t*/ gethrtime(void);
+
+#ifdef  __cplusplus
+}
+#endif
+
+#endif
+
 
 /* _CODA_DA_H */
 #endif

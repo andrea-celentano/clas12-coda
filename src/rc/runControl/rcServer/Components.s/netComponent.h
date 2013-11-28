@@ -171,7 +171,7 @@ protected:
 
   // friend class
   friend class locker;
-#else
+#else /*sergey: we are here !!!*/
   virtual void              timerCallback (void);
   netCompBootTimer*         bootTimer_;
   int                       timerCount_;

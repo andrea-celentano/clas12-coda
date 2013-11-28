@@ -16,6 +16,10 @@ endif
 echo ""
 
 
+echo " Stop ROCs"
+stop_proc -n $host_name -p coda_roc_gef -match "clasprod" -s 0
+stop_proc -n $host_name -p rlogin -match "tdcecal1" -s 0
+
 echo " Stop EB"
 stop_proc -n $host_name -p coda_ebc -match "clasprod" -s 0
 
@@ -53,6 +57,9 @@ echo "                 runcontrol_adcecal1 done"
 
 stop_proc -n $host_name -p xterm -match "CRATE_adcecal1" -s 0
 echo "                 CRATE_adcecal1 done"
+
+stop_proc -n $host_name -p xterm -match "CRATE_tdcecal1" -s 0
+echo "                 CRATE_tdcecal1 done"
 
 
 echo ""

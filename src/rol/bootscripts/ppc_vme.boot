@@ -15,7 +15,6 @@ ld < libcodatt.so
 # load coda_roc
 cd "$CODA/VXWORKS_ppc/bin"
 ld < coda_roc
-ld < tcpServer.o
 ld < blaster.o
 ld < blastee.o
 
@@ -32,14 +31,14 @@ ld < librol.so
 ###
 
 ### Load Interrupt and mempart libraries
-cd "$CODA/VXWORKS_ppc/obj"
-ld < vmeIntLib.o
-ld < dmaPLib.o
-dmaPartInit()
+##cd "$CODA/VXWORKS_ppc/obj"
+##ld < vmeIntLib.o
+##ld < dmaPLib.o
+##dmaPartInit()
 
 ### Load User readout routines
-ld < vmeUserLib.o
-vmeUserInit()
+##ld < vmeUserLib.o
+##vmeUserInit()
 
 
 

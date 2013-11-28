@@ -92,7 +92,13 @@ dbConnect(const char *host, const char *database)
   char dbaseServerHost[128];   /* database server host name */
   char db[128]; /* normally comes from EXPID, add 'daq_' */
 
+#ifdef DEBUG
+  printf("INFO(dbConnect1): befor lock\n");fflush(stdout);
+#endif
   DBLOCK;
+#ifdef DEBUG
+  printf("INFO(dbConnect1): after lock\n");fflush(stdout);
+#endif
 
   iattempts=0;
 
@@ -183,7 +189,9 @@ perror("INFO(dbConnect9)");
     goto tryagain;
   }
 
+#ifdef DEBUG
   printf("dbConnect: connected to host >%s< database >%s<\n",dbaseServerHost,database);
+#endif
 
   return(mysql);
 }

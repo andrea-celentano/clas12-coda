@@ -23,7 +23,7 @@ if ($#argv != 0 ) then
     echo "    clastrig2 sc2 ec3 ec4 lac2 pcal0 pretrig3 pretrig4"
     echo "    croctest1 croctest2 hps2 croctest10"
     echo "    roc1 halldtrg3 jlab12vme pcalvme hpsioc1 svt2"
-    echo "    wolfram1 ftof0 ftof1"
+    echo "    wolfram1 ftof0 ftof1 dcrb1 trig1"
     echo "  --------------------------------------------------"
     echo "  List of possible PowerSwitch-controlled ROC names:"
     echo "    hpstracker hpsatca"
@@ -80,8 +80,10 @@ set roc_name_snmp = ( dc1        dc2        dc3        dc4        \
                       ioctest1   pcal0      pretrig3   pretrig4   \
                       croctest1  croctest2  hps2       croctest10 \
                       roc1       halldtrg3  jlab12vme  pcalvme    \
-                      adcecal1   svt2       wolfram1              \
-                      ftof0      ftof1      dcrb1 )
+                      adcecal1   svt2       wolfram1   trig1      \
+                      ftof0      ftof1      dcrb1      tdcecal1   \
+                      tdcpcal1   tdcftof1   adcpcal1   adcftof1 )
+
 
 #***  Set IP list for ROCs snmp-controlled ***
 set ip_snmp = ( 129.57.69.36   129.57.69.37   129.57.69.38   129.57.69.39 \
@@ -91,8 +93,9 @@ set ip_snmp = ( 129.57.69.36   129.57.69.37   129.57.69.38   129.57.69.39 \
                 129.57.167.85  129.57.86.44   129.57.69.32   129.57.69.47 \
                 129.57.69.30   129.57.69.28   129.57.69.40   129.57.69.29 \
                 129.57.167.104 129.57.167.47  129.57.167.56  129.57.86.23 \
-                129.57.167.80  129.57.86.45   129.57.86.34                \
-                129.57.86.38   129.57.86.40   129.57.86.53 )
+                129.57.167.80  129.57.86.45   129.57.86.34   129.57.167.20 \
+                129.57.86.38   129.57.86.40   129.57.86.53   129.57.167.52 \
+                129.57.167.54  129.57.167.73  129.57.167.81  129.57.167.156 )
 
 
 #***  Set list of soft-IOCS rebooted via service command ***

@@ -59,14 +59,31 @@ hostAdd "clonmon0.jlab.org",       "129.57.167.33"
 hostAdd "bonuspc1",                "129.57.68.16"
 hostAdd "bonuspc1.jlab.org",       "129.57.68.16"
 
-hostAdd "clonusr2",                "129.57.167.48"
-hostAdd "clonusr2.jlab.org",       "129.57.167.48"
+hostAdd "clonioc1",                "129.57.167.48"
+hostAdd "clonioc1.jlab.org",       "129.57.167.48"
 
-hostAdd "clonusr3",                "129.57.167.49"
-hostAdd "clonusr3.jlab.org",       "129.57.167.49"
+hostAdd "clonioc2",                "129.57.167.49"
+hostAdd "clonioc2.jlab.org",       "129.57.167.49"
 
-hostAdd "clonusr4",                "129.57.167.76"
-hostAdd "clonusr4.jlab.org",       "129.57.167.76"
+hostAdd "clonioc3",                "129.57.167.76"
+hostAdd "clonioc3.jlab.org",       "129.57.167.76"
 
+#
 
+hostAdd "adcecal1",                "129.57.167.91"
+hostAdd "adcecal1.jlab.org",       "129.57.167.91"
 
+hostAdd "adcecal2",                "129.57.167.92"
+hostAdd "adcecal2.jlab.org",       "129.57.167.92"
+
+hostAdd "adcecal3",                "129.57.167.93"
+hostAdd "adcecal3.jlab.org",       "129.57.167.93"
+
+hostAdd "adcecal4",                "129.57.167.94"
+hostAdd "adcecal4.jlab.org",       "129.57.167.94"
+
+hostAdd "adcecal5",                "129.57.167.95"
+hostAdd "adcecal5.jlab.org",       "129.57.167.95"
+
+hostAdd "adcecal6",                "129.57.167.96"
+hostAdd "adcecal6.jlab.org",       "129.57.167.96"

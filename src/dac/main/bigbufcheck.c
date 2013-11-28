@@ -1,4 +1,12 @@
-#ifndef VXWORKS
+#if defined(VXWORKS) || defined(ARM)
+
+int
+bigbufcheck_dummy()
+{
+  return;
+}
+
+#else
 
 /* bigbufcheck.c - test for bigbufcheck function */
 
@@ -276,14 +284,6 @@ main()
   bufferCheck(cbuf, nlongs);
 
   exit(0);
-}
-
-#else
-
-int
-bigbufcheck_dummy()
-{
-  return;
 }
 
 #endif

@@ -129,7 +129,11 @@ typedef struct circbuf
 } CIRCBUF;
 
 
-/* function prototypes */
+/* function prototypes for circbuf.c */
+
+#ifdef  __cplusplus
+extern "C" {
+#endif
 
 CIRCBUF *new_cb(int roc, char *name, char *parent);
 void     cb_init(int roc);
@@ -144,7 +148,9 @@ int cb_events_init(CIRCBUF *cba[32]);
 int cb_events_get(CIRCBUF *cba[32], int id, int nrocs, int chunk,
                  unsigned int *buf[32][NCHUNKMAX], int evsize[32], int *nphys);
 
-
+#ifdef  __cplusplus
+}
+#endif
 
 
 

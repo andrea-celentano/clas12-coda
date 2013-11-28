@@ -7,6 +7,9 @@ SHELL = /bin/sh
 ifeq ("$(filter VXWORKS,$(MAKECMDGOALS))","VXWORKS")
   OSTYPE    = VXWORKS
   MACHINE   = ppc
+else ifeq ("$(filter ARM,$(MAKECMDGOALS))","ARM")
+  OSTYPE    = Linux
+  MACHINE   = armv7l
 else
   OSTYPE    = $(shell uname)
   MACHINE   = $(shell uname -m)
@@ -18,12 +21,25 @@ ifeq ("$(OSTYPE)","Darwin")
 endif
 
 OSTYPE_MACHINE = $(OSTYPE)_$(MACHINE)
+
+#check if we are on VME controller; if so, use extra 'vme' addition
+ifeq ("$(OSTYPE)","Linux")
+	FILE=vmeinfo
+	ifeq ($(findstring ${FILE},$(wildcard /proc/*)),)
+		OSTYPE_MACHINE = $(OSTYPE)_$(MACHINE)
+	else
+		OSTYPE_MACHINE = $(OSTYPE)_$(MACHINE)_vme
+	endif
+endif
+
 localobj = ./$(OSTYPE_MACHINE)/obj
 locallib = ./$(OSTYPE_MACHINE)/lib
 localbin = ./$(OSTYPE_MACHINE)/bin
+localrol = ./$(OSTYPE_MACHINE)/rol
 globalobj = $(CODA)/$(OSTYPE_MACHINE)/obj
 globallib = $(CODA)/$(OSTYPE_MACHINE)/lib
 globalbin = $(CODA)/$(OSTYPE_MACHINE)/bin
+globalrol = $(CODA)/$(OSTYPE_MACHINE)/rol
 
 
 #---------------------------------------------------------
@@ -129,10 +145,10 @@ endif
 ifeq ("$(OSTYPE)","Linux")
 
 #debug or optimize
-    FFLAGS = -O
-    CFLAGS = -O
-#    FFLAGS = -g
-#    CFLAGS = -g
+#    FFLAGS = -O
+#    CFLAGS = -O
+    FFLAGS = -g
+    CFLAGS = -g
 #    FFLAGS = -O2
 #    CFLAGS = -O2
 ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
@@ -149,7 +165,8 @@ endif
 
     CPP = gcc -E
 
-    CFLAGS += -fPIC -DLinux -DLINUX 
+    CFLAGS += -fPIC -DLinux -DLINUX
+### -D_CODA_DEBUG
 
     CXX = g++
 
@@ -227,6 +244,13 @@ ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
     CFLAGS += -DLinux_x86_64
 endif
 
+#check if we are on VME controller; if so, define Linux_vme flag
+FILE=vmeinfo
+ifeq ($(findstring ${FILE},$(wildcard /proc/*)),)
+	CFLAGS +=
+else
+	CFLAGS += -DLinux_vme -I$(CODA)/src/rol/jvme
+endif
 
 #==============
 #=== Darwin ===
@@ -336,6 +360,8 @@ ifeq ("$(OSTYPE)","VXWORKS")
 #		-fvolatile-global -fstrength-reduce -fno-for-scope
 # no -O2 ???
 
+    CXXFLAGS = $(CFLAGS)
+
 # C++ compiler
     CXX = c++ppc
 # linker 
@@ -378,6 +404,117 @@ endif
 ifeq ("$(OSTYPE_MACHINE)","VXWORKS_ppc")
     CFLAGS += -DVXWORKS_ppc
 endif
+
+
+
+
+
+
+#=============
+#==== ARM ====
+#=============
+
+ifeq ("$(OSTYPE)","ARM")
+
+CROSSPATH = /apps/Xilinx/SDK/2013.2/gnu/arm/lin/bin
+CROSSCOMPILER = arm-xilinx-linux-gnueabi-
+
+#debug or optimize
+    FFLAGS = -O
+    CFLAGS = -O
+#    FFLAGS = -g
+#    CFLAGS = -g
+#    FFLAGS = -O2
+#    CFLAGS = -O2
+
+    FC = $(CROSSPATH)/$(CROSSCOMPILER)g77
+
+    FFLAGS += -fno-automatic -finit-local-zero \
+			-ffixed-line-length-none -fno-second-underscore -DLinux -DARM
+#CC = gcc -rdynamic
+    CC = $(CROSSPATH)/$(CROSSCOMPILER)gcc
+
+    CPP = $(CROSSPATH)/$(CROSSCOMPILER)gcc -E
+
+    CFLAGS += -fPIC -DLinux -DLINUX  -DARM -I$(CODA)/$(OSTYPE_MACHINE)/include
+
+    CXX = $(CROSSPATH)/$(CROSSCOMPILER)g++
+
+    CXXFLAGS = $(CFLAGS)
+
+    LD = $(CROSSPATH)/$(CROSSCOMPILER)ld
+    LDCXX = $(CXX)
+
+
+###    LDCC = $(CC)
+    LDCC = $(CC)
+
+
+    LDFC = $(CC)
+
+#
+# -Wl, must be used as prefix before flags passed to linker !
+#
+
+##    LDFLAGS = -Wl,-static
+    LDFLAGS = 
+
+#SHLD = g++ -Wl,-soname,libBosio.so -shared -g
+    SHLD = $(CROSSPATH)/$(CROSSCOMPILER)g++ -shared -g 
+
+    AR = $(CROSSPATH)/$(CROSSCOMPILER)ar
+
+    NM = $(CROSSPATH)/$(CROSSCOMPILER)nm
+
+    RANLIB   = $(CROSSPATH)/$(CROSSCOMPILER)ranlib
+# rpc generator
+#    RPCGEN = rpcgen
+
+    RM       = rm -f
+
+# include directories
+    X11INCDIR = 
+    TCLINCDIR = 
+
+# CLON flags
+    AC_FLAGS = -DHAVE_UNISTD_H=1 -DSTDC_HEADERS=1 -DTK_FILE_READ_PTR=1 -DHAVE_LIMITS_H=1 \
+		-DTK_FILE_READ_PTR=1
+    CLON_FLAGS = 
+
+# library directories and libraries
+    X11LIBDIRS = 
+    X11LIBS = 
+
+##    SYSLIBDIRS = /usr/lib
+##    SYSLIBS = 
+    SYSLIBDIRS = 
+    SYSLIBS = -pthread -ldl -lm
+
+    F77LIBDIRS = 
+    F77LIBS = 
+
+endif
+
+ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
+    CFLAGS += -DLinux_armv7l
+endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #===============
@@ -433,6 +570,14 @@ SOURCE_FILES_PROG = $(wildcard main/*.cc main/*.c main/*.F)
 SUB_DIRECTORIES_PROG = $(sort $(dir $(SOURCE_FILES_PROG)))
 
 
+#-----------------------------------------------------------------
+# the same for readout lists, must be in 'rols' directory
+#-----------------------------------------------------------------
+
+SOURCE_FILES_ROL = $(wildcard rols/*.c rols/*.cc)
+SUB_DIRECTORIES_ROL = $(sort $(dir $(SOURCE_FILES_ROL)))
+
+
 #---------------------------------------------
 # list of source and object files for library
 #---------------------------------------------
@@ -482,6 +627,21 @@ TMP2 = $(subst .c,,$(TMP1))
 BIN_FILES_PROG = $(subst .F,,$(TMP2))
 ###BIN_FILES_PROG >./SunOS_sun4u/bin/runcontrol ./SunOS_sun4u/bin/rrr ./SunOS_sun4u/bin/fff<
 
+#----------------------------
+# the same for readout lists
+#----------------------------
+
+C_SEARCH_ROL  = $(patsubst %,%*.c,$(SUB_DIRECTORIES_ROL))
+C_SOURCES_ROL = $(wildcard $(C_SEARCH_ROL))
+
+CC_SEARCH_ROL  = $(patsubst %,%*.cc,$(SUB_DIRECTORIES_ROL))
+CC_SOURCES_ROL = $(wildcard $(CC_SEARCH_ROL))
+
+TMP3 = $(subst rols,$(localrol),$(SOURCE_FILES_ROL))
+TMP4 = $(subst .cc,.so,$(TMP3))
+LIB_FILES_ROL = $(subst .c,.so,$(TMP4))
+
+
 #--------------
 # debug prints
 #--------------
@@ -507,6 +667,8 @@ BIN_FILES_PROG = $(subst .F,,$(TMP2))
 #	echo "TMP1 >$(TMP1)<"
 #	echo "TMP2 >$(TMP2)<"
 #	echo "BIN_FILES_PROG >$(BIN_FILES_PROG)<"
+#	echo "SOURCE_FILES_ROL >$(SOURCE_FILES_ROL)<"
+#	echo "LIB_FILES_ROL >$(LIB_FILES_ROL)<"
 
 
 #-------
@@ -514,13 +676,16 @@ BIN_FILES_PROG = $(subst .F,,$(TMP2))
 #-------
 
 $(localobj)/%.o : %.F
-		$(FC) $(FFLAGS) $(CLON_FLAGS) -c $< -o $@
+	-mkdir -p $(localobj)
+	$(FC) $(FFLAGS) $(CLON_FLAGS) -c $< -o $@
 
 $(localobj)/%.o : %.c
-		$(CC) $(CFLAGS) $(CLON_FLAGS) -c $< -o $@
+	-mkdir -p $(localobj)
+	$(CC) $(CFLAGS) $(CLON_FLAGS) -c $< -o $@
 
 $(localobj)/%.o : %.cc
-		$(CXX) $(CXXFLAGS) $(CLON_FLAGS) -c $< -o $@
+	-mkdir -p $(localobj)
+	$(CXX) $(CXXFLAGS) $(CLON_FLAGS) -c $< -o $@
 
 
 
@@ -528,48 +693,52 @@ $(localobj)/%.o : %.cc
 # targets
 #---------
 
-#
-# do not produce shlib unless needed !!!
-# (why ?? do not remember .. lets do *.so and see what happens !!
-#
-
 all: dirs lib shlib bin
-#all: dirs lib bin
 
 dirs:
 	@for i in ./$(OSTYPE_MACHINE) ./$(OSTYPE_MACHINE)/obj \
-				./$(OSTYPE_MACHINE)/lib ./$(OSTYPE_MACHINE)/bin ; \
-	    do \
-	    if [ ! -d $$i ] ; then \
+				./$(OSTYPE_MACHINE)/lib ./$(OSTYPE_MACHINE)/bin ./$(OSTYPE_MACHINE)/rol ; \
+	do \
+	  if [ ! -d $$i ] ; then \
 		echo "Making directory $$i"; \
 		mkdir $$i; \
-		chmod 755 $$i; \
-		else true; \
-		fi; \
+		chmod 775 $$i; \
+      else true; \
+      fi; \
 	done;
 
 distclean: clean
 clean:
-	rm -f $(locallib)/* $(localbin)/* $(localobj)/*
+	rm -f $(locallib)/* $(localbin)/* $(localobj)/* $(localrol)/*
 
 
 install_obj:
+	-mkdir -p $(globalobj)
 	cp $(localobj)/*.o $(globalobj)
 
 install_lib:
+	-mkdir -p $(globallib)
 	cp $(locallib)/*.a $(globallib)
 	cp $(locallib)/*.so $(globallib)
 #Darwin only ?
 #	$(RANLIB) $(globallib)/lib$(MAIN).a
 
 install_bin:
+	-mkdir -p $(globalbin)
 	cp $(localbin)/* $(globalbin)
 
-obj: $(OBJ)
+install_rol:
+	-mkdir -p $(globalrol)
+	cp $(localrol)/* $(globalrol)
 
-# define VXWORKS as empty command; we are using VXWORKS not as target
+
+# define VXWORKS/ARM/etc as empty commands; we are using it not as target
 # but to tell that we want cross compiling
 VXWORKS: ;
+ARM: ;
+
+
+obj: $(OBJ)
 
 lib: $(LIBRARY)
 
@@ -577,14 +746,18 @@ shlib: $(SHLIBRARY)
 
 bin: $(BIN_FILES_PROG)
 
+rols: $(LIB_FILES_ROL)
+
 
 # only Darwin need ranlib ???
 $(LIBRARY): $(OBJ)
+	-mkdir -p $(locallib)
 	@$(AR) -r $(LIBRARY) $(OBJ)
 ##doesnothelp:wants 'ranlib' in destination area	$(RANLIB) $(LIBRARY)
 	echo "Library $(LIBRARY) is ready"
 
 $(SHLIBRARY): $(SHOBJS)
+	-mkdir -p $(locallib)
 	$(SHLD) $(SHOBJS) -o $(SHLIBRARY)
 	echo "Library $(SHLIBRARY) is ready"
 
@@ -593,7 +766,6 @@ $(SHLIBRARY): $(SHOBJS)
 # bin targets
 #
 $(BIN_FILES_PROG): $(SOURCE_FILES_PROG)
-
 
 #
 # FOLLOWING WAY REQUIRES USING 'ld' FOR ALL LANGUAGES,
@@ -616,21 +788,56 @@ $(BIN_FILES_PROG): $(SOURCE_FILES_PROG)
 #./$(OSTYPE_MACHINE)/bin/% : ./$(OSTYPE_MACHINE)/bin/%.o
 #		$(LD) $(LDFLAGS) ./$< $(LIBS_DIRS) $(LIBNAMES) -o ./$@
 
+MKBINDIR = -mkdir -p $(localbin)
 
+CXXBINOPT = $(CXXFLAGS) $(CLON_FLAGS) -c $< -o $@.o
+CCBINOPT = $(CFLAGS) $(CLON_FLAGS) -c $< -o $@.o
+FCBINOPT = $(FFLAGS) $(CLON_FLAGS) -c $< -o $@.o
+
+CXXLINKBIN = $(LDCXX) $(LDFLAGS) ./$@.o $(LIBS_DIRS) $(LIBNAMES) -o ./$@
+CCLINKBIN = $(LDCC) $(LDFLAGS) ./$@.o $(LIBS_DIRS) $(LIBNAMES) -o ./$@
+FCLINKBIN = $(LDFC) $(LDFLAGS) ./$@.o $(LIBS_DIRS) $(LIBNAMES) -o ./$@
 
 ./$(OSTYPE_MACHINE)/bin/% : main/%.cc $(LIBNAMES)
-		$(CXX) $(CXXFLAGS) $(CLON_FLAGS) -c $< -o $@.o
-		$(LDCXX) $(LDFLAGS) ./$@.o $(LIBS_DIRS) $(LIBNAMES) -o ./$@
+	$(MKBINDIR)
+	$(CXX) $(CXXBINOPT)
+	$(CXXLINKBIN)
 
 ./$(OSTYPE_MACHINE)/bin/% : main/%.c $(LIBNAMES)
-		$(CC) $(CFLAGS) $(CLON_FLAGS) -c $< -o $@.o
-		$(LDCC) $(LDFLAGS) ./$@.o $(LIBS_DIRS) $(LIBNAMES) -o ./$@
+	$(MKBINDIR)
+	$(CC) $(CCBINOPT)
+	$(CCLINKBIN)
 
 ./$(OSTYPE_MACHINE)/bin/% : main/%.F $(LIBNAMES)
-		$(FC) $(FFLAGS) $(CLON_FLAGS) -c $< -o $@.o
-		$(LDFC) $(LDFLAGS) ./$@.o $(LIBS_DIRS) $(LIBNAMES) -o ./$@
+	$(MKBINDIR)
+	$(FC) $(FCBINOPT)
+	$(FCLINKBIN)
+
+
+#
+# rol targets
+#
+
+MKROLDIR = -mkdir -p $(localrol)
+CCROLOPT = $(CFLAGS) $(CLON_FLAGS) -c $< -o $@
+CXXROLOPT = $(CXXFLAGS) $(CLON_FLAGS) -c $< -o $@
+
+$(LIB_FILES_ROL): $(SOURCE_FILES_ROL)
+
+./$(OSTYPE_MACHINE)/rol/%.o : rols/%.c
+	$(MKROLDIR)
+	$(CC) $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/%.so : ./$(OSTYPE_MACHINE)/rol/%.o
+	$(SHLD) $(LDFLAGS) ./$< $(LIBS_DIRS) $(LIBNAMES) -o ./$@
+
+./$(OSTYPE_MACHINE)/rol/%.o : rols/%.cc
+	$(MKROLDIR)
+	$(CXX) $(CXXROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/%.so : ./$(OSTYPE_MACHINE)/rol/%.o
+	$(SHLD) $(LDFLAGS) ./$< $(LIBS_DIRS) $(LIBNAMES) -o ./$@
 
 #
 #
 #
-

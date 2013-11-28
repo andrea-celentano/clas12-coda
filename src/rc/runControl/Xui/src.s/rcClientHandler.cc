@@ -162,13 +162,23 @@ rcClientHandler::connected (void) const
 int
 rcClientHandler::connect (char* database, char* exptname, char* msqld)
 {
-  int status = handler_.connect (database, exptname, msqld);
-  if (status == CODA_SUCCESS) {
+  int status;
+
+  printf("rcClientHandler::connect() reached: >%s< >%s< >%s<\n",
+		 database,exptname,msqld);
+
+  status = handler_.connect (database, exptname, msqld);
+  if (status == CODA_SUCCESS)
+  {
+	/*see motif/src.s/XcodaInput.cc */
     addInput (handler_.getFd (), (XtPointer)XtInputReadMask);
+	
     if (handler_.monitorOnCallback (exptname, "status", 
-		    (rcCallback)&(rcClientHandler::statusCallback),
-		    (void *)this) != CODA_SUCCESS)
+			(rcCallback)&(rcClientHandler::statusCallback),
+			(void *)this) != CODA_SUCCESS)
       fprintf (stderr, "Cannot monitor on %s status\n", exptname);
+
+	/*sergey: comment out temporary*/
     if (handler_.monitorOnCallback (exptname, "master",
 			(rcCallback)&(rcClientHandler::mastershipCallback),
 			(void *)this) != CODA_SUCCESS)
@@ -190,7 +200,10 @@ rcClientHandler::connect (char* database, char* exptname, char* msqld)
 			(rcCallback)&(rcClientHandler::componentsCallback),
 			(void *)this) != CODA_SUCCESS)
       fprintf (stderr, "Cannot monitor on %s components\n", exptname);
-    /* if (handler_.monitorOnCallback (exptname, "allDatabases",
+	
+
+    /*sergey: was commented out
+    if (handler_.monitorOnCallback (exptname, "allDatabases",
 				(rcCallback)&(rcClientHandler::dbaseCallback),
 				(void *)this) != CODA_SUCCESS)
       fprintf (stderr, "Cannot monitor on %s allDatabases\n", exptname);    
@@ -202,6 +215,8 @@ rcClientHandler::connect (char* database, char* exptname, char* msqld)
 		(rcCallback)&(rcClientHandler::sessionStatusCallback),
 		(void *)this) != CODA_SUCCESS)
        fprintf (stderr, "Cannot monitor on %s sessionStatus\n", exptname); */
+
+	/*sergey: comment out temporary*/
     if (handler_.monitorOnCallback (exptname, "compBootInfo",
 		(rcCallback)&(rcClientHandler::cabootinfoCallback),
 		(void *)this) != CODA_SUCCESS)
@@ -234,7 +249,11 @@ rcClientHandler::connect (char* database, char* exptname, char* msqld)
 
     handler_.disconnectCallback ((rcCallback)&(rcClientHandler::discCallback),
 				 (void *)this);
+	
+
   }
+
+  printf("rcClientHandler::connect() done\n");
 
   return status;
 }

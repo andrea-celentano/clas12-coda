@@ -122,11 +122,22 @@ rccIO::handle_input (int)
   rcMsg *recver = new rcMsg (DAUNKNOWN, ndata);
 
   n = clientStream_ >> *recver;
+
+
 #ifdef _CODA_DEBUG
-  printf ("%d bytes is received from client to rcServer\n", n);
-  printf ("recver type is %d\n", recver->type ());
+  printf("handle_input: %d bytes is received from client to rcServer\n", n);
+  printf("handle_input: type %d, datSize %d, reqId %d (0x%08x)\n",
+		  recver->type(),recver->dataSize(),recver->reqId(),recver->reqId());
 #endif
-  switch (n){
+
+  /*
+#ifdef _CODA_DEBUG
+  printf("handle_input: >%s<\n",(char *)(daqNetData)(*recver));
+#endif
+  */
+
+  switch (n)
+  {
   case -1:
   case 0:
     printf("Client connection is broken.\n");
@@ -140,9 +151,9 @@ rccIO::handle_input (int)
       break;
     case DASET_VAL:
       if (master_ || !acceptor_->hasMaster ())
-	status = run_->setValue (this, recver);
+	    status = run_->setValue (this, recver);
       else
-	status = accessViolation (recver->type (), recver->reqId ());
+	    status = accessViolation (recver->type (), recver->reqId ());
       break;
     case DAMONITOR_VAL_ON:
       status = run_->monitorOnValue (this, recver);
@@ -152,62 +163,62 @@ rccIO::handle_input (int)
       break;
     case DAREG_CLIENT_INFO:
       {
-	long cbkid = recver->reqId ();
-	registerClientInfo (recver);
-	status = run_->updateClientInfo (this, cbkid);
+	    long cbkid = recver->reqId ();
+	    registerClientInfo (recver);
+	    status = run_->updateClientInfo (this, cbkid);
       }
       break;
     case DABECOMEMASTER:
       {
-	funcst = requestMastership ();
-	daqNetData data (run_->exptname(), "command", funcst);
-	sendResult (recver->type(), data, recver->reqId ());
-	delete recver;
+	    funcst = requestMastership ();
+	    daqNetData data (run_->exptname(), "command", funcst);
+	    sendResult (recver->type(), data, recver->reqId ());
+	    delete recver;
       }
       break;
     case DACANCELMASTER:
       {
-	funcst = giveupMastership ();
-	daqNetData data (run_->exptname(), "command", funcst);
-	sendResult (recver->type(), data, recver->reqId ());
-	delete recver;
+	    funcst = giveupMastership ();
+	    daqNetData data (run_->exptname(), "command", funcst);
+	    sendResult (recver->type(), data, recver->reqId ());
+	    delete recver;
       }
       break;
     case DAISMASTER:
       {
-	if (isMaster ())
-	  funcst = CODA_SUCCESS;
-	else
-	  funcst = CODA_ERROR;
-	daqNetData data (run_->exptname (), "command", funcst);
-	sendResult (recver->type (), data, recver->reqId ());
-	delete recver;
+	    if (isMaster ())
+	      funcst = CODA_SUCCESS;
+	    else
+	      funcst = CODA_ERROR;
+	      daqNetData data (run_->exptname (), "command", funcst);
+	      sendResult (recver->type (), data, recver->reqId ());
+	      delete recver;
       }
       break;
     case DAONLINE:
       {
-	run_->online ();
-	run_->startUpdatingDynamicVars ();
-	daqNetData data (run_->exptname (), "command", CODA_SUCCESS);
-	sendResult (recver->type (), data, recver->reqId ());
-	delete recver;
+	    run_->online ();
+	    run_->startUpdatingDynamicVars ();
+	    daqNetData data (run_->exptname (), "command", CODA_SUCCESS);
+	    sendResult (recver->type (), data, recver->reqId ());
+	    delete recver;
       }
       break;
     case DAOFFLINE:
       {
-	run_->stopUpdatingDynamicVars ();
-	run_->offline ();
-	daqNetData data (run_->exptname (), "command", CODA_SUCCESS);
-	sendResult (recver->type (), data, recver->reqId ());
-	delete recver;
+	    run_->stopUpdatingDynamicVars ();
+	    run_->offline ();
+	    daqNetData data (run_->exptname (), "command", CODA_SUCCESS);
+	    sendResult (recver->type (), data, recver->reqId ());
+	    delete recver;
       }
       break;
     case DACANCELTRAN:
       {
-	run_->cancelTransition ();
-	daqNetData data (run_->exptname (), "command", CODA_SUCCESS);
-	sendResult (recver->type (), data, recver->reqId ());
-	delete recver;
+	    run_->cancelTransition ();
+	    daqNetData data (run_->exptname (), "command", CODA_SUCCESS);
+	    sendResult (recver->type (), data, recver->reqId ());
+	    delete recver;
       }
       break;
     case DAAUTOBOOT_INFO:
@@ -240,10 +251,17 @@ rccIO::handle_input (int)
       break;
     default:
       // command callback
+      printf("command callback\n");
       if (master_ || !acceptor_->hasMaster ())
-	status = run_->processCommand (this, recver->type(), recver); 
+	  {
+        printf("processCommand\n");
+	    status = run_->processCommand (this, recver->type(), recver); 
+	  }
       else
-	status = accessViolation (recver->type(), recver->reqId () );
+	  {
+        printf("accessViolation\n");
+	    status = accessViolation (recver->type(), recver->reqId () );
+	  }
       break;
     }
     break;

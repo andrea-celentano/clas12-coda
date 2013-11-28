@@ -1,7 +1,21 @@
+
 /* TEST program to communicate with run control server */
 
 /*
-./Linux_i686/bin/rcline clasdev clastest clondb1
+rcServer -m clondb1 -d clasdev -s clastest0
+./Linux_i686/bin/rcline clasdev clastest0 clondb1
+
+type commands:
+  load
+  configure
+    test0
+  download
+  prestart
+  go
+  end
+  monitorOn
+    ER0 erate
+
 */
 
 #include <stdio.h>
@@ -9,6 +23,16 @@
 #include <assert.h>
 
 #include <rcSvcProtocol.h>
+/* inside:
+#define DYN_ATTR0         "nlongs" 
+#define DYN_ATTR1         "nevents" 
+#define DYN_ATTR2         "status"  
+#define DYN_ATTR3         "erate"  
+#define DYN_ATTR4         "drate" 
+#define DYN_ATTR5         "livetime"
+*/
+
+
 #include <rcMsg.h>
 #include <rcClient.h>
 
@@ -76,32 +100,61 @@ monOffCallback (int status, void* arg, daqNetData* data)
 
 
 
+static void
+statusCallback (int status, void* arg, daqNetData* data)
+{
+  if (status == CODA_SUCCESS)
+  {
+    printf ("statusCallback: %s", (char *)(*data));
+  }
+  else
+  {
+    printf("statusCallback: NOT CODA_SUCCESS (status=%d)\n",status);
+  }
+}
+
+
 
 int
 main (int argc, char **argv)
 {
+  rcClient handler_;
+  int status;
+  char dbase[256];
+  char session[256];
+
   if (argc != 4)
   {
     fprintf (stderr, "Usage: %s database session mysqld\n", argv[0]);
     exit (1);
   }
-  char dbase[256];
-  char session[256];
   
   strcpy (dbase, argv[1]);
   strcpy (session, argv[2]);
 
-  rcClient client;
-
-  int status = client.connect (argv[1], argv[2], argv[3]);
-  
+  status = handler_.connect (argv[1], argv[2], argv[3]);
   if (status != CODA_SUCCESS)
   {
     printf ("%s RunControl Server is not running\n", argv[2]);
     exit (1);
   }
 
-  client.monitorOnCallback ("RCS", "runMessage", msgCallback, 0);
+
+  /*
+handler_.monitorOnCallback ("RCS", "runMessage", msgCallback, 0);
+  */
+
+
+
+  handler_.monitorOnCallback ("RCS", "runMessage", msgCallback, 0);
+
+  /* in runcontrol something like that::
+  if (handler_.monitorOnCallback (session, "status", statusCallback, 0) != CODA_SUCCESS)
+  {
+    printf("Cannot monitor on >%s< session\n", session);
+  }
+  */
+
 
   char command[32];
   int count;
@@ -114,7 +167,7 @@ main (int argc, char **argv)
       scanf ("%s", command);
       if (::strcmp (command, "disconnect") == 0)
 	  {
-        client.disconnect ();
+        handler_.disconnect ();
 	  }
       else if (::strcmp (command, "quit") == 0)
 	  {
@@ -135,37 +188,52 @@ main (int argc, char **argv)
 	    delete []temp[0]; 
 	    delete []temp[1];
   	
-	    status = client.sendCmdCallback (DALOADDBASE, data, callback, 0);
+	    status = handler_.sendCmdCallback (DALOADDBASE, data, callback, 0);
       }
       else if (::strcmp (command, "getruntypes") == 0)
 	  {
-	    status = client.getValueCallback (argv[2], "allRunTypes", 
-					  getValCallback, (void *)&client);
+	    status = handler_.getValueCallback (argv[2], "allRunTypes", 
+					  getValCallback, (void *)&handler_);
 	  }
       else if (::strcmp (command, "configure") == 0)
       {
-	    printf ("Enter runtype name\n");
+	    printf ("Enter configuration name\n");
 	    {
 	      char runtype[32];
 	      scanf ("%s",runtype);
 	      daqData data ("RCS","command",runtype);
-	      status = client.sendCmdCallback (DACONFIGURE, data, callback, 0);
+	      status = handler_.sendCmdCallback (DACONFIGURE, data, callback, 0);
 	    }
       }
       else if (::strcmp (command, "download") == 0)
       {
 	    daqData data ("RCS", "command", (int)DADOWNLOAD);
-	    status = client.sendCmdCallback (DADOWNLOAD, data, callback, 0);
+	    status = handler_.sendCmdCallback (DADOWNLOAD, data, callback, 0);
+      }	
+      else if (::strcmp (command, "prestart") == 0)
+      {
+	    daqData data ("RCS", "command", (int)DAPRESTART);
+	    status = handler_.sendCmdCallback (DAPRESTART, data, callback, 0);
+      }	
+      else if (::strcmp (command, "go") == 0)
+      {
+	    daqData data ("RCS", "command", (int)DAGO);
+	    status = handler_.sendCmdCallback (DAGO, data, callback, 0);
+      }	
+      else if (::strcmp (command, "end") == 0)
+      {
+	    daqData data ("RCS", "command", (int)DAEND);
+	    status = handler_.sendCmdCallback (DAEND, data, callback, 0);
       }	
       else if (::strcmp (command, "abort") == 0)
       {
 	    daqData data ("RCS", "command", (int)DAABORT);
-	    status = client.sendCmdCallback (DAABORT, data, callback, 0);
+	    status = handler_.sendCmdCallback (DAABORT, data, callback, 0);
       }
       else if (::strcmp (command, "reset") == 0)
       {
 	    daqData data ("RCS", "command", (int)DATERMINATE);
-	    status = client.sendCmdCallback (DATERMINATE, data, callback, 0);
+	    status = handler_.sendCmdCallback (DATERMINATE, data, callback, 0);
       }
       else if (::strcmp (command, "getvalue") == 0)
       {
@@ -174,8 +242,8 @@ main (int argc, char **argv)
 	      char compname[32];
 	      char attr[32];
 	      scanf ("%s %s",compname, attr);
-	      client.getValueCallback (compname, attr, getValCallback, 
-				   (void *)&client);
+	      handler_.getValueCallback (compname, attr, getValCallback, 
+				   (void *)&handler_);
 	    }
       }
       else if (::strcmp (command, "setvalue") == 0)
@@ -187,7 +255,7 @@ main (int argc, char **argv)
 	      char val[256];
 	      scanf ("%s %s %s",compname, attr, val);
 	      daqData data (compname, attr, val);
-	      client.setValueCallback (data, setValCallback, 0);
+	      handler_.setValueCallback (data, setValCallback, 0);
 	    }
       }
       else if (::strcmp (command, "monitorOn") == 0)
@@ -197,7 +265,7 @@ main (int argc, char **argv)
 	      char compname[32];
 	      char attr[32];
 	      scanf ("%s %s",compname, attr);
-	      client.monitorOnCallback (compname, attr, monCallback, 0);
+	      handler_.monitorOnCallback (compname, attr, monCallback, 0);
 	    }
       }
       else if (::strcmp (command, "monitorOff") == 0)
@@ -207,7 +275,7 @@ main (int argc, char **argv)
 	      char compname[32];
 	      char attr[32];
 	      scanf ("%s %s",compname, attr);
-	      client.monitorOffCallback (compname, attr, monCallback, 0,
+	      handler_.monitorOffCallback (compname, attr, monCallback, 0,
 				     monOffCallback, 0);
 	    }
       }
@@ -218,13 +286,13 @@ main (int argc, char **argv)
 	      int state[2];
 	      scanf ("%d %d",&state[0], &state[1]);
 	      daqData data ("RCS","command", state, 2);
-	      client.sendCmdCallback (DACHANGE_STATE, data, callback, 0);
+	      handler_.sendCmdCallback (DACHANGE_STATE, data, callback, 0);
 	    }
       }
       else if (::strcmp (command, "test") == 0)
       {
 	    daqData data ("RCS", "command", (int)DATEST);	
-	    status = client.sendCmdCallback (DATEST, data, callback, 0);
+	    status = handler_.sendCmdCallback (DATEST, data, callback, 0);
       }
       else
 	  {
@@ -233,6 +301,6 @@ main (int argc, char **argv)
       printf ("Enter rcServer Command\n");
       fflush (stdout);
     }
-    client.pendIO (0.1);
+    handler_.pendIO (0.1);
   }
 }

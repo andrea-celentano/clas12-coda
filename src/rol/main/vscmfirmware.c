@@ -11,15 +11,7 @@ vscmfirmware("vscm_rev2_3.bin",0)
 #include "vscmLib.h"
 
 
-#ifdef VXWORKS
-
-int
-vscmfirmware()
-{
-  return(0);
-}
-
-#else
+#ifdef Linux_vme
 
 int
 main(int argc, char *argv[])
@@ -62,4 +54,11 @@ main(int argc, char *argv[])
   exit(0);
 }
 
+#else
+
+int
+main()
+{
+  return(0);
+}
 #endif

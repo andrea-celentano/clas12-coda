@@ -154,6 +154,10 @@ private:
   // name of components
   char*    names_[RCXUI_MAX_COMPONENTS];
 
+  //sergey: addEvRateData('data') calls counter: will normalize to that, not to the time interval,
+  //        because 'data' already in Hz
+  int NaddEvRateData;
+
 };
 
 #endif

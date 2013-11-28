@@ -8,7 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <tcl.h> /* to get ckfree() */
+
 #include "circbuf.h"
 
 #define DEBUG1 1
@@ -160,7 +160,7 @@ if(cbp->data[icb] == (void *)-1)
     printf("put_cb_data(): release [%1d] 0x%08x\n",icb,cbp->data[icb]);
     fflush(stdout);
 #endif
-    ckfree(cbp->data[icb]);
+    cfree(cbp->data[icb]);
   }
 #endif
 

@@ -139,9 +139,8 @@
 #include <Xm/RowColumn.h>
 #include <Xm/TextF.h>
 #include <Xm/MainW.h>
-/*#include <Balloon.h>*/
-/*#include <debug.h>*/
-#include <cedit.h>
+
+#include "cedit.h" /* in codaedit/ it is codaedit.h !!! */
 
 #ifdef USE_CREG
 #include <codaRegistry.h>
@@ -643,8 +642,15 @@ main (int argc, char** argv)
 #endif
     XStoreName(XtDisplay(menW->tabChildren_[0]),XtWindow(menW->tabChildren_[0]),"RC_HTML_WINDOW");
     
-    menW->createTabFrame("cedit",0);
-    menW->createTabFrame("dbedit",0);
+    menW->createTabFrame("codaedit",0); /* create frame for codaedit; first par must coinside with
+     the name in following call from codaedit.c: parent = CODAGetAppWindow(XtDisplay(toplevel),"codaedit_WINDOW"); */
+
+    menW->createTabFrame("dbedit",0); /* create frame for dbedit */
+
+    /*menW->createTabFrame("codaxterms",0);*/ /* create frame for codaxterms */
+	/*
+    menW->createTabFrame("xterm",0);
+	*/
 
     ac = 0;
 
@@ -673,25 +679,37 @@ main (int argc, char** argv)
         if (option->noEdit_)
         {
           sprintf(temp2,
-            "(echo \"start cedit\"; sleep 3; %s/codaedit -embed -noedit )&",
+            "(echo \"start codaedit\"; sleep 3; %s/codaedit -embed -noedit )&",
             getenv("CODA_BIN"));
         }
         else
         {
           sprintf(temp2,
-            "(echo \"start cedit\"; sleep 3; %s/codaedit -embed )&",
-            getenv("CODA_BIN"));
+            "(echo \"start codaedit\"; sleep 3; %s/codaedit -embed )&",getenv("CODA_BIN"));
         }
 
         system(temp2);
       }
-
 
       if (option->startDbedit_)
       {
         sprintf (temp2,"(echo \"start dbedit\";sleep 4; %s/common/scripts/dbedit -embed )&",getenv("CODA"));
         system(temp2);
       }
+
+
+	  /*
+	  {
+        sprintf (temp2,"(echo \"start codaxterms\";sleep 5; %s/codaxterms -embed )&",getenv("CODA_BIN"));
+        system(temp2);
+	  }
+	  */
+
+	  /*
+        sprintf (temp2,"(echo \"start xterm\";sleep 5; /usr/bin/xterm )&");
+        system(temp2);
+	  */
+
     }
 
   }

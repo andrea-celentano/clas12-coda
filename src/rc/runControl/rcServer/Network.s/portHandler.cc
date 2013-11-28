@@ -165,9 +165,10 @@ portHandler::handle_input (int)
   char      brdrecvbuf[128];
   daqSystem& system = daqrun_->system();
   daqComponent *comp;
-/*
-printf("!!! portHandler::handle_input reached\n");
-*/
+
+#ifdef _CODA_DEBUG
+  //printf("!!! portHandler::handle_input reached\n");
+#endif
   if ((n = brdcastListener_.recv (brdrecvbuf, sizeof (brdrecvbuf), sa)) == -1)
   {
 	//printf("portHandler: empty ...\n");
@@ -175,18 +176,18 @@ printf("!!! portHandler::handle_input reached\n");
   }
   else
   {
-/*
-printf("portHandler: received: >%s< (0x%02x 0x%02x 0x%02x 0x%02x)\n",
-&(brdrecvbuf[0]),brdrecvbuf[0],brdrecvbuf[1],brdrecvbuf[2],brdrecvbuf[3]);fflush(stdout);
-*/
+#ifdef _CODA_DEBUG
+    //printf("portHandler: received: >%s< (0x%02x 0x%02x 0x%02x 0x%02x)\n",
+    //  &(brdrecvbuf[0]),brdrecvbuf[0],brdrecvbuf[1],brdrecvbuf[2],brdrecvbuf[3]);
+#endif
     memcpy (&type, brdrecvbuf, sizeof (int));
     int i = sizeof (int);
     daqDataManager& dataManager	= daqrun_->dataManager();
 
     type = ntohl (type);
 #ifdef DEBUG_MSGS
-    printf("portHandler: received message: type 0x%08x (%4.4s) content >%s< (>%s< %d)\n",
-    type,&type,&(brdrecvbuf[i]),&(brdrecvbuf[0]),i);
+    //printf("portHandler: received message: type 0x%08x (%4.4s) content >%s< (>%s< %d)\n",
+    //  type,&type,&(brdrecvbuf[i]),&(brdrecvbuf[0]),i);
 #endif
     switch (type)
     {
@@ -264,6 +265,7 @@ printf("portHandler: received: >%s< (0x%02x 0x%02x 0x%02x 0x%02x)\n",
             if(dataManager.findData (compName, "erate", serverData) == CODA_SUCCESS)
             {
               *serverData = evrate;
+			  /*printf("portHandler: >%s< erate=%f\n",compName,evrate);*/
             }
             if(dataManager.findData (compName, "drate", serverData) == CODA_SUCCESS)
             {

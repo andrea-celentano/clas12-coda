@@ -15,7 +15,6 @@
 #include <errno.h>
 
 #include "da.h"
-#include "itcl.h"
 #include "circbuf.h"
 #include "bosio.h"
 #include "etbosio.h"
@@ -23,6 +22,9 @@
 
 
 #undef DEBUG
+
+#define CODA_ERROR 1
+#define CODA_OK 0
 
 /*event builder complains:
 -- Got all fragments of go
@@ -32,9 +34,6 @@ PUT: wait while icb=4 == cbp->read=4 -------
 handle_link(): rocid=3: all buffers are full - wait ..
 */
 
-/*
-#define TCL_PROC(name) int name (objClass object, Tcl_Interp *interp, int argc, char **argv)
-*/
 
 /* external data */
 
@@ -65,7 +64,7 @@ static int ending_for_recv;
 
 /********************************/
 /* called from coda_component.c */
-
+/*
 int
 LINK_support_Init(Tcl_Interp *interp)
 {
@@ -81,7 +80,7 @@ LINK_support_Init(Tcl_Interp *interp)
 
   return(TCL_OK);
 }
-
+*/
 /*****************************************************************************/
 
 /* swap big buffer (includes BOS banks (2-word header format)) */
@@ -514,10 +513,10 @@ end1 = gethrtime();
   	printf("LINK_sized_read(): WARNING: zero length block from ROC\n");
     fflush(stdout);
 #ifndef NOALLOC
-  	*buf = (char *) ckalloc(24);
+  	*buf = (char *) calloc(24,1);
     if((*buf) == NULL)
     {
-      printf("LINK_sized_read(): ERROR1: ckalloc(%d) returns zero !!!\n",size+6);
+      printf("LINK_sized_read(): ERROR1: calloc(%d) returns zero !!!\n",size+6);
       fflush(stdout);
     }
 #endif
@@ -541,10 +540,10 @@ end1 = gethrtime();
   }
 #else
   /*printf("size=0x%08x\n",size);*/
-  *buf = (char *) ckalloc(size+6); /* two bytes extra for null term strings */
+  *buf = (char *) calloc(size+6,1); /* two bytes extra for null term strings */
   if((*buf) == NULL)
   {
-    printf("LINK_sized_read(): ERROR2: ckalloc(%d) returns zero !!!\n",size+6);
+    printf("LINK_sized_read(): ERROR2: calloc(%d) returns zero !!!\n",size+6);
     fflush(stdout);
   }
 #endif
@@ -725,7 +724,7 @@ if(time3 > 3000000)
 */
 
   /* set appropriate bit letting building thread know we are ready */
-  roc_linked |= (1<<tmp[2]);
+roc_linked |= (1<<tmp[2]); /* tmp[2] contains rocid */
 
   /*
   printf("LINK_sized_read(): set roc_linked for rocid=%d (0x%08x)\n",
@@ -868,9 +867,9 @@ fflush(stdout);
 }
 
   /* Sergey ??? */
-  printf("call ckfree ...\n"); fflush(stdout);
-  ckfree(arg);
-  printf("... ckfree done.\n"); fflush(stdout);
+  printf("call cfree ...\n"); fflush(stdout);
+  cfree(arg);
+  printf("... cfree done.\n"); fflush(stdout);
 
   /* main loop */
   while(1)
@@ -1130,10 +1129,10 @@ debOpenLink(char *fromname, char *toname, char *tohost,  MYSQL *dbsock)
 printf("++++++1+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[2]);
 
   /* set 'theLink' */
-  theLink = (DATA_LINK) ckalloc(sizeof(DATA_LINK_S));
+  theLink = (DATA_LINK) calloc(sizeof(DATA_LINK_S),1);
   bzero((char *) theLink, sizeof(DATA_LINK_S));
 
-  theLink->name = (char *) ckalloc(strlen(fromname) + 1);
+  theLink->name = (char *) calloc(strlen(fromname)+1,1);
   strcpy(theLink->name, fromname); /* croctest1 etc */
 
 
@@ -1306,7 +1305,7 @@ printf("++++++4+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
     if(mysql_query(dbsock, tmp) != 0)
     {
 	  printf("ERROR: cannot create table 'links' (%s)\n",mysql_error(dbsock));
-      return(TCL_ERROR);
+      return(CODA_ERROR);
     }
     else
     {
@@ -1322,7 +1321,7 @@ printf("++++++4+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
     if(!(res = mysql_store_result (dbsock) ))
     {
       printf("ERROR in mysql_store_result (%s)\n",mysql_error(dbsock));
-      return(TCL_ERROR);
+      return(CODA_ERROR);
     }
     else
     {
@@ -1336,7 +1335,7 @@ printf("++++++4+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
   if(mysql_query(dbsock, tmp) != 0)
   {
 	printf("debOpenLink: mysql error (%s)\n",mysql_error(dbsock));
-    return(TCL_ERROR);
+    return(CODA_ERROR);
   }
 
   /* gets results from previous query */
@@ -1345,7 +1344,7 @@ printf("++++++4+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
   if( !(result = mysql_store_result(dbsock)) )
   {
     printf("ERROR in mysql_store_result (%)\n",mysql_error(dbsock));
-    return(TCL_ERROR);
+    return(CODA_ERROR);
   }
   else
   {
@@ -1367,13 +1366,13 @@ printf("++++++4+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
     else
     {
       printf("debOpenLink: ERROR: unknown nrow=%d",numRows);
-      return(TCL_ERROR);
+      return(CODA_ERROR);
     }
 
     if(mysql_query(dbsock, tmp) != 0)
     {
 	  printf("debOpenLink: ERROR 20-2\n");
-      return(TCL_ERROR);
+      return(CODA_ERROR);
     }
     else
     {
@@ -1386,7 +1385,7 @@ printf("++++++4+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
   if(mysql_query(dbsock, tmp) != 0)
   {
 	printf("debOpenLink: ERROR 22-2\n");
-    return(TCL_ERROR);
+    return(CODA_ERROR);
   }
 
   /* database must be closed in calling function */
@@ -1408,7 +1407,7 @@ ending_for_recv = 0;
 
 
   /* allocate and fill thread parameter structure */
-  args = (trArg) ckalloc(sizeof(TRARGS));
+ args = (trArg) calloc(sizeof(TRARGS),1);
   args->link = theLink;
   theLink->roc_queue = roc_queues[roc_queue_ix++];
   /*theLink->roc_queue->parent = theLink->name;donotneedit???*/
@@ -1433,7 +1432,7 @@ printf("++++++6+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
     {
       printf("LINK_thread_init(): ERROR in thread creating\n"); fflush(stdout);
       perror("pthread_create: ");
-      return(TCL_ERROR);
+      return(CODA_ERROR);
     }
     printf("LINK_thread_init(): thread is created\n"); fflush(stdout);
  }
@@ -1452,7 +1451,7 @@ debCloseLink(DATA_LINK theLink, MYSQL *dbsock)
   if(theLink == NULL)
   {
     printf("debCloseLink: theLink=NULL -> return\n");
-    return(TCL_OK);
+    return(CODA_OK);
   }
   else
   {
@@ -1549,7 +1548,7 @@ printf("906\n"); fflush(stdout);
   if(mysql_query(dbsock, tmp) != 0)
   {
     printf("debCloseLink: ERROR in database query {UPDATE ..}\n");
-    return(TCL_ERROR);
+    return(CODA_ERROR);
   }
   else
   {
@@ -1576,20 +1575,23 @@ printf("906\n"); fflush(stdout);
 
   /* release memory */
   printf("debCloseLink: free memory\n");
-  ckfree((char *) theLink->name);
-  /*ckfree((char *) theLink->parent);donotneedit???*/
-  ckfree((char *) theLink);
+  cfree((char *) theLink->name);
+  /*cfree((char *) theLink->parent);donotneedit???*/
+  cfree((char *) theLink);
   printf("debCloseLink: done.\n");
   
-  return(TCL_OK);
+  return(CODA_OK);
 }
 
 #else /* ifndef VXWORKS */
 
 /* just to resolve */
+
+/*
 #include "etbosio.h"
 int nddl;
 DDL ddl[NDDL];
+*/
 
 void
 LINK_support_vxworks_dummy()

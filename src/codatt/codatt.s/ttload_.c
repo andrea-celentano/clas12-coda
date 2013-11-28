@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <tcl.h>
+
 #include "coda.h"
 #include "tt.h"
 

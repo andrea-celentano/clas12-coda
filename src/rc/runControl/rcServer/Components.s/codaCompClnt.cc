@@ -126,7 +126,7 @@ alarmHandler(int sig)
 * -> tcpClient("remoteSystemName","This is my message");  
 * * RETURNS: OK, or ERROR if the message could not be sent to the server. */ 
 
-int
+static int
 tcpClient(char *name, char *message)
 {
   struct hostent *hptr;

@@ -28,7 +28,7 @@ include $(CODA)/src/Makefile.include
 CLON_FLAGS += -I./$(MAIN).s -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
 
 # for smartsockets
-CLON_FLAGS += -I$(RTHOME)/include -I$(CLON)/common/include
+CLON_FLAGS += -I$(RTHOME)/include -I$(CODA)/common/include
 
 #gram heyes use this flag instead of Darwin ???
 ifeq ("$(OSTYPE)","Darwin")
@@ -39,9 +39,10 @@ endif
 LIBNAMES += $(CODA)/$(OSTYPE_MACHINE)/lib/libevio.so
 
 #smartsockets
-LIBNAMES += $(CLON_LIB)/libipc.a
-LIBNAMES += -L$(RTHOME)/lib/$(OSTYPE_MACHINE) -lrtipc -lrtipcl -lrtutil -lrtcxxipc50
+#LIBNAMES += $(CLON_LIB)/libipc.a
+#LIBNAMES += -L$(RTHOME)/lib/$(OSTYPE_MACHINE) -lrtipc -lrtipcl -lrtutil -lrtcxxipc50
 
+LIBNAMES += -lexpat
 LIBNAMES += -lpthread
 LIBNAMES += -lresolv
 LIBNAMES += $(SYSLIBS)
@@ -62,21 +63,26 @@ endif
 
 ulib: user/$(OSTYPE_MACHINE)/lib/libet_user.so
 
+
 user/$(OSTYPE_MACHINE)/lib/libet_user.so: user/$(OSTYPE_MACHINE)/obj/et_userfunction.o
+	-mkdir -p user/$(OSTYPE_MACHINE)/lib
 	$(SHLD) -o user/$(OSTYPE_MACHINE)/lib/libet_user.so user/$(OSTYPE_MACHINE)/obj/et_userfunction.o
-##	ld -G -o user/$(OSTYPE_MACHINE)/lib/libet_user.so user/$(OSTYPE_MACHINE)/obj/et_userfunction.o
 
 user/$(OSTYPE_MACHINE)/obj/et_userfunction.o: user/et_userfunction.c
+	-mkdir -p user/$(OSTYPE_MACHINE)/obj
 	$(CC) $(CFLAGS) $(CLON_FLAGS) -c $< -o $@
 
 
 install: install_lib
+	-mkdir -p $(globalbin)
 	cp $(localbin)/et_start $(CODA)/$(OSTYPE_MACHINE)/bin/
 	cp $(localbin)/et_monitor $(CODA)/$(OSTYPE_MACHINE)/bin/
 	cp $(localbin)/et_2_et_10_00 $(CODA)/$(OSTYPE_MACHINE)/bin/
 	cp $(localbin)/et_2_et_10_01 $(CODA)/$(OSTYPE_MACHINE)/bin/
 	cp $(localbin)/et_2_et_10_02 $(CODA)/$(OSTYPE_MACHINE)/bin/
 	cp $(localbin)/et_2_et $(CODA)/$(OSTYPE_MACHINE)/bin/
+	cp $(localbin)/evio2et $(CODA)/$(OSTYPE_MACHINE)/bin/
+	cp $(localbin)/et2print $(CODA)/$(OSTYPE_MACHINE)/bin/
 
 	rm -rf tmp
 	mkdir tmp
@@ -88,7 +94,7 @@ install: install_lib
 	cp tmp/* $(CODA)/common/include
 	rm -rf tmp
 
-	cp user/$(OSTYPE_MACHINE)/lib/libet_user.so $(CODA)/$(OSTYPE_MACHINE)/lib/
+	cp user/$(OSTYPE_MACHINE)/lib/libet_user.so $(globallib)
 
 
 

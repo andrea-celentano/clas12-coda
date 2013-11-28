@@ -85,24 +85,9 @@
 #include "./xpm_icon/stone.xpm"
 #include "XcodaXpm.h"
 
-/*  "NetEditor*.drawing_area.background: NavyBlue",
-  "NetEditor*.top_ruler.background: NavyBlue",
-  "NetEditor*.left_ruler.background: NavyBlue",
-  "NetEditor*.top_ruler.foreground: White",
-  "NetEditor*.left_ruler.foreground: White",
-  "NetEditor*.top_ruler.tickerColor: White",
-  "NetEditor*.left_ruler.tickerColor: White",  
-  "NetEditor*.edit_popup.*.background:White",
-  "NetEditor*.top_ruler.indicatorColor: Red",
-  "NetEditor*.left_ruler.indicatorColor: Red",
-  "NetEditor*.foreground:     Black",
-  "NetEditor*.background:     LightBlue",
-*/
-
 static String fallback_resources[]={
   
   "NetEditor*.icon.borderWidth: 2",
-  /*"NetEditor*.backgroundPixmap: bg_pixmap1",*/
   "NetEditor*.highlightThickness:0",
   "NetEditor*.XmRowColumn*spacing: 0",
   "NetEditor*.selectColor:     red",
@@ -212,7 +197,7 @@ main(int argc, char **argv)
       if (argv[ix] &&  (strcmp(argv[ix],"-embed") == 0))
       {
 		printf("wwwwwwwwwwwwwwwwwwwww CREG wwwwwwwwwwwwwww\n");
-        parent = CODAGetAppWindow(XtDisplay(toplevel),"cedit_WINDOW");
+        parent = CODAGetAppWindow(XtDisplay(toplevel),"codaedit_WINDOW");
       }
     }
 

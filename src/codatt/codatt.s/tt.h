@@ -126,6 +126,7 @@ int     TT_TranslatePCALFBBank(long *, long *, TTSPtr);
 int     TT_TranslateHPSBank(long *, long *, TTSPtr);
 int     TT_TranslateSVTBank(long *, long *, TTSPtr);
 int     TT_TranslateDCRBBank(long *, long *, TTSPtr);
+int     TT_TranslateDCRBGTPBank(long *, long *, TTSPtr);
 int     TT_TranslateTDCBank(long *, long *, TTSPtr);
 
 int     TT_DC_demux(unsigned short **, MTDCPtr, int, TTSPtr);

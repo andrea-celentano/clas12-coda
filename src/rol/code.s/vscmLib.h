@@ -1,111 +1,115 @@
-
 /* vscmLib.h */
 
 #ifndef VSCM_H
 #define VSCM_H
 
 #ifdef VXWORKS
-/*sergey: it defined in vxTypes.h !!!
-typedef unsigned int uint32_t;
-typedef unsigned short uint16_t;
-typedef unsigned char uint8_t;
-*/
 typedef unsigned int uintptr_t;
 #else
 #include <stdint.h>
 #endif
 
-#define VSCM_MAX_BOARDS    20
-#define VSCM_BOARD_ID      0x5653434D
-#define VSCM_MAX_FIFO      0x800000 /* 8MB */
-#define VSCM_MAX_A32MB_SIZE	0x800000
+#ifndef CODA3DMA
+#define LSWAP(x)        ((((x) & 0x000000ff) << 24) | \
+                         (((x) & 0x0000ff00) <<  8) | \
+                         (((x) & 0x00ff0000) >>  8) | \
+                         (((x) & 0xff000000) >> 24))
+#endif
 
-#define VSCM_SYS_CLK			125000000L
+#define VSCM_MAX_BOARDS     20
+#define VSCM_BOARD_ID       0x5653434D
+#define VSCM_MAX_FIFO       0x800000 /* 8MB */
+#define VSCM_MAX_A32MB_SIZE 0x800000
 
-/* Need to update this to ensure FSSR bco clock number 
+#define VSCM_SYS_CLK    125000000L
+
+/* Need to update this to ensure FSSR BCO clock number 
    is deskewed to VSCM bco clock number */
-#define FSSR_SCR_BCONUM_START	240
+#define FSSR_SCR_BCONUM_START 240
 
-#define DATA_TYPE_BLKHDR		0x00
-#define DATA_TYPE_BLKTLR		0x01
-#define DATA_TYPE_EVTHDR		0x02
-#define DATA_TYPE_TRGTIME		0x03
-#define DATA_TYPE_BCOTIME		0x04
-#define DATA_TYPE_FSSREVT		0x08
-#define DATA_TYPE_DNV			0x0E
-#define DATA_TYPE_FILLER		0x0F
+#define DATA_TYPE_BLKHDR    0x00
+#define DATA_TYPE_BLKTLR    0x01
+#define DATA_TYPE_EVTHDR    0x02
+#define DATA_TYPE_TRGTIME   0x03
+#define DATA_TYPE_BCOTIME   0x04
+#define DATA_TYPE_FSSREVT   0x08
+#define DATA_TYPE_DNV       0x0E
+#define DATA_TYPE_FILLER    0x0F
 
-#define FSSR_SEL_HFCB1_U1		0
-#define FSSR_SEL_HFCB1_U2		1
-#define FSSR_SEL_HFCB1_U3		2
-#define FSSR_SEL_HFCB1_U4		3
-#define FSSR_SEL_HFCB2_U1		4
-#define FSSR_SEL_HFCB2_U2		5
-#define FSSR_SEL_HFCB2_U3		6
-#define FSSR_SEL_HFCB2_U4		7
-#define FSSR_SEL_ALL				8
+#define FSSR_SEL_HFCB1_U1   0
+#define FSSR_SEL_HFCB1_U2   1
+#define FSSR_SEL_HFCB1_U3   2
+#define FSSR_SEL_HFCB1_U4   3
+#define FSSR_SEL_HFCB2_U1   4
+#define FSSR_SEL_HFCB2_U2   5
+#define FSSR_SEL_HFCB2_U3   6
+#define FSSR_SEL_HFCB2_U4   7
+#define FSSR_SEL_ALL        8
 
-#define FSSR_CMD_READ			0x4
-#define FSSR_CMD_WRITE			0x1
-#define FSSR_CMD_SET				0x2
-#define FSSR_CMD_RESET			0x5
-#define FSSR_CMD_DEFAULT		0x6
+#define FSSR_CMD_READ     0x4
+#define FSSR_CMD_WRITE    0x1
+#define FSSR_CMD_SET      0x2
+#define FSSR_CMD_RESET    0x5
+#define FSSR_CMD_DEFAULT  0x6
 
-#define FSSR_ADDR_REG_DISC_VTN		0x07
-#define FSSR_ADDR_REG_DISC_THR0		0x08
-#define FSSR_ADDR_REG_DISC_THR1		0x09
-#define FSSR_ADDR_REG_DISC_THR2		0x0A
-#define FSSR_ADDR_REG_DISC_THR3		0x0B
-#define FSSR_ADDR_REG_DISC_THR4		0x0C
-#define FSSR_ADDR_REG_DISC_THR5		0x0D
-#define FSSR_ADDR_REG_DISC_THR6		0x0E
-#define FSSR_ADDR_REG_DISC_THR7		0x0F
-#define FSSR_ADDR_CAPSEL				0x0D
-#define FSSR_ADDR_REG_ALINES			0x10
-#define FSSR_ADDR_REG_KILL				0x11
-#define FSSR_ADDR_REG_INJECT			0x12
-#define FSSR_ADDR_REG_SENDDATA		0x13
-#define FSSR_ADDR_REG_REJECTHITS		0x14
-#define FSSR_ADDR_REG_WILDREG			0x15
-#define FSSR_ADDR_REG_SPR				0x18
-#define FSSR_ADDR_REG_DCR				0x1B
-#define FSSR_ADDR_REG_SCR				0x1C
-#define FSSR_ADDR_REG_AQBCO			0x1E
+#define FSSR_ADDR_REG_DISC_VTN    0x07
+#define FSSR_ADDR_REG_DISC_THR0   0x08
+#define FSSR_ADDR_REG_DISC_THR1   0x09
+#define FSSR_ADDR_REG_DISC_THR2   0x0A
+#define FSSR_ADDR_REG_DISC_THR3   0x0B
+#define FSSR_ADDR_REG_DISC_THR4   0x0C
+#define FSSR_ADDR_REG_DISC_THR5   0x0D
+#define FSSR_ADDR_REG_DISC_THR6   0x0E
+#define FSSR_ADDR_REG_DISC_THR7   0x0F
+#define FSSR_ADDR_CAPSEL          0x0D
+#define FSSR_ADDR_REG_ALINES      0x10
+#define FSSR_ADDR_REG_KILL        0x11
+#define FSSR_ADDR_REG_INJECT      0x12
+#define FSSR_ADDR_REG_SENDDATA    0x13
+#define FSSR_ADDR_REG_REJECTHITS  0x14
+#define FSSR_ADDR_REG_WILDREG     0x15
+#define FSSR_ADDR_REG_SPR         0x18
+#define FSSR_ADDR_REG_DCR         0x1B
+#define FSSR_ADDR_REG_SCR         0x1C
+#define FSSR_ADDR_REG_AQBCO       0x1E
 
-#define FSSR_ALINES_6				0x3
+#define FSSR_ALINES_1     0x0
+#define FSSR_ALINES_2     0x1
+#define FSSR_ALINES_4     0x2
+#define FSSR_ALINES_6     0x3
 
-#define FSSR_DCR_MOD256				0x10
+#define FSSR_DCR_MOD256   0x10
 
-#define IO_MUX_0						0
-#define IO_MUX_1						1
-#define IO_MUX_PULSER				2
-#define IO_MUX_FPINPUT0				3
-#define IO_MUX_FPINPUT1				4
-#define IO_MUX_FPINPUT2				5
-#define IO_MUX_FPINPUT3				6
-#define IO_MUX_SWB_SYNC				7
-#define IO_MUX_SWB_TRIG1			8
-#define IO_MUX_SWB_TRIG2			9
-#define IO_MUX_SWA_GPIO0			10
-#define IO_MUX_SWA_GPIO1			11
-#define IO_MUX_SWB_GPIO0			12
-#define IO_MUX_SWB_GPIO1			13
-#define IO_MUX_BUSY					14
-#define IO_MUX_FSSRHIT				15
-#define IO_MUX_DACTRIGGERED		16
-#define IO_MUX_DACTRIGGERED_DLY	17
-#define IO_MUX_BCOCLK				18
-#define IO_MUX_TOKENOUT				19
-#define IO_MUX_TOKENIN				20
+#define IO_MUX_0                  0
+#define IO_MUX_1                  1
+#define IO_MUX_PULSER             2
+#define IO_MUX_FPINPUT0           3
+#define IO_MUX_FPINPUT1           4
+#define IO_MUX_FPINPUT2           5
+#define IO_MUX_FPINPUT3           6
+#define IO_MUX_SWB_SYNC           7
+#define IO_MUX_SWB_TRIG1          8
+#define IO_MUX_SWB_TRIG2          9
+#define IO_MUX_SWA_GPIO0          10
+#define IO_MUX_SWA_GPIO1          11
+#define IO_MUX_SWB_GPIO0          12
+#define IO_MUX_SWB_GPIO1          13
+#define IO_MUX_BUSY               14
+#define IO_MUX_FSSRHIT            15
+#define IO_MUX_DACTRIGGERED       16
+#define IO_MUX_DACTRIGGERED_DLY   17
+#define IO_MUX_BCOCLK             18
+#define IO_MUX_TOKENOUT           19
+#define IO_MUX_TOKENIN            20
 
-#define FSSR_H1_U1_IDX		0
-#define FSSR_H1_U2_IDX		1
-#define FSSR_H1_U3_IDX		2
-#define FSSR_H1_U4_IDX		3
-#define FSSR_H2_U1_IDX		4
-#define FSSR_H2_U2_IDX		5
-#define FSSR_H2_U3_IDX		6
-#define FSSR_H2_U4_IDX		7
+#define FSSR_H1_U1_IDX    0
+#define FSSR_H1_U2_IDX    1
+#define FSSR_H1_U3_IDX    2
+#define FSSR_H1_U4_IDX    3
+#define FSSR_H2_U1_IDX    4
+#define FSSR_H2_U2_IDX    5
+#define FSSR_H2_U3_IDX    6
+#define FSSR_H2_U4_IDX    7
 
 typedef struct {
 /* 0x0000-0x0003 */ uint32_t LastStatusWord;
@@ -123,7 +127,8 @@ typedef struct {
 /* 0x0030-0x0033 */ uint32_t ScalerRef;
 /* 0x0034-0x0037 */ uint32_t ScalerStripRef;
 /* 0x0038-0x003B */ uint32_t ScalerCoreTalking;
-/* 0x003C-0x00FF */ uint32_t Dummy0[(0x0100-0x003C)/4];
+/* 0x003C-0x003F */ uint32_t LastDataWord;
+/* 0x0040-0x00FF */ uint32_t Dummy0[(0x0100-0x0040)/4];
 } FssrStatus;
 
 struct VSCM_regs {
@@ -181,7 +186,7 @@ struct VSCM_regs {
 /* 0x0150-0x0153 */ volatile uint32_t PulserN;
 /* 0x0154-0x0157 */ volatile uint32_t PulserStart;
 /* 0x0158-0x015B */ volatile uint32_t PulserStatus;
-/* 0x015C-0x0FC7 */ volatile uint32_t Dummy8[(0x0FC0-0x015C)/4];
+/* 0x015C-0x0FBF */ volatile uint32_t Dummy8[(0x0FC0-0x015C)/4];
 /* 0x0FC0-0x0FC3 */ volatile uint32_t ScalerTrigger;
 /* 0x0FC4-0x0FC7 */ volatile uint32_t ScalerTriggerAccepted;
 /* 0x0FC8-0x0FD7 */ volatile uint32_t ScalerFpOutput[4];
@@ -197,14 +202,12 @@ struct VSCM_regs {
 
 /* Declare Global Variables */
 extern int nvscm;
-extern int vscmA32Base;
+extern const int vscmA32Base;
 extern int vscmA32Offset;
 extern int vscmA24Offset;
 extern int vscmA16Offset;
 
-/*
 extern volatile struct VSCM_regs *VSCMpr[VSCM_MAX_BOARDS + 1];
-*/
 extern volatile uintptr_t *VSCMpf[VSCM_MAX_BOARDS + 1];
 extern int vscmID[VSCM_MAX_BOARDS];
 extern int vscmInited;
@@ -212,24 +215,33 @@ extern int minSlot;
 extern int maxSlot;
 
 /* Firmware Function Prototypes */
-void vscmSelectSpi(int id, int sel);
-uint8_t vscmTransferSpi(int id, uint8_t data);
-void vscmFlashGetID(int id, uint8_t *rsp);
-uint8_t vscmFlashGetStatus(int id);
+int vscmGetSpiMode(int id);
+void vscmSelectSpi(int id, int sel, int mode);
+uint8_t vscmTransferSpi(int id, uint8_t data, int mode);
+void vscmFlashGetID(int id, uint8_t *rsp, int mode);
+uint8_t vscmFlashGetStatus(int id, int mode);
 void vscmReloadFirmware(int id);
 int vscmFirmwareUpdate(int id, const char *filename);
 int vscmFirmwareVerify(int id, const char *filename);
 int vscmFirmwareUpdateVerify(int id, const char *filename);
 int vscmFirmwareRead(int id, const char *filename);
 
-void vscmResetToken(int id);
-int vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm);
+int vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag);
 int vscmIsNotInit(int *id, const char *func);
+void vscmResetToken(int id);
+
+/* Ready Functions */
+uint32_t vscmDReady(int id);
+int vscmBReady(int id);
+uint32_t vscmGBReady();
+
 int vscmGetSerial(int id);
 int vscmConfigDownload(int id, char *fname);
 void vscmStat(int id);
-unsigned int vscmGBready();
+uint32_t vscmGetInputTriggers(int id);
+uint32_t vscmGetAcceptedTriggers(int id);
 void vscmFifoClear(int id);
+int vscmFifoStatus(int id);
 void vscmSetHitMask(int id, uint32_t mask);
 
 /* Pulser Functions */
@@ -237,26 +249,32 @@ void vscmSetPulserRate(int id, uint32_t freq);
 uint32_t vscmGetPulserRate(int id);
 void vscmPulser(int id, int ch, uint32_t amp, uint32_t num_pulses);
 void vscmPulserStart(int id);
+void vscmPulserStop(int id);
+void vscmPulserDelay(int id, uint8_t delay);
+void vscmPulserBCOSync(int id, uint8_t bco, int sync);
 /* Don't call this externally */
 uint8_t vscmSetDacCalibration(int id);
 
 /* Scaler Functions */
-void vscmEnableScalers(int id);
-void vscmDisableScalers(int id, int chip);
-void vscmClearScalers(int id, int chip);
-int vscmReadScalers(int id, int chip, uint32_t *arr);
+void vscmEnableChipScaler(int id, int chip);
+void vscmDisableChipScaler(int id, int chip);
+void vscmLatchChipScaler(int id, int chip);
+void vscmClearStripScalers(int id, int chip);
+int vscmReadStripScalers(int id, int chip, uint32_t *arr);
+void vscmLatchScalers(int id);
 
 void vscmSetBCOFreq(int id, uint32_t freq);
 int vscmReadBlock(int id, volatile uintptr_t *data, int nwrds, int rflag);
 void vscmSetTriggerWindow(int id, \
-									uint32_t windowSize, \
-									uint32_t windowLookback, \
-									uint32_t bcoFreq);
+                          uint32_t windowSize, \
+                          uint32_t windowLookback, \
+                          uint32_t bcoFreq);
 void vscmSetBlockLevel(int id, int block_level);
 void vscmSWSync(int id);
 void fssrMasterReset(int id);
 char * readNormalizedScaler(char *buf, char *prefix, \
                                 uint32_t ref, uint32_t scaler);
+
 void fssrStatusAll();
 void fssrStatus(int id, int chip);
 void fssrSetChipID(int id, \
@@ -274,6 +292,11 @@ uint8_t fssrGetVtn(int id, int chip);
 uint8_t fssrGetBCONum(int id, int chip);
 uint8_t fssrGetBCONumOffset(int id, int chip, uint8_t offset);
 uint8_t fssrGetBCONumNoSync(int id, int chip);
+
+int fssrChipIDTest(int id, int chip);
+int fssrRegisterTest(int id, int chip);
+int fssrDiffLineTest(int id, int chip);
+
 int fssrWaitReady(int id);
 void fssrTransfer(int id, uint8_t chip, uint8_t reg, uint8_t cmd, \
                     uint8_t nBits, uint32_t *pData);

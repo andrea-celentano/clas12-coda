@@ -116,7 +116,7 @@ rcRateDisplay::rcRateDisplay (Widget parent, rcClientHandler& handler, Widget st
   time0 = time1 = time(0);
   evy_average = 0.0;
   ibin0 = ibin1 = 0;
-
+  NaddEvRateData = 0;
 }
 
 rcRateDisplay::~rcRateDisplay (void)
@@ -472,12 +472,13 @@ rcRateDisplay::init (rcMenuWindow *menW)
   SciPlotSetXUserScale (other_, 0.0, (float)size_ * updateRate_); //sergey
   SciPlotSetXUserScale (rates_, 0.0, (float)size_ * updateRate_);
 
-  /* set Y scale (sergey) */
+  /* set Y scale (sergey)
   SciPlotSetYUserScale (evrate_, 0.0, 12000.);
   SciPlotSetYUserScale (datarate_, 0.0, 50000.);
   SciPlotSetYUserScale (ratio_, 0.0, 10000.);
   SciPlotSetYUserScale (other_, 0.0, 110.0);
   SciPlotSetYUserScale (rates_, 0.0, 12000.);
+  */
 
 
   /* set colors */
@@ -535,15 +536,18 @@ rcRateDisplay::setUpdateRate (int data)
 }
 
 
+
+
 /* event rate historgam update (for both histograms ?) */
+/* sergey: 'data' is the event rate, already normalized to the time (Hz) in coda_component.c !!?? */ 
 void
 rcRateDisplay::addEvRateData (double data)
 {
   int jj;
   double evyI[1000];
 
-  printf("rcRateDisplay::addEvRateData: reached, data=%f(%d)\n",
-    data,updateRate_);
+  NaddEvRateData ++;
+  /*printf("\nrcRateDisplay::addEvRateData: reached, data=%f(%d) #=%d\n",data,updateRate_,NaddEvRateData);*/ 
 
   if(nume_ < size_)
   {
@@ -554,12 +558,12 @@ rcRateDisplay::addEvRateData (double data)
 
     for(i=0; i<=nume_; i++) evyI[nume_] += evy_[i];
     evyI[nume_] = evyI[nume_] / (nume_ + 1); 
-    printf("rcRateDisplay::addEvRateData: event rate is %f %f\n", evy_[nume_], evyI[nume_]);
+    /*printf("rcRateDisplay::addEvRateData: event rate is %f %f\n", evy_[nume_], evyI[nume_]);*/
     nume_++;
   }
   else
   {
-    printf("rcRateDisplay::addEvRateData: ???\n");
+    /*printf("rcRateDisplay::addEvRateData: ???\n");*/
 
     int begin, i, j;
     begin = size_ / 2;
@@ -571,6 +575,7 @@ rcRateDisplay::addEvRateData (double data)
       evyI[i] = evyI[i + begin];
     }
     evy_[i] = data;
+    /*printf("1: rcRateDisplay::addEvRateData: evy_[%d] = %f\n",i,evy_[i]);*/
     evyI[i] = 0.0;
 
     for(j=i-(size_/2); j<=i; j++) evyI[i] += evy_[j];
@@ -599,28 +604,30 @@ rcRateDisplay::addEvRateData (double data)
 	 and during that interval 'evy_' value must be averaged ???!!!*/
 
 
+  evy_average += data;
   time1 = time(0);
-  if(time1 < (time0+updateRate_))
-  {
-    evy_average += data;
-  }
-  else
+  if(time1 >= (time0+updateRate_))
   {
     ibin1 = nume_ - 1;
-    evy_average /= (time1-time0);
-    printf("update !!!!!!! avg=%f (dev=%u)\n",evy_average,(time1-time0));
-    for(jj=ibin0; jj<=ibin1; jj++) evy_[jj] = evy_average;
-
+    evy_average /= /*(time1-time0);*/NaddEvRateData;
+    /*printf("update !!! avg=%f (dev=%u dtime=%u)\n",evy_average,NaddEvRateData,(time1-time0));*/
+    for(jj=ibin0; jj<=ibin1; jj++)
+    {
+      evy_[jj] = evy_average;
+      /*printf("2: rcRateDisplay::addEvRateData: evy_[%d] = %f\n",jj,evy_[jj]);*/
+	}
     time0 = time1;
     evy_average = 0.0;
     ibin0 = nume_ - 1;
+
+    NaddEvRateData = 0;
 
     /* sergey: differential hist */
     SciPlotListUpdateFromDouble(evrate_, evlist_, nume_, evx_, evy_);
   }
   
 
-  printf("time0=%u, time1=%u\n",time0,time1);
+  /*printf("time0=%u, time1=%u\n",time0,time1);*/
 
 
 
@@ -637,6 +644,8 @@ rcRateDisplay::addEvRateData (double data)
   if(SciPlotQuickUpdate(rates_)) SciPlotUpdate(rates_);
 
   addRatioData(0.0);
+
+  /*printf("rcRateDisplay::addEvRateData: on exit nume_=%d\n",nume_);*/
 }
 
 
@@ -648,32 +657,97 @@ rcRateDisplay::addDataRateData (double data)
 {
   int i;
 
-  if (numd_ < size_) {
+  /*printf("\nrcRateDisplay::addDataRateData: %f\n",data);*/
+
+  if (numd_ < size_)
+  {
+    /*printf("1: rcRateDisplay::addDataRateData: %d %d\n",numd_,size_);*/
     dy_[numd_++] = data;
-  } else {
+    /*printf("1: rcRateDisplay::addDataRateData: dy_[%d] = %f\n",numd_-1,dy_[numd_-1]);*/
+  }
+  else
+  {
     double begin = ceil ((double)size_/2.0);
     numd_ = size_/2;
     dtime_ ++;
-    for (i = 0; i < numd_; i++) 
-      dy_[i] = dy_[i + (int)begin];
+
+    for (i = 0; i < numd_; i++) dy_[i] = dy_[i + (int)begin];
     dy_[i] = data;
     numd_++;
+
     // change x coordinates
-    for (i = 0; i < size_; i++) {
+    for (i = 0; i < size_; i++)
+    {
       dx_[i] = (dtime_*size_/2 + i) * updateRate_;
     }
-    SciPlotSetXUserScale (datarate_, (float)(dx_[0]),
-			  (float)(dx_[size_ - 1]));
+
+    SciPlotSetXUserScale (datarate_, (float)(dx_[0]), (float)(dx_[size_ - 1]));
   }
 
   SciPlotListUpdateFromDouble(datarate_, datalist_, numd_, dx_, dy_);
 
-  if (SciPlotQuickUpdate(datarate_)) 
-    SciPlotUpdate(datarate_);
+  if (SciPlotQuickUpdate(datarate_)) SciPlotUpdate(datarate_);
 
   addRatioData(0.0);
 
+  /*printf("rcRateDisplay::addDataRateData: on exit numd_=%d\n",numd_);*/
 }
+
+
+
+/* event size (ratio) historgam update */
+/* 'data' not used: */
+void
+rcRateDisplay::addRatioData (double data)
+{
+  int i;
+
+  /*printf("\nrcRateDisplay::addRatioData: %f (%d %d %d)\n",data,nume_,numd_,numr_);*/
+
+  /* 'nume_' is event rate index, 'numd_' is data rate index, must be equal */
+  if(nume_ != numd_) return;
+
+  /*sergey: trying to fix problem: if numr_==numd_, that point was processed already, isn't it ?*/
+  if(numr_ >= numd_) return;
+
+  /* 'numr_' is our index */
+  if(numr_ < size_)
+  {
+    /*printf("1: rcRateDisplay::addRatioData: %d %d\n",numr_,size_);*/
+    ry_[numr_] = 1000.0 * dy_[numr_]/evy_[numr_];
+    /*printf("1: rcRateDisplay::addRatioData: %f %f -> %f\n",dy_[numr_],evy_[numr_],ry_[numr_]);*/
+    numr_++;
+  }
+  else
+  {
+    printf("2: rcRateDisplay::addRatioData: %d %d\n",numr_,size_);
+    double begin = ceil ((double)size_/2.0);
+    numr_ = size_/2;
+    rtime_ ++;
+    for (i = 0; i < numr_; i++) ry_[i] = ry_[i + (int)begin];
+    ry_[i] = 1000.0 * dy_[nume_]/evy_[nume_];
+    numr_++;
+
+    // change x coordinates
+    for(i = 0; i < size_; i++)
+    {
+      rx_[i] = (rtime_*size_/2 + i) * updateRate_;
+    }
+
+    SciPlotSetXUserScale (ratio_, (float)(rx_[0]), (float) (rx_[size_ - 1]));
+  }
+
+  SciPlotListUpdateFromDouble(ratio_, ratiolist_, numr_, rx_, ry_);
+
+  if (SciPlotQuickUpdate(ratio_)) 
+  {
+    SciPlotUpdate(ratio_);
+  }
+
+  /*printf("rcRateDisplay::addRatioData: on exit numr_=%d\n",numr_);*/
+}
+
+
 
 /*sergey*/
 /* livetime historgam update */
@@ -707,45 +781,6 @@ rcRateDisplay::addLivetimeData (double data)
 
   addRatioData(0.0);
 
-}
-
-/* data size (ratio) historgam update */
-void
-rcRateDisplay::addRatioData (double data)
-{
-  int i;
-
-  //printf("rcRateDisplay::addRatioData: %f\n",data);
-
-  if(nume_ != numd_) return;
-
-  if(numr_ < size_)
-  {
-    ry_[numr_] = 1000.0 * dy_[numr_]/evy_[numr_];
-    numr_++;
-  }
-  else
-  {
-    double begin = ceil ((double)size_/2.0);
-    numr_ = size_/2;
-    rtime_ ++;
-    for (i = 0; i < numr_; i++) 
-      ry_[i] = ry_[i + (int)begin];
-    ry_[i] = 1000.0 * dy_[nume_]/evy_[nume_];
-    numr_++;
-    // change x coordinates
-    for(i = 0; i < size_; i++)
-    {
-      rx_[i] = (rtime_*size_/2 + i) * updateRate_;
-    }
-    SciPlotSetXUserScale (ratio_, (float)(rx_[0]),
-			  (float) (rx_[size_ - 1]));
-  }
-  SciPlotListUpdateFromDouble(ratio_, ratiolist_, numr_, rx_, ry_);
-  if (SciPlotQuickUpdate(ratio_)) 
-  {
-    SciPlotUpdate(ratio_);
-  }
 }
 
 void

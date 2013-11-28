@@ -142,7 +142,8 @@ rcComdOption::parseOptions (void)
 	       ::strcmp (argv_[i], "-output") == 0)
 	reportMsg_ = 1;
       else if (::strcmp (argv_[i], "-c") == 0 ||
-	       ::strcmp (argv_[i], "-cedit") == 0)
+	       ::strcmp (argv_[i], "-cedit") == 0 ||
+	       ::strcmp (argv_[i], "-codaedit") == 0)
 	startCedit_ = 1;
       else if (::strcmp (argv_[i], "-d") == 0 ||
 	       ::strcmp (argv_[i], "-dbedit") == 0)
@@ -315,11 +316,11 @@ rcComdOption::usage (char* progname)
 	   "-s, -session <name>:   use \"name\" as the session name      \n"
 	   "-v, -verbose    :      verbose error reporting               \n"
 	   "-o, -output     :      local message output                  \n"
-	   "-c, -cedit      :      start coda configuration editor       \n"
+	   "-c, -cedit -codaedit : start coda configuration editor       \n"
 	   "-d, -dbedit     :      start database editor                 \n"
 	   "-A, -autostart  :      start UNIX components when required   \n"
 	   "-w, -wide       :      start in full screen mode             \n"
-	   "-n, -noedit     :      disable editing in cedit              \n"
+	   "-n, -noedit     :      disable editing in codaedit           \n"
 	   );
 }
 

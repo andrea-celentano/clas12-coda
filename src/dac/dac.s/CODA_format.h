@@ -14,30 +14,6 @@
  *	Graham Heyes
  *	CEBAF Data Acquisition Group
  *
- * Revision History:
- *      $Log: CODA_format.h,v $
- *      Revision 2.8  1998/05/27 13:44:58  heyes
- *      add message Q to ROC, improve EB stability on EBD transition
- *
- *      Revision 2.6  1997/05/19 15:44:57  heyes
- *      add comments
- *
- *      Revision 2.5  1997/03/13 16:58:20  heyes
- *      trying to get this stuff in cvs
- *
- *      Revision 2.4  1997/01/16 15:30:34  heyes
- *      Increase speed of EB, inc. changes after Dec run.
- *
- *      Revision 2.3  1996/10/29 19:03:09  heyes
- *      new rcServer
- *
- *      Revision 2.2  1996/09/19 17:16:08  heyes
- *      Support for CODA file format
- *
- *      Revision 2.1  1996/09/19 14:14:28  heyes
- *      Initial release
- *
- *      Revision 1.2  1996/08/29 17:03:58  heyes
  *----------------------------------------------------------------------------*/
 
 /* The following data structure provides an interface between the event builder and the user provided 
@@ -168,54 +144,34 @@ typedef struct data_description
 first word after the end of the header. This routine is called TWICE once to
 calculate what size of buffer is required an then to place pointers within that
 buffer. */
-extern int CODA_reserv_frag(unsigned long **datap, evDesc desc); /* Space for a bank header */
+int CODA_reserv_frag(unsigned long **datap, evDesc desc); /* Space for a bank header */
 
-extern int CODA_reserv_desc(unsigned long **datap, evDesc desc); /* Space for the descriptor (bank 0) */
+int CODA_reserv_desc(unsigned long **datap, evDesc desc); /* Space for the descriptor (bank 0) */
 
-extern int CODA_reserv_head(unsigned long **datap, evDesc desc); /* Space for the global event header. */
+int CODA_reserv_head(unsigned long **datap, evDesc desc); /* Space for the global event header. */
 
 /* Given the descriptor (See above) These routines decode the event or fragment headers and fill
 up the empty gaps in the descriptor.
 */
-extern int CODA_decode_frag(unsigned long **datap, evDesc desc); /* Generate the contents of "desc" from
-                                                                    the event fragment header, */
+int CODA_decode_frag(unsigned long **datap, evDesc desc); /* Generate the contents of "desc" from
+                                                             the event fragment header, */
                                                                     
-extern int CODA_decode_desc(unsigned long **datap, evDesc desc); /* Generate the contents of"desc" from
-                                                                    the descriptor (bank 0) (NOT USED) */
-extern int CODA_decode_head(unsigned long **datap, evDesc desc); /* Generate the contents of "desc" from
-                                                                    the event header (NOT USED) */
-extern int CODA_decode_spec(unsigned long **datap, evDesc desc); /* Generate the contents of "desc" from
-                                                                    "special" (or "control") events. */
+int CODA_decode_desc(unsigned long **datap, evDesc desc); /* Generate the contents of"desc" from
+                                                             the descriptor (bank 0) (NOT USED) */
+int CODA_decode_head(unsigned long **datap, evDesc desc); /* Generate the contents of "desc" from
+                                                             the event header (NOT USED) */
+int CODA_decode_spec(unsigned long **datap, evDesc desc); /* Generate the contents of "desc" from
+                                                             "special" (or "control") events. */
 
 /* Given the descriptor (See above) These routines generate the event headers
 */
-extern int CODA_encode_frag(unsigned long **datap, evDesc desc); /* Generate a bank header from a descriptor. */
-extern int CODA_encode_desc(unsigned long **datap, evDesc desc); /* Generate the descriptor (bank 0 (head bank)) 
-                                                                    from a descriptor. */
-extern int CODA_encode_head(unsigned long **datap, evDesc desc); /* Generate the global event header from 
-                                                                    a descriptor. */
-extern int CODA_encode_spec(unsigned long **datap, evDesc desc); /* Generate the "special" (or "control") event
-                                                                    header from 
-                                                                    a descriptor. */
-
-/***********************/
-/* same for BOS format */
-
-extern int BOS_reserv_frag(unsigned long **datap, evDesc desc);
-extern int BOS_reserv_desc(unsigned long **datap, evDesc desc);
-extern int BOS_reserv_head(unsigned long **datap, evDesc desc);
-
-extern int BOS_decode_frag(unsigned long **datap, evDesc desc);
-extern int BOS_decode_desc(unsigned long **datap, evDesc desc);
-extern int BOS_decode_head(unsigned long **datap, evDesc desc);
-extern int BOS_decode_spec(unsigned long **datap, evDesc desc);
-
-extern int BOS_encode_frag(unsigned long **datap, evDesc desc);
-extern int BOS_encode_desc(unsigned long **datap, evDesc desc);
-extern int BOS_encode_head(unsigned long **datap, evDesc desc);
-extern int BOS_encode_spec(unsigned long **datap, evDesc desc);
-
-
+int CODA_encode_frag(unsigned long **datap, evDesc desc); /* Generate a bank header from a descriptor. */
+int CODA_encode_desc(unsigned long **datap, evDesc desc); /* Generate the descriptor (bank 0 (head bank)) 
+                                                             from a descriptor. */
+int CODA_encode_head(unsigned long **datap, evDesc desc); /* Generate the global event header from 
+                                                             a descriptor. */
+int CODA_encode_spec(unsigned long **datap, evDesc desc); /* Generate the "special" (or "control") event
+                                                             header from a descriptor. */
 
 
 

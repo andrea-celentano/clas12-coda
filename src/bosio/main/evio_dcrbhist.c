@@ -6,8 +6,10 @@
 #include <string.h>
 
 #undef DEBUG_SEARCH
+#undef DEBUG_SEARCH1
 
-#define DEBUG
+#undef DEBUG1
+#undef DEBUG
  
 #define NWPAWC 10000000 /* Length of the PAWC common block. */
 #define LREC 1024      /* Record length in machine words. */
@@ -16,8 +18,12 @@ struct {
   float hmemor[NWPAWC];
 } pawc_;
 
+#define LSWAP(x)        ((((x) & 0x000000ff) << 24) | \
+                         (((x) & 0x0000ff00) <<  8) | \
+                         (((x) & 0x00ff0000) >>  8) | \
+                         (((x) & 0xff000000) >> 24))
 
-#define MAXEVENTS 20000000
+#define MAXEVENTS 1000000/*3900*/
 
 #define MAXBUF 10000000
 unsigned int buf[MAXBUF];
@@ -62,7 +68,7 @@ evNlink(unsigned int *buf, int frag, int tag, int num, int *nbytes)
 
 
 #ifdef DEBUG_SEARCH
-  printf("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+  printf("\n\n0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
 		 buf[0],buf[1],buf[2],buf[3],buf[4],buf[5]);
   printf("%d %d %d %d %d %d\n",
 		 buf[0],buf[1],buf[2],buf[3],buf[4],buf[5]);
@@ -125,6 +131,133 @@ evNlink(unsigned int *buf, int frag, int tag, int num, int *nbytes)
 #endif
         *nbytes = ((nw-(2+len2+2))<<2)-pad3;
 #ifdef DEBUG_SEARCH
+		printf(">>> nbytes=%d\n",*nbytes);
+#endif
+        return(ii+2+len2+2);
+      }
+    }
+	}
+
+    if(typ1==0xe || typ1==0x10) ii += 2; /* bank of banks */
+    else ii += nw;
+  }
+
+  return(0);
+}
+
+
+
+enum {
+  BANK = 0,
+  SEGMENT,
+  TAGSEGMENT,
+};
+
+int
+evNlink1(unsigned int *buf, int tag, int num, int *nbytes)
+{
+  int ii, len, nw, tag1, pad1, typ1, num1, len2, pad3, ind, fragment_type;
+
+#ifdef DEBUG_SEARCH1
+  printf("\n\nevNlink1===========\n0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+		 buf[0],buf[1],buf[2],buf[3],buf[4],buf[5]);
+  printf("%d %d %d %d %d %d\n",
+		 buf[0],buf[1],buf[2],buf[3],buf[4],buf[5]);
+#endif
+
+
+  /*
+  bank: 0xe, 0x10
+  segment: 0xd, 0x20
+  tagsegment: 0xc
+  */
+
+
+  len = buf[0]+1;
+  ii = 2;
+  while(ii<len)
+  {
+
+
+    nw = buf[ii] + 1;
+    tag1 = (buf[ii+1]>>16)&0xffff;
+    pad1 = (buf[ii+1]>>14)&0x3;
+    typ1 = (buf[ii+1]>>8)&0x3f;
+    num1 =  buf[ii+1]&0xff;
+
+
+
+	/*
+    switch(fragment_type) {
+        case BANK:
+            nw   = buf[ii]+1;
+            tag1 = (buf[ii+1]>>16)&0xffff;
+            typ1 = (buf[ii+1]>>8)&0x3f;
+            pad1 = (buf[ii+1]>>14)&0x3;
+            num1 = buf[ii+1]&0xff;
+            break;
+
+        case SEGMENT:
+            nw   = (buf[ii]&0xffff)+1;
+            typ1 = (buf[ii]>>16)&0x3f;
+            pad1 = (buf[ii]>>22)&0x3;
+            tag1 = (buf[ii]>>24)&0xff;
+            num1 = -1;
+            break;
+    
+        case TAGSEGMENT:
+            nw   = (buf[ii]&0xffff)+1;
+            typ1 = (buf[ii]>>16)&0xf;
+            tag1 = (buf[ii]>>20)&0xfff;
+            num1 = -1;
+            break;
+
+        default:
+            printf("?illegal fragment_type in dump_fragment: %d",fragment_type);
+            exit(EXIT_FAILURE);
+            break;
+    }
+	*/
+
+
+
+
+
+
+
+
+
+
+#ifdef DEBUG_SEARCH1
+    printf("[%5d] nw=%d, tag1=0x%04x(%d), pad1=0x%02x, typ1=0x%02x, num1=0x%02x\n",ii,nw,tag1,tag1,pad1,typ1,num1);
+#endif
+
+#ifdef DEBUG_SEARCH1
+    printf("search ==> %d=%d?  %d=%d?\n",tag1,tag,num1,num);
+#endif
+    /*if(typ1!=0xe && typ1!=0x10)*/ /*assumes there are no bank-of-banks inside fragment, will redo later*/
+	{
+    if( tag1==tag && num1==num )
+    {
+      if(typ1!=0xf)
+	  {
+#ifdef DEBUG_SEARCH1
+        printf("return primitive bank data index %d\n",ii+2);
+#endif
+        *nbytes = (nw-2)<<2;
+        return(ii+2);
+	  }
+      else
+      {
+        len2 = (buf[ii+2]&0xffff) + 1; /* tagsegment length (tagsegment contains format description) */
+        ind = ii + len2+2; /* internal bank */
+        pad3 = (buf[ind+1]>>14)&0x3; /* padding from internal bank */
+#ifdef DEBUG_SEARCH1
+		printf(">>> found composite bank: tag=%d, type=%d, exclusive len=%d (padding from internal bank=%d)\n",((buf[ii+2]>>20)&0xfff),((buf[ii+2]>>16)&0xf),len2-1,pad3);
+        printf("return composite bank data index %d\n",ii+2+len2+2);
+#endif
+        *nbytes = ((nw-(2+len2+2))<<2)-pad3;
+#ifdef DEBUG_SEARCH1
 		printf(">>> nbytes=%d\n",*nbytes);
 #endif
         return(ii+2+len2+2);
@@ -242,7 +375,7 @@ evNlink(unsigned int *buf, int frag, int tag, int num, int *nbytes)
 
 
 
-static int layer[96] = {
+static int board_layer[96] = {
   2, 4, 6, 1, 3, 5, 2, 4, 6, 1, 3, 5, 2, 4, 6, 1,
   3, 5, 2, 4, 6, 1, 3, 5, 2, 4, 6, 1, 3, 5, 2, 4,
   6, 1, 3, 5, 2, 4, 6, 1, 3, 5, 2, 4, 6, 1, 3, 5,
@@ -251,7 +384,7 @@ static int layer[96] = {
   6, 1, 3, 5, 2, 4, 6, 1, 3, 5, 2, 4, 6, 1, 3, 5
 };
 
-static int wire[96] = {
+static int board_wire[96] = {
   1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3,
   3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6,
   6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8,
@@ -259,6 +392,11 @@ static int wire[96] = {
  11,11,12,12,12,12,12,12,13,13,13,13,13,13,14,14,
  14,14,14,14,15,15,15,15,15,15,16,16,16,16,16,16
 };
+
+
+static int superlayer[21][96];
+static int layer[21][96];
+static int wire[21][96];
 
 
 
@@ -276,10 +414,9 @@ static int wire[96] = {
 
 #define NCHAN 256 /*how many channels to draw*/
 
-/*
-#define NCEDEV 100000
-static int ced[NCEDEV][6][16];
-*/
+
+static int ced[2][6][112];
+
 
 int
 main(int argc, char **argv)
@@ -287,24 +424,24 @@ main(int argc, char **argv)
   FILE *fd = NULL;
   int bco1[256], bco2[256], bco3[256], bco4[256], nbco1, nbco2, nbco3, nbco4, diff, diff1, diff2;
   char fname[1024];
-  int handler, status, ifpga, nchannels;
+  int handler, status, ifpga, nchannels, ind;
+  unsigned char numbank;
   unsigned long long *b64, timestamp, timestamp_old;
   unsigned int *b32;
   unsigned short *b16;
   unsigned char *b08;
-  int trig,chan,fpga,apv,hybrid;
+  int trig,slot,chan,fpga,apv,hybrid;
   int i1, type, timestamp_flag;
   float f1,f2;
-  unsigned int word;
+  unsigned int word, *gsegm;
 
   int nr,sec,strip,nl,ncol,nrow,i,j, k, ii,jj,kk,l,l1,l2,ichan,nn,iev,nbytes,ind1;
   char title[128];
   char *HBOOKfile = "dcrbhist.his";
   int nwpawc,lun,lrec,istat,icycle,idn,nbins,nbins1,igood,offset;
   float x1,x2,y1,y2,ww,tmpx,tmpy,ttt,ref;
-  /*
   int goodevent, icedev;
-  */
+
   if(argc != 2)
   {
     printf("Usage: evio_dcrbhist <evio_filename>\n");
@@ -324,6 +461,35 @@ main(int argc, char **argv)
   else
   {
     printf("RZ file >%s< opened for writing, istat = %d\n\n", HBOOKfile, istat);fflush(stdout);
+  }
+
+
+
+  for(slot=4; slot<11; slot++)
+  {
+    for(chan=0; chan<96; chan++)
+    {
+      superlayer[slot][chan] = 0;
+      layer[slot][chan] = board_layer[chan]-1;
+      wire[slot][chan] = (board_wire[chan]-1)+(slot-4)*16;
+	  /*
+	  printf("translation table: slot %d, chan %d -> sl=%d la=%d w=%d\n",
+        slot,chan,superlayer[slot][chan],layer[slot][chan],wire[slot][chan]);
+	  */
+	}
+  }
+  for(slot=13; slot<20; slot++)
+  {
+    for(chan=0; chan<96; chan++)
+    {
+      superlayer[slot][chan] = 1;
+      layer[slot][chan] = board_layer[chan]-1;
+      wire[slot][chan] = (board_wire[chan]-1)+(slot-13)*16;
+	  /*
+	  printf("translation table: slot %d, chan %d -> sl=%d la=%d w=%d\n",
+        slot,chan,superlayer[slot][chan],layer[slot][chan],wire[slot][chan]);
+	  */
+	}
   }
 
 
@@ -413,15 +579,6 @@ main(int argc, char **argv)
   */
 
 
-  /*
-  icedev = 0;
-  for(i=0; i<NCEDEV; i++)
-	for(j=0; j<6; j++)
-	  for(k=0; k<16; k++)
-		ced[i][j][k] = 0;
-  */
-
-
   status = evOpen(argv[1],"r",&handler);
   if(status < 0)
   {
@@ -431,6 +588,7 @@ main(int argc, char **argv)
 
   timestamp_old = 0;
 
+  numbank = 1;
   for(iev=1; iev<MAXEVENTS; iev++)
   {
 
@@ -451,8 +609,18 @@ main(int argc, char **argv)
 
     if(iev < 3) continue; /*skip first 2 events*/
 
- 
-      if((ind1 = evNlink(buf, 21, 0xe105, 1, &nbytes)) > 0)
+
+  for(i=0; i<2; i++)
+	for(j=0; j<6; j++)
+	  for(k=0; k<112; k++)
+		ced[i][j][k] = 0;
+  
+
+
+      /*dcrb*/
+      ind1 = evNlink(buf, 20, 0xe105, 1, &nbytes);
+      if(ind1 <= 0) ind1 = evNlink(buf, 21, 0xe105, 1, &nbytes);
+      if(ind1 > 0)
       {
         int half,chip,chan,bco,tdc,tdcref,chan1,edge,nw;
         unsigned char *end, *start;
@@ -517,13 +685,14 @@ main(int argc, char **argv)
 
               dcrbref = tmpx;
 #ifdef DEBUG
-              printf("\nV1290 dcrbref=%f\n\n",dcrbref);
-#endif
               printf("\nV1290 dcrbref1=%f\n\n",dcrbref);
+#endif
 
 			  /*dcrbref = -850.;*/
               dcrbref = dcrbref + 76/*94*/;
+#ifdef DEBUG
               printf("\nV1290 dcrbref2=%f\n\n",dcrbref);
+#endif
 
 		    }
 		  }
@@ -547,7 +716,7 @@ goto exit;
 #endif
           GET32(word);
 #ifdef DEBUG
-          printf("data word hex=0x%08x uint=%u int=%d\n",word,word,word);
+          printf("dcrb data word hex=0x%08x uint=%u int=%d\n",word,word,word);
 #endif
           if(timestamp_flag)
 		  {
@@ -556,6 +725,9 @@ goto exit;
 		    printf(" {TRGTIME} TRIG TIME (3 low BYTES)\n");fflush(stdout);
 		    printf(" {TRGTIME} timestamp=%lld (%lld)\n",timestamp,timestamp_old);fflush(stdout);
 #endif
+			/*
+	        printf("DCRB timestamp=%lld ns (%lld us)\n",timestamp,timestamp/(long long)1000);
+			*/
 			/*
 			if(slot==9)
 			{
@@ -643,22 +815,24 @@ printf("tdc(cor)-----> %d\n",tdc);
 #endif
 
                 /*if(slot==10 && tdc>0 && tdc<250)*/
-                if(slot==9)
+                /*if(slot==9)*/
 				{
-                  /*printf("123: icedev=%d chan=%d layer=%d wire=%d\n",icedev,chan,layer[chan],wire[chan]);fflush(stdout);*/
 				  /*
-                  goodevent = 1;
-                  ced[icedev][layer[chan]][wire[chan]] = tdc;
+                  printf("123: slot=%d chan=%d -> superlayer=%d layer=%d wire=%d\n",
+						 slot,chan,superlayer[slot][chan],layer[slot][chan],wire[slot][chan]);fflush(stdout);
 				  */
+                  goodevent = 1;
+                  ced [superlayer[slot][chan]] [layer[slot][chan]] [wire[slot][chan]] = 1/*tdc*/;
+				  
 				  /*
 				  printf("hit: chan=%2d (layer=%1d wire=%2d) tdc=%5d\n",
                     chan,layer[chan],wire[chan],tdc);          
 				  */        
-				  ;
 				}
-
+				/*
 				if(slot==10)
 				{
+				*/
           		  idn = slot*100+chan;
                   tmpx = (float)tdc;
 	              ww   = 1.;
@@ -673,8 +847,9 @@ printf("tdc(cor)-----> %d\n",tdc);
                   tmpx = (float)tdc-(float)tdcref;
 	              ww   = 1.;
 	              hf1_(&idn,&tmpx,&ww);
+				  /*
 				}
-
+				*/
 
 		        break;
 		      case DC_DATA_INVALID:
@@ -706,6 +881,26 @@ printf("tdc(cor)-----> %d\n",tdc);
         }
 
 
+		/*print CED
+    printf("\nCED\n\n");
+    for(i=1; i>=0; i--)
+	{
+      for(j=5; j>=0; j--)
+	  {
+        printf("%1d> ",j);
+
+	    for(k=0; k<112; k++)
+	    {
+	      if(ced[i][j][k]>0) printf("X");
+          else printf(" ");
+	    }
+
+        printf("\n");
+	  }
+	}
+		*/
+
+
 #ifdef DEBUG
         printf("END DCRB EVENT =================================\n\n\n");
 #endif
@@ -720,6 +915,180 @@ exit:
 
 
 
+
+	  /*dcrbgtp*/
+	  /*if((ind1 = evNlink1(buf, 11, numbank++, &nbytes)) > 0)*/
+	  if((ind1 = evNlink(buf, 11, 0xe108, 1, &nbytes)) > 0)
+	  {
+        int k1, k2, k3;
+        unsigned char sl[2][16][112], sl2[2][16][112];
+
+        int half,chip,chan,bco,tdc,tdcref,chan1,edge,nw;
+        unsigned char *end, *start;
+        unsigned int tmp;
+        float tmpx0, tmpx2, dcrbref;
+        unsigned int temp[6];
+        unsigned sample[6];
+        int slot;
+        int ndata0[22], data0[21][8];
+        int baseline, sum, channel, ch1;
+#ifdef DEBUG1
+        printf("ind1=%d, nbytes=%d\n",ind1,nbytes);fflush(stdout);
+#endif
+        start = b08 = (unsigned char *) &buf[ind1];
+        end = b08 + nbytes;
+#ifdef DEBUG1
+        printf("ind1=%d, nbytes=%d (from 0x%08x to 0x%08x)\n",ind1,nbytes,b08,end);fflush(stdout);
+#endif
+		/*
+        goodevent = 0;
+		*/
+
+        for(ii=0; ii<16; ii++)
+        {
+          for(jj=0; jj<112; jj++)
+          {
+            sl[0][ii][jj] = 0;
+            sl[1][ii][jj] = 0;
+	      }
+          k1 = k2 = k3 = 0;
+        }
+
+#ifdef DEBUG1
+        printf("\n\nBEGIN DCRBGTP EVENT =================================\n");
+#endif
+
+        tdcref = 0;
+        timestamp_flag = 0;
+        ind = 0;
+        while(b08<end)
+	    {
+#ifdef DEBUG1
+          /*printf("begin while: b08=0x%08x\n",b08);*/
+#endif
+          GET32(word);
+          /*word = LSWAP(word);*/
+#ifdef DEBUG1
+          printf("dcrbgtp data word [%4d] hex=0x%08x uint=%u int=%d\n",ind,word,word,word);
+#endif
+
+	      if(ind==0)
+		  {
+            ;
+            /*printf("\n\nGTP event %d\n",word);*/
+		  }
+	      else if(ind==1)
+		  {
+            timestamp = word;
+		  }
+          else if(ind==2)
+		  {
+            timestamp = timestamp | (((unsigned long long)word&0xffff)<<32);
+#ifdef DEBUG1
+	        printf("GTP timestamp=%lld ns (%lld us)\n",timestamp,timestamp/(long long)1000);
+#endif
+		  }
+
+#ifdef DEBUG1
+          /*printf("end loop: b08=0x%08x\n",b08);*/
+#endif
+          ind++;
+        }
+
+
+        
+        gsegm = (unsigned int *) &buf[ind1+3];
+        /*for(ii=0; ii<112; ii++) gsegm[ii] = LSWAP(gsegm[ii]);*/
+
+
+        k3 = 0; /*2 superlayers*/
+        k2 = 0; /*16 angles*/
+        k1 = 0; /*112 wires*/
+        for(ii=0; ii<112; ii++)
+		{ 
+#ifdef DEBUG1
+          printf("===> gsegm[%3d] = 0x%08x\n",ii,gsegm[ii]);
+#endif
+          if(ii==56)
+		  {
+            k3 = 1;
+            k1 = k1 - 112;
+		  }
+
+          for(k2=0; k2<16; k2++)
+	      {
+#ifdef DEBUG1
+            printf("ii=%d k1=%d k2=%d k3=%d\n",ii,k1,k2,k3);
+#endif
+            if(gsegm[ii]&(1<<k2))
+			{
+              sl[k3][k2][k1] = 1;
+#ifdef DEBUG1
+              printf("---> HIT !!!!!!!!!!!!!!!!!!!!!\n");
+#endif
+			}
+	      }
+
+          for(k2=16; k2<32; k2++)
+	      {
+#ifdef DEBUG1
+            printf("ii=%d k1=%d k2=%d k3=%d\n",ii,k1+1,k2-16,k3);
+#endif
+            if(gsegm[ii]&(1<<k2))
+			{
+              sl[k3][k2-16][k1+1] = 1;
+#ifdef DEBUG1
+              printf("---> HIT !!!!!!!!!!!!!!!!!!!!!\n");
+#endif
+			}
+	      }
+
+          k1+=2;
+		}
+
+
+#ifdef DEBUG1
+
+        printf("\n");
+        for(ii=0; ii<112; ii++)
+		{
+          if(!(ii%10) && ii>0 && ii<100) printf("%2d",ii);
+          else if((ii%9)) printf("+");
+		}
+        printf("+++\n");
+        for(k3=1; k3>=0; k3--) /* 2 sl */
+        {
+          for(k2=15; k2>=0; k2--) /* 16 angles */
+          {
+            printf(" > ");
+            for(k1=0; k1<112; k1++) /* 112 wires */
+            {
+              if(sl[k3][k2][k1]==0) printf(" ");
+              else printf("X");
+            }
+            printf("\n");
+  	      }
+          printf("\n");
+          for(ii=0; ii<112; ii++) printf("+");
+          printf("\n");
+        }
+        printf("\n");
+#endif
+
+
+
+#ifdef DEBUG1
+        printf("END DCRB EVENT =================================\n\n\n");
+#endif
+
+		/*
+        if(goodevent) icedev ++;
+		*/
+
+exit1:
+		;
+
+	  }
 
 
 
@@ -740,27 +1109,6 @@ exit:
   hrend_("NTUPEL", 6);
   printf("after hrend_\n");fflush(stdout);
 
-
-  /*print CEDs
-
-  printf("icedev=%d\n",icedev);
-  for(i=0; i<icedev; i++)
-  {
-    printf("\n\n\n event %d\n\n",i);
-    for(j=5; j>=0; j--)
-	{
-      printf("%1d> ",j);
-
-	  for(k=0; k<16; k++)
-	  {
-	    if(ced[i][j][k]>0) printf("X");
-        else printf(" ");
-	  }
-
-      printf("\n");
-	}
-  }
-  */
 
   exit(0);
 }

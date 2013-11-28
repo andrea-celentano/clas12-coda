@@ -7,7 +7,11 @@
 #define EIEIO    __asm__ volatile ("eieio")
 #define SYNC     __asm__ volatile ("sync")
 
+#ifndef VXWORKS
+#define logMsg printf
 typedef struct semaphore *SEM_ID;
+#endif
+
 
 static void __download ();
 static void __prestart ();
@@ -40,6 +44,8 @@ typedef int (*FUNCPTR4) (unsigned int);
 
 
 #ifndef VXWORKS
+#include <unistd.h>
+#include <pthread.h>
 #include <time.h>
 #endif
 
@@ -47,6 +53,10 @@ typedef int (*FUNCPTR4) (unsigned int);
 /******************************************************************************/
 /* The following structure is used per readout list to store it's global data */
 #include "rolInt.h"     
+
+
+#include "rc.h" /* for da.h */
+#include "da.h" /* for gethrtime() */
 
 /* Define external variables and internal rol structures */
 extern ROLPARAMS rolP;
@@ -74,16 +84,9 @@ static int *StartOfEvent;
 #define RUN_TYPE   rol->runType
 #define EVENT_NUMBER *(rol->nevents)
 
-#ifdef VXWORKS
-#define LOGIT logMsg
-#else
-#define LOGIT printf
-#endif
-
-#include "../../dac/dac.s/bigbuf.h" /*for SEND_BUF_MARGIN*/
 
 
-
+#include "../../dac/dac.s/bigbuf.h" /*for protutypes, SEND_BUF_MARGIN, etc */
 
 
 #ifndef EVENT_MODE
@@ -138,7 +141,7 @@ extern pthread_mutex_t sendbuffer_lock;
 #define CEOPEN(bnum, btype) \
 { \
 dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise following loop will think there is an event */ \
-  StartOfEvent = rol->dabufp = dabufp; \
+ StartOfEvent = rol->dabufp = (int *)dabufp; \
   *(++(rol->dabufp)) = (syncFlag<<24) | ((bnum) << 16) | ((btype##_ty) << 8) | (0xff & *(rol->nevents));\
   ((rol->dabufp))++; \
 }
@@ -190,15 +193,15 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     static int oldevnb = 0; \
     int newevnb; \
     int ev_type; \
-    if(len > NWBOS) LOGIT("===> ERROR: len = %d\n",len); \
+    if(len > NWBOS) logMsg("===> ERROR: len = %d\n",len,2,3,4,5,6);	\
     /* check some stuff and increment some counters */ \
     newevnb = dabufp[1] & 0xff; \
     if(newevnb < oldevnb) newevnb += 256; \
     if(newevnb - oldevnb != 1) \
     { \
       /*printf("nevents %d newevnb %d old %d\n",object->nevents, newevnb, oldevnb);*/ \
-      LOGIT("dabufp[0] = 0x%08x (%d)\n",dabufp[0],dabufp[0]); \
-      LOGIT("dabufp[1] = 0x%08x (%d)\n",dabufp[1],dabufp[1]); \
+      logMsg("dabufp[0] = 0x%08x (%d)\n",dabufp[0],dabufp[0],3,4,5,6);	\
+      logMsg("dabufp[1] = 0x%08x (%d)\n",dabufp[1],dabufp[1],3,4,5,6);	\
     } \
     oldevnb = dabufp[1] & 0xff; \
     ev_type = (dabufp[1] >> 16) & 0xff; \
@@ -236,11 +239,11 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
   } \
   else if(len < 0) \
   { \
-    LOGIT("ERROR: len = %d\n",len); \
+    logMsg("ERROR: len = %d\n",len,2,3,4,5,6);	\
   } \
   else /* len == 0 - it was no event in this pooling iteration */ \
   { \
-    LOGIT("SHOULD NEVER BE HERE: len = %d\n",len); \
+    logMsg("SHOULD NEVER BE HERE: len = %d\n",len,2,3,4,5,6);	\
 	/* \
 #ifdef VXWORKS \
     end = sysTimeBaseLGet(); \
@@ -261,21 +264,21 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 #ifdef VXWORKS
 
 #define SET_TIMEOUT \
-    if(rol->nevents < 10) \
+    if(*(rol->nevents) < 10)						\
     { \
-      /*LOGIT("ROL TIMEOUT 1\n");*/ \
+      /*logMsg("ROL TIMEOUT 1\n");*/ \
       timeout = vxTicks + sysClkRateGet()/* /6 */; /*1 sec */ \
     } \
     else \
     { \
-      /*LOGIT("ROL TIMEOUT 2\n");*/ \
+      /*logMsg("ROL TIMEOUT 2\n");*/ \
       timeout = vxTicks + token_interval; \
     }
 
 #else
 
 #define SET_TIMEOUT \
-    if(rol->nevents < 10) \
+    if(*(rol->nevents) < 10)						\
     { \
       timeout = /*time(0)*/gethrtime() + 1*100000;	\
     } \
@@ -291,7 +294,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
   SENDBUFFER_LOCK; \
   if(clear_to_send && (rocp_primefd>=0)) \
   { \
-    /*LOGIT("SEND_BUFFER_ROL1 (0x%08x)\n",dabufp);*/	\
+    /*logMsg("SEND_BUFFER_ROL1 (0x%08x)\n",dabufp);*/	\
     /*setHeartBeat(HB_ROL,14,5);*/ \
     /* send current output buffer */ \
     /* set now 'dabufp' to the beginning of */ \
@@ -300,7 +303,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     /*setHeartBeat(HB_ROL,15,5);*/ \
     if(dabufp == NULL) \
     { \
-      LOGIT("ERROR in bb_write: FAILED1\n"); \
+      logMsg("ERROR in bb_write: FAILED1\n",1,2,3,4,5,6);	\
       /*setHeartBeat(HB_ROL,0,-1);*/ \
       SENDBUFFER_UNLOCK; \
       return; \
@@ -320,7 +323,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
       if(dabufp == NULL) \
       { \
         rocp_recNb --; /* decrement it back */ \
-        LOGIT("INFO from bb_write: NO BUFS1\n"); \
+        logMsg("INFO from bb_write: NO BUFS1\n",1,2,3,4,5,6);	\
         /*setHeartBeat(HB_ROL,0,-1);*/ \
       } \
       else \
@@ -339,7 +342,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     } \
     else \
     { \
-      LOGIT("attempt to send short buffer failed1 !!!\n"); \
+      logMsg("attempt to send short buffer failed1 !!!\n",1,2,3,4,5,6);	\
     } \
   } \
   SENDBUFFER_UNLOCK
@@ -433,9 +436,9 @@ static unsigned int Tcode;
   Tcode     = (code); /*TIR_SOURCE or TS_SOURCE*/ \
   ttypeRtns = (FUNCPTR) source##_TTYPE ; \
   source##_ASYNC(code); \
-  LOGIT("CTRIGRSA: set handler and done, code=%d\n",code); \
-  LOGIT("CTRIGRSA: 0x%08x 0x%08x 0x%08x 0x%08x\n", \
-    doneRtns,trigRtns,Tcode,ttypeRtns); \
+  logMsg("CTRIGRSA: set handler and done, code=%d\n",code,2,3,4,5,6);	\
+  logMsg("CTRIGRSA: 0x%08x 0x%08x 0x%08x 0x%08x\n", \
+		 (int)doneRtns,(int)trigRtns,Tcode,(int)ttypeRtns,5,6); \
 }
 
 /* Register an sync trigger source */
@@ -450,9 +453,9 @@ static unsigned int Tcode;
   Tcode     = (code) ; \
   ttypeRtns = (FUNCPTR) source##_TTYPE ; \
   source##_SYNC(code); \
-  LOGIT("CTRIGRSS: set handler and done, code=%d\n",code); \
-  LOGIT("CTRIGRSS: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n", \
-    doneRtns,trigRtns,syncTRtns,Tcode,ttypeRtns); \
+  logMsg("CTRIGRSS: set handler and done, code=%d\n",code,2,3,4,5,6);	\
+  logMsg("CTRIGRSS: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n", \
+		 (int)doneRtns,(int)trigRtns,(int)syncTRtns,Tcode,(int)ttypeRtns,6); \
 }
 
 #else
@@ -464,9 +467,9 @@ static unsigned int Tcode;
   Tcode     = (code); \
   ttypeRtns = (FUNCPTR4) source##_TTYPE; \
   source##_ASYNC(code); \
-  LOGIT("CTRIGRSA: set handler and done, code=%d\n",code); \
-  LOGIT("CTRIGRSA: 0x%08x 0x%08x 0x%08x 0x%08x\n", \
-    doneRtns,trigRtns,Tcode,ttypeRtns); \
+  logMsg("CTRIGRSA: set handler and done, code=%d\n",code,2,3,4,5,6);	\
+  logMsg("CTRIGRSA: 0x%08x 0x%08x 0x%08x 0x%08x\n", \
+		(int)doneRtns,(int)trigRtns,Tcode,(int)ttypeRtns,5,6);	   \
 }
 
 #define CTRIGRSS(source,code,handler,done) \
@@ -477,9 +480,9 @@ static unsigned int Tcode;
   Tcode     = (code) ; \
   ttypeRtns = (FUNCPTR4) source##_TTYPE ; \
   source##_SYNC(code); \
-  LOGIT("CTRIGRSS_##source: set handler and done, code=%d\n",code); \
-  LOGIT("CTRIGRSS_##source: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n", \
-    doneRtns,trigRtns,syncTRtns,Tcode,ttypeRtns); \
+  logMsg("CTRIGRSS_##source: set handler and done, code=%d\n",code,2,3,4,5,6); \
+  logMsg("CTRIGRSS_##source: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n", \
+		(int)doneRtns,(int)trigRtns,(int)syncTRtns,Tcode,(int)ttypeRtns,6);			   \
 }
 
 #endif
@@ -524,6 +527,25 @@ cdodispatch(unsigned int theType)
   /*LOCKINTS;?????*/
 
   WRITE_EVENT_;
+
+  if(dabufp == NULL) /* remember that we have event(s) to process ??? cdopolldispatch() will check it .. */
+  {
+    poolEmpty = 1;
+    rol->doDone = 1;
+  }
+  else /*enable interrupts*/
+  {
+    __done();
+    rol->doDone = 0;
+  }
+
+
+
+
+
+
+
+
 
   dispatch_busy = 0;
 }
@@ -619,7 +641,7 @@ INIT_NAME(rolParam rolp)
 {
   if( (rolp->daproc != DA_DONE_PROC) && (rolp->daproc != DA_POLL_PROC) )
   {
-    LOGIT("INIT_NAME: INFO: rolp->daproc = %d\n",rolp->daproc);
+    logMsg("INIT_NAME: INFO: rolp->daproc = %d\n",rolp->daproc,2,3,4,5,6);
   }
 
   switch(rolp->daproc)
@@ -631,15 +653,15 @@ INIT_NAME(rolParam rolp)
 	  rolp->inited = 1;
 	  strcpy(rol_name__, ROL_NAME__);
 	  rolp->listName = rol_name__;
-	  LOGIT("INIT_NAME: Initializing new rol structures for %s\n",rol_name__);
-	  LOGIT("INIT_NAME: MAX_EVENT_LENGTH = %d bytes, MAX_EVENT_POOL = %d\n",
-        MAX_EVENT_LENGTH, MAX_EVENT_POOL);
+	  printf("INIT_NAME: Initializing new rol structures for %s\n",(int)rol_name__);
+	  printf("INIT_NAME: MAX_EVENT_LENGTH = %d bytes, MAX_EVENT_POOL = %d\n",
+			MAX_EVENT_LENGTH, MAX_EVENT_POOL);
 	  strcpy(name, rolp->listName);
 	  strcat(name, ":pool");
-      LOGIT("INIT_NAME: name >%s<\n",name);
+      printf("INIT_NAME: name >%s<\n",name);
 
 	  rolp->inited = 1;
-	  LOGIT("Init - Done\n");
+	  printf("Init - Done\n");
 	  break;
 	}
 
@@ -668,7 +690,7 @@ INIT_NAME(rolParam rolp)
 	  __done();
 	  break;
     default:
-	  LOGIT("WARN: unsupported rol action = %d\n",rolp->daproc);
+	  logMsg("WARN: unsupported rol action = %d\n",rolp->daproc,2,3,4,5,6);
 	  break;
   }
 }

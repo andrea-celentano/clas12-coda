@@ -124,11 +124,41 @@ typedef struct pmc
 
 /* function prototypes */
 
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
 BIGBUF       *bb_new(int nbufs, int nbytes);
 void          bb_delete(BIGBUF **bbp);
 void          bb_cleanup(BIGBUF **bbp);
+void          bb_init(BIGBUF **bbh);
 unsigned int *bb_write(BIGBUF **bbp);
+unsigned int *bb_write_(BIGBUF **bbh, int flag);
+unsigned int *bb_write_nodelay(BIGBUF **bbh);
 unsigned int *bb_write_current(BIGBUF **bbp);
 unsigned int *bb_read(BIGBUF **bbp);
+
+#ifdef Linux_vme
+void bb_InitChunk(BIGBUF *bbp, int n);
+BIGBUF *bb_new_rol1(int nbufs, int nbytes);
+unsigned int *bb_get_usermembase(BIGBUF **bbh);
+unsigned int *bb_get_physmembase(BIGBUF **bbh);
+void bb_dma_free();
+void bb_delete1(BIGBUF **bbh);
+#endif
+
+void bb_cleanup_pci(BIGBUF **bbh);
+unsigned int *bb_read_pci(BIGBUF **bbh);
+
+#ifndef VXWORKS
+int usrMem2MemDmaCopy(unsigned int chan, unsigned int *sourceAddr, unsigned int *destAddr, unsigned int nbytes);
+int usrMem2MemDmaStart(unsigned int chan, unsigned int *sourceAddr, unsigned int *destAddr, unsigned int nbytes);
+int usrDmaDone(unsigned int chan);
+#endif
+
+#ifdef  __cplusplus
+}
+#endif
+
 
 #endif

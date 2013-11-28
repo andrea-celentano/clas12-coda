@@ -8,15 +8,8 @@
 #include "dsc2.h"
 
 
-#ifdef VXWORKS
 
-int
-dsc2firmware()
-{
-  return(0);
-}
-
-#else
+#ifdef Linux_vme
 
 int
 main(int argc, char *argv[])
@@ -54,10 +47,23 @@ main(int argc, char *argv[])
   printf("\n");
 
   /* update firmware */
+  
   dsc2Init(0x10d10000,0x10000,20);
   dsc2UpdateFirmwareAll(myname);
+  /*
+  vmeDSCInit(0x10d10000,0x10000,20,0);
+  vmeDSCUpdateFirmwareAll(myname);
+  */
 
   exit(0);
+}
+
+#else
+
+int
+main()
+{
+  return(0);
 }
 
 #endif

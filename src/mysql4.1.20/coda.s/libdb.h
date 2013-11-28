@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#ifdef VXWORKS
+#if defined(VXWORKS) || defined(ARM)
 #include "mysql/mysql.h" /* use our mysql header(s) */
 #else
 #include <mysql/mysql.h> /* use standard mysql header(s) */

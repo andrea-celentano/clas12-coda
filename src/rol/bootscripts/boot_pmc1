@@ -25,7 +25,6 @@ ld < libcodatt.so
 
 cd "$CODA/VXWORKS_ppc/bin"
 ld < coda_pmc
-ld < tcpServer.o
 ld < blaster.o
 ld < blastee.o
 

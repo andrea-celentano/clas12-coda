@@ -18,13 +18,6 @@ include $(CODA)/src/Makefile.include
 # customize definitions
 #-----------------------
 
-#for debugging
-#ifneq ("$(OSTYPE)","VXWORKS")
-#  CFLAGS = -g -KPIC -mt -DSunOS -DOSTYPE="SunOS"
-#endif
-
-
-
 CLON_FLAGS += -I./src.s -I./src_full.s -I./src_short.s -DCODAMYSQL \
 	-DSHAREDIR=\"$(CODA)/common/mysql\" \
 	-DDEFAULT_CHARSET_HOME=\"$(CODA)/common/mysql\"
@@ -32,13 +25,11 @@ CLON_FLAGS += -I./src.s -I./src_full.s -I./src_short.s -DCODAMYSQL \
 # brakes compilation: -I/usr/include/mysql
 
 
-
-
-
-
 # compress/uncompress
 ifneq ("$(OSTYPE)","VXWORKS")
+ifneq ("$(OSTYPE)","ARM")
   LIBNAMES += -lz
+endif
 endif
 
 LIBNAMES += $(SYSLIBS)
@@ -50,36 +41,23 @@ LIBNAMES += $(SYSLIBS)
 install: install_lib install_bin
 	rm -rf tmp
 	mkdir tmp
-	cp browser/dbedit tmp
-	chmod 775 tmp/*
-	cp tmp/* $(CODA)/common/scripts
-	rm -rf tmp
-#
-	rm -rf tmp
-	mkdir tmp
 	cp coda.s/libdb.h tmp
 	cp coda.s/libtcp.h tmp
 	chmod 664 tmp/*
+	-mkdir -p $(CODA)/common/include
 	cp tmp/* $(CODA)/common/include
 	rm -rf tmp
 #
-	-mkdir -p $(CODA)/VXWORKS_ppc/include/mysql
 	mkdir tmp
 	cp src.s/*.h tmp
 	chmod 664 tmp/*
+	-mkdir -p $(CODA)/VXWORKS_ppc/include/mysql
 	cp tmp/* $(CODA)/VXWORKS_ppc/include/mysql
 	rm -rf tmp
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#
+	mkdir tmp
+	cp src.s/*.h tmp
+	chmod 664 tmp/*
+	-mkdir -p $(CODA)/ARM_i686/include/mysql
+	cp tmp/* $(CODA)/ARM_i686/include/mysql
+	rm -rf tmp

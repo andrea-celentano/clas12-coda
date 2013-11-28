@@ -1,6 +1,16 @@
 
 /* test_ttvmen.c - reads and process ascii buffer printed by ttvmen at error */
 
+#if defined(VXWORKS) || defined(ARM) 
+
+int
+test_ttvmen_dummy()
+{
+  exit(0);
+}
+
+#else
+
 #include <stdio.h>
 
 #include "ttbosio.h"
@@ -74,3 +84,5 @@ main()
 
   exit(0);
 }
+
+#endif

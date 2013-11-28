@@ -1,17 +1,18 @@
 
+/* pmc_component.c - run at pmc board */
+
 /* VXWORKS only; UNIX version is dummy */
 
 #ifdef VXWORKS
 
-#include "cinclude/CODA_class.c"
-#include "cinclude/roc_process.c"
-
-/* pmc_component.c - run at pmc board */
 
 #include <stdio.h>
 #include <string.h>
 #include <vxWorks.h>
 #include <semLib.h>
+
+#include "coda.h"
+#include "tt.h"
 
 #include "circbuf.h" /*'ttbosio.h' inside*/
 #include "pmc.h"
@@ -557,6 +558,7 @@ codaExit()
 
 /* dummy UNIX version */
 
+int
 main()
 {
   printf("coda_pmc does exist for VxWorks only\n");

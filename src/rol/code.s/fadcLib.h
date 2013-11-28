@@ -462,7 +462,11 @@ struct fadc_sdc_struct {
 
 
 /* Function Prototypes */
-STATUS faInit (UINT32 addr, UINT32 addr_inc, int nadc, int iFlag);
+int faGetProcMode(unsigned int slot);
+int faGetNfadc();
+int faSlot(unsigned int id);
+int faId(unsigned int slot);
+int faInit(unsigned int addr, unsigned int addr_inc, int nadc, int iFlag);
 int faSetClockSource(int id, int clkSrc);
 void faStatus(int id, int sflag);
 void faGStatus(int sflag);
@@ -477,7 +481,7 @@ void faPPGDisable(int id);
 int faItrigBurstConfig(int id, unsigned int ntrig, 
 		   unsigned int burst_window, unsigned int busy_period);
 unsigned int faItrigControl(int id, unsigned short itrig_width, unsigned short itrig_dt);
-int faReadBlock(int id, volatile UINT32 *data, int nwrds, int rflag);
+int faReadBlock(int id, volatile unsigned int *data, int nwrds, int rflag);
 int faPrintBlock(int id, int rflag);
 void faClear(int id);
 void faClearError(int id);

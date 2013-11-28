@@ -68,8 +68,10 @@ IMPORT  STATUS sysBusToLocalAdrs(int, char *, char **);
 IMPORT  STATUS intDisconnect(int);
 IMPORT  STATUS sysIntEnable(int);
 IMPORT  STATUS sysIntDisable(int);
+/*
 IMPORT  STATUS sysVmeDmaDone(int, int);
 IMPORT  STATUS sysVmeDmaSend(UINT32, UINT32, int, BOOL);
+*/
 
 #define EIEIO    __asm__ volatile ("eieio")
 #define SYNC     __asm__ volatile ("sync")
@@ -85,7 +87,7 @@ LOCAL UINT32      fadcIntVec      = FA_VME_INT_VEC;           /* default interru
 
 /* Define global variables */
 int nfadc = 0;                                       /* Number of FADCs in Crate */
-int fadcA32Base   = 0x08000000;                      /* Minimum VME A32 Address for use by FADCs */
+int fadcA32Base   = 0x09000000;                      /* Minimum VME A32 Address for use by FADCs */
 int fadcA32Offset = 0x08000000;                      /* Difference in CPU A32 Base - VME A32 Base */
 int fadcA24Offset = 0x0;                             /* Difference in CPU A24 Base - VME A24 Base */
 int fadcA16Offset = 0x0;                             /* Difference in CPU A16 Base - VME A16 Base */
@@ -110,6 +112,50 @@ int fadcBlockError=0;       /* Whether (1) or not (0) Block Transfer had an erro
 /* Include Firmware Tools */
 #include "cinclude/fadcFirmwareTools.c"
 
+/* sergey: returns some globals */
+
+static int proc_mode[(FA_MAX_BOARDS+1)];
+
+int
+faGetProcMode(unsigned int slot)
+{
+  return(proc_mode[slot]);
+}
+
+int
+faGetNfadc()
+{
+  return(nfadc);
+}
+
+int
+faSlot(unsigned int id)
+{
+  if(id>=nfadc)
+  {
+    printf("%s: ERROR: Index (%d) >= FADCs initialized (%d).\n",__FUNCTION__,id,nfadc);
+    return(ERROR);
+  }
+
+  return(fadcID[id]);
+}
+
+int
+faId(unsigned int slot)
+{
+  int id;
+
+  for(id=0; id<nfadc; id++)
+  {
+    if(fadcID[id]==slot)
+	{
+      return(id);
+	}
+  }
+
+  printf("%s: ERROR: FADC in slot %d does not exist or not initialized.\n",__FUNCTION__,slot);
+  return(ERROR);
+}
 
 /*******************************************************************************
  *
@@ -1035,24 +1081,26 @@ faSetProcMode(int id, int pmode, unsigned int PL, unsigned int PTW,
   if(id==0) id=fadcID[0];
 
   if((id<=0) || (id>21) || (FAp[id] == NULL)) 
-    {
-      logMsg("faSetProcMode: ERROR : FADC in slot %d is not initialized \n",id,0,0,0,0,0);
-      return(ERROR);
-    }
+  {
+    logMsg("faSetProcMode: ERROR : FADC in slot %d is not initialized \n",id,0,0,0,0,0);
+    return(ERROR);
+  }
 
   if((pmode<=0)||(pmode>8)) 
-    {
-      printf("faSetProcMode: ERROR: Processing mode (%d) out of range (pmode= 1-8)\n",pmode);
-      return(ERROR);
-    }
+  {
+    printf("faSetProcMode: ERROR: Processing mode (%d) out of range (pmode= 1-8)\n",pmode);
+    return(ERROR);
+  }
   else
-    {
-      if((pmode>3)&&(pmode<8)) 
+  {
+    if((pmode>3)&&(pmode<8)) 
 	{
 	  printf("faSetProcMode: ERROR: Processing mode (%d) not implemented \n",pmode);
 	}
-    }
+  }
   
+  proc_mode[id] = pmode;
+
   if(NP>4) 
     {
       printf("faSetProcMode: ERROR: Invalid Peak count %d (must be 0-4)\n",NP);

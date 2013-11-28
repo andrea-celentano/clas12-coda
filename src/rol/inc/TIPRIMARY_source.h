@@ -132,9 +132,12 @@ tiprimarytinit(int code)
 
   /* Initialize VME Interrupt interface - use defaults */
   tiInit(TI_ADDR,TI_READOUT,0);
+
   tiIntDisable();
 
-
+  /* all crates */
+  tiDisableVXSSignals();
+  
   /*
 tcpClient hps2 'tiSetFiberDelay(0xe,0xcf)'
 tcpClient hps1 'tiSyncReset'
@@ -165,12 +168,9 @@ tiSetFiberDelay(overall_offset+0x7+4,0xcf);
 
   /* only 1 trigger type for physics trigger */
   tiSetTriggerSource(TI_TRIGGER_TSINPUTS);  
-
-
   tiDisableTSInput(TI_TSINPUT_ALL);
-
   tiEnableTSInput( TI_TSINPUT_1 );
-  tiLoadTriggerTable();
+  tiLoadTriggerTable(0);
   
 
 
@@ -198,9 +198,19 @@ tiSetFiberDelay(overall_offset+0x7+4,0xcf);
   tiSetBlockLevel(block_level);
 
   /* 0 - pipeline mode, 1 - ROC Lock mode, 2 - buffered mode */
-  /*NOTE: in pipeline mode block count may goto 0 over 255, and tittest will returns
-	0 and coda stops !!! be aware ... */
-  tiSetBlockBufferLevel(/*0*//*1*/1);
+  tiSetBlockBufferLevel(1);
+
+
+  /* master and standalone crates, NOT slave */
+#ifndef TI_SLAVE
+  printf("tiClockReset/tiTrigLinkReset\n");
+  taskDelay(200);
+  tiClockReset();
+  taskDelay(200);
+  tiTrigLinkReset();
+  taskDelay(200);
+#endif
+
 
   tiStatus();
 
@@ -259,7 +269,13 @@ tiprimarytenable(int val, unsigned int intMask)
   TIPRIMARYflag = 1;
 
 #ifdef VXWORKS
-  tiIntEnable(val);
+
+
+/*sergeytiIntEnable(val);*/
+  tiEnableTriggerSource();
+  tiIntEnable(0); /*sergey*/
+
+
 #else
   tiEnableTriggerSource();
 #endif

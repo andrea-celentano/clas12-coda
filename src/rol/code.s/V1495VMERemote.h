@@ -1,3 +1,5 @@
+/* V1495VMERemote.h */
+
 #ifndef V1495VMEREMOTE_H
 #define V1495VMEREMOTE_H
 
@@ -10,7 +12,8 @@
 
 #define VMESERVER_PORT			6002
 #define MAX_MSG_SIZE			5000
-#define BLK_MAX_LEN				2049/*Ben has 1024 !!!*/
+#define BLK_MAX_LEN				1024
+#define EVT_MAX_LEN				1024
 
 #define REMOTE_CMD_READ16		    0x01
 #define REMOTE_CMD_WRITE16		    0x02
@@ -22,6 +25,11 @@
 #define REMOTE_CMD_WRITE32			0x08
 #define REMOTE_CMD_BLKREAD32		0x09
 #define REMOTE_CMD_BLKWRITE32		0x0A
+
+#define REMOTE_CMD_GETNUMEVT        0x21
+#define REMOTE_CMD_GETEVENT         0x22
+#define REMOTE_CMD_RESET            0x23
+
 
 #define CMD_VERIFY_OK			1
 #define CMD_VERIFY_BAD			0
@@ -147,6 +155,30 @@ typedef struct
 {
 	unsigned char Verified;
 } Cmd_BlkWrite32_Rsp;
+
+
+
+
+
+
+typedef struct
+{
+  unsigned int Count;
+} Cmd_GetNumEvt_Rsp;
+
+typedef struct
+{
+  unsigned int EventNum;
+  unsigned int Count;
+  unsigned int Data[EVT_MAX_LEN];
+} Cmd_GetEvt_Rsp;
+
+
+typedef struct
+{
+  ;
+} Cmd_Empty;
+
 
 /******************************************************
 *******************************************************
