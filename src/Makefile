@@ -26,6 +26,7 @@ all:
 	- cd dac;                            $(MAKE)
 	- cd dac;                            $(MAKE) install
 	- cd rol;                            $(MAKE)
+	- cd rol;                            $(MAKE) jvmes
 	- cd rol;                            $(MAKE) rols
 	- cd rol;                            $(MAKE) install
 	- cd rc;                             $(MAKE)
