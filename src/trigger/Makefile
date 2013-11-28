@@ -1,0 +1,84 @@
+#
+# Makefile for trigger/
+#
+
+#-----------------------------
+# mandatory definitions: MAIN
+#-----------------------------
+MAIN = trigger
+
+
+#------------------
+# generic Makefile
+#------------------
+include $(CODA)/src/Makefile.include
+
+ifeq ("$(OSTYPE_MACHINE)","SunOS_i86pc")
+    CFLAGS += -DSunOS_i86pc
+endif
+ifeq ("$(OSTYPE_MACHINE)","SunOS_sun4u")
+    CFLAGS += -DSunOS_sun4u
+endif
+
+#-----------------------
+# customize definitions
+#-----------------------
+CLON_FLAGS += -I./src.s -I$(CODA)/common/include \
+	-D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS -DHAVE_UNISTD_H=1 \
+	-D__sun -DNO_X11 -DWITH_ET -D_INCtimeh \
+	-D$(OSTYPE) -DOSTYPE=\"$(OSTYPE)\" -D_LANGUAGE_C \
+	-DDAYTIME=\""`date`"\" -DCLON_PARMS=\"$(CLON_PARMS)\" \
+	-DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -Dvfork=fork -Dstrtod=fixstrtod \
+	-DSTDC_HEADERS=1 \
+
+ifneq ("$(OSTYPE)","VXWORKS")
+  LIBNAMES += $(globallib)/libbosio.a
+  LIBNAMES += -lresolv
+  LIBNAMES += $(SYSLIBS)
+endif
+
+ifeq ("$(OSTYPE)","Linux")
+  LIBNAMES += -lpthread
+endif
+
+#-------------------
+# customize targets
+#-------------------
+install: install_lib
+	rm -rf tmp
+	mkdir tmp
+###	cp src.s/tt.h tmp
+	chmod 664 tmp/*
+	-mkdir -p $(CODA)/common/include
+	cp tmp/* $(CODA)/common/include
+	rm -rf tmp
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

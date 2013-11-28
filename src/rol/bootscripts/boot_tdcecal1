@@ -1,0 +1,126 @@
+#
+#  Bootscript for tdcecal1 (VME crate on FC level 2)
+#
+
+
+# boot device          : geisc
+# unit number          : 0 
+# processor number     : 0 
+# host name            : clon00
+# file name            : $CODA/VXWORKS_ppc/bin/vx6100
+# inet on ethernet (e) : 129.57.167.141:fffffc00
+# host inet (h)        : 129.57.167.5
+# user (u)             : boiarino
+# flags (f)            : 0x20 
+# target name (tn)     : tdcecal1
+# startup script (s)   : $CODA/VXWORKS_ppc/bootscripts/boot_tdcecal1
+
+
+# adds router
+cd "$CODA/VXWORKS_ppc/bootscripts"
+< routeadd_mot.boot
+
+# initializations for all rocs
+cd "$CODA/VXWORKS_ppc/bootscripts"
+< all.boot
+
+
+
+
+#### initializations for vme
+###cd "$CODA/VXWORKS_ppc/bootscripts"
+###< ppc_vme.boot
+
+# ppc_vme.boot - generic boot script for all VME crate controllers
+#  standard CLAS libraries
+cd "$CODA/src/rol/VXWORKS_ppc/obj"
+ld < all_rocs.o
+#set env variables
+cd "$CODA/src/rol/bootscripts"
+< vxbootenv.boot
+# load CLAS translation library
+cd "$CODA/src/codatt/VXWORKS_ppc/lib"
+ld < libcodatt.so
+# load coda_roc
+cd "$CODA/src/dac/VXWORKS_ppc/bin"
+ld < coda_roc
+###ld < tcpServer.o
+ld < blaster.o
+ld < blastee.o
+
+# load libraries used by first readout list
+cd "$CODA/VXWORKS_ppc/lib"
+ld < librol.so
+###
+### following part for parallel readout and dual cpu
+###
+### Load Interrupt and mempart libraries
+#########cd "$CODA/VXWORKS_ppc/obj"
+#########ld < vmeIntLib.o
+#########ld < dmaPLib.o
+#########dmaPartInit()
+### Load User readout routines
+###ld < vmeUserLib.o
+#########ld < /usr/local/clas/devel/coda/src/rol/vmeIntLib/vmeUserLib.o
+#########vmeUserInit()
+
+
+##################################################
+# dsc2 - TJNAF VME 16 Channel Discriminator/Scaler
+##################################################
+#cd "$CODA/VXWORKS_ppc/obj"
+#ld < dsc2.o
+
+dsc2Init(0x100000,0x80000,16,0)
+dsc2Config("")
+###dsc2UpdateFirmwareAll("/usr/local/clas12/coda/src/rol/firmwares/vmeDSC_firmware_v1_c.bin")
+
+# end of dsc2
+##############
+
+
+#tdc1190Init(0x300000,0x10000,1,0)
+#tdc1190Init(0x800000,0x10000,1,0)
+#tdc1190Init(0x11300000,0x10000,1,0)
+#tdc1190Init(0x11800000,0x10000,1,0)
+
+#tdc1190Init(0x300000,0x500000,2,0)
+#tdc1190Init(0x11300000,0x500000,2,0)
+
+
+
+#
+# 1190s:
+# 0x300000, 0x800000
+# dsc2:
+# 0x100000,0x180000,0x200000,0x280000
+# 0x380000,0x400000,0x480000,0x500000
+# 0x600000,0x680000,0x700000,0x780000
+# 0x880000,0x900000,0x980000,0xa00000
+#
+
+
+taskDelay(sysClkRateGet()*5)
+
+taskSpawn "TCP_SERVER",250,0,100000,tcpServer
+
+taskDelay(sysClkRateGet()*5)
+
+taskSpawn "ROC",200,0,500000,coda_roc,"-session","clasprod","-objects","tdcecal1 ROC"
+
+#v1495's server
+taskSpawn "V1495SRV",250,0,200000,v1495tcpServer1
+
+
+# for firmware upgrade
+cd "$CODA/src/rol/code.s"
+
+taskDelay(sysClkRateGet()*10)
+
+#####proconhost
+#####netonhost
+
+#####usrVmeDmaSetConfig(2,3,0)
+
+
+
