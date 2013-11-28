@@ -1641,6 +1641,7 @@ void
 vscmPrestart(char *fname)
 {
   int i;
+  char *env, filename[256];
 
   for (i = 0; i < nvscm; i++) {
     vscmFifoClear(vscmID[i]);
@@ -1648,10 +1649,30 @@ vscmPrestart(char *fname)
   }
 
   taskDelay(10);
-	
-	/* Initialize FSSR2 chips */
-  for (i = 0; i < nvscm; i++) {
-    vscmConfigDownload(vscmID[i], fname);
+
+  /* form config filename */
+  if(fname[0]=='/') /* use 'as is' */
+  {
+    strcpy(filename,fname);
+  }
+  else /* add $CLON_PARMS before fname */
+  {
+    env = getenv("CLON_PARMS");
+    if(env==NULL)
+	{
+      printf("ERROR in vscmPrestart: evn var CLON_PARMS does not exist\n");
+      return;
+	}
+    strcpy(filename,env);
+    strcat(filename,"/vscm/");
+    strcat(filename,fname);
+  }
+  printf("vscmPrestart: use config file >%s<\n",filename);
+
+  /* Initialize FSSR2 chips */
+  for (i = 0; i < nvscm; i++)
+  {
+    vscmConfigDownload(vscmID[i], filename);
   }
 }
 

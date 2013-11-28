@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "dsc2.h"
+#include "dsc2Lib.h"
 
 
 
@@ -48,12 +48,8 @@ main(int argc, char *argv[])
 
   /* update firmware */
   
-  dsc2Init(0x10d10000,0x10000,20);
+  dsc2Init(0x100000,0x80000,20,0);
   dsc2UpdateFirmwareAll(myname);
-  /*
-  vmeDSCInit(0x10d10000,0x10000,20,0);
-  vmeDSCUpdateFirmwareAll(myname);
-  */
 
   exit(0);
 }

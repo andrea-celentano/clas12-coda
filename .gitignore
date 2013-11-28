@@ -5,6 +5,7 @@ Linux_x86_64/
 SunOS_i86pc/
 SunOS_sun4u/
 VXWORKS_ppc/
+Linux_armv7l/
 common/
 *.o
 *.so

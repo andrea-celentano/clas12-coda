@@ -17,6 +17,9 @@ if ($hh != "svt") then
   exit (1)
 endif
 
+echo ""
+echo " Stop ROCs"
+stop_proc -n $host_name -p coda_roc_gef -match "classvt" -s 0
 
 echo ""
 echo " Stop EB"

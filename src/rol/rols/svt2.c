@@ -326,7 +326,7 @@ __prestart()
 
 #ifdef USE_VSCM
   printf("vscmPrestart ...\n"); fflush(stdout);
-  vscmPrestart("/usr/local/clas12/devel/parms/vscm/VSCMConfig.txt");
+  vscmPrestart("VSCMConfig.txt");
   printf("vscmPrestart done\n"); fflush(stdout);
 #endif
 
@@ -567,7 +567,7 @@ goto a1233;
 */
       for(itime=0; itime<100000; itime++) 
 	  {
-	    gbready = vscmGBready();
+	    gbready = vscmGBReady();
 	    stat = (gbready == vscmSlotMask);
 	    if (stat>0) 
 	    {

@@ -68,8 +68,8 @@ ifeq ("$(OSTYPE)","VXWORKS")
   LIBNAMES += ./VXWORKS_ppc/lib/libdac.so
   LIBNAMES += $(CODA)/VXWORKS_ppc/lib/libmysql4.1.20.so
 else ifeq ("$(OSTYPE)","ARM")
-  LIBNAMES += ./ARM_i686/lib/libdac.a
-  LIBNAMES += $(CODA)/ARM_i686/lib/libmysql4.1.20.a
+  LIBNAMES += ./Linux_armv7l/lib/libdac.a
+  LIBNAMES += $(CODA)/Linux_armv7l/lib/libmysql4.1.20.a
 else
 
 #?????????? for TT_Go etc

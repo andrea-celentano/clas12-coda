@@ -365,14 +365,16 @@ int
 codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
 {
   char ObjInitName[100];
-  char *p1, *p2;
+  char *p0, *p1, *p2;
   int nchar = 0;
   int res;
+  char *env, rolnameful[256], tmp[128];
 #ifdef VXWORKS
   SYM_TYPE sType;
 #endif
 
   memset((char *) ObjInitName, 0, 100);
+
   /* 'strrchr' returns the pointer to the last occurrence of '/' */
   /* (actual readout list name starts after last '/') */
   if((p1 = strrchr (rolname, '/')) == 0) p1 = rolname;
@@ -392,31 +394,69 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
     printf("ERROR: cannot extract ObjInitName from the rolname\n");
   }
 
+
 #if defined(VXWORKS)
-  dalf = open (rolname, 0, 0);
+
+  scrcpy(rolnameful,rolname);
+
+  dalf = open (rolnameful, 0, 0);
   if(dalf == ERROR)
   {
     printf("ERROR: open failed with status=%d for rol (unable to open ROL): >%s<\n",
-             dalf,rolname);
+             dalf,rolnameful);
     return(CODA_ERROR);
   }
 
   rolP->id = (void *) loadModuleAt(dalf, GLOBAL_SYMBOLS, NULL, NULL, NULL);
   close(dalf);
+
 #elif defined __sun||LINUX
-  rolP->id = dlopen (rolname, RTLD_NOW | RTLD_GLOBAL);
+
+  /* resolve environment variables in rolname; go from '/' to '/' and replace
+  env names starting from '$' by actual directories */
+  rolnameful[0] = '\0';
+  p0 = rolname;
+  while( (p1 = strchr(p0, '$')) != 0)
+  {
+    strncat(rolnameful,p0,(int)(p1-p0));
+    p2 = strchr(p1, '/');
+    if(p2==0)
+	{
+      printf("ERROR in ROL name: env var must start with '$' and end with '/'\n");
+      return(CODA_ERROR);
+	}
+    strncpy(tmp,(char *)&p1[1],(int)(p2-p1-1));
+    tmp[p2-p1-1] = '\0';
+    env = getenv(tmp);
+    if(env==NULL)
+	{
+      printf("ERROR in ROL name: env var >%s< does not exist\n",tmp);
+      return(CODA_ERROR);
+	}
+    strcat(rolnameful,env);
+    p0 = p2;
+  }
+  strcat(rolnameful,p0);
+  printf("rolnameful >%s<\n",rolnameful);
+
+
+  rolP->id = dlopen (rolnameful, RTLD_NOW | RTLD_GLOBAL);
   if(rolP->id == 0)
   {
 	printf ("ERROR: dlopen failed on rol: >%s<\n",dlerror());
   }
+
 #else
+
   printf ("WARN: dynamic loading not supported\n");
   return(CODA_ERROR);
+
 #endif
+
 
   if(rolP->id == NULL)
   {
-    printf("ERROR: unable to load readout list >%s<\n",rolname);
+    printf("ERROR: unable to load readout list >%s<\n",rolnameful);
     return(CODA_ERROR);
   }
   rolP->nounload = 0;
@@ -437,12 +477,12 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
   {
     printf("ERROR: dlsym returned %d\n",res);
     printf("ERROR: >%s()< routine not found\n",ObjInitName);
-    printf("ERROR: <ObjName>__init() routine not found in >%s<\n",rolname);
+    printf("ERROR: <ObjName>__init() routine not found in >%s<\n",rolnameful);
     return(CODA_ERROR);
   }
 
   strncpy(rolP->usrString, params, 30);
-  printf ("readout list >%s< loaded\n",rolname);
+  printf ("readout list >%s< loaded\n",rolnameful);
 
   return(CODA_OK);
 }

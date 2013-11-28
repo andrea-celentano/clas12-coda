@@ -58,6 +58,6 @@ install: install_lib install_bin
 	mkdir tmp
 	cp src.s/*.h tmp
 	chmod 664 tmp/*
-	-mkdir -p $(CODA)/ARM_i686/include/mysql
-	cp tmp/* $(CODA)/ARM_i686/include/mysql
+	-mkdir -p $(CODA)/Linux_armv7l/include/mysql
+	cp tmp/* $(CODA)/Linux_armv7l/include/mysql
 	rm -rf tmp
