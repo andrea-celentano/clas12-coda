@@ -276,7 +276,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   
 /*   tiDisableVXSSignals(); */
 
-/*
+/* sergey
   tiReload();
   taskDelay(120);
 */

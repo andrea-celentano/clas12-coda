@@ -1369,13 +1369,13 @@ vscmGBReady()
   uint32_t mask = 0;
   int i, stat;
 
-  VSCMLOCK;
+  /*VSCMLOCK;*/
   for (i = 0; i < nvscm; i++) {
     stat = vscmBReady(vscmID[i]);
     if (stat)
       mask |= (1 << vscmID[i]);
   }
-  VSCMUNLOCK;
+  /*VSCMUNLOCK;*/
 
   return mask;
 }

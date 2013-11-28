@@ -17,7 +17,7 @@ around that problem temporary patches were applied - until fixed (Sergey) */
 #define SLOTWORKAROUND
 
 
-#undef DEBUG
+#define DEBUG
 
 #include <stdio.h>
 #include <string.h>
@@ -226,6 +226,7 @@ __download()
 
   block_level = 1;
   tiSetBlockLevel(block_level);
+tiSetBlockBufferLevel(1);
 
 
 goto a123;
@@ -300,6 +301,8 @@ __prestart()
   /* Clear some global variables etc for a clean start */
   *(rol->nevents) = 0;
 
+  tiEnableVXSSignals();
+
 #ifdef POLLING_MODE
   CTRIGRSS(TIPRIMARY, TIR_SOURCE, usrtrig, usrtrig_done);
 #else
@@ -308,20 +311,6 @@ __prestart()
 
   sprintf(rcname,"RC%02d",rol->pid);
   printf("rcname >%4.4s<\n",rcname);
-
-
-
-/* sergey: old 1*/
-/*If the TI Master, send a Clock and Trig Link Reset */
-
-
-  tiClockReset();
-  sleep(2);
-  tiTrigLinkReset();
-  sleep(2);
-
-
-
 
 
 #ifdef USE_VSCM
@@ -334,15 +323,16 @@ __prestart()
 
   tiIntDisable();
 
-  /*sergey: old 2*/
-
-  printf("Disable all inputs\n");
+  /* master and standalone crates, NOT slave */
+#ifndef TI_SLAVE
   sleep(1);
   tiSyncReset();
-  sleep(2);
+  sleep(1);
 
+  printf("holdoff rule 1 set to %d\n",tiGetTriggerHoldoff(1));
+  printf("holdoff rule 2 set to %d\n",tiGetTriggerHoldoff(2));
 
-
+#endif
 
 
   printf("INFO: Prestart1 Executed\n");fflush(stdout);
@@ -403,9 +393,9 @@ __go()
 
 
 
-  /* disable BUSY */
+  /* disable BUSY 
 tiSetBusySource(TI_BUSY_LOOPBACK,1);
-  
+*/  
 
 
 
@@ -530,10 +520,10 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
     else
     {
 	  ;
-	  /*
+#ifdef DEBUG
       printf("ti: len=%d\n",len);
       for(jj=0; jj<len; jj++) printf("ti[%2d] 0x%08x\n",jj,LSWAP(tdcbuf[jj]));
-	  */
+#endif
       /* *rol->dabufp++ = LSWAP(tdcbuf[jj]);*/
 
     }
@@ -560,11 +550,13 @@ TIMERL_START;
 */
 
 /*COMMENT OUT FOLLOWING 'FOR' LOOP FOR SPEED UP !!!*/
-
 /*
 stat=1;
 goto a1233;
 */
+#ifdef DEBUG
+      printf("Calling vscmGBReady ...\n");fflush(stdout);
+#endif
       for(itime=0; itime<100000; itime++) 
 	  {
 	    gbready = vscmGBReady();
@@ -573,16 +565,19 @@ goto a1233;
 	    {
 	      break;
 	    }
-		/*else
+#ifdef DEBUG
+		else
 		{
           printf("NOT READY: gbready=0x%08x, expect 0x%08x\n",gbready,vscmSlotMask);
-		}*/
+		}
+#endif
 	  }
 a1233:	  
 
 #ifdef DEBUG
 	  
 	  /* print fifo info */
+      printf("FIFOs info:\n");fflush(stdout);
       for(jj=0; jj<nvscm1; jj++)
 	  {
         vscmStat(vscmID[jj]);
@@ -654,15 +649,18 @@ a1233:
             /*if(len>12) len=12;*/
             vscmPrintFifo(rol->dabufp,len);
 #endif
-			
+
+			/*			
 vscmPrintFifo(rol->dabufp,len);
-			
+			*/
 
             rol->dabufp += len;
             dCnt += len;
 
             usrRestoreVmeDmaMemory();
+
 #else
+
 	        len = vscmReadBlock(vscmID[jj],&tdcbuf[dCnt],1000/*MAXFADCWORDS*/,VSCM_ROFLAG);
 #ifdef DEBUG
 			printf("readout ends, len=%d\n",len);
