@@ -86,7 +86,7 @@ else
   LIBNAMES += $(globallib)/libmysql4.1.20.a # the rest of mysql (our stuff)
 #  LIBNAMES += $(CODA)/src/mysql4.1.20/Linux_i686/obj/libdb.o
 
-ifeq ("$(OSTYPE)","Linux")
+ifeq ("$(OSTYPE_MACHINE)","Linux_i686_vme")
   LIBNAMES += $(CODA)/src/rol/jvme/libjvme.so
 endif
   LIBNAMES += $(globallib)/libevio.a
