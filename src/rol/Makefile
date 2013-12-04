@@ -84,7 +84,8 @@ endif
 ifeq ("$(OSTYPE)","VXWORKS")
   CLON_FLAGS += -I$(CODA)/VXWORKS_ppc/include
   LIBNAMES +=
-else ifeq ("$(OSTYPE)","ARM")
+else ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
+  CLON_FLAGS += -I$(CODA)/Linux_armv7l/include
   LIBNAMES +=
 else
   LIBNAMES += $(CODA)/src/codatt/$(OSTYPE_MACHINE)/lib/libcodatt.a

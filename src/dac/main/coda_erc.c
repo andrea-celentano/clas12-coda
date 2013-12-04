@@ -1,7 +1,7 @@
 
 /* coda_erc.c - CODA format */
 
-#if defined(VXWORKS) || defined(ARM)
+#if defined(VXWORKS) || defined(Linux_armv7l)
 
 void
 coda_er()

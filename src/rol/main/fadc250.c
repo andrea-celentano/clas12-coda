@@ -1,7 +1,7 @@
 
 /* fadc250.c */
 
-#if defined(VXWORKS)
+#if defined(VXWORKS) || defined(Linux_armv7l)
 
 int
 main()

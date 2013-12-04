@@ -70,7 +70,12 @@ cleanvxworks:
 	- cd rol;                            $(MAKE) clean   VXWORKS
 
 arm:
-	cd mysql4.1.20;                      $(MAKE) all     ARM
+	cd evio-4.0;                         $(MAKE) all     ARM
+	- cd evio-4.0;                       $(MAKE) install ARM
+	- cd et-12.0;                        $(MAKE) all     ARM
+	- cd et-12.0;                        $(MAKE) ulib    ARM
+	- cd et-12.0;                        $(MAKE) install ARM
+	- cd mysql4.1.20;                    $(MAKE) all     ARM
 	- cd mysql4.1.20;                    $(MAKE) install ARM
 	- cd codatt;                         $(MAKE) all     ARM
 	- cd codatt;                         $(MAKE) install ARM

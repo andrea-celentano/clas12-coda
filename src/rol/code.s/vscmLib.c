@@ -94,7 +94,7 @@ int maxSlot = 1;
         if (!strncmp(charval[ii],"0x",2)) \
           sscanf((char *)&charval[ii][2],"%8x",&val[ii]); \
         else \
-          sscanf(charval[ii],"%3u",&val[ii]); \
+          sscanf(charval[ii],"%u",&val[ii]); \
       } \
       nval = 0
 
@@ -186,10 +186,11 @@ vscmConfigDownload(int id, char *fname)
       }
 /*256        512        32*/
       else if(!strcmp(keyword,"VSCM_TRIG_WINDOW")) {
-        sscanf(str,"%30s %3s %3s %3s", \
+        sscanf(str,"%30s %4s %4s %4s", \
                 keyword, charval[0], charval[1], charval[2]);
         nval = 3;
         VAL_DECODER;
+        printf("Window: %d %d %d\n",val[0],val[1],val[2]);
         vscmSetTriggerWindow(id, val[0],val[1],val[2]);
       }
       else {
@@ -1643,6 +1644,11 @@ vscmPrestart(char *fname)
   int i;
   char *env, filename[256];
 
+  /*from old version - allows to end run after N events
+  vscmSetMaxTriggerLimit(0);
+  vscmClearTriggerCount();
+  */
+
   for (i = 0; i < nvscm; i++) {
     vscmFifoClear(vscmID[i]);
     fssrMasterReset(vscmID[i]);
@@ -1672,6 +1678,7 @@ vscmPrestart(char *fname)
   /* Initialize FSSR2 chips */
   for (i = 0; i < nvscm; i++)
   {
+	fssrSetChipID(vscmID[i], 0, 1, 2, 3, 4);
     vscmConfigDownload(vscmID[i], filename);
   }
 }
@@ -1863,8 +1870,8 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
       vmeWrite32(&VSCMpr[boardID]->SwBGpio, 0x01000100);
 #else
       /* get clock from switch slot B (2,0-int, 3,1-ext)*/
-      vmeWrite32(&VSCMpr[boardID]->ClockCfg, 2/*3*/); /* sets clock */
-      vmeWrite32(&VSCMpr[boardID]->ClockCfg, 0/*1*/); /* release reset */
+      vmeWrite32(&VSCMpr[boardID]->ClockCfg, /*2*/3); /* sets clock */
+      vmeWrite32(&VSCMpr[boardID]->ClockCfg, /*0*/1); /* release reset */
 
       /* get trigger from switch slot B */
       vmeWrite32(&VSCMpr[boardID]->Trigger, IO_MUX_SWB_TRIG1);
@@ -1885,6 +1892,9 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
                   IO_MUX_PULSER | 0x80000000 | (0 << 16));
 
       vmeWrite32(&VSCMpr[boardID]->BlockCfg, 1);
+
+      /* delay before start data processing in vscm board after recieving trigger */
+      vmeWrite32(&VSCMpr[boardID]->TrigLatency, /*0*/512); /* multiply by 8ns */
 
       /* Enable Bus Error */
       vmeWrite32(&VSCMpr[boardID]->ReadoutCfg, 1);

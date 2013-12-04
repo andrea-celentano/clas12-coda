@@ -17,7 +17,7 @@ around that problem temporary patches were applied - until fixed (Sergey) */
 #define SLOTWORKAROUND
 
 
-#define DEBUG
+#undef DEBUG
 
 #include <stdio.h>
 #include <string.h>

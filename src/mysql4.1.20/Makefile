@@ -18,16 +18,27 @@ include $(CODA)/src/Makefile.include
 # customize definitions
 #-----------------------
 
-CLON_FLAGS += -I./src.s -I./src_full.s -I./src_short.s -DCODAMYSQL \
+CLON_FLAGS += -I./src.s -DCODAMYSQL \
 	-DSHAREDIR=\"$(CODA)/common/mysql\" \
 	-DDEFAULT_CHARSET_HOME=\"$(CODA)/common/mysql\"
 
+#CLON_FLAGS += -I./src.s -I./src_full.s -I./src_short.s -DCODAMYSQL \
+#	-DSHAREDIR=\"$(CODA)/common/mysql\" \
+#	-DDEFAULT_CHARSET_HOME=\"$(CODA)/common/mysql\"
+
 # brakes compilation: -I/usr/include/mysql
 
+ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
+CLON_FLAGS += -I$(CODA)/Linux_armv7l/include
+endif
+
+ifeq ("$(OSTYPE_MACHINE)","VXWORKS_ppc")
+CLON_FLAGS += -I$(CODA)/VXWORKS_ppc/include
+endif
 
 # compress/uncompress
-ifneq ("$(OSTYPE)","VXWORKS")
-ifneq ("$(OSTYPE)","ARM")
+ifneq ("$(OSTYPE_MACHINE)","VXWORKS_ppc")
+ifneq ("$(OSTYPE_MACHINE)","Linux_armv7l")
   LIBNAMES += -lz
 endif
 endif

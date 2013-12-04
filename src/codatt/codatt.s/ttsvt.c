@@ -11,7 +11,7 @@
 
 
 
-#undef DEBUG
+#define DEBUG
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
@@ -170,7 +170,7 @@ return(0);
 		case DATA_TYPE_TRGTIME:
 		  timestamp = (((unsigned long long)word&0xffffff)<<24) | (svt[ii+1]&0xffffff);
 #ifdef DEBUG
-		  printf(" {TRGTIME} timestamp=%lld (bco style = %lld)\n",timestamp,((timestamp / (long long)(26*8)) % 256));
+		  printf(" {TRGTIME} timestamp=%lld (bco style = %lld)\n",timestamp,((timestamp / (long long)(16)) % 256)); /*16-from par file*/
 #endif
 		  break;
         case DATA_TYPE_BCOTIME:

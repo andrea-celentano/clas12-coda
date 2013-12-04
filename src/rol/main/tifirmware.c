@@ -5,6 +5,7 @@
      tifirmware("ti146.svf")
 */
 
+#ifndef Linux_armv7l
 
 #include <stdio.h>
 #include <string.h>
@@ -459,4 +460,12 @@ EMload(char *filename)
   printf("\n A24 memory map is set back to its default \n");
 }
 
+#else
 
+int
+main()
+{
+  return(0);
+}
+
+#endif

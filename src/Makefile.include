@@ -178,9 +178,13 @@ endif
 
 ###    LDCC = $(CC)
     LDCC = $(FC)
-
-
     LDFC = $(FC)
+
+ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
+    LDCC = gcc
+    LDFC = gcc
+endif
+
 
 #
 # -Wl, must be used as prefix before flags passed to linker !

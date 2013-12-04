@@ -67,9 +67,11 @@ CLON_FLAGS += -DNO_X11
 ifeq ("$(OSTYPE)","VXWORKS")
   LIBNAMES += ./VXWORKS_ppc/lib/libdac.so
   LIBNAMES += $(CODA)/VXWORKS_ppc/lib/libmysql4.1.20.so
-else ifeq ("$(OSTYPE)","ARM")
+else ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
   LIBNAMES += ./Linux_armv7l/lib/libdac.a
   LIBNAMES += $(CODA)/Linux_armv7l/lib/libmysql4.1.20.a
+  LIBNAMES += $(CODA)/Linux_armv7l/lib/libet.a
+  LIBNAMES += $(CODA)/Linux_armv7l/lib/libevio.a
 else
 
 #?????????? for TT_Go etc
@@ -130,7 +132,8 @@ ifeq ("$(OSTYPE)","VXWORKS")
 	-DHAVE_UNISTD_H=1  -D_LANGUAGE_C -DDAYTIME="\"`date`\""
 endif
 
-ifeq ("$(OSTYPE)","ARM")
+ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
+  CLON_FLAGS += -I$(CODA)/Linux_armv7l/include
   LIBNAMES += $(SYSLIBS)
 # Sergey: -rdynamic needed by Linux, it allows to search for global
 #   symbols in main program by dlopen/dlsym

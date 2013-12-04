@@ -1,6 +1,6 @@
 /* UNIX version only */
 
-#if defined(VXWORKS) || defined(ARM)
+#if defined(VXWORKS) || defined(Linux_armv7l)
 
 int
 main()
