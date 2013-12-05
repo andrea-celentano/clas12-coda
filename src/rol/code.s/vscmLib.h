@@ -200,21 +200,23 @@ struct VSCM_regs {
 /* 0x1000-0x10FF */ volatile FssrStatus Fssr[8];
 };
 
-/* Declare Global Variables */
+/* Declare Global Variables 
 extern int nvscm;
 extern const int vscmA32Base;
 extern int vscmA32Offset;
 extern int vscmA24Offset;
 extern int vscmA16Offset;
-
 extern volatile struct VSCM_regs *VSCMpr[VSCM_MAX_BOARDS + 1];
 extern volatile uintptr_t *VSCMpf[VSCM_MAX_BOARDS + 1];
 extern int vscmID[VSCM_MAX_BOARDS];
 extern int vscmInited;
 extern int minSlot;
 extern int maxSlot;
+*/
 
 /* Firmware Function Prototypes */
+int vscmSlot(unsigned int id);
+int vscmId(unsigned int slot);
 int vscmGetSpiMode(int id);
 void vscmSelectSpi(int id, int sel, int mode);
 uint8_t vscmTransferSpi(int id, uint8_t data, int mode);

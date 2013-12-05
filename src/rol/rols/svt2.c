@@ -149,9 +149,8 @@ blablasvt()
 */
 
 
-unsigned int vscmSlotMask = 0; /* bit=slot (starting from 0) */
+static unsigned int vscmSlotMask = 0; /* bit=slot (starting from 0) */
 static int nvscm1 = 0; /* the number of vscm boards found by vscmInit() */
-extern int vscmID[VSCM_MAX_BOARDS];
 static int VSCM_ROFLAG = 1;  /* 0-noDMA, 1-board-by-board DMA, 2-chainedDMA */
 
 
@@ -267,7 +266,7 @@ goto a123;
   vscmSlotMask=0;
   for(ii=0; ii<nvscm1; ii++)
   {
-    islot = vscmID[ii];      /* Grab the current module's slot number */
+    islot = vscmSlot(ii);      /* Grab the current module's slot number */
     vscmSlotMask |= (1<<islot); /* Add it to the mask */
     vscmSetBlockLevel(islot, block_level);
   }
@@ -405,7 +404,7 @@ tiSetBusySource(TI_BUSY_LOOPBACK,1);
   {
     for(jj=0; jj<8; jj++)
     {
-      fssrSCR(vscmID[ii], jj);
+      fssrSCR(vscmSlot(ii), jj);
 	}
   }
 
@@ -414,14 +413,14 @@ tiSetBusySource(TI_BUSY_LOOPBACK,1);
   {
 	for(ii=0; ii<nvscm1; ii++)
     {
-	  islot = vscmID[ii];
+	  islot = vscmSlot(ii);
       vscmResetToken(islot);
 	}
   }
 
 	for(ii=0; ii<nvscm1; ii++)
     {
-	  islot = vscmID[ii];
+	  islot = vscmSlot(ii);
 	  vscmStat(islot);
 	}
 
@@ -432,7 +431,7 @@ tiSetBusySource(TI_BUSY_LOOPBACK,1);
   {
     for(jj=0; jj<8; jj++)
     {
-      fssrStatus(vscmID[ii], jj);
+      fssrStatus(vscmSlot(ii), jj);
 	}
   }
   printf("\n\n\n\n");
@@ -580,7 +579,7 @@ a1233:
       printf("FIFOs info:\n");fflush(stdout);
       for(jj=0; jj<nvscm1; jj++)
 	  {
-        vscmStat(vscmID[jj]);
+        vscmStat(vscmSlot(jj));
 	  }
       printf("mask=0x%08x gbready=0x%08x stat=%d\n",vscmSlotMask,gbready,stat);
 	  
@@ -590,7 +589,7 @@ a1233:
 	  {
         if(VSCM_ROFLAG==2)
         {
-          islot = vscmID[0];
+          islot = vscmSlot(0);
 #ifdef DMA_TO_BIGBUF
           uMemBase = dabufp_usermembase;
           pMemBase = dabufp_physmembase;
@@ -643,7 +642,7 @@ a1233:
             usrChangeVmeDmaMemory(pMemBase, uMemBase, mSize);
 
 
-	        len = vscmReadBlock(vscmID[jj],rol->dabufp,1000/*MAXFADCWORDS*/,VSCM_ROFLAG);
+	        len = vscmReadBlock(vscmSlot(jj),rol->dabufp,1000/*MAXFADCWORDS*/,VSCM_ROFLAG);
 #ifdef DEBUG
 			printf("readout ends, len=%d\n",len);
             /*if(len>12) len=12;*/
@@ -661,7 +660,7 @@ vscmPrintFifo(rol->dabufp,len);
 
 #else
 
-	        len = vscmReadBlock(vscmID[jj],&tdcbuf[dCnt],1000/*MAXFADCWORDS*/,VSCM_ROFLAG);
+	        len = vscmReadBlock(vscmSlot(jj),&tdcbuf[dCnt],1000/*MAXFADCWORDS*/,VSCM_ROFLAG);
 #ifdef DEBUG
 			printf("readout ends, len=%d\n",len);
             /*if(len>12) len=12;*/
@@ -707,7 +706,7 @@ vscmPrintFifo(rol->dabufp,len);
 	  {
 	    for(ii=0; ii</*1*/nvscm1; ii++)
 	    {
-	      islot = vscmID[ii];
+	      islot = vscmSlot(ii);
 	      vscmResetToken(islot);
 	    }
 	  }

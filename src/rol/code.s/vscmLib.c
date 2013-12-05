@@ -97,6 +97,34 @@ int maxSlot = 1;
           sscanf(charval[ii],"%u",&val[ii]); \
       } \
       nval = 0
+int
+vscmSlot(unsigned int id)
+{
+  if(id>=nvscm)
+  {
+    printf("%s: ERROR: Index (%d) >= VSCMs initialized (%d).\n",__FUNCTION__,id,nvscm);
+    return(-1);
+  }
+
+  return(vscmID[id]);
+}
+
+int
+vscmId(unsigned int slot)
+{
+  int id;
+
+  for(id=0; id<nvscm; id++)
+  {
+    if(vscmID[id]==slot)
+	{
+      return(id);
+	}
+  }
+
+  printf("%s: ERROR: VSCM in slot %d does not exist or not initialized.\n",__FUNCTION__,slot);
+  return(-1);
+}
 
 int
 vscmConfigDownload(int id, char *fname)
@@ -134,7 +162,25 @@ vscmConfigDownload(int id, char *fname)
         vscmSetMaxTriggerLimit(val[0]);
       }
 */
-      if (!strcmp(keyword,"FSSR_ADDR_REG_DISC_THR")) {
+      if (!strcmp(keyword,"VSCM_CLOCK_EXTERNAL")) {
+        printf("External clock for slot %d\n",id);
+        vmeWrite32(&VSCMpr[id]->ClockCfg, 3); /* sets clock */
+        vmeWrite32(&VSCMpr[id]->ClockCfg, 1); /* release reset */
+        vscmFifoClear(id);
+        fssrMasterReset(id);
+        taskDelay(10);
+      }
+
+      else if (!strcmp(keyword,"VSCM_CLOCK_INTERNAL")) {
+        printf("Internal clock for slot %d\n",id);
+        vmeWrite32(&VSCMpr[id]->ClockCfg, 2); /* sets clock */
+        vmeWrite32(&VSCMpr[id]->ClockCfg, 0); /* release reset */
+        vscmFifoClear(id);
+        fssrMasterReset(id);
+        taskDelay(10);
+      }
+
+      else if (!strcmp(keyword,"FSSR_ADDR_REG_DISC_THR")) {
         sscanf(str,"%30s %1s %1s %3s", keyword, \
                 charval[0], charval[1], charval[2]);
         nval = 3;        
@@ -190,7 +236,7 @@ vscmConfigDownload(int id, char *fname)
                 keyword, charval[0], charval[1], charval[2]);
         nval = 3;
         VAL_DECODER;
-        printf("Window: %d %d %d\n",val[0],val[1],val[2]);
+        printf("Window: %d %d %d for slot %d\n",val[0],val[1],val[2],id);
         vscmSetTriggerWindow(id, val[0],val[1],val[2]);
       }
       else {
@@ -991,6 +1037,10 @@ vscmSetTriggerWindow(int id, \
               (bcoStart_r << 0) | (bcoStart_i << 8) | \
               (bcoStop_r << 16) | (bcoStop_i << 24));
 
+
+
+
+#if 0
   /* Check the maximum pulser rate only if its already set */
   if ((pulser_period = vmeRead32(&VSCMpr[id]->PulserPeriod))) {
     /* Formula from: https://clasweb.jlab.org/elog-svt/daq/5 */
@@ -1004,6 +1054,8 @@ vscmSetTriggerWindow(int id, \
               __func__, pulser_period, vmeRead32(&VSCMpr[id]->PulserPeriod));
     }
   }
+#endif
+
 
 #ifdef DEBUG
   logMsg("DEBUG: %s: bcoStart(%u,%u) bcoStop(%u,%u)\n", \
@@ -1484,6 +1536,7 @@ vscmSetPulserRate(int id, uint32_t freq)
     bcoFreq = vmeRead32(&VSCMpr[id]->FssrClkCfg);
     window = ((window >> 24 & 0xFF) - (window >> 8 & 0xFF) - 1) * bcoFreq;
     trig_rate_limit = 50000000 / (16 * (1 + window / bcoFreq));
+printf("bco: %u window: %u limit: %u\n", bcoFreq, window, trig_rate_limit);
     if (freq > trig_rate_limit) {
       logMsg("INFO: %s: Raised Pulser Period from %u ns ", \
               __func__, periodCycles); 
@@ -1861,6 +1914,7 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
     for (i = 0; i < nvscm; i++) {
       boardID = vscmID[i]; /* slot number */
 
+
 #ifdef HBI
       vmeWrite32(&VSCMpr[boardID]->ClockCfg, 0);
       vmeWrite32(&VSCMpr[boardID]->Trigger, IO_MUX_FPINPUT0);
@@ -1869,9 +1923,21 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
       /* Set VXS-Switch-B-SEx driver to reset state */
       vmeWrite32(&VSCMpr[boardID]->SwBGpio, 0x01000100);
 #else
-      /* get clock from switch slot B (2,0-int, 3,1-ext)*/
-      vmeWrite32(&VSCMpr[boardID]->ClockCfg, /*2*/3); /* sets clock */
-      vmeWrite32(&VSCMpr[boardID]->ClockCfg, /*0*/1); /* release reset */
+
+      if(flag&0x1==0)
+	  {
+        printf("External clock\n");
+        /* get clock from switch slot B (2,0-int, 3,1-ext)*/
+        vmeWrite32(&VSCMpr[boardID]->ClockCfg, 3); /* sets clock */
+        vmeWrite32(&VSCMpr[boardID]->ClockCfg, 1); /* release reset */
+	  }
+	  else
+	  {
+        printf("Internal clock\n");
+        /* get clock from switch slot B (2,0-int, 3,1-ext)*/
+        vmeWrite32(&VSCMpr[boardID]->ClockCfg, 2); /* sets clock */
+        vmeWrite32(&VSCMpr[boardID]->ClockCfg, 0); /* release reset */
+	  }
 
       /* get trigger from switch slot B */
       vmeWrite32(&VSCMpr[boardID]->Trigger, IO_MUX_SWB_TRIG1);
@@ -1881,6 +1947,7 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
 
       /* busy to switch slot B */
       vmeWrite32(&VSCMpr[boardID]->SwBGpio, IO_MUX_BUSY | (1 << 24));
+
 #endif
 
       /* Setup Front Panel and Trigger */
@@ -1891,27 +1958,37 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
       vmeWrite32(&VSCMpr[boardID]->DACTrigger, \
                   IO_MUX_PULSER | 0x80000000 | (0 << 16));
 
+      /* for token only - will always do it */
+      vmeWrite32(&VSCMpr[boardID]->TokenInCfg, IO_MUX_TOKENIN);
+      vmeWrite32(&VSCMpr[boardID]->TokenOutCfg, IO_MUX_TOKENOUT);
+
+      /* the number of events per block */
       vmeWrite32(&VSCMpr[boardID]->BlockCfg, 1);
 
+      /* delay for trigger processing in a board - must be more then 4us for 70MHz readout clock;
+      if clock changed, it must be changes as well; ex. 35MHz -> 1024 etc */
       /* delay before start data processing in vscm board after recieving trigger */
       vmeWrite32(&VSCMpr[boardID]->TrigLatency, /*0*/512); /* multiply by 8ns */
 
       /* Enable Bus Error */
       vmeWrite32(&VSCMpr[boardID]->ReadoutCfg, 1);
 
+
+      /* FSSR Clock & Triggering setup */
+      vscmSetBCOFreq(boardID, 16);
+      vscmSetTriggerWindow(boardID, 256, 256, 16);
+
+
       /* Setup VSCM Pulser */
       vscmSetDacCalibration(boardID);
       vscmSetPulserRate(boardID, 200000);
 
-      /* FSSR Clock & Triggering setup */
-      vscmSetBCOFreq(boardID, 16);
-      vscmSetTriggerWindow(boardID, 128, 512, 16);
 
       /* Clear event buffers */
       vscmFifoClear(boardID);
 	
       vscmSWSync(boardID);
-//      fssrMasterReset(boardID);
+	  /*fssrMasterReset(boardID);*/
     }
 
 #ifdef CODA3DMA

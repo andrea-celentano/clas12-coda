@@ -10,6 +10,234 @@
 #ifndef VXWORKS
 #include "jvme.h"
 
+extern volatile struct VSCM_regs *VSCMpr[VSCM_MAX_BOARDS + 1];
+
+typedef struct {
+  unsigned int amp;
+  unsigned int start;
+  uint32_t hits[256];
+} threshold_scan;
+
+
+void
+fssrGainScan(int id, char *filename, \
+              int beg_chip, int end_chip, \
+              int beg_chan, int end_chan,
+              int start_thr, int chan_mult)
+{
+  FILE *fd;
+  char fname[256], reg27[20];
+  int thr, ichip, ich;
+  int i, j;
+  int zero_count, amp, min_hits;
+  int base_thr = start_thr;
+  int temp_start_thr, zero_status, a;
+
+  uint32_t pulser_rate = vscmGetPulserRate(id);
+  uint32_t scaler[128];
+
+  /* Pulser Settings */
+  const int start_amp = 75;
+  const int end_amp = 125;
+  const int step_amp = 25;
+  int steps = ((end_amp - start_amp) / step_amp) + 1;
+
+  threshold_scan *data;
+
+#ifdef VXWORKS
+  int ticks = 1;
+#else
+  struct timespec ts; 
+  ts.tv_sec = 0;
+  ts.tv_nsec = 16666667; /* ~16.6 ms (similar to 1 tick on VxWorks) */
+#endif
+
+  if (vscmIsNotInit(&id, __func__))
+    return;
+
+  if ((end_chip - beg_chip) > 3) {
+    logMsg("ERROR: %s: Chip range must be 4 chips or less\n", __func__);
+    logMsg("ERROR: %s: Output files will be overwritten if >4\n", __func__);
+    return;
+  }
+
+  if ((chan_mult < 1) || ((chan_mult & (chan_mult - 1)) != 0)) {
+    logMsg("ERROR: %s: Channel multiplier (%d) ", __func__, chan_mult);
+    logMsg("must be a power of 2\n");
+    return;
+  }
+
+  data = malloc(steps * chan_mult * sizeof(threshold_scan));
+
+  /* Temporarily disable both pulser outputs */
+  vscmPulser(id, 0, 0, 1);
+
+#ifdef VXWORKS
+  min_hits = (int)(pulser_rate * (ticks / (float)sysClkRateGet()) * 0.99);
+#else
+  min_hits = (int)(pulser_rate * (float)(ts.tv_nsec * 1.0e-9) * 0.99);
+#endif
+  logMsg("INFO: %s: Min Hits = %d\n", __func__, min_hits);
+
+  for (ichip = beg_chip; ichip <= end_chip; ichip++) {
+#ifdef DEBUG
+    fssrStatus(id, ichip);
+#endif
+
+    if(filename)
+    {
+      sprintf(fname,"%s_sl%02d_u%1d", filename, id, ((ichip % 4) + 1));
+      if( (fd = fopen(fname, "w")) <= NULL )
+      {
+        logMsg("ERROR: %s: Opening file: %s\n", __func__, fname);
+        free(data);
+        return;
+      }
+      else
+      {
+        logMsg("INFO: %s: Output file: %s\n", __func__, fname);
+      }
+    }
+    else
+	{
+      logMsg("Chip %d\n", ichip);
+	}
+
+    fssrParseControl(id, ichip, reg27);
+    if (filename) {
+      fprintf(fd, "%s\n", reg27);
+    }
+    else
+      printf("%s\n", reg27);
+
+    for (i = 0; i < (128 / chan_mult); i++)
+    {
+      start_thr = base_thr;
+      thr = start_thr;
+      temp_start_thr = 1;
+
+      fssrKillMaskDisableAll(id, ichip);
+      fssrInjectMaskDisableAll(id, ichip);
+      printf("[%d] Chan: ",id);
+
+      for (j = 0; j < chan_mult; j++)
+      {
+        ich = i + (j * (128 / chan_mult));
+        printf("%d ", ich);
+        fssrKillMaskEnableSingle(id, ichip, ich);
+        fssrInjectMaskEnableSingle(id, ichip, ich);
+      }
+      printf("\n");
+
+      for (a = 0; a < steps; a++)
+      {
+        amp = start_amp + (a * step_amp);
+        thr = start_thr;
+        zero_count = 0;
+        printf("[%d] Amp: %d Start: %d\n",id, amp, thr);
+
+        vscmPulser(id, ((ichip > 3) ? 2 : 1), amp, (int)(min_hits / 0.99));
+
+        while(thr < 256 && zero_count < 2)
+        {
+          zero_status = 0;
+          temp_start_thr = 0;
+          fssrSetThreshold(id, ichip, 0, thr);
+
+          vscmDisableChipScaler(id, ichip);
+          vscmClearStripScalers(id, ichip);
+          vscmEnableChipScaler(id, ichip);
+          vscmDisableChipScaler(id, ichip);
+          vscmEnableChipScaler(id, ichip);
+
+          vscmPulserStart(id);
+   
+          /* Gather data by sleeping */
+#ifdef VXWORKS
+          taskDelay(ticks);
+#else
+          nanosleep(&ts, NULL);
+#endif
+
+          vscmDisableChipScaler(id, ichip);
+          vscmReadStripScalers(id, ichip, scaler);
+
+          for (j = 0; j < chan_mult; j++)
+          {
+            ich = i + (j * (128 / chan_mult));
+
+            if (thr == start_thr)
+            {
+              data[(a * chan_mult) + j].amp = amp;
+              data[(a * chan_mult) + j].start = start_thr;
+            }
+            data[(a * chan_mult) + j].hits[thr] = scaler[ich];
+   
+            if (scaler[ich] > min_hits)
+              temp_start_thr++;
+
+            if (scaler[ich] == 0)
+              zero_status++;
+          }
+
+          if (zero_status == chan_mult)
+            zero_count++;
+          else
+            zero_count = 0;
+
+          if (temp_start_thr == chan_mult)
+            start_thr = thr;
+
+          thr++;
+        }
+      }
+
+      /* Save the data struct to file */
+      if (filename)
+      {
+        for (j = 0; j < chan_mult; j++)
+        {
+          ich = i + (j * (128 / chan_mult));
+          fprintf(fd, "%d\n", ich);
+          for (a = 0; a < steps; a++)
+          {
+
+            fprintf(fd, "%d, ", data[(a * chan_mult) + j].amp);
+            fprintf(fd, "%d ", data[(a * chan_mult) + j].start);
+            zero_count = 0;
+            thr = data[(a *chan_mult) + j].start;
+
+            while(thr < 256 && zero_count < 2)
+            {
+              fprintf(fd, ",%d ", data[(a * chan_mult) + j].hits[thr]);
+
+              if (data[(a * chan_mult) + j].hits[thr] == 0)
+                zero_count++;
+              else
+                zero_count = 0;
+              thr++;
+            }
+            fprintf(fd, "\n");
+          }
+          fprintf(fd, "\n");
+        }
+        fflush(fd);
+      }
+    } /* End of Channel loop */
+    printf("\n");
+    if (filename)
+      fclose(fd);
+  } /* End of Chip loop */
+
+  free(data);
+}
+
+
+
+
+
+
+
 typedef struct {
   unsigned int triggers;
   unsigned int adc[8];
@@ -117,210 +345,13 @@ vscmParseFIFO(DMANODE* event, FILE *f)
 }
 #endif
 
-typedef struct {
-  unsigned int amp;
-  unsigned int start;
-  uint32_t hits[256];
-} threshold_scan;
 
-void
-fssrGainScan(int id, char *filename, \
-              int beg_chip, int end_chip, \
-              int beg_chan, int end_chan,
-              int start_thr, int chan_mult)
-{
-  FILE *fd;
-  char fname[256], reg27[20];
-  int thr, ichip, ich;
-  int i, j;
-  int zero_count, amp, min_hits;
-  int base_thr = start_thr;
-  int temp_start_thr, zero_status, a;
 
-  uint32_t pulser_rate = vscmGetPulserRate(id);
-  uint32_t scaler[128];
 
-  /* Pulser Settings */
-  const int start_amp = 75;
-  const int end_amp = 125;
-  const int step_amp = 25;
-  int steps = ((end_amp - start_amp) / step_amp) + 1;
 
-  threshold_scan *data;
 
-#ifdef VXWORKS
-  int ticks = 1;
-#else
-  struct timespec ts; 
-  ts.tv_sec = 0;
-  ts.tv_nsec = 16666667; /* ~16.6 ms (similar to 1 tick on VxWorks) */
-#endif
 
-  if (vscmIsNotInit(&id, __func__))
-    return;
 
-  if ((end_chip - beg_chip) > 3) {
-    logMsg("ERROR: %s: Chip range must be 4 chips or less\n", __func__);
-    logMsg("ERROR: %s: Output files will be overwritten if >4\n", __func__);
-    return;
-  }
-
-  if ((chan_mult < 1) || ((chan_mult & (chan_mult - 1)) != 0)) {
-    logMsg("ERROR: %s: Channel multiplier (%d) ", __func__, chan_mult);
-    logMsg("must be a power of 2\n");
-    return;
-  }
-
-  data = malloc(steps * chan_mult * sizeof(threshold_scan));
-
-  /* Temporarily disable both pulser outputs */
-  vscmPulser(id, 0, 0, 1);
-
-#ifdef VXWORKS
-  min_hits = (int)(pulser_rate * (ticks / (float)sysClkRateGet()) * 0.99);
-#else
-  min_hits = (int)(pulser_rate * (float)(ts.tv_nsec * 1.0e-9) * 0.99);
-#endif
-  logMsg("INFO: %s: Min Hits = %d\n", __func__, min_hits);
-
-  for (ichip = beg_chip; ichip <= end_chip; ichip++) {
-#ifdef DEBUG
-    fssrStatus(id, ichip);
-#endif
-
-    if (filename) {
-      sprintf(fname,"%s_u%1d", filename, ((ichip % 4) + 1));
-      fd = fopen(fname, "w");
-      if (!fd) {
-        logMsg("ERROR: %s: Opening file: %s\n", __func__, fname);
-        free(data);
-        return;
-      }
-      else {
-        logMsg("INFO: %s: Output file: %s\n", __func__, fname);
-      }
-    }
-    else
-      logMsg("Chip %d\n", ichip);
-
-    fssrParseControl(id, ichip, reg27);
-    if (filename) {
-      fprintf(fd, "%s\n", reg27);
-    }
-    else
-      printf("%s\n", reg27);
-
-    for (i = 0; i < (128 / chan_mult); i++) {
-      start_thr = base_thr;
-      thr = start_thr;
-      temp_start_thr = 1;
-
-      fssrKillMaskDisableAll(id, ichip);
-      fssrInjectMaskDisableAll(id, ichip);
-      printf("Chan: ");
-
-      for (j = 0; j < chan_mult; j++) {
-        ich = i + (j * (128 / chan_mult));
-        printf("%d ", ich);
-        fssrKillMaskEnableSingle(id, ichip, ich);
-        fssrInjectMaskEnableSingle(id, ichip, ich);
-      }
-      printf("\n");
-
-      for (a = 0; a < steps; a++) {
-        amp = start_amp + (a * step_amp);
-        thr = start_thr;
-        zero_count = 0;
-        printf("Amp: %d Start: %d\n", amp, thr);
-
-        vscmPulser(id, ((ichip > 3) ? 2 : 1), amp, (int)(min_hits / 0.99));
-
-        while(thr < 256 && zero_count < 2) {
-          zero_status = 0;
-          temp_start_thr = 0;
-          fssrSetThreshold(id, ichip, 0, thr);
-
-          vscmDisableChipScaler(id, ichip);
-          vscmClearStripScalers(id, ichip);
-          vscmEnableChipScaler(id, ichip);
-          vscmDisableChipScaler(id, ichip);
-          vscmEnableChipScaler(id, ichip);
-
-          vscmPulserStart(id);
-   
-          /* Gather data by sleeping */
-#ifdef VXWORKS
-          taskDelay(ticks);
-#else
-          nanosleep(&ts, NULL);
-#endif
-
-          vscmDisableChipScaler(id, ichip);
-          vscmReadStripScalers(id, ichip, scaler);
-
-          for (j = 0; j < chan_mult; j++) {
-            ich = i + (j * (128 / chan_mult));
-
-            if (thr == start_thr) {
-              data[(a * chan_mult) + j].amp = amp;
-              data[(a * chan_mult) + j].start = start_thr;
-            }
-            data[(a * chan_mult) + j].hits[thr] = scaler[ich];
-   
-            if (scaler[ich] > min_hits)
-              temp_start_thr++;
-
-            if (scaler[ich] == 0)
-              zero_status++;
-          }
-
-          if (zero_status == chan_mult)
-            zero_count++;
-          else
-            zero_count = 0;
-
-          if (temp_start_thr == chan_mult)
-            start_thr = thr;
-
-          thr++;
-        }
-      }
-
-      /* Save the data struct to file */
-      if (filename) {
-        for (j = 0; j < chan_mult; j++) {
-          ich = i + (j * (128 / chan_mult));
-          fprintf(fd, "%d\n", ich);
-          for (a = 0; a < steps; a++) {
-
-            fprintf(fd, "%d, ", data[(a * chan_mult) + j].amp);
-            fprintf(fd, "%d ", data[(a * chan_mult) + j].start);
-            zero_count = 0;
-            thr = data[(a *chan_mult) + j].start;
-
-            while(thr < 256 && zero_count < 2) {
-              fprintf(fd, ",%d ", data[(a * chan_mult) + j].hits[thr]);
-
-              if (data[(a * chan_mult) + j].hits[thr] == 0)
-                zero_count++;
-              else
-                zero_count = 0;
-              thr++;
-            }
-            fprintf(fd, "\n");
-          }
-          fprintf(fd, "\n");
-        }
-        fflush(fd);
-      }
-    } /* End of Channel loop */
-    printf("\n");
-    if (filename)
-      fclose(fd);
-  } /* End of Chip loop */
-
-  free(data);
-}
 
 void
 fssrThresholdScan(int id, char *filename, \
@@ -602,6 +633,10 @@ fssrChipIDTest(int id, int chip)
     return 0;
   }
 }
+
+
+
+
 
 static uint32_t
 rand32()

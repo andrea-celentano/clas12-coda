@@ -19,6 +19,8 @@
 #define VSCM_SPI_MODE_BITBANG   0
 #define VSCM_SPI_MODE_PARALLEL  1
 
+extern volatile struct VSCM_regs *VSCMpr[VSCM_MAX_BOARDS + 1];
+
 int
 vscmGetSpiMode(int id)
 {
@@ -424,7 +426,7 @@ vscmFirmware(char *filename, int slot)
   {
     for(ii=0; ii<nvscm; ii++)
     {
-      id = vscmID[ii];
+      id = vscmSlot(ii);
       vscmFirmwareUpdateVerify(id, filename);
     }
   }
