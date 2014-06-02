@@ -43,6 +43,9 @@ OBJS			= $(SRC:.C=.o)
 
 all: $(PROGS) $(HEADERS)
 
+install:
+	cp $(PROGS) $(CODA)/$(OSTYPE_MACHINE)/bin
+
 clean distclean:
 	@rm -f $(PROGS) *~ *.o outlinkDef.{C,h}
 

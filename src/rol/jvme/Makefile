@@ -31,8 +31,14 @@ SRC			= jvme.c jlabgef.c jlabgefDMA.c dmaPList.c
 
 OBJS			= $(SRC:%.c=%.o)
 
-LIBS			= libjvme.a
-SHLIBS			= libjvme.so
+
+LIBS			= 
+SHLIBS			= 
+OSTYPE_MACHINE = $(OSTYPE)_$(MACHINE)
+ifeq ("$(OSTYPE_MACHINE)","Linux_i686_vme")
+  LIBS			= libjvme.a
+  SHLIBS		= libjvme.so
+endif
 
 ###all: $(LIBS) links
 all: $(LIBS) $(SHLIBS)

@@ -10,27 +10,32 @@ all:
 	- cd evio-4.0;                       $(MAKE)
 	- cd evio-4.0;                       $(MAKE) install
 	- cd et-12.0;                        $(MAKE)
+	- cd et-12.0;                        $(MAKE) ulib
 	- cd et-12.0;                        $(MAKE) install
 	- cd bosio;                          $(MAKE)
 	- cd bosio;                          $(MAKE) install
 	- cd mysql4.1.20;                    $(MAKE)
 	- cd mysql4.1.20;                    $(MAKE) install
-	- cd codatcl1.0;                     $(MAKE)
-	- cd codatcl1.0;                     $(MAKE) install
 	- cd creg;                           $(MAKE)
 	- cd creg;                           $(MAKE) install
+	- cd codatcl1.0;                     $(MAKE)
+	- cd codatcl1.0;                     $(MAKE) install
 	- cd codaedit;                       $(MAKE)
 	- cd codaedit;                       $(MAKE) install
 	- cd codatt;                         $(MAKE)
 	- cd codatt;                         $(MAKE) install
+#	- cd rol;                            $(MAKE) jvmes
+	- cd rol/jvme;                       $(MAKE)
 	- cd dac;                            $(MAKE)
 	- cd dac;                            $(MAKE) install
 	- cd rol;                            $(MAKE)
-	- cd rol;                            $(MAKE) jvmes
+	- cd rol;                            $(MAKE) install
 	- cd rol;                            $(MAKE) rols
 	- cd rol;                            $(MAKE) install
 	- cd rc;                             $(MAKE)
 	- cd rc;                             $(MAKE) install
+	- cd DiagGUI;                        $(MAKE)
+	- cd DiagGUI;                        $(MAKE) install
 
 clean:
 	cd scripts;                          $(MAKE) clean
@@ -45,7 +50,9 @@ clean:
 	- cd codatt;                         $(MAKE) clean
 	- cd dac;                            $(MAKE) clean
 	- cd rol;                            $(MAKE) clean
+	- cd rol/jvme;                       $(MAKE) clean
 	- cd rc;                             $(MAKE) clean
+	- cd DiagGUI;                        $(MAKE) clean
 
 
 distclean:

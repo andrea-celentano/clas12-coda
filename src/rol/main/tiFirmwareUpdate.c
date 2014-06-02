@@ -17,6 +17,8 @@
  *
  *----------------------------------------------------------------------------*/
 
+#if defined(VXWORKS) || defined(Linux_vme)
+
 /*sergey: 
 
   VXWORKS:
@@ -776,4 +778,16 @@ tiFirmwareUsage()
   printf("\n");
 
 }
+#endif
+
+
+
+#else
+
+int
+main()
+{
+  return(0);
+}
+
 #endif

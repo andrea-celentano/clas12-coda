@@ -17,6 +17,8 @@
  *
  *----------------------------------------------------------------------------*/
 
+#if defined(VXWORKS) || defined(Linux_vme)
+
 /*sergey: 
 
   VXWORKS:
@@ -239,3 +241,14 @@ Usage()
 #endif
 
 }
+
+
+#else
+
+int
+main()
+{
+  return(0);
+}
+
+#endif

@@ -110,7 +110,7 @@ else
   LIBNAMES += $(CODA)/src/bosio/$(OSTYPE_MACHINE)/lib/libbosio.a
   LIBNAMES += $(CODA)/src/mysql4.1.20/$(OSTYPE_MACHINE)/lib/libmysql4.1.20.a
 
-ifeq ("$(OSTYPE)","Linux")
+ifeq ("$(OSTYPE_MACHINE)","Linux_i686_vme")
   LIBNAMES += $(CODA)/src/rol/jvme/libjvme.so
 endif
 
@@ -123,7 +123,7 @@ endif
 #-------------------
 
 jvmes:
-	- cd jvme;	make all
+	cd jvme; make clean; make
 
 #
 # must install librol.so for VXWORKS only !!!!!!!!!!
