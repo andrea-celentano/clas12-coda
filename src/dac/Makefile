@@ -75,7 +75,7 @@ else ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
 else ifeq ("$(OSTYPE_MACHINE)","Linux_nios2")
   LIBNAMES += ./Linux_nios2/lib/libdac.a
   LIBNAMES += $(CODA)/Linux_nios2/lib/libmysql4.1.20.a
-  LIBNAMES += $(CODA)/Linux_nios2/lib/libet.a
+#  LIBNAMES += $(CODA)/Linux_nios2/lib/libet.a
   LIBNAMES += $(CODA)/Linux_nios2/lib/libevio.a
 else
 

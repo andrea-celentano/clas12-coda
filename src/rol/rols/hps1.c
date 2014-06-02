@@ -358,9 +358,11 @@ __download()
   printf("\n>>>>>>>>>>>>>>> ROCID=%d, CLASSID=%d <<<<<<<<<<<<<<<<\n",rol->pid,rol->classid);
   printf("CONFFILE >%s<\n\n",rol->confFile);
 
+  /*
   printf("rol1: downloading DDL table ...\n");
   clonbanks_();
   printf("rol1: ... done.\n");
+  */
 
   /**/
   CTRIGINIT;
