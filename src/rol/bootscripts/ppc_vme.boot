@@ -23,26 +23,6 @@ cd "$CODA/VXWORKS_ppc/lib"
 ld < librol.so
 
 
-
-
-
-###
-### following part for parallel readout and dual cpu
-###
-
-### Load Interrupt and mempart libraries
-##cd "$CODA/VXWORKS_ppc/obj"
-##ld < vmeIntLib.o
-##ld < dmaPLib.o
-##dmaPartInit()
-
-### Load User readout routines
-##ld < vmeUserLib.o
-##vmeUserInit()
-
-
-
-
 taskDelay(sysClkRateGet()*5)
 
 

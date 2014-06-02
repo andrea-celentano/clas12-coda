@@ -58,24 +58,26 @@ daqTarget::~daqTarget (void)
 void
 daqTarget::setState (int newst)
 {
-  if (newst != state_){
+  if (newst != state_)
+  {
     // Warning this equals is overridden.
     prevState_ = state_;
     state_ = newst;
   }
 
   prevtime_ = time(0);
-  //printf("set state of %s to %d\n",title_, newst);
+  //printf("daqTarget::setState: set state of %s to %d\n",title_, newst);
   overrideState_ = CODA_DISCONNECTED;
 }
 
 int
 daqTarget::state (void)
 {
-    if (time(0)	> prevtime_ + 30) {
-	   printf("timeout checking state for %s\n",title_);
-	  state_ = CODA_DISCONNECTED;
-	}
+  if (time(0)	> prevtime_ + 30)
+  {
+	printf("timeout checking state for %s\n",title_);
+	state_ = CODA_DISCONNECTED;
+  }
   return state_;
 }
 

@@ -86,13 +86,13 @@ uint32_t *swap_int32_t(uint32_t *data, unsigned int length, uint32_t *dest);
 
 
 /* internal prototypes */
-static void swap_bank(uint32_t *buf, int tolocal, uint32_t *dest);
-static void swap_segment(uint32_t *buf, int tolocal, uint32_t *dest);
-static void swap_tagsegment(uint32_t *buf, int tolocal, uint32_t *dest);
-static void swap_data(uint32_t *data, int type, int length, int tolocal, uint32_t *dest);
-static void swap_int64_t(uint64_t *data, int length, uint64_t *dest);
-static void swap_short(uint16_t *data, int length, uint16_t *dest);
-static void copy_data(uint32_t *data, int length, uint32_t *dest);
+/*static*/ void swap_bank(uint32_t *buf, int tolocal, uint32_t *dest);
+/*static*/ void swap_segment(uint32_t *buf, int tolocal, uint32_t *dest);
+/*static*/ void swap_tagsegment(uint32_t *buf, int tolocal, uint32_t *dest);
+/*static*/ void swap_data(uint32_t *data, int type, int length, int tolocal, uint32_t *dest);
+/*static*/ void swap_int64_t(uint64_t *data, int length, uint64_t *dest);
+/*static*/ void swap_short(uint16_t *data, int length, uint16_t *dest);
+/*static*/ void copy_data(uint32_t *data, int length, uint32_t *dest);
 /*static*/ void swap_composite_t(uint32_t *data, int tolocal, uint32_t *dest);
 
 
@@ -107,7 +107,9 @@ static void copy_data(uint32_t *data, int length, uint32_t *dest);
  * @param dest    buffer to place swapped data into.
  *                If this is NULL, then dest = buf.
  */
-void evioswap(uint32_t *buf, int tolocal, uint32_t *dest) {
+void
+evioswap(uint32_t *buf, int tolocal, uint32_t *dest)
+{
 
   swap_bank(buf, tolocal, dest);
 
@@ -125,7 +127,8 @@ void evioswap(uint32_t *buf, int tolocal, uint32_t *dest) {
  * @param dest    buffer to place swapped data into.
  *                If this is NULL, then dest = buf.
  */
-static void swap_bank(uint32_t *buf, int tolocal, uint32_t *dest) {
+/*static*/ void
+swap_bank(uint32_t *buf, int tolocal, uint32_t *dest) {
 
     uint32_t data_length, data_type;
     uint32_t *p=buf;
@@ -160,7 +163,9 @@ static void swap_bank(uint32_t *buf, int tolocal, uint32_t *dest) {
  * @param dest    buffer to place swapped data into.
  *                If this is NULL, then dest = buf.
  */
-static void swap_segment(uint32_t *buf, int tolocal, uint32_t *dest) {
+/*static*/ void
+swap_segment(uint32_t *buf, int tolocal, uint32_t *dest)
+{
 
     uint32_t data_length,data_type;
     uint32_t *p=buf;
@@ -195,8 +200,9 @@ static void swap_segment(uint32_t *buf, int tolocal, uint32_t *dest) {
  * @param dest    buffer to place swapped data into.
  *                If this is NULL, then dest = buf.
  */
-static void swap_tagsegment(uint32_t *buf, int tolocal, uint32_t *dest) {
-
+/*static*/ void
+swap_tagsegment(uint32_t *buf, int tolocal, uint32_t *dest)
+{
     uint32_t data_length,data_type;
     uint32_t *p=buf;
 
@@ -232,7 +238,9 @@ static void swap_tagsegment(uint32_t *buf, int tolocal, uint32_t *dest) {
  * @param dest    buffer to place swapped data into.
  *                If this is NULL, then dest = data.
  */
-static void swap_data(uint32_t *data, int type, int length, int tolocal, uint32_t *dest) {
+/*static*/ void
+swap_data(uint32_t *data, int type, int length, int tolocal, uint32_t *dest)
+{
     uint32_t fraglen;
     uint32_t l=0;
 
@@ -353,7 +361,9 @@ static void swap_data(uint32_t *data, int type, int length, int tolocal, uint32_
  * @return swapped value
  * @deprecated Use the EVIO_SWAP32(x) macro instead of this routine.
  */
-int32_t swap_int32_t_value(int32_t val) {
+int32_t
+swap_int32_t_value(int32_t val)
+{
   return EVIO_SWAP32(val);
 }
 
@@ -468,8 +478,9 @@ printf("swap: 99: dataLen=%d nfmt=%d pData[dataLen] -> 0x%08x 0x%08x 0x%08x 0x%0
  *               If NULL, the data is swapped in place.
  * @return pointer to beginning of swapped data
  */
-uint32_t *swap_int32_t(uint32_t *data, unsigned int length, uint32_t *dest) {
-
+uint32_t *
+swap_int32_t(uint32_t *data, unsigned int length, uint32_t *dest)
+{
     int i;
 
     if (dest == NULL) {
@@ -502,8 +513,9 @@ printf("swap: 433: [%d] 0x%08x\n",i,dest[i]);fflush(stdout);
  * @param dest   pointer to where swapped data is to be copied to.
  *               If NULL, the data is swapped in place.
  */
-static void swap_int64_t(uint64_t *data, int length, uint64_t *dest) {
-
+/*static*/ void
+swap_int64_t(uint64_t *data, int length, uint64_t *dest)
+{
     int i;
 
     if (dest == NULL) {
@@ -525,8 +537,9 @@ static void swap_int64_t(uint64_t *data, int length, uint64_t *dest) {
  * @param dest   pointer to where swapped data is to be copied to.
  *               If NULL, the data is swapped in place.
  */
-static void swap_short(uint16_t *data, int length, uint16_t *dest) {
-
+/*static*/ void
+swap_short(uint16_t *data, int length, uint16_t *dest)
+{
     int i;
 
     if (dest == NULL) {
@@ -548,8 +561,9 @@ static void swap_short(uint16_t *data, int length, uint16_t *dest) {
  * @param dest   pointer to where data is to be copied to.
  *               If NULL, nothing is done.
  */
-static void copy_data(uint32_t *data, int length, uint32_t *dest) {
-   
+/*static*/ void
+copy_data(uint32_t *data, int length, uint32_t *dest)
+{   
   int i;
   
   if (dest == NULL) {

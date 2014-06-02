@@ -58,6 +58,7 @@
 //   run control source
 //
 //
+
 #include <Xm/Frame.h>
 #include <Xm/Label.h>
 #include <Xm/LabelG.h>
@@ -172,6 +173,8 @@ rcRunDInfoPanel::init (void)
   XmStringFree (t);
 
   ac = 0;
+
+
 
   // This little widget is the pull down menu of all possible sources
   // from which the event number can be read.

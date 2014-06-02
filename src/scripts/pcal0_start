@@ -33,7 +33,7 @@ set ER   = daq_comp.tcl
 set RC   = daq_comp.tcl
 set XT   = daq_comp.tcl
 
-set ET_comp  = 'et_start -n 1000 -s 50000 -f /tmp/et_sys_claspcal'
+set ET_comp  = 'et_start -n 1000 -s 200000 -f /tmp/et_sys_claspcal'
 set EB_comp  = 'coda_ebc -s claspcal -o "EB10 CDEB" -i'
 set ER_comp  = 'coda_erc -s claspcal -o "ER10 ER" -i'
 set RC_comp  = 'runcontrol -s claspcal -cedit -dbedit'

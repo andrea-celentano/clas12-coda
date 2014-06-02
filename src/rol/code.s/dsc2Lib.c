@@ -107,7 +107,7 @@ int
 dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
 {
   unsigned int laddr, laddr_inc, errFlag, fwrev;
-  int res, ii, slotno;
+  int res, ii, slotno, slotno_save;
   unsigned int boardID;
   int noBoardInit=0;
   int useList=0;
@@ -126,7 +126,10 @@ dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
 
   /* Check if we're allowing for older firmware */
   if(iFlag&(1<<18))
+  {
+    printf("Allow older firmware\n");
     allowOlderFirmware=1;
+  }
 
   /* Check if we're allowing for older firmware */
   if(iFlag&(1<<19))
@@ -183,10 +186,11 @@ dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
       
       /* Check if Board exists at that address */
 #ifdef VXWORKS
-    res = vxMemProbe((char *) &(dsc->boardID),0,4,(char *)&boardID);
+    res = vxMemProbe((char *) &(dsc->boardID),VX_READ,4,(char *)&boardID);
 #else
     res = vmeMemProbe((char *) &(dsc->boardID),4,(char *)&boardID);
 #endif
+
     if(res < 0) 
 	{
 	  printf("%s: ERROR: No addressable board at A24 Address 0x%x\n",
@@ -212,7 +216,14 @@ dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
 		 __FUNCTION__,fwrev,(UINT32) dsc - dscA24Offset);
 	  printf("  Minimum required = 0x%x\n",DSC_SUPPORTED_FIRMWARE);
 	  errFlag = 1;
-	  if(!allowOlderFirmware) continue;
+	  if(!allowOlderFirmware)
+      {
+        continue;
+	  }
+      else
+	  {
+        printf("  Continue initialization with older firmware 0x%x\n",fwrev);
+	  }
 	}
 
     /* Get and check the module's slot number */
@@ -225,13 +236,17 @@ dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
 	  if(!indexByOrder) continue;
 	}
 
-    if(indexByOrder) slotno = Ndsc;
+    if(indexByOrder)
+	{
+      slotno_save = slotno;
+      slotno = Ndsc;
+	}
 
     dscID[Ndsc] = slotno;
 
     dscp[dscID[Ndsc]] = (struct dsc_struct*)laddr_inc;
-    printf("Initialized dsc2 ID %d at VME (USER) address 0x%x (0x%x).\n",
-	     dscID[Ndsc], (UINT32) dscp[dscID[Ndsc]] - dscA24Offset, (UINT32) dscp[dscID[Ndsc]]);
+    printf("Initialized dsc2 ID %d slot %d at VME (USER) address 0x%x (0x%x).\n",
+		   Ndsc, slotno_save, (UINT32) dscp[dscID[Ndsc]] - dscA24Offset, (UINT32) dscp[dscID[Ndsc]]);
     Ndsc++;
     if(Ndsc>=ndsc) break;
   }
@@ -2726,10 +2741,8 @@ dsc2ReloadFPGA(UINT32 id)
 }
 
 /*
-  cd "../temp/dsc2"
-  ld < dsc2lib.o
-  dscInit 0xbe0000
-  dsc2UpdateFirmwareAll "dsc2_firmware_v1_9.bin"
+  dsc2Init(0x100000,0x80000,16,0xc0000)
+  dsc2UpdateFirmwareAll("/usr/local/clas12/release/0.1/parms/firmwares/vmeDSC_firmware_v1_c.bin")
 */
 int
 dsc2UpdateFirmware(UINT32 id, const char *filename)
@@ -3054,7 +3067,11 @@ dsc2UpdateFirmwareAll(const char *filename)
 	printf("ok.\n");
 
       dsc2ReloadFPGA(idsc);
+#ifdef VXWORKS
+       taskDelay(2*sysClkRateGet());
+#else
       sleep(2);
+#endif
     }
   return OK;
 }

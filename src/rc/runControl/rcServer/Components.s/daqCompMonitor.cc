@@ -127,42 +127,55 @@ printf("daqCompMonitor::timerCallback reached\n");
   numComps = system.allEnabledComponents (comps, bufsize);
 
   if (numComps > 0) 
-    for (int i = 0; i < numComps; i++) {
-      if (comps[i]->monitored ()) {
-	reporter->cmsglog (CMSGLOG_INFO1, "Checking status of %s\n", 
-			   comps[i]->title ());
-	state = comps[i]->state2 ();
-	if (state == CODA_DISCONNECTED || 
-	    // These are all the valid states.
-	    ((state != CODA_ACTIVE) && 
-	     (state != CODA_DOWNLOADED) && 
-	     (state != CODA_PAUSED) && 
-	     (state != CODA_ENDING))) {
+  {
+    for (int i = 0; i < numComps; i++)
+    {
+      if (comps[i]->monitored ())
+      {
+	    reporter->cmsglog (CMSGLOG_INFO1, "Checking status of %s\n", comps[i]->title ());
+	    state = comps[i]->state2 ();
+	    if (state == CODA_DISCONNECTED || 
+	        // These are all the valid states.
+	         ((state != CODA_ACTIVE) && 
+	          (state != CODA_DOWNLOADED) && 
+	          (state != CODA_PAUSED) && 
+	          (state != CODA_ENDING)))
+        {
+	      // disable this component so that it will not particpate
+	      // state transition
 
-	  // disable this component so that it will not particpate
-	  // state transition
-
-	  reporter->cmsglog (CMSGLOG_ERROR, "%s is in state %s should be %s\n",
+	      reporter->cmsglog (CMSGLOG_ERROR, "%s is in state %s should be %s\n",
 			     comps[i]->title (), 
 			     codaDaqState->stateString (state),
 			     codaDaqState->stateString (CODA_ACTIVE));
 
-	  // BUG BUG Take this out for now...
-	  //reporter->cmsglog (CMSGLOG_ERROR, "%s now disabled (re-enable via configure)\n",
-	  //	comps[i]->title ());
-	  // comps[i]->disable ();  
+	      // BUG BUG Take this out for now...
+	      //reporter->cmsglog (CMSGLOG_ERROR, "%s now disabled (re-enable via configure)\n",
+	      //	comps[i]->title ());
+	      // comps[i]->disable ();  
 
-	  if (autoend_) {
-	    junkList_.add ((void *)comps[i]);
-	    found = 1;
-	  }
-	}
+	      if (autoend_)
+          {
+	        junkList_.add ((void *)comps[i]);
+	        found = 1;
+	      }
+	    }
       }
     }
-  if (found) {
-    if (!run_.locked () && autoend_) {
-				// use network interface with first argument 0 
-				// to denote this is a local call
+  }
+  else
+  {
+    printf("ERROR in daqCompMonitor::timerCallback: numComps=%d\n",numComps);
+    printf("  (if numComps=-1, may need to increase MAX_NUM_COMPONENTS to accomodate bigger 'process' table)\n");
+    exit(0);
+  }
+
+  if (found)
+  {
+    if (!run_.locked () && autoend_)
+    {
+	  // use network interface with first argument 0 
+	  // to denote this is a local call
       run_.processCommand (0, DAEND, 0);
       timer_.dis_arm ();
     }

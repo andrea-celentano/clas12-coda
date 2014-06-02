@@ -1,4 +1,4 @@
-/* Module: fadcFirmwareToos.c
+/* Module: fadcFirmwareTools.c
  *
  * Description: FADC250 Firmware Tools Library
  *              Firmware specific functions.
@@ -11,11 +11,13 @@
  *      Revision 1.0   2011/07/18  moffit
  *         - Initial version for FADC250 v2
  *
- * SVN: $Rev: 444 $
+ * SVN: $Rev$
  *
  */
 
-#define        MSC_MAX_SIZE    4000000
+#include <ctype.h>
+
+#define        MSC_MAX_SIZE    8000000
 unsigned int   MSC_arraySize = 0;          /* Size of the array holding the firmware */
 unsigned char  MSC_ARRAY[MSC_MAX_SIZE];    /* The array holding the firmware */
 char          *MSC_filename_LX110 = "LX110_firmware.dat"; /* Default firmware for LX110 */
@@ -162,7 +164,7 @@ int
 fadcFirmwareGLoad(int chip, int pFlag)
 {
   int ifadc=0, id=0, step=0;
-  unsigned int passed[FA_MAX_BOARDS], stepfail[FA_MAX_BOARDS];
+  unsigned int passed[FA_MAX_BOARDS+1], stepfail[FA_MAX_BOARDS+1];
 
   if(chip<0 || chip>2)
     {
@@ -192,7 +194,7 @@ fadcFirmwareGLoad(int chip, int pFlag)
     }
   FAUNLOCK;
   taskDelay(60);
-
+  
   /* Check if FADC is Ready */
   step=1;
   for(ifadc=0 ; ifadc<nfadc; ifadc++)
@@ -218,7 +220,7 @@ fadcFirmwareGLoad(int chip, int pFlag)
       if(passed[id]) /* Skip the ones that have previously failed */
 	{
 	  fadcFirmwareDownloadConfigData(id);
-	  
+
 	  if(fadcFirmwareVerifyDownload(id) != OK)
 	    {
 	      printf("%s: ERROR: FADC %2d Failed data verification at SRAM\n",
@@ -228,7 +230,6 @@ fadcFirmwareGLoad(int chip, int pFlag)
 	    }
 	  else
 	    printf(" Done\n");
-
 	}
     }
     
@@ -379,10 +380,10 @@ fadcFirmwareGLoad(int chip, int pFlag)
 void 
 fadcFirmwareDownloadConfigData(int id)
 {
-  unsigned ArraySize;
-  unsigned  ByteCount, ByteIndex, ByteNumber;
-  unsigned  Word32Bits, SramAdr;
-  int value;
+  unsigned int ArraySize;
+  unsigned int ByteCount, ByteIndex, ByteNumber;
+  unsigned int Word32Bits, SramAdr;
+  unsigned int value;
 
   if(MSC_loaded != 1)
     {
@@ -416,18 +417,20 @@ fadcFirmwareDownloadConfigData(int id)
 	{
 	  Word32Bits = (MSC_ARRAY[ByteIndex] << (8 * ByteNumber)) | Word32Bits;
 	  ++ByteIndex;
+	  if(ByteIndex>MSC_MAX_SIZE)
+	    printf("**** TOO BIG! ****\n");
 	}
 	  
       /* write 32-bit data word to  mem1 data register */ 
       FALOCK;
-      vmeWrite32(&FAp[id]->mem1_data, (int)Word32Bits);
+      vmeWrite32(&FAp[id]->mem1_data, Word32Bits);
       FAUNLOCK;
     }
 
+#ifdef DEBUG
   FALOCK;
   value = vmeRead32(&FAp[id]->mem_adr);
   FAUNLOCK;
-#ifdef DEBUG
   printf("%s: FADC %2d memory address after write = 0x%08x\n\n",
 	 __FUNCTION__,id,value);
 #endif
@@ -470,13 +473,14 @@ fadcFirmwareVerifyDownload (int id)
   /* start at 0 and increment address after read from mem1 data register */ 
   FALOCK;
   vmeWrite32(&FAp[id]->mem_adr, 0x0000 | FA_MEM_ADR_INCR_MEM1);
+
   value = vmeRead32(&FAp[id]->mem_adr);
   FAUNLOCK;
 #ifdef DEBUG
   printf("%s: FADC %2d memory address at start of read = 0x%08x\n\n",
 	 __FUNCTION__,id,value);
 #endif
-  taskDelay(1);			/* wait */
+  taskDelay(2);			/* wait */
  
   for (ByteCount = 0; ByteCount < ArraySize; ByteCount += 4)
     {
@@ -588,7 +592,7 @@ fadcFirmwareTestReady(int id, int n_try, int pFlag)
 int
 fadcFirmwareZeroSRAM (int id)
 {
-  int ii, value, value_1, value_2;	
+  int ii, value=0, value_1=0, value_2=0;	
   int ErrorCount=0, stopPrint=0;
 
   if(id==0) id=fadcID[0];
@@ -665,6 +669,9 @@ fadcFirmwareSetFilename(char *filename, int chip)
 int
 fadcFirmwareReadFile(char *filename)
 {
+  unsigned int arraySize;
+
+/* #define DEBUGFILE */
 #ifdef DEBUGFILE
   int ichar=0;
 #endif
@@ -673,15 +680,33 @@ fadcFirmwareReadFile(char *filename)
 
   if(arrayFile==NULL)
     {
-      printf("%s: ERROR opening file (%s) for writing\n",
+      printf("%s: ERROR opening file (%s) for reading\n",
 	     __FUNCTION__,filename);
       return ERROR;
     }
 
-  fread(&MSC_arraySize,sizeof(unsigned int),1,arrayFile);
+  /* First 32bits is the size of the array */
+  fread(&arraySize,sizeof(unsigned int),1,arrayFile);
+
+#ifdef VXWORKS
+  /* Made this file in Linux... so byte swap it for VXWORKS */
+  MSC_arraySize = LONGSWAP(arraySize);
+#else
+  MSC_arraySize = arraySize;
+#endif
+
+  if(MSC_arraySize>MSC_MAX_SIZE)
+    {
+      printf("%s: ERROR: Firmware size (%d) from %s greater than MAX allowed (%d)\n",
+	     __FUNCTION__,MSC_arraySize,filename,MSC_MAX_SIZE);
+      return ERROR;
+    }
+
+
 #ifdef DEBUGFILE
   printf("MSC_arraySize = %d\n",MSC_arraySize);
 #endif
+
   fread(&MSC_ARRAY,MSC_arraySize,1,arrayFile);
 
   fclose(arrayFile);
@@ -703,5 +728,106 @@ fadcFirmwareReadFile(char *filename)
   return OK;
 }
 
+int
+hex2num(char c)
+{
+  c = toupper(c);
 
+  if(c > 'F')
+    return 0;
 
+  if(c >= 'A')
+    return 10 + c - 'A';
+
+  if((c > '9') || (c < '0') )
+    return 0;
+
+  return c - '0';
+}
+
+int
+fadcFirmwareReadMcsFile(char *filename)
+{
+  FILE *mscFile=NULL;
+  char ihexLine[200], *pData;
+  int len=0, datalen=0;
+  unsigned int nbytes=0, line=0, hiChar=0, loChar=0;
+  unsigned int readMSC=0;
+#ifdef DEBUGFILE
+  int ichar, thisChar[0];
+#endif
+
+  mscFile = fopen(filename,"r");
+  if(mscFile==NULL)
+    {
+      perror("fopen");
+      printf("%s: ERROR opening file (%s) for reading\n",
+	     __FUNCTION__,filename);
+      return ERROR;
+    }
+
+  while(!feof(mscFile))
+    {
+      /* Get the current line */
+      if(!fgets(ihexLine, sizeof(ihexLine), mscFile))
+	break;
+      
+      /* Get the the length of this line */
+      len = strlen(ihexLine);
+
+      if(len >= 5)
+	{
+	  /* Check for the start code */
+	  if(ihexLine[0] != ':')
+	    {
+	      printf("%s: ERROR parsing file at line %d\n",
+		     __FUNCTION__,line);
+	      return ERROR;
+	    }
+
+	  /* Get the byte count */
+	  hiChar = hex2num(ihexLine[1]);
+	  loChar = hex2num(ihexLine[2]);
+	  datalen = (hiChar)<<4 | loChar;
+
+	  if(strncmp("00",&ihexLine[7], 2) == 0) /* Data Record */
+	    {
+	      pData = &ihexLine[9]; /* point to the beginning of the data */
+	      while(datalen--)
+		{
+		  hiChar = hex2num(*pData++);
+		  loChar = hex2num(*pData++);
+		  MSC_ARRAY[readMSC] = 
+		    ((hiChar)<<4) | (loChar);
+		  if(readMSC>=MSC_MAX_SIZE)
+		    {
+		      printf("%s: ERROR: TOO BIG!\n",__FUNCTION__);
+		      return ERROR;
+		    }
+		  readMSC++;
+		  nbytes++;
+		}
+	    }
+
+	}
+      line++;
+    }
+
+  MSC_arraySize = readMSC;
+  
+#ifdef DEBUGFILE
+  printf("MSC_arraySize = %d\n",MSC_arraySize);
+
+  for(ichar=0; ichar<16*10; ichar++)
+    {
+      if((ichar%16) == 0)
+	printf("\n");
+      printf("0x%02x ",MSC_ARRAY[ichar]);
+    }
+  printf("\n\n");
+#endif
+  MSC_loaded = 1;
+
+  fclose(mscFile);
+  return OK;
+}

@@ -208,6 +208,8 @@ static char *fallback_res[] =
   "runcontrol*.connectDialog*.background:        gray20",
   "runcontrol*.runTypeDialog*.foreground:        white",
   "runcontrol*.runTypeDialog*.background:        gray20",
+  "runcontrol*.runConfigDialog*.foreground:      white",
+  "runcontrol*.runConfigDialog*.background:      gray20",
   "runcontrol*.topShadowColor:                   gray",
   "runcontrol*.bottomShadowColor:                black",
   "runcontrol*.borderColor:                      gray25",
@@ -234,6 +236,11 @@ static char *fallback_res[] =
   "runcontrol.*.runInfoPanel.*.datafilename.background: lightGrey",
   "runcontrol.*.runInfoPanel.*.datafilename.fontList:  -*-times-bold-i-*-*-16-*-*-*-*-*-*-*",
   
+  "runcontrol.*.runInfoPanel.*.datacn.topShadowColor:   red",
+  "runcontrol.*.runInfoPanel.*.conffilename.foreground: red",
+  "runcontrol.*.runInfoPanel.*.conffilename.background: lightGrey",
+  "runcontrol.*.runInfoPanel.*.conffilename.fontList:  -*-times-bold-i-*-*-16-*-*-*-*-*-*-*",
+ 
   "runcontrol.*.runInfoPanel.*.evnbFrame2.topShadowColor: red",
   "runcontrol.*.runInfoPanel.*.evNumLabel.foreground: red",
   "runcontrol.*.runInfoPanel.*.evNumLabel.fontList:  -*-times-bold-r-*-*-16-*-*-*-*-*-*-*",
@@ -255,6 +262,7 @@ static char *fallback_res[] =
   "runcontrol.*.runInfoPanel*database.*.background:    lightGrey",
   "runcontrol.*.runInfoPanel*exptname.*.background:    lightGrey",
   "runcontrol.*.runInfoPanel*runType.*.background:     lightGrey",
+  "runcontrol.*.runInfoPanel*runConfig.*.background:   lightGrey",
   "runcontrol.*.runInfoPanel*hostname.*.background:    lightGrey",
   "runcontrol.*.runInfoPanel*status.*.background:      lightGrey",
   "runcontrol.*.runInfoPanel*status.*.foreground:      black",
@@ -273,6 +281,9 @@ static char *fallback_res[] =
   
   "runcontrol.*.runInfoPanel*runType.*.foreground:     red",
   "runcontrol.*.runInfoPanel*runType.*.fontList:       -*-times-bold-r-*-*-16-*-*-*-*-*-*-*",
+  
+  "runcontrol.*.runInfoPanel*runConfig.*.foreground:   red",
+  "runcontrol.*.runInfoPanel*runConfig.*.fontList:     -*-times-bold-r-*-*-16-*-*-*-*-*-*-*",
   
   "runcontrol.*.runInfoPanel*exptid.*.foreground:      RoyalBlue4",
   "runcontrol.*.runInfoPanel*hostname.*.foreground:    RoyalBlue4",
@@ -302,6 +313,7 @@ static char *fallback_res[] =
   "runcontrol.*.runInfoPanel.*foreground:              white",
   "runcontrol.*.runInfoPanel*optionPulldown*foreground:white",
   "runcontrol.*.runInfoPanel*runtype*foreground:       white",
+  "runcontrol.*.runInfoPanel*runconfig*foreground:     white",
   "runcontrol.*.runInfoPanel*eventNumberG.*.background:lightGrey",
   "runcontrol.*.runInfoPanel*eventNumberG.foreground:  RoyalBlue4",
   "runcontrol.*.runInfoPanel*eventNumberG.fontList:       -*-times-bold-r-*-*-18-*-*-*-*-*-*-*",
@@ -356,7 +368,8 @@ static char *fallback_res[] =
   "runcontrol.*.updFr.topShadowColor:   red",
   "runcontrol.*.monFr.topShadowColor:   red",
 
-  "runcontrol*runInfoPanel*statuspanel.*.background:     lightGrey",
+  "runcontrol*runInfoPanel*statuspanel.*.background:    lightGrey",
+
   "runcontrol*runNumber*backgroundPixmap:               XmUNSPECIFIED_PIXMAP",
   "runcontrol*startTime*backgroundPixmap:               XmUNSPECIFIED_PIXMAP",
   "runcontrol*endTime*backgroundPixmap:                 XmUNSPECIFIED_PIXMAP",
@@ -366,6 +379,7 @@ static char *fallback_res[] =
   "runcontrol*time*backgroundPixmap:                    XmUNSPECIFIED_PIXMAP",
   "runcontrol*exptname*backgroundPixmap:                XmUNSPECIFIED_PIXMAP",
   "runcontrol*runType*backgroundPixmap:                 XmUNSPECIFIED_PIXMAP",
+  "runcontrol*runConfig*backgroundPixmap:               XmUNSPECIFIED_PIXMAP",
   "runcontrol*exptid*backgroundPixmap:                  XmUNSPECIFIED_PIXMAP",
   "runcontrol*hostname*backgroundPixmap:                XmUNSPECIFIED_PIXMAP",
   "runcontrol*database*backgroundPixmap:                XmUNSPECIFIED_PIXMAP",

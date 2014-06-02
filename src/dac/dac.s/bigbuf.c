@@ -22,6 +22,24 @@
 */
 
 
+#ifdef VXWORKS
+
+#define BB_LOCK   semTake(bbp->bb_lock, WAIT_FOREVER)
+#define BB_UNLOCK semGive(bbp->bb_lock)
+
+#else
+
+#define BB_LOCK   pthread_mutex_lock(&bbp->bb_lock)
+#define BB_UNLOCK pthread_mutex_unlock(&bbp->bb_lock)
+
+#endif
+
+
+#define LSWAP(x)        ((((x) & 0x000000ff) << 24) | \
+                         (((x) & 0x0000ff00) <<  8) | \
+                         (((x) & 0x00ff0000) >>  8) | \
+                         (((x) & 0xff000000) >> 24))
+
 
 /****************************************************************************/
 /****************************************************************************/
@@ -78,16 +96,14 @@ bb_new(int nbufs, int nbytes)
 
   /* initialize semaphores */
 #ifdef VXWORKS
-  bbp->read_lock = semBCreate(SEM_Q_FIFO, SEM_FULL);
-  bbp->write_lock = semBCreate(SEM_Q_FIFO, SEM_FULL);
-  if(bbp->read_lock == NULL || bbp->write_lock == NULL)
+  bbp->bb_lock = semBCreate(SEM_Q_FIFO, SEM_FULL);
+  if(bbp->bb_lock == NULL)
   {
     logMsg("bb_new: ERROR: could not allocate a semaphore\n",1,2,3,4,5,6);
     return(0);
   }
 #else
-  pthread_mutex_init(&bbp->read_lock, NULL);
-  pthread_mutex_init(&bbp->write_lock, NULL);
+  pthread_mutex_init(&bbp->bb_lock, NULL);
 #endif
 
   /* initialize index */
@@ -230,8 +246,7 @@ bb_new_rol1(int nbufs, int nbytes)
   }
 
   /* initialize semaphores */
-  pthread_mutex_init(&bbp->read_lock, NULL);
-  pthread_mutex_init(&bbp->write_lock, NULL);
+  pthread_mutex_init(&bbp->bb_lock, NULL);
 
   /* initialize index */
   bbp->write = 1;
@@ -294,10 +309,8 @@ printf("bb_delete1 0: 0x%08x\n",bbh);fflush(stdout);
 
   if((bbh == NULL)||(*bbh == NULL)) return;
 
-  pthread_mutex_unlock(&bbp->read_lock);
-  pthread_mutex_unlock(&bbp->write_lock);
-  pthread_mutex_destroy(&bbp->read_lock);
-  pthread_mutex_destroy(&bbp->write_lock);
+  pthread_mutex_unlock(&bbp->bb_lock);
+  pthread_mutex_destroy(&bbp->bb_lock);
 
 printf("bb_delete1 5\n");fflush(stdout);
 
@@ -357,18 +370,12 @@ printf("bb_delete 0: 0x%08x\n",bbh);fflush(stdout);
 
 #ifdef VXWORKS
 printf("bb_delete 1\n");fflush(stdout);
-  semGive(bbp->read_lock);
+  semGive(bbp->bb_lock);
 printf("bb_delete 2\n");fflush(stdout);
-  semDelete(bbp->read_lock);
-printf("bb_delete 3\n");fflush(stdout);
-  semGive(bbp->write_lock);
-printf("bb_delete 4\n");fflush(stdout);
-  semDelete(bbp->write_lock);
+  semDelete(bbp->bb_lock);
 #else
-  pthread_mutex_unlock(&bbp->read_lock);
-  pthread_mutex_unlock(&bbp->write_lock);
-  pthread_mutex_destroy(&bbp->read_lock);
-  pthread_mutex_destroy(&bbp->write_lock);
+  pthread_mutex_unlock(&bbp->bb_lock);
+  pthread_mutex_destroy(&bbp->bb_lock);
 #endif
 
 printf("bb_delete 5\n");fflush(stdout);
@@ -462,54 +469,36 @@ printf("bb_write(in): bbp->write=%d\n",bbp->write);fflush(stdout);
     return(NULL);
   }
 
+  BB_LOCK;
+
   /* try to take next (empty) buffer; if not available - sleep and try again */
-  icb = (bbp->write + 1) % bbp->nbufs;
-  /*
-printf("bb_write: icb=%d, bbp->read=%d, bbp->write=%d bbp->nbufs=%d\n",
-icb,bbp->read,bbp->write,bbp->nbufs);
-  */
-  
+  icb = (bbp->write + 1) % bbp->nbufs;  
+
   while(icb == bbp->read)
   {
     if(bbp->cleanup)
     {
-      logMsg("bb_write 2: return(NULL) on bbp->cleanup=%d condition\n",
-        bbp->cleanup,2,3,4,5,6); 
+      logMsg("bb_write: return(NULL) on bbp->cleanup=%d condition\n",
+        bbp->cleanup,2,3,4,5,6);
+      BB_UNLOCK;
       return(NULL);
-    }
-	/*
-    logMsg("bb_write: icb=%d == bbp->read=%d (no bufs)\n",icb,bbp->read,3,4,5,6);
-	*/
-	logMsg("[0x%08x] bb_write: no bufs, back end too slow ..read=%d write=%d\n",
-		   bbp,bbp->read,bbp->write);
+	}
+    printf("bb_write[0x%08x]: waiting for buffer (read=%d write=%d) ...\n",bbp,bbp->read,bbp->write);
+    BB_UNLOCK;
+
     if(flag) return(NULL);
+
 #ifdef VXWORKS
-    taskDelay(60);
+    taskDelay(100);
 #else
-    /*sleep(1);*/
-
-#ifdef Linux
-	usleep(1000); /*since bb_read (see comment there) had problem in
-					similar place, put it here as well*/
+	/*sleep(1);*/usleep(100000);
 #endif
-
-#endif
+    BB_LOCK;
   }
-  
 
-  /*logMsg("bb_write: lock (icb=%d)\n",icb,2,3,4,5,6);*/
-  /* set 'write' pointer to the next buffer */
-#ifdef VXWORKS
-  semTake(bbp->write_lock, WAIT_FOREVER);
-#else
-  pthread_mutex_lock(&bbp->write_lock);
-#endif
   bbp->write = icb;
-#ifdef VXWORKS
-  semGive(bbp->write_lock);
-#else
-  pthread_mutex_unlock(&bbp->write_lock);
-#endif
+
+  BB_UNLOCK;
   /*logMsg("bb_write: unlock (icb=%d)\n",icb,2,3,4,5,6);*/
 /*
 printf("bb_write(out): bbp->write=%d\n",bbp->write);fflush(stdout);
@@ -544,7 +533,9 @@ printf("bb_write_current: bbh=0x%08x 0x%08x\n",bbh,*bbh);fflush(stdout);
 */
   if((bbh == NULL)||(*bbh == NULL)) return(NULL);
 
+  BB_LOCK;
   icb = bbp->write;
+  BB_UNLOCK;
 
 /*
 printf("bb_write_current(out): bbp->write=%d\n",bbp->write);fflush(stdout);
@@ -585,10 +576,12 @@ printf("bb_read(in): bbp->read=%d bbp->cleanup=%d\n",bbp->read,bbp->cleanup);
   if((bbh == NULL)||(*bbh == NULL)) return(NULL);
   if(bbp->cleanup)
   {
-    logMsg("bb_read: return(NULL) on bbp->cleanup=%d condition\n",
+    logMsg("bb_read 1: return(NULL) on bbp->cleanup=%d condition\n",
       bbp->cleanup,2,3,4,5,6); 
     return(NULL);
   }
+
+  BB_LOCK;
 
   /* try to get next (full) buffer; if not available - sleep */
   icb = (bbp->read + 1) % bbp->nbufs;
@@ -599,46 +592,82 @@ printf("bb_read(in): bbp->read=%d bbp->cleanup=%d\n",bbp->read,bbp->cleanup);
     {
       logMsg("bb_read: return(NULL) on bbp->cleanup=%d condition\n",
         bbp->cleanup,2,3,4,5,6); 
+      BB_UNLOCK;
       return(NULL);
 	}
-	/*
-    logMsg("bb_read: icb=%d == bbp->write=%d (no bufs)\n",
-      icb,bbp->write,3,4,5,6);
-	*/
+    /*printf("bb_read[0x%08x]: waiting for buffer (read=%d write=%d) ...\n",bbp,bbp->read,bbp->write);*/
+    BB_UNLOCK;
+
 #ifdef VXWORKS
-    taskDelay(60);
+    taskDelay(100);
 #else
-    /*sleep(1);*/
-
-#ifdef Linux
-    /*sergey: does not work without some sleep if '-O2' use in compiler;
-      even usleep(1) helps, although not clear how much system really
-      sleeps; we'll set it to 1 millisec */
-	usleep(1000);
+	/*sleep(1);*/usleep(100000);
 #endif
-
-
-#endif
+    BB_LOCK;
   }
 
   /*logMsg("bb_read: lock (icb=%d)\n",icb,2,3,4,5,6);*/
   /* set 'read' pointer to the next buffer */
-#ifdef VXWORKS
-  semTake(bbp->read_lock, WAIT_FOREVER);
-#else
-  pthread_mutex_lock(&bbp->read_lock);
-#endif
+
   bbp->read = icb;
-#ifdef VXWORKS
-  semGive(bbp->read_lock);
-#else
-  pthread_mutex_unlock(&bbp->read_lock);
-#endif
+
+  BB_UNLOCK;
+
   /*logMsg("bb_read: unlock (icb=%d)\n",icb,2,3,4,5,6);*/
 /*
 printf("bb_read(out): bbp->read=%d\n",bbp->read);fflush(stdout);
 */
   return(bbp->data[icb]);
+}
+
+
+
+unsigned int *
+bb_check(unsigned int *data)
+{
+  int j, nev, lenev, lenbuf, iev, llenw;
+  unsigned int *buf, magic;
+
+#ifndef VXWORKS
+  magic = data[BBIFD];
+  if(magic == 0x01020304)
+  {
+    printf("SWAP (0x%08x)\n",magic);
+    llenw = LSWAP(data[BBIWORDS]);
+	printf("bb_check: llenw=%d\n",llenw);
+    bufferSwap(data,llenw);
+  }
+#endif
+
+  printf("BIGBUF: buflen=%d, bufnum=%d, rocid=%d, nev=%d, magic=%d, end=%d, nhead=%d\n",
+         data[BBIWORDS],
+         data[BBIBUFNUM],
+		 data[BBIROCID],
+		 data[BBIEVENTS],
+		 data[BBIFD],
+		 data[BBIEND],
+		 data[BBHEAD]);
+
+  if(data[BBIBUFNUM] < 0)
+  {
+    return(0);
+  }
+
+  lenbuf = 0;
+  nev = data[BBIEVENTS];
+  buf = data + BBHEAD;
+  for(j=0; j<nev; j++) 
+  {
+    lenev = buf[0]+1; 
+    lenbuf += lenev;
+    iev = ( (((buf[1]>>16)&0xff)==0) ? 0 : 1 ); 
+
+    printf("bb_check: nev=%d -> 0x%08x 0x%08x -> lenev=%d, iev=%d, so far lenbuf=%d\n",j,buf[0],buf[1],lenev,iev,lenbuf);
+
+    buf += lenev; 
+  } 
+
+  return(0);
 }
 
 
@@ -776,6 +805,7 @@ lastword = ptr[lastind];
 printf("111: lastword=0x%08x, buffer[0x%08x]=0x%08x\n",
 lastword,lastind,buffer[lastind]);
 	*/
+#ifdef USE_PCI_COPROCESSOR
     status = usrPci2MemDmaStart(0,bbp->data[icb],buffer,bbp->nbytes);
     while(status != 0)
     {
@@ -783,6 +813,10 @@ lastword,lastind,buffer[lastind]);
       sysUsDelay(1000);
       status = usrPci2MemDmaStart(0,bbp->data[icb],buffer,bbp->nbytes);
     }
+#else
+    printf("PCI coprocessor is not supported - exit\n");
+    exit(0);
+#endif
 	/*
 printf("111: DMA started from 0x%08x to 0x%08x, nbytes=%d\n",
 bbp->data[icb],buffer,bbp->nbytes);
@@ -849,6 +883,7 @@ lastword = ptr[lastind];
 printf("444: lastword=0x%08x, bufferdma[0x%08x]=0x%08x\n",
 lastword,lastind,bufferdma[lastind]);
 	*/
+#ifdef USE_PCI_COPROCESSOR
     status = usrPci2MemDmaStart(0,bbp->data[icbdma],bufferdma,bbp->nbytes);
     while(status != 0)
     {
@@ -856,6 +891,10 @@ lastword,lastind,bufferdma[lastind]);
       sysUsDelay(1000);
       status = usrPci2MemDmaStart(0,bbp->data[icbdma],bufferdma,bbp->nbytes);
     }
+#else
+    printf("PCI coprocessor is not supported - exit\n");
+    exit(0);
+#endif
 	/*
 printf("444: DMA started from 0x%08x to 0x%08x, nbytes=%d\n",
 bbp->data[icbdma],bufferdma,bbp->nbytes);
@@ -885,6 +924,7 @@ printf("555\n");
 }
 
 #endif
+
 
 #else
 

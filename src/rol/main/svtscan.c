@@ -1,8 +1,7 @@
 
 /* svtscan.c */
 /*
-./Linux_i686_vme/bin/svtscan 3 /usr/local/clas12/release/0.1/parms/vscm/VSCMConfig.txt 100 1 0 3 0 127
-./Linux_i686_vme/bin/svtscan 3 junk 25 2 0 3 0 127
+./Linux_i686_vme/bin/svtscan 3 3 junk 25 4 0 3 0 127
 */
 
 #include <stdio.h>
@@ -78,7 +77,7 @@ main(int argc, char *argv[])
   vmeOpenDefaultWindows();
 
   /* initialize VSCM board(s) */
-  nvscm1 = vscmInit((unsigned int)(3<<19),(1<<19),2,1);
+  nvscm1 = vscmInit((unsigned int)(3<<19),(1<<19),21,1);
 
   vscmPrestart("clasdev.cnf");
   for(ii=0; ii<nvscm1; ii++)

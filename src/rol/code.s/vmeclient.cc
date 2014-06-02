@@ -1,7 +1,8 @@
 
 /* vmeclient.cc */
 
-#ifndef VXWORKS
+#if !defined(NIOS) && !defined(VXWORKS)
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -705,10 +706,15 @@ void VMEClient::DebugMsg(const char *msg)
 
 #else
 
+extern "C"
+{
+
 void
 vmeclient_dummy()
 {
   return;
+}
+
 }
 
 #endif

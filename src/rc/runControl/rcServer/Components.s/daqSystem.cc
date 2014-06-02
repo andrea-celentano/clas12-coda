@@ -189,7 +189,11 @@ daqSystem::allComponents (daqComponent* cs[], int bufsize)
 			cs[count++] = comp;
 		}
 		if (count >= bufsize)
-			return -1;
+		{
+          printf("\nERROR: daqSystem::allComponents: count=%d >= bufsize=%d - return -1\n",count,bufsize);
+          printf("  (may need to increase MAX_NUM_COMPONENTS to accomodate bigger 'process' table)\n\n");
+		  return -1;
+		}
 	}
 	// Second is for EB
 	for (ite.init (); !ite; ++ite) {
@@ -201,7 +205,11 @@ daqSystem::allComponents (daqComponent* cs[], int bufsize)
 			cs[count++] = comp;
 		}
 		if (count >= bufsize)
-			return -1;
+		{
+          printf("\nERROR: daqSystem::allComponents: count=%d >= bufsize=%d - return -1\n",count,bufsize);
+          printf("  (may need to increase MAX_NUM_COMPONENTS to accomodate bigger 'process' table)\n\n");
+		  return -1;
+		}
 	}
 	// Third is for everything else
 	for (ite.init (); !ite; ++ite) {
@@ -213,9 +221,14 @@ daqSystem::allComponents (daqComponent* cs[], int bufsize)
 			(strcmp (subsys.title (), "EB") != 0))
 			cs[count++] = comp;
 		if (count >= bufsize)
-			return -1;
+		{
+          printf("\nERROR: daqSystem::allComponents: count=%d >= bufsize=%d - return -1\n",count,bufsize);
+          printf("  (may need to increase MAX_NUM_COMPONENTS to accomodate bigger 'process' table)\n\n");
+		  return -1;
+		}
 	}
 
+	printf("INFO: daqSystem::allComponents: count=%d\n",count);
 	return count;
 }
 
@@ -226,7 +239,7 @@ daqSystem::allComponents (char* cs[], int bufsize)
 	int ix, counttemp = 0;
 	daqComponent *comp = 0;
 	// bug bug, only MAX_NUM_COMPONENTS components
-	daqComponent* cstemp[MAX_NUM_COMPONENTS];	 
+	daqComponent* cstemp[MAX_NUM_COMPONENTS];
 
 	counttemp = allComponents ( cstemp, MAX_NUM_COMPONENTS );
 
@@ -250,6 +263,10 @@ daqSystem::allEnabledComponents (daqComponent* cs[], int bufsize)
 	daqComponent* cstemp[MAX_NUM_COMPONENTS];	 // bug bug, only MAX_NUM_COMPONENTS components
 
 	counttemp = allComponents ( cstemp, MAX_NUM_COMPONENTS );
+    if(counttemp<=0)
+	{
+      printf("ERROR: daqSystem::allEnabledComponents: counttemp=%d\n",counttemp);
+	}
 
 	for (ix=0; ix<counttemp; ix++) {
 		comp = cstemp[ix];
@@ -271,6 +288,11 @@ daqSystem::allEnabledComponents (char* cs[], int bufsize)
 	daqComponent* cstemp[MAX_NUM_COMPONENTS];	 // bug bug, only MAX_NUM_COMPONENTS components
 
 	counttemp = allComponents ( cstemp, MAX_NUM_COMPONENTS );
+    if(counttemp<=0)
+	{
+      printf("ERROR: daqSystem::allEnabledComponents: counttemp=%d - exit\n",counttemp);
+      exit(0);
+	}
 
 	for (ix=0; ix<counttemp; ix++) {
 		comp = cstemp[ix];

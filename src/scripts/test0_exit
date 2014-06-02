@@ -3,14 +3,16 @@
 #  test0_exit - stops all processes for CODA testing
 #
 
-set hh = `echo $HOST | cut -c 1-8 `
+#set hh = `echo $HOST | cut -c 1-7 `
+set hh = `echo $HOST`
+
 set host_name = $hh
-if ($hh != "clonioc1") then
-  echo ""
-  echo " You should be logged into clonioc1 machine"
-  echo ""
-  exit (1)
-endif
+#if ($hh != "clonioc1") then
+#  echo ""
+#  echo " You should be logged into clonioc1 machine"
+#  echo ""
+#  exit (1)
+#endif
 
 
 echo ""

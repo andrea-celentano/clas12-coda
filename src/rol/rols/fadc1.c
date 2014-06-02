@@ -4,6 +4,7 @@
 #if defined(VXWORKS) || defined(Linux_vme)
 
 
+
 /* HPS firmware:
 Board Firmware Rev/ID = 0x02c1 : ADC Processing Rev = 0x0a03
 
@@ -12,20 +13,20 @@ tcpClient adcecal1 'tiInit(0xa80000,3,0)'
 coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 */
 
+
 #ifndef VXWORKS
 #define DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
 #endif
-
-/* if event rate goes higher then 10kHz, with randon triggers we have wrong
-slot number reported in GLOBAL HEADER and/or GLOBAL TRAILER words; to work
-around that problem temporary patches were applied - until fixed (Sergey) */
-#define SLOTWORKAROUND
 
 /* fadc1.c - first readout list for VXS crates with FADC250 and new TI */
 
 #define USE_FADC250
 
-
+/* if ADC1182 is used, do not use FADC250 */
+#ifdef USE_ADC1182
+#undef USE_FADC250
+#undef DMA_TO_BIGBUF
+#endif
 
 
 #undef DEBUG
@@ -60,6 +61,15 @@ typedef      long long       hrtime_t;
 #define TI_ADDR   (21<<19)  /* if 0 - default will be used, assuming slot 21*/
 
 
+
+
+#ifdef USE_ADC1182
+
+#define INIT_NAME fadc1_1182__init
+#define TI_READOUT TI_READOUT_EXT_POLL /* Poll for available data, front panel triggers */
+
+#else
+
 /* name used by loader */
 #ifdef TI_MASTER
 #define INIT_NAME fadc1_master__init
@@ -73,6 +83,11 @@ typedef      long long       hrtime_t;
 #define TI_READOUT TI_READOUT_EXT_POLL /* Poll for available data, front panel triggers */
 #endif
 #endif
+
+#endif
+
+
+
 
 #include "rol.h"
 
@@ -97,6 +112,17 @@ static char rcname[5];
 #define NBOARDS 22    /* maximum number of VME boards: we have 21 boards, but numbering starts from 1 */
 #define MY_MAX_EVENT_LENGTH 3000/*3200*/ /* max words per board */
 static unsigned int *tdcbuf;
+
+
+
+
+
+#ifdef USE_ADC1182
+#define NADCS 1
+static int nadcs;
+static unsigned long adcadr[4] = {0x180000, 0, 0, 0};
+#endif
+
 
 /*#ifdef DMA_TO_BIGBUF*/
 /* must be 'rol' members, like dabufp */
@@ -155,15 +181,6 @@ extern int rocMask; /* defined in roc_component.c */
 }
 
 #endif
-
-
-
-/*TEMPORARY!!!*/
-void
-svt2getdmabuffer()
-{
-  return;
-}
 
 
 
@@ -229,7 +246,7 @@ static int NFADC;                   /* The Maximum number of tries the library w
 static int FA_SLOT;                 /* We'll use this over and over again to provide
 				                     * us access to the current FADC slot number */ 
 
-static int FADC_ROFLAG           = 2;  /* 0-noDMA, 1-board-by-board DMA, 2-chainedDMA */
+static int FADC_ROFLAG           = 1;  /* 0-noDMA, 1-board-by-board DMA, 2-chainedDMA */
 
 /* for the calculation of maximum data words in the block transfer */
 static unsigned int MAXFADCWORDS = 0;
@@ -251,8 +268,8 @@ int ic_tdc_low[2][128] = {
 
 /*adc's in slots 3-10 and 13-18*/
 
-unsigned int ic_adc_ped[19][16];
-unsigned short ic_adc_thres[19][16];
+unsigned int ic_adc_ped[21][16];
+unsigned short ic_adc_thres[21][16];
 unsigned int offset;
 
 
@@ -367,7 +384,8 @@ __download()
   rol->poll = 0;
 #endif
 
-  printf(">>>>>>>>>>>>>>>>>>>>>>>>>> ROCID = %d <<<<<<<<<<<<<<<<\n",rol->pid);
+  printf("\n>>>>>>>>>>>>>>> ROCID=%d, CLASSID=%d <<<<<<<<<<<<<<<<\n",rol->pid,rol->classid);
+  printf("CONFFILE >%s<\n\n",rol->confFile);
 
   printf("rol1: downloading DDL table ...\n");
   clonbanks_();
@@ -384,14 +402,25 @@ __download()
 #endif
 
 
+
   /*************************************/
   /* redefine TI settings if neseccary */
 
+
+#ifdef TI_MASTER
+  tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1);
+#else
+  tiSetBusySource(TI_BUSY_SWB,1);
+#endif
+
   /* for timing measurements in FADC250s */
+
+
+#ifdef BLA_BLA_NO
   tiSetTriggerHoldoff(1,5,0);   /* No more than 1 trigger within 80 ns */
   tiSetTriggerHoldoff(4,41,0);  /* No more than 4 triggers within 656 ns */
 tiSetBlockBufferLevel(1);
-
+#endif
 
 
 
@@ -405,6 +434,11 @@ tiSetBlockBufferLevel(1);
 
   /******************/
   /* USER code here */
+
+
+#ifdef USE_ADC1182
+  nadcs = adc1182init(adcadr, NADCS);
+#endif
 
 #ifdef USE_FADC250
 
@@ -472,9 +506,10 @@ adc      A32BLK address
 15       0x10000000
 16       0x10800000
 
-ANY OTHER BOARDS IN A32 SPACE MUST BE USING ADDRESSES FROM 0x11000000 AND ABOVE !!!
-
 DSC2: the same as FADCs
+
+CAEN BOARDS IN A32 SPACE MUST BE USING ADDRESSES FROM 0x11000000 AND ABOVE !!!
+
 v1495: 0x11xx0000, where xx follows the same scheme as FADCs
 v1190: 0x11xx0000, where xx follows the same scheme as FADCs
 
@@ -553,8 +588,9 @@ v1190: 0x11xx0000, where xx follows the same scheme as FADCs
     /* Bus errors to terminate block transfers (preferred) */
     faEnableBusError(FA_SLOT);
 
-    /*set threshold for pulse integration in trigger*/
+    /*set threshold for pulse integration in trigger
     faWriteHPSConfig(FA_SLOT, 1000, 0x4 | (0x6<<4));
+	*/
 
     /* Set the Block level */
     faSetBlockLevel(FA_SLOT, block_level);
@@ -580,8 +616,9 @@ v1190: 0x11xx0000, where xx follows the same scheme as FADCs
 
       unsigned int fa_maxIntTime = 7; /*The Maximum Integration time (in 16 ns steps) (<8) */
 
-
+	  /*
       faSetHPSParameters(FA_SLOT, fa_tot, fa_maxIntTime, fa_sumScaleFactor);
+	  */
     }
 	
 	/*****************/
@@ -650,7 +687,7 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
   /***************************************
    *   SD SETUP
    ***************************************/
-  sdInit();   /* Initialize the SD library */
+  sdInit(1); /* Initialize the SD library; 1-ignore firmware version */
   sdSetActiveVmeSlots(fadcSlotMask); /* Use the fadcSlotMask to configure the SD */
   sdStatus();
 
@@ -724,6 +761,7 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 #ifdef TI_MASTER
 
+  /*
   printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
   printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
   printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
@@ -739,6 +777,7 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
     printf("enable fiber 1\n");fflush(stdout);
     printf("enable fiber 1\n");fflush(stdout);
     tiAddSlave(1);
+  */
 
 #endif
 
@@ -789,14 +828,14 @@ __prestart()
   for(id=0; id<nfadc; id++)
   {
     FA_SLOT = faSlot(id);
-    faSoftReset(FA_SLOT);
+    faSoftReset(FA_SLOT,0); /*0-soft reset, 1-soft clear*/
     faResetToken(FA_SLOT);
     faResetTriggerCount(FA_SLOT);
     faStatus(FA_SLOT,0);
     faPrintThreshold(FA_SLOT);
   }
 
-  tiStatus();
+  tiStatus(1);
 
   /*  Enable FADC */
   for(id=0; id<nfadc; id++) 
@@ -827,8 +866,25 @@ __prestart()
   /* master and standalone crates, NOT slave */
 #ifndef TI_SLAVE
   sleep(1);
-  tiSyncReset();
+  tiSyncReset(1);
   sleep(1);
+
+  if(tiGetSyncResetRequest())
+  {
+    printf("ERROR: syncrequest still ON after tiSyncReset(); trying again\n");
+    sleep(1);
+    tiSyncReset(1);
+    sleep(1);
+  }
+
+  if(tiGetSyncResetRequest())
+  {
+    printf("ERROR: syncrequest still ON after tiSyncReset(); try 'tcpClient <rocname> tiSyncReset'\n");
+  }
+  else
+  {
+    printf("INFO: syncrequest is OFF now\n");
+  }
 
   printf("holdoff rule 1 set to %d\n",tiGetTriggerHoldoff(1));
   printf("holdoff rule 2 set to %d\n",tiGetTriggerHoldoff(2));
@@ -890,7 +946,7 @@ __end()
   sdStatus();
 #endif
 
-  tiStatus();
+  tiStatus(1);
 
   logMsg("INFO: User End Executed\n",1,2,3,4,5,6);
 
@@ -912,7 +968,6 @@ __go()
 
   logMsg("INFO: Entering Go 1\n",1,2,3,4,5,6);
 
-
 #ifdef USE_FADC250
 
 
@@ -930,6 +985,11 @@ __go()
   /*faSDC_Sync();*/
 #endif
 
+#ifdef USE_ADC1182
+  /* adc1182 reset */
+  for(jj=0; jj<nadcs; jj++) adc1182reset(jj);
+#endif
+
   CDOENABLE(TIPRIMARY,TIR_SOURCE,0); /* bryan has (,1,1) ... */
 
   logMsg("INFO: Go 1 Executed\n",1,2,3,4,5,6);
@@ -940,7 +1000,7 @@ __go()
 void
 usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 {
-  int *jw, ind, ind2, i, ii, jj, jjj, blen, len, rlen, itdcbuf, nbytes;
+  int *jw, ind, ind2, ii, jj, jjj, blen, len, nwords, dCnt, rlen, itdcbuf, nbytes;
   unsigned int *tdcbuf_save, *tdc;
   unsigned int *dabufp1, *dabufp2, sspbuf[NSSP];
 #ifndef VXWORKS
@@ -948,10 +1008,10 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 #endif
 #ifdef USE_FADC250
   unsigned int datascan, mask;
-  int nwords, njjloops;
+  int njjloops;
   unsigned short *dabufp16, *dabufp16_save;
   int id;
-  int dCnt, idata;
+  int idata;
   int stat, itime, gbready;
 #endif
 #ifdef DMA_TO_BIGBUF
@@ -963,14 +1023,6 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   rol->dabufp = (int *) 0;
 
   CEOPEN(EVTYPE, BT_BANKS);
-
-  jw = rol->dabufp; 
-
-  /***/
-
-  /* at that moment only second CODA world defined  */
-  /* first CODA world (length) undefined, so set it */
-  /*jw[ILEN] = 1;*/ jw[-2] = 1;
 
   if((syncFlag<0)||(syncFlag>1))         /* illegal */
   {
@@ -995,13 +1047,11 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   {
 
 
-    /* for EVIO format, will dump raw data */
-    if((ind = bosMopen_(jw, rcname, 0, 1, 0)) <=0)
-    {
-      printf("bosMopen_ Error: %d\n",ind);
-    }
-    rol->dabufp += NHEAD;
+#ifndef VXWORKS
+TIMERL_START;
+#endif
 
+    /* for EVIO format, will dump raw data */
     tdcbuf_save = tdcbuf;
 
     /*************/
@@ -1032,6 +1082,17 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 
 	/* TI stuff */
     /*************/
+
+#ifdef DEBUG
+    printf("fadc1: start fadc processing\n");fflush(stdout);
+#endif
+
+
+
+
+
+
+
 
 
 
@@ -1121,13 +1182,26 @@ a345:
           usrVmeDmaMemory(&pMemBase, &uMemBase, &mSize);
  	      /*printf("restored: 0x%08x 0x%08x 0x%08x\n",pMemBase,uMemBase,mSize);*/
 #else
+
+#ifdef DEBUG
+          printf("fadc1: Starting DMA\n");fflush(stdout);
+#endif
+
 	      dCnt = faReadBlock(FA_SLOT,tdcbuf,500000/*MAXFADCWORDS*/,FADC_ROFLAG);
+
+#ifdef DEBUG
+          printf("fadc1: Finished DMA, dCnt=%d\n",dCnt);fflush(stdout);
+#endif
+
 #endif
         }
         else
 		{
           for(jj=0; jj<nfadc; jj++)
 		  {
+#ifdef DEBUG
+            printf("fadc1: [%d] Starting DMA\n",jj);fflush(stdout);
+#endif
 #ifdef DMA_TO_BIGBUF
 
             uMemBase = dabufp_usermembase;
@@ -1152,7 +1226,7 @@ a3456:
             dCnt += len;
 #endif
 #ifdef DEBUG
-            printf("[%d] len=%d dCnt=%d\n",jj,len,dCnt);
+            printf("fadc1: [%d] len=%d dCnt=%d\n",jj,len,dCnt);
 #endif
 		  }
 	    }
@@ -1207,32 +1281,38 @@ TIMERL_STOP(100000/block_level,1000+rol->pid);
 
     }
 
+#endif /*FADC250 */
+
+
+
+
+
+
+
+#ifdef USE_ADC1182
+
+    /* wait for all ADCs to finish conversion */
+    for(ii=0; ii<nadcs; ii++) while( adc1182cip(ii) );
+    dCnt = 0;
+    for(ii=0; ii<nadcs; ii++)
+    {
+      for(jj=0; jj<8; jj++)
+      {
+        tdcbuf[dCnt++] = adc1182read(ii, jj);
+      }
+	}
+    for(jj=0; jj<dCnt; jj++) *rol->dabufp++ = tdcbuf[jj];
+
+    /* reset all ADC boards */
+    for(ii=0; ii<nadcs; ii++) adc1182reset(ii);
+
 #endif
 
-
-
-
-    blen = rol->dabufp - (int *)&jw[ind+1];
-#ifdef DEBUG
-    printf("rol1trig: len=%d\n",blen);
+#ifndef VXWORKS
+TIMERL_STOP(1000,0);
 #endif
-    if(blen == 0) /* no data - return pointer to the initial position */
-    {
-      rol->dabufp -= NHEAD;
-	  /* NEED TO CLOSE BANK !!?? */
-    }
-    else if(blen >= (MAX_EVENT_LENGTH/4))
-    {
-      logMsg("1ERROR: event too long, blen=%d, ind=%d (MAX_EVENT_LENGTH/4=%d)\n",blen,ind,MAX_EVENT_LENGTH/4,0,0,0);
-      logMsg(": %d %d 0x%x 0x%x\n",blen,ind,dabufp1,dabufp2,0,0);
-      tsleep(1); /* 1 = 0.01 sec */
-    }
-    else if(bosMclose_(jw,ind,1,blen) <= 0)
-    {
-      logMsg("2ERROR in bosMclose_ - space is not enough !!!\n",1,2,3,4,5,6);
-    }
 
-
+#if 0
     /* for physics sync event, make sure all board buffers are empty */
     if(syncFlag==1)
     {
@@ -1246,7 +1326,7 @@ TIMERL_STOP(100000/block_level,1000+rol->pid);
       jw[ind2+1] = SYNC_FLAG + scan_flag;
       rol->dabufp += bosMclose_(jw,ind2,1,1);
     }
-
+#endif
 
 
   }

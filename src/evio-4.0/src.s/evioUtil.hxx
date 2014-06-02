@@ -52,7 +52,10 @@
 #include <utility>
 #include <cstring>
 #include <typeinfo>
+#ifndef NIOS
 #include <expat.h>
+#endif
+
 //#include "boost/shared_ptr.hpp"
 
 #ifdef vxworks

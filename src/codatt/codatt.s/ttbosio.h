@@ -7,7 +7,7 @@
 #ifdef Linux
 #define NWBOS 524288/*262144*//*65536*/
 #else
-#define NWBOS (65536/4) /*(MAX_EVENT_LENGTH/4)*/
+#define NWBOS (524288/*131072*//*65536*//4) /*(MAX_EVENT_LENGTH/4)*/
 #endif
 
 /* types */

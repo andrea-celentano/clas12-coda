@@ -3,7 +3,7 @@
  *  FADC Internal Trigger FADC Configuration and Control
  *  Routines.
 *
-*  SVN: $Rev: 488 $
+*  SVN: $Rev$
 *
  */
 

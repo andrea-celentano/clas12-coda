@@ -25,7 +25,7 @@
 //   run control source
 //
 //
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
 #include <daqRun.h>
 #include "rcsTokenIntervalWriter.h"
 
@@ -51,4 +51,3 @@ rcsTokenIntervalWriter::write (daqData* data)
 {
   run_->updateTokenInterval ((int)(*data));
 }
-#endif

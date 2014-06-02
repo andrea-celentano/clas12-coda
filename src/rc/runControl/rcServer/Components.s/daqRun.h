@@ -180,6 +180,10 @@ public:
   void    tokenInterval (int val, int writeUpdate = 1);
   int     tokenInterval (void) const;
 
+  //sergey
+  void    confFile (char *fname, int writeUpdate = 1);
+  int     confFile (void) const;
+
   // run control server message to database or not
   void    enableRcsMsgToDbase  (void);
   void    disableRcsMsgToDbase (void);
@@ -199,14 +203,21 @@ public:
   void    updateRunNumber (int number);
   void    updateEventLimit (int evl);
   void    updateDataLimit  (int dl);
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   // data file descriptor
   void    writeDataFileNameToDbase  (char* file);
   void    setDataFileName           (char* file);
 
+  // sergey: config file descriptor
+  void    writeConfFileNameToDbase  (char* file);
+  void    setConfFileName           (char* file);
+
   // update token ineterval number
   void    updateTokenInterval (int interval);
-#endif
+
+  //sergey:  update config file name
+  void    updateConfFile (char *fname);
+
   // run state status
   void    status    (int st);
   int     status    (void) const;
@@ -261,6 +272,13 @@ public:
   void    dataFile    (char* file);
   char*   dataFile    (void) const;
   void    dataFile    (int   runNumber);
+
+  /*
+  //sergey
+  void    confFile    (char* file);
+  char*   confFile    (void) const;
+  void    confFile    (int   runNumber);
+  */
 #endif
 
 
@@ -373,6 +391,9 @@ private:
   char* dbasename_;     // database name
   char* msqlhost_;
   char* datafileName_;  // data file name 
+  /*
+  char* conffileName_;  // sergey: config file name 
+  */
 #endif
   // DAQ system
   daqSystem system_;
@@ -405,14 +426,15 @@ private:
   daqData* runTypeNum_;
   daqData* nevents_;
   daqData* nlongs_;
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   daqData* database_;
   daqData* runTypeInfo_;
   daqData* rcsMsgToDbase_;
   daqData* dataFile_;            // real data file name
+  daqData* confFile_;            // sergey: config file name
   daqData* logFileDescriptor_;   // data logging file descriptor
   daqData* tokenInterval_;       // token interval
-#endif
+
   daqData* allRunTypes_;
   daqData* exptName_;
   daqData* exptId_;
@@ -440,10 +462,9 @@ private:
   daqDataWriter* evlimitWriter_;
   daqDataWriter* datalimitWriter_;
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   daqDataWriter* tokenIWriter_;
   daqDataWriter* logfdesWriter_;
-#endif  
+  daqDataWriter* confnameWriter_; //sergey
 
   // Lock variable to lock whole system to let one command to finish before
   // next command to come to execute

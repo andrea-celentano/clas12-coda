@@ -62,7 +62,7 @@ static int block_level = /*40*/1;
 
 #ifdef VXWORKS
 
-static unsigned int tdcbuftmp[100000];
+static unsigned int tdcbuftmp[131072];
 
 void
 TIPRIMARY_int_handler()
@@ -89,7 +89,7 @@ static void
 tiprimarytinit(int code)
 {
   int i1, i2, i3;
-  int overall_offset=0x80;
+  /*int overall_offset=0x80;*/
 
 #ifdef VXWORKS
 #else
@@ -106,6 +106,7 @@ tiprimarytinit(int code)
   usrVmeDmaMemory(&i1, &i2, &i3);
 #endif
   i2_from_rol1 = i2;
+  /*
   if( (i2_from_rol1&7) == 0xc )
   {
     i2_from_rol1 += 1;
@@ -118,6 +119,13 @@ tiprimarytinit(int code)
   {
     i2_from_rol1 += 3;
   }
+  */
+  printf("tiprimarytinit: i2_from_rol1 = 0x%08x\n",i2_from_rol1);
+
+  i2_from_rol1 = (i2_from_rol1 & 0xFFFFFFF0);
+  printf("tiprimarytinit: i2_from_rol1 = 0x%08x\n",i2_from_rol1);
+
+  i2_from_rol1 = i2_from_rol1 + 0x10;
   printf("tiprimarytinit: i2_from_rol1 = 0x%08x\n",i2_from_rol1);
 
 
@@ -131,74 +139,40 @@ tiprimarytinit(int code)
   */
 
   /* Initialize VME Interrupt interface - use defaults */
-  tiInit(TI_ADDR,TI_READOUT,0);
+  tiInit(TI_ADDR,TI_READOUT,0); /*tiInit((21<<19),2,0)*/
 
   tiIntDisable();
 
   /* all crates */
   tiDisableVXSSignals();
   
+  /*sergey*/
+  tiConfig("");
+
   /*
-tcpClient hps2 'tiSetFiberDelay(0xe,0xcf)'
-tcpClient hps1 'tiSyncReset'
+  block_level = tiGetCurrentBlockLevel();
+  printf("TIPRIMARY: new block_level (current) to %d\n",block_level);
+  block_level = tiGetNextBlockLevel();
+  printf("TIPRIMARY: new block_level (next) to %d\n",block_level);
   */
+  block_level = tiConfigGetBlockLevel();
+  printf("TIPRIMARY: new block_level (config) to %d\n",block_level);
+
+
 
 #ifdef TI_SLAVE
 
   tiDisableTSInput(TI_TSINPUT_ALL);
 
-/*
-tiSetFiberDelay(overall_offset+0x7+4,0xcf);
-*/
-
-
-  tiSetFiberDelay(0x13,0xcf);
-
 #else
-
-  tiSetFiberDelay(overall_offset,0xcf);
-
-#ifdef TI_MASTER
-  tiAddSlave(1);
-#endif
-
-  /*TRG on front panel: external pulser*/
-  /*tiSetTriggerSource(TI_TRIGGER_FPTRG);*/
-
 
   /* only 1 trigger type for physics trigger */
   tiSetTriggerSource(TI_TRIGGER_TSINPUTS);  
   tiDisableTSInput(TI_TSINPUT_ALL);
   tiEnableTSInput( TI_TSINPUT_1 );
   tiLoadTriggerTable(0);
-  
-
-
-
-
-  /*tiSetTriggerHoldoff(1,31,0);*/ /*for SVT: program frontend busy to 32 us = (1 clk = 4 ns)*/
-  /*tiSetTriggerHoldoff(2,127,0);*/
-
-  /* no SD board: BUSY from Loopback */
-  /*tiSetBusySource(TI_BUSY_LOOPBACK,1);*/
-  /* have SD board: BUSY from Loopback and Switch Slot B */
-  /*in tiInit
-  tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1);
-  */
-
-  /* Loopback Sync Source (need it ???) */
-  /*tiSetSyncSource(TI_SYNC_LOOPBACK);*/
 
 #endif
-
-
-
-  /* adjust for the fiber length: par1 - delay (4ns ticks), par2 - offset */
-
-  tiSetBlockLevel(block_level);
-
-  /* 0 - pipeline mode, 1 - ROC Lock mode, 2 - buffered mode */
-  tiSetBlockBufferLevel(1);
 
 
   /* master and standalone crates, NOT slave */
@@ -212,7 +186,7 @@ tiSetFiberDelay(overall_offset+0x7+4,0xcf);
 #endif
 
 
-  tiStatus();
+  tiStatus(1);
 
 }
 
@@ -268,6 +242,13 @@ tiprimarytenable(int val, unsigned int intMask)
 {
   TIPRIMARYflag = 1;
 
+  /*
+#ifndef TI_SLAVE
+  tiResetMGT();
+  printf("rol1: call tiResetMGT\n");
+#endif
+  */
+
 #ifdef VXWORKS
 
 
@@ -291,7 +272,7 @@ tiprimarytdisable(int val, unsigned int intMask)
     tiBlockStatus(0,1);
 #endif
 
-  tiStatus();
+  tiStatus(1);
 
 
   /* clear all buffers here !!! */

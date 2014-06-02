@@ -30,10 +30,8 @@ FADC250_NSA       6   <- number of sample after trigger point to include in data
 FADC250_NPEAK     1   <- number of Pulses in Mode 2 and 3.  (0x10C Bits:6-5)
 
 #                 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 - channels ##
-FADC250_DIS_MASK  1  0  1  0  1  0  1  0  1  0  1  0  1  0  1  0   <- channel disable mask
-#                                               (ch.ADC.values=0, if bit set to 1). (0x110)
+FADC250_ADC_MASK  1  0  1  0  1  0  1  0  1  0  1  0  1  0  1  0   <- channel enable mask
 FADC250_TRG_MASK  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1   <- trigger enable mask 
-#                                               (channel includes in global trigger, if bit set to 1)
 
 FADC250_TET       110        <- board Trigger Energy Threshold (TET), same for all 16 channels
 FADC250_CH_TET    0    110   <- channel# and TET_value for this channel
@@ -82,6 +80,7 @@ static FADC250_CONF fa250[NBOARD+1];
 	  { \
 	    printf("\nReadConfigFile: Wrong mask bit value, %d\n\n",msk[jj]); return(-6); \
 	  } \
+	  if(strcmp(keyword,"FADC250_ADC_MASK") == 0) msk[jj] = ~(msk[jj])&0x1; \
 	  ui1 |= (msk[jj]<<jj); \
 	}
 
@@ -284,7 +283,7 @@ fadc250ReadConfigFile(char *filename)
 	    for(slot=slot1; slot<slot2; slot++) fa250[slot].npeak = i1;
       }
 
-      else if(strcmp(keyword,"FADC250_DIS_MASK") == 0)
+      else if(strcmp(keyword,"FADC250_ADC_MASK") == 0)
       {
 	    GET_READ_MSK;
 	    for(slot=slot1; slot<slot2; slot++) fa250[slot].chDisMask = ui1;

@@ -326,13 +326,16 @@ main(int argc, char **argv)
     fprintf(stderr, "Cannot register rccManager to reactor\n");
     exit(1);
   }
+
   if(reactor.register_handler (&brdHandler, Event_Handler::READ_MASK) == -1)
   {
     fprintf(stderr, "Cannot register brdHandler to reactor\n");
     exit(1);
   }
+
   // setup global reactor pointer
   glbReactor = &reactor;
+
   // setup global action strings here
   daqActions actions;
 
@@ -342,11 +345,13 @@ main(int argc, char **argv)
 #endif
 
   daqRun      daqrun (database, session, 0, msqld);
+
   // update runControl server udp port number to daq run object
   daqrun.udpPort (brdHandler.port_number ());
 
   // setup message reporter
   rcMsgReporter codaReporter (daqrun);
+
   // setup global reporter
   reporter = &codaReporter;
 

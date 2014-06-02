@@ -25,7 +25,6 @@
 //   run control source
 //
 //
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 
 #include <daqRun.h>
 #include "rcsLogFileDesWriter.h"
@@ -56,5 +55,3 @@ rcsLogFileDesWriter::write (daqData* data)
 
   run_->writeDataFileNameToDbase (filename);
 }
-#endif
-

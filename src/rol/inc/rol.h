@@ -89,7 +89,50 @@ static int *StartOfEvent;
 #include "../../dac/dac.s/bigbuf.h" /*for protutypes, SEND_BUF_MARGIN, etc */
 
 
-#ifndef EVENT_MODE
+#ifdef EVENT_MODE
+
+/* ROL2 macros: call CPINIT first, then CPOPEN/CPCLOSE for every bank, and CPEXIT in the end */
+
+#define CPINIT \
+  unsigned int *dataout_save1; \
+  unsigned int *dataout_save2; \
+  unsigned char *b08; \
+  unsigned short *b16; \
+  unsigned int *b32; \
+  unsigned long long *b64; \
+  int lenin = *(rol->dabufpi) - 1;	\
+  int lenout = 2;  /* start from 3rd word, leaving first two for bank-of-banks header */ \
+  unsigned int *datain = (unsigned int *)((rol->dabufpi)+2); \
+  unsigned int *dataout = (unsigned int *)((rol->dabufp)+2)
+
+#define CPOPEN(btag,btyp,bnum) \
+{ \
+  dataout_save1 = dataout ++; /*remember beginning of the bank address, exclusive bank length will be here*/ \
+  *dataout++ = (btag<<16) + (btyp<<8) + bnum; /*bank header*/ \
+  b08 = (unsigned char *)dataout; \
+}
+
+#define CPCLOSE \
+{ \
+  unsigned int padding; \
+  /*printf("CPCLOSE: dataout before = 0x%x\n",dataout);*/		 \
+  dataout = (unsigned int *) ( ( ((unsigned int)b08+3)/4 ) * 4); \
+  padding = (unsigned int)dataout - (unsigned int)b08; \
+  dataout_save1[1] |= (padding&0x3)<<14; /*update bank header (2nd word) with padding info*/ \
+  /*printf("CPCLOSE: 0x%x %d --- 0x%x %d --> padding %d\n",dataout,dataout,b08,b08,((dataout_save1[1])>>14)&0x3); */ \
+  *dataout_save1 = (dataout-dataout_save1-1); /*write bank length*/ \
+  /*printf("CPCLOSE: *dataout_save1 = %d\n",*dataout_save1);*/		\
+  lenout += (*dataout_save1+1); \
+  b08 = NULL; \
+}
+
+#define CPEXIT \
+  rol->dabufp[0] = lenout - 1; \
+  rol->dabufp[1] = rol->dabufpi[1]
+
+
+#else
+
 
 /********************************************************/
 /* sergey: new bank handling: using big buffer directly */
@@ -193,10 +236,15 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     static int oldevnb = 0; \
     int newevnb; \
     int ev_type; \
-    if(len > NWBOS) logMsg("===> ERROR: len = %d\n",len,2,3,4,5,6);	\
+    if(len > NWBOS) logMsg("===> ERROR: len = %d (NWBOS=%d)\n",len,NWBOS,3,4,5,6);	\
     /* check some stuff and increment some counters */ \
     newevnb = dabufp[1] & 0xff; \
-    if(newevnb < oldevnb) newevnb += 256; \
+    /*printf("rol1: newevnb=%d\n",newevnb);*/ \
+    if(newevnb < oldevnb) \
+    { \
+      newevnb += 256; \
+      /*printf("rol1: +256\n");*/				\
+	} \
     if(newevnb - oldevnb != 1) \
     { \
       /*printf("nevents %d newevnb %d old %d\n",object->nevents, newevnb, oldevnb);*/ \
@@ -319,6 +367,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     if(dabufp[BBIWORDS] > BBHEAD) \
     { \
       /*trying to get next buffer; if not available - do nothing, rols_loop will take care*/ \
+	  printf("rol.h: bb_write_nodelay 1\n"); \
       dabufp = bb_write_nodelay(&big0.gbigBuffer); \
       if(dabufp == NULL) \
       { \

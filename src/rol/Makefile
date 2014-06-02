@@ -20,30 +20,41 @@ include $(CODA)/src/Makefile.include
 
 #ifeq ("$(OSTYPE_MACHINE)","Linux_i686_vme")
 
-$(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/tdc2_master.so \
-	./$(OSTYPE_MACHINE)/rol/tdc2_slave.so \
-	./$(OSTYPE_MACHINE)/rol/svt2_master.so \
-	./$(OSTYPE_MACHINE)/rol/svt2_slave.so \
+$(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
+	./$(OSTYPE_MACHINE)/rol/hps1_slave.so \
+	./$(OSTYPE_MACHINE)/rol/tdc1_master.so \
+	./$(OSTYPE_MACHINE)/rol/tdc1_slave.so \
+	./$(OSTYPE_MACHINE)/rol/svt1_master.so \
+	./$(OSTYPE_MACHINE)/rol/svt1_slave.so \
 	./$(OSTYPE_MACHINE)/rol/fadc1_master.so \
 	./$(OSTYPE_MACHINE)/rol/fadc1_slave.so \
-	./$(OSTYPE_MACHINE)/rol/dcrb2_master.so \
-	./$(OSTYPE_MACHINE)/rol/dcrb2_slave.so \
+	./$(OSTYPE_MACHINE)/rol/fadc1_1182.so \
+	./$(OSTYPE_MACHINE)/rol/dcrb1_master.so \
+	./$(OSTYPE_MACHINE)/rol/dcrb1_slave.so \
 	./$(OSTYPE_MACHINE)/rol/urol2_tt_testsetup.so
 
 
-./$(OSTYPE_MACHINE)/rol/tdc2_master.o : rols/tdc2.c
+./$(OSTYPE_MACHINE)/rol/hps1_master.o : rols/hps1.c
 	$(MKROLDIR)
 	$(CC) -DTI_MASTER $(CCROLOPT)
 
-./$(OSTYPE_MACHINE)/rol/tdc2_slave.o : rols/tdc2.c
+./$(OSTYPE_MACHINE)/rol/hps1_slave.o : rols/hps1.c
 	$(MKROLDIR)
 	$(CC) -DTI_SLAVE $(CCROLOPT)
 
-./$(OSTYPE_MACHINE)/rol/svt2_master.o : rols/svt2.c
+./$(OSTYPE_MACHINE)/rol/tdc1_master.o : rols/tdc1.c
 	$(MKROLDIR)
 	$(CC) -DTI_MASTER $(CCROLOPT)
 
-./$(OSTYPE_MACHINE)/rol/svt2_slave.o : rols/svt2.c
+./$(OSTYPE_MACHINE)/rol/tdc1_slave.o : rols/tdc1.c
+	$(MKROLDIR)
+	$(CC) -DTI_SLAVE $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/svt1_master.o : rols/svt1.c
+	$(MKROLDIR)
+	$(CC) -DTI_MASTER $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/svt1_slave.o : rols/svt1.c
 	$(MKROLDIR)
 	$(CC) -DTI_SLAVE $(CCROLOPT)
 
@@ -55,11 +66,15 @@ $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/tdc2_master.so \
 	$(MKROLDIR)
 	$(CC) -DTI_SLAVE $(CCROLOPT)
 
-./$(OSTYPE_MACHINE)/rol/dcrb2_master.o : rols/dcrb2.c
+./$(OSTYPE_MACHINE)/rol/fadc1_1182.o : rols/fadc1.c
+	$(MKROLDIR)
+	$(CC) -DUSE_ADC1182 $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/dcrb1_master.o : rols/dcrb1.c
 	$(MKROLDIR)
 	$(CC) -DTI_MASTER $(CCROLOPT)
 
-./$(OSTYPE_MACHINE)/rol/dcrb2_slave.o : rols/dcrb2.c
+./$(OSTYPE_MACHINE)/rol/dcrb1_slave.o : rols/dcrb1.c
 	$(MKROLDIR)
 	$(CC) -DTI_SLAVE $(CCROLOPT)
 
@@ -86,6 +101,9 @@ ifeq ("$(OSTYPE)","VXWORKS")
   LIBNAMES +=
 else ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
   CLON_FLAGS += -I$(CODA)/Linux_armv7l/include
+  LIBNAMES +=
+else ifeq ("$(OSTYPE_MACHINE)","Linux_nios2")
+  CLON_FLAGS += -I$(CODA)/Linux_nios2/include
   LIBNAMES +=
 else
   LIBNAMES += $(CODA)/src/codatt/$(OSTYPE_MACHINE)/lib/libcodatt.a

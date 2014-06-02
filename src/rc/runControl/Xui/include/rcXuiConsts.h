@@ -30,6 +30,10 @@
 #define RCXUI_MAX_DATABASES  100
 #define RCXUI_MAX_SESSIONS   100
 #define RCXUI_MAX_RUNTYPES   100
+#define RCXUI_MAX_RUNCONFIGS 100
 #define RCXUI_MAX_ANAS       32
+
+/*sergey*/
+#define RCXUI_MAX_OPTIONS    20
 
 #endif

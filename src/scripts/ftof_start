@@ -26,19 +26,22 @@ set RC_t  = "-T runcontrol_ftof"
 set XT1_t = "-T CRATE_ftof0"
 set XT2_t = "-T CRATE_ftof1"
 
-set ET   = daq_comp.tcl
-set EB   = daq_comp.tcl
-set ER   = daq_comp.tcl
-set RC   = daq_comp.tcl
-set XT   = daq_comp.tcl
+set ET   = daq_comp_nossh.tcl
+set EB   = daq_comp_nossh.tcl
+set ER   = daq_comp_nossh.tcl
+set RC   = daq_comp_nossh.tcl
+set XT1  = daq_comp_nossh.tcl
+set XT2  = daq_comp.tcl
+
 
 set ET_comp  = 'et_start -n 2000 -s 500000 -f /tmp/et_sys_clasftof'
 set EB_comp  = 'coda_ebc -s clasftof -o "EB4 CDEB" -i'
 set ER_comp  = 'coda_erc -s clasftof -o "ER4 ER" -i'
 set RC_comp  = 'runcontrol -s clasftof -cedit -dbedit'
-set XT1_comp  = 'coda_roc_gef -s clasftof -o "ftof0 ROC" -i '
-set XT2_comp  = 'coda_roc_gef -s clasftof -o "ftof1 ROC" -i '
+set XT1_comp  = 'coda_roc_gef -s clasftof -o TS'
 
+# does not work without 'ftof1', do not know why (no nossh ???)
+set XT2_comp  = 'coda_roc_gef -s clasftof -o "ftof1 ROC" '
 
 echo ""
 echo " Start ET"
@@ -61,13 +64,13 @@ echo " Start connection to CRATE_ftof0"
 set ypos  = `expr $ypos + $yinc`
 set geom  = "-geometry 70x12+$xpos+"
 set color = "-sb -sl 5000 -bg lightgreen -fg black"
-set tmp   = `xterm $XT1_t $color $geom$ypos -e $XT $XT1_comp >& /dev/null &`
+set tmp   = `xterm $XT1_t $color $geom$ypos -e $XT1 $XT1_comp >& /dev/null &`
 
 echo " Start connection to CRATE_ftof1"
 set ypos  = `expr $ypos + $yinc + 60`
 set geom  = "-geometry 70x12+$xpos+"
 set color = "-sb -sl 5000 -bg lightgreen -fg black"
-set tmp   = `xterm $XT2_t $color $geom$ypos -e $XT $XT2_comp >& /dev/null &`
+set tmp   = `xterm $XT2_t $color $geom$ypos -e $XT2 $XT2_comp >& /dev/null &`
 
 
 echo ""

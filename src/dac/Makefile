@@ -13,6 +13,7 @@ MAIN = dac
 #------------------
 include $(CODA)/src/Makefile.include
 
+
 ifeq ("$(OSTYPE_MACHINE)","SunOS_i86pc")
     CFLAGS += -DSunOS_i86pc
 endif
@@ -36,7 +37,6 @@ bin: $(BIN_FILES_PROG) ./$(OSTYPE_MACHINE)/bin/coda_roc_gef
 	$(CCLINKBIN)
 
 endif
-
 
 
 #-----------------------
@@ -72,6 +72,11 @@ else ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
   LIBNAMES += $(CODA)/Linux_armv7l/lib/libmysql4.1.20.a
   LIBNAMES += $(CODA)/Linux_armv7l/lib/libet.a
   LIBNAMES += $(CODA)/Linux_armv7l/lib/libevio.a
+else ifeq ("$(OSTYPE_MACHINE)","Linux_nios2")
+  LIBNAMES += ./Linux_nios2/lib/libdac.a
+  LIBNAMES += $(CODA)/Linux_nios2/lib/libmysql4.1.20.a
+  LIBNAMES += $(CODA)/Linux_nios2/lib/libet.a
+  LIBNAMES += $(CODA)/Linux_nios2/lib/libevio.a
 else
 
 #?????????? for TT_Go etc
@@ -110,6 +115,11 @@ endif
 ifeq ("$(OSTYPE)","Linux")
   CLON_FLAGS += -DLINUX=1
   CLON_FLAGS += -D_GNU_SOURCE # added 2-may-2011 to satisfy 'tee'
+ifeq ("$(OSTYPE_MACHINE)","Linux_nios2")
+  LIBNAMES += $(SYSLIBS)
+  LIBNAMES += -lpthread
+  LDFLAGS += -rdynamic
+else
   LIBNAMES += /usr/lib/libssl.so # for RHEL5 ..
   LIBNAMES += -lresolv
   LIBNAMES += $(X11LIBS)
@@ -118,6 +128,7 @@ ifeq ("$(OSTYPE)","Linux")
 # Sergey: -rdynamic needed by Linux, it allows to search for global
 #   symbols in main program by dlopen/dlsym
   LDFLAGS += -rdynamic
+endif
 endif
 
 ifeq ("$(OSTYPE)","VXWORKS")
@@ -156,3 +167,4 @@ install: install_lib install_bin
 	-mkdir -p $(CODA)/common/include
 	cp tmp/* $(CODA)/common/include
 	rm -rf tmp
+

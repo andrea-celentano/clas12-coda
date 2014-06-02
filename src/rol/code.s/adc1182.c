@@ -55,10 +55,32 @@ const ADCADR1 = 0xe0190000
 
  */
 
-#ifdef VXWORKS
+#if defined(VXWORKS) || defined(Linux_vme)
 
-#include <vxWorks.h> 
+#ifdef VXWORKS
+#include <vxWorks.h>
+/*sergey#include "vxCompat.h"*/
+#else
+#include <stddef.h>
+#include <pthread.h>
+#include "jvme.h"
+#endif
 #include <stdio.h>
+#include <string.h>
+#ifdef VXWORKS
+#include <logLib.h>
+#include <taskLib.h>
+#include <intLib.h>
+#include <iv.h>
+#include <semLib.h>
+#include <vxLib.h>
+#else
+#include <unistd.h>
+#endif
+
+#ifdef VXWORKS
+IMPORT  STATUS sysBusToLocalAdrs(int, char *, char **);
+#endif
 
 typedef struct LeCroy1182CSR *CSRPtr;
 typedef struct LeCroy1182CSR
@@ -89,13 +111,48 @@ typedef struct LeCroy1182CSR
 /*---------------------------------------------------------------*/
 
 
- /* reset module at base address addr */
-void adc1182reset(int addr)
-{
-  short *bufptr;
-  bufptr = (short *) addr;
+static int n1182;
+static unsigned int vmeaddress[22];
 
-  *bufptr = 0x0104;
+
+/* init: just calculate address offset */
+int
+adc1182init(unsigned int *addr, int nboards)
+{
+  int ii, res;
+  unsigned int laddr;
+
+  n1182 = 0;
+  for(ii=0; ii<nboards; ii++)
+  {
+#ifdef VXWORKS
+    res = sysBusToLocalAdrs(0x39,(char *)addr[ii],(char **)&laddr);
+    if(res != 0) 
+	{
+	  printf("adc1182init: ERROR in sysBusToLocalAdrs(0x39,0x%x,&laddr) \n",addr[ii]);
+	  return(ERROR);
+	}
+#else
+    res = vmeBusToLocalAdrs(0x39,(char *)addr[ii],(char **)&laddr);
+    if (res != 0) 
+	{
+	  printf("adc1182init: ERROR in vmeBusToLocalAdrs(0x39,0x%x,&laddr) \n",addr[ii]);
+	  return(ERROR);
+	}
+#endif
+    printf("ADC1182 board %d at vme address 0x%08x\n",n1182,(unsigned int)laddr);
+    vmeaddress[n1182++] = (unsigned int)laddr;
+  }
+
+  return(n1182);
+}
+
+
+ /* reset module at base address addr */
+void
+adc1182reset(int id)
+{
+  vmeWrite16(vmeaddress[id],0x0104);
 
   return;
 }
@@ -103,13 +160,12 @@ void adc1182reset(int addr)
 /* is conversion in progress in module at base address addr ? */
 /*       return(2) if conversion in progress (cip)            */
 /*       return(0) if not                                     */
-unsigned int adc1182cip(int addr)
+unsigned int
+adc1182cip(int id)
 {
-  short *bufptr, ret;
+  short ret;
 
-  ret = 0;
-  bufptr = (short *) addr;
-  ret = (*bufptr) & 0x0002;
+  ret = vmeRead16(vmeaddress[id]) & 0x0002;
 
   return(ret);
 }
@@ -117,28 +173,29 @@ unsigned int adc1182cip(int addr)
 /* is conversion complete in module at base address addr ? */
 /*       return(1) if complete                             */
 /*       return(0) if not complete                         */
-unsigned int adc1182ready(int addr)
+unsigned int
+adc1182ready(int id)
 {
-  short *bufptr, ret;
+  short ret;
 
-  ret = 0;
-  bufptr = (short *) addr;
-  ret = (*bufptr) & 0x0001;
+  ret = vmeRead16(vmeaddress[id]) & 0x0001;
 
   return(ret);
 }
 
 /* read data from module at base address addr from channel chan */
-unsigned int adc1182read(int addr, int chan)
+unsigned int
+adc1182read(int id, int chan)
 {
   int adrtmp;
   short buf;
   short *address;
   unsigned int ret;
 
-  adrtmp = addr + 0x0100 + chan*2;
-  address = (short *) adrtmp;
-  buf = *address;
+  adrtmp = vmeaddress[id] + 0x0100 + chan*2;
+
+  buf = vmeRead16(adrtmp);
+
   ret = (buf & 0x0fff) + (chan<<17);
 
   return(ret);

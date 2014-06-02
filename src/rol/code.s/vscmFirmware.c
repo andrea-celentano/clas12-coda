@@ -1,5 +1,7 @@
 /* vscmFirmware.c */
 
+#if defined(VXWORKS) || defined(Linux_vme)
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -26,7 +28,7 @@ vscmGetSpiMode(int id)
 {
   uint8_t rspID[3];
 
-  vmeWrite32(&VSCMpr[id]->SpiFlash, 0x104); // Set NCS for both modes
+  vmeWrite32(&VSCMpr[id]->SpiFlash, 0x104); /* Set NCS for both modes */
 
   vscmFlashGetID(id, rspID, VSCM_SPI_MODE_BITBANG);
   if ((rspID[0] == FLASH_MFG_WINBOND) && \
@@ -125,7 +127,11 @@ vscmReloadFirmware(int id)
   }
   /* Delay to allow firmware to finish loading */
   printf("Reloading Firmware ... ");fflush(stdout);
+#ifdef VXWORKS
+  taskDelay(2*sysClkRateGet());
+#else
   sleep(2);
+#endif
   printf("Finished\n");
 }
 
@@ -437,3 +443,14 @@ vscmFirmware(char *filename, int slot)
 
   return;
 }
+
+#else /* dummy version*/
+
+void
+vscmFirmware_dummy()
+{
+  return;
+}
+
+#endif
+

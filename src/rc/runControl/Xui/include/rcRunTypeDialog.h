@@ -38,6 +38,9 @@
 class rcRunTypeOption;
 class XcodaErrorDialog;
 
+/*sergey*/
+class XcodaFileSelDialog;
+
 class rcRunTypeDialog: public XcodaFormDialog
 {
 public:
@@ -62,6 +65,7 @@ public:
   // class name
   virtual const char* className (void) const {return "rcRunTypeDialog";}
 
+
 protected:
   // implementation of this class required by super class of XcodaFormDialog
   void createFormChildren (void);
@@ -71,21 +75,45 @@ protected:
 
   // push button callbacks
   static void okCallback (Widget, XtPointer data, XmAnyCallbackStruct *);
-  static void cancelCallback (Widget, XtPointer data, XmAnyCallbackStruct *);
+
+  static void configCallback (Widget, XtPointer data, XmAnyCallbackStruct *);
 
   // send configure command to the server callback
   static void configureCallback (int status, void* arg, daqNetData* data);
 
+
+
+  /*sergey*/
+  void updateConfFile (char *fname);
+  void sendUpdateConfFile (char *fname);
+  static void simpleCallback (int status, void* arg, daqNetData* data);
+
+
+
+
 private:
+
   // network handler
   rcClientHandler& netHandler_;
+
   // option menu
   rcRunTypeOption* option_;
+
   // widget of pushbuttons
+
   // error dialog
   XcodaErrorDialog* errDialog_;
+
   // push button widgets
   Widget ok_;
-  Widget cancel_;
+  Widget config_;
+
+  /*sergey*/
+  // config file dialog
+  XcodaFileSelDialog* fileDialog_;
+
+
+
+
 };
 #endif

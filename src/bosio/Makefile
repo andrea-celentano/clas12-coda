@@ -36,7 +36,11 @@ ifneq ("$(OSTYPE)","Darwin")
   LIBNAMES += -lrt
 endif
 LIBNAMES += -lresolv
-LIBNAMES += $(CERNLIBS)
+
+ifneq ("$(MACHINE)","x86_64")
+  LIBNAMES += $(CERNLIBS)
+endif
+
 LIBNAMES += $(F77LIBS)
 LIBNAMES += $(SYSLIBS)
 ifeq ("$(OSTYPE)","Linux")

@@ -213,7 +213,6 @@ LINK_sized_write(int fd, unsigned int *buffer, unsigned long nbytes)
   char *buffer2 = (char *) buffer;
   unsigned long netlong;	/* network byte ordered length */
 
-
 /* timing */
 #ifdef VXWORKS
 unsigned long start, end, time1, time2;
@@ -231,6 +230,10 @@ static hrtime_t sum;
     printf("WARN: LINK_sized_write called with nbytes=%d - return(0)\n",nbytes);
     return(0);
   }
+
+/*
+bb_check(buffer);
+*/
 
   /* write header */
   netlong = htonl(nbytes);
@@ -639,60 +642,52 @@ usrNetStackDataPoolStatus(2);
     time2 += (end-start)/MYCLOCK;
 #endif
 
-if(nevent != 0 && icycle >= cycle)
-{
-  /*
-printf("net_thread: about to print\n");
-printf("net_thread: about to print\n");
-printf("net_thread: about to print\n");
-printf("net_thread: about to print\n");
-printf("net_thread: about to print\n");
-printf("net_thread: about to print: %d %d\n",nevent,icycle);
-printf("net_thread: about to print: %d %d\n",nevent,icycle);
-printf("net_thread: about to print: %d %d\n",nevent,icycle);
-  */
+    if(nevent != 0 && icycle >= cycle)
+    {
 #ifdef VXWORKS
-printf("net_thread:  waiting=%7lu    sending=%7lu microsec per event (nev=%d)\n",
-time1/nevent,time2/nevent,nevent/icycle);
+      printf("net_thread:  waiting=%7lu    sending=%7lu microsec per event (nev=%d)\n",
+        time1/nevent,time2/nevent,nevent/icycle);
 #else
-printf("net_thread:  waiting=%7llu    sending=%7llu microsec per event (nev=%d)\n",
-time1/nevent,time2/nevent,nevent/icycle);
+      printf("net_thread:  waiting=%7llu    sending=%7llu microsec per event (nev=%d)\n",
+        time1/nevent,time2/nevent,nevent/icycle);
 #endif
-nevent = icycle = time1 = time2 = 0;
-}
+      nevent = icycle = time1 = time2 = 0;
+    }
 
 
     /* exit the loop if 'End' condition was received */
     if(ifend == 1)
     {
       printf("net_thread: END condition received\n");fflush(stdout);
+      for(jj=0; jj<1/*0*/; jj++) {printf("NET_THREAD GOT END %d SEC\n",jj);sleep(1);}
       break;
     }
 
   } while(1);
 
-printf("roc_network +++++++++++++++++++++++++++++++++++++ 1\n");fflush(stdout);
+printf("roc_network cleanup +++++++++++++++++++++++++++++++++++++ 1\n");fflush(stdout);
+sleep(1);
 
 
   /* force 'big' buffer read/write methods to exit */
 #ifdef VXWORKS
 
 #ifdef PMCOFFSET
-    if(offset == 0) /* we are on host board */
-    {
-      bb_cleanup(&(bignetptr->gbigBuffer));
-    }
-    else            /* we are on pmc board */
-    {
-      bb_cleanup_pci(&(bignetptr->gbigBuffer));
-    }
-#else
+  if(offset == 0) /* we are on host board */
+  {
     bb_cleanup(&(bignetptr->gbigBuffer));
+  }
+  else            /* we are on pmc board */
+  {
+    bb_cleanup_pci(&(bignetptr->gbigBuffer));
+  }
+#else
+  bb_cleanup(&(bignetptr->gbigBuffer));
 #endif
 
 #else
 
-    bb_cleanup(&(bignetptr->gbigBuffer));
+  bb_cleanup(&(bignetptr->gbigBuffer));
 
 #endif
 

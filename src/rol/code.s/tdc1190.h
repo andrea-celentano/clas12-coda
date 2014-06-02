@@ -97,7 +97,7 @@ struct v1190_ROM_struct {
   /*0x4048*/ volatile unsigned short revis1;
   unsigned short blank18;
   /*0x404C*/ volatile unsigned short revis0;
-  unsigned short blank19[13];
+  unsigned short blank19[25];
   /*0x4080*/ volatile unsigned short sernum1;
   unsigned short blank20;
   /*0x4084*/ volatile unsigned short sernum2;
@@ -235,11 +235,15 @@ struct v1190_ROM_struct {
 #ifndef ERROR
 #define ERROR (-1)
 #endif
+
 /*
+#ifdef Linux_vme
 #ifndef VOIDFUNCPTR
 typedef void (*VOIDFUNCPTR) ();
 #endif
+#endif
 */
+
 /*sergey*/
 
 
@@ -311,14 +315,8 @@ STATUS tdc1190EnableChannel(int id, UINT16 channel);
 STATUS tdc1190DisableChannel(int id, UINT16 channel);
 STATUS tdc1190EnableAllChannels(int id);
 STATUS tdc1190DisableAllChannels(int id);
-
-/*sergey
-STATUS tdc1190EnableChannels(int id, UINT16 channel_mask);
-int    tdc1190GetChannels(int id);
-*/
 STATUS tdc1190EnableChannels(int id, UINT16 channels[8]);
 STATUS tdc1190GetChannels(int id, UINT16 channels[8]);
-
 
 int    tdc1190GetTDCError(int id, UINT16 ntdc);
 int    tdc1190GetTDCDLLLock(int id, UINT16 ntdc);
@@ -343,17 +341,24 @@ STATUS tdc1190SetBLTEventNumber(int id, UINT16 nevents);
 int    tdc1190GetBLTEventNumber(int id);
 
 /*LOCAL - rol does not like it !!??*/  void tdc1190Int (void);
+
+/*
 STATUS tdc1190IntConnect (VOIDFUNCPTR routine, int arg, UINT16 level, UINT16 vector);
 STATUS tdc1190IntEnable (int id, UINT16 evCnt);
 STATUS tdc1190IntDisable (int iflag);
-
+*/
+/*
 int    v1190IntConnect (VOIDFUNCPTR routine, int arg, UINT16 level, UINT16 vector);
 int    v1190IntEnable (int id, UINT16 evCnt);
 int    v1190IntDisable (int iflag);
+*/
 
 /*sergey*/
+void tdc1190SetDefaultWindowWidth(int width);
+void tdc1190SetDefaultWindowOffset(int offset);
 
-STATUS tdc1190Config(int options);
+STATUS tdc1190Config_obsolete(int options);
+STATUS tdc1190Config(char *fname);
 int tdc1190ReadBoard(int itdc, UINT32 *tdata);
 int tdc1190ReadBoardDmaStart(int ib, UINT32 *tdata);
 int tdc1190ReadBoardDmaDone(int ib);
@@ -362,3 +367,42 @@ int tdc1190ReadListStart(INT32 *tdcbuf, INT32 *rlenbuf);
 int tdc1190ReadDone();
 /*sergey*/
 
+
+/*S.P.start*/
+#define FNLEN     128       /* length of config. file name */
+#define STRLEN    250       /* length of str_tmp */
+#define ROCLEN     80       /* length of ROC_name */
+#define NBOARD     22
+#define NCHAN      16
+
+/** TDC1290 configuration parameters **/
+typedef struct {
+  int  group;
+  int  f_rev;
+  char SerNum[80];
+
+  int    edge;
+  UINT16 mask[8];
+
+} TDC1290_CONF;
+
+
+int tdc1190Type(int id);
+int tdc1190Slot(int id);
+int tdc1190Id(int slot);
+int tdc119GetBoardID(int id);
+int tdc119GetBoardRev(int id);
+int tdc119GetSerialNumber(int id);
+void tdc1190PrintROM(UINT32 addr_add, int loop);
+STATUS tdc1290EnableChannels(int id, UINT16 channel_mask[2]);
+int tdc1290GetChannels(int id, UINT16 channels[2]);
+
+int  tdc1290Config(char *fname);
+void tdc1290InitGlobals();
+int  tdc1290ReadConfigFile(char *filename);
+int  tdc1290DownloadAll();
+void tdc1190Mon(int slot);
+void tdc1290Mon(int slot);
+void tdc1290PrintDMAdataType(int dataType);
+void tdc1290PrintDMABerrFifo(int method);
+/*S.P.end*/

@@ -45,6 +45,7 @@
 #include <rcRunSInfoPanel.h>
 #include <rcRunDInfoPanel.h>
 #include <rcRunTypeDialog.h>
+//#include <rcRunConfigDialog.h>
 #include "rcInfoRunPanel.h"
 #include <rcMenuWindow.h>
 
@@ -57,6 +58,7 @@ rcInfoRunPanel::rcInfoRunPanel (Widget parent, char* name,
 #endif
 #if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   datafile_ = 0;
+  conffile_ = 0;
 #endif
 }
 
@@ -85,10 +87,10 @@ rcInfoRunPanel::init (void)
   Widget form = XtCreateWidget ("runPanelForm", xmFormWidgetClass,
 				_w, arg, ac);
 
+
+
   // create run type dialog first
-  runTypeDialog_ = new rcRunTypeDialog (form, "runTypeDialog",
-					"Run Type Configuration",
-					netHandler_);
+  runTypeDialog_ = new rcRunTypeDialog (form, "runTypeDialog", "Run Type Configuration", netHandler_);
   runTypeDialog_->init ();
   runTypeDialog_->setModal ();
 
@@ -116,6 +118,18 @@ rcInfoRunPanel::init (void)
 				    xmFrameWidgetClass,
 				    form, arg, ac);
   
+
+
+
+
+
+
+
+
+
+
+
+
   // create frame title
   ac = 0;
   XmString t;
@@ -138,24 +152,72 @@ rcInfoRunPanel::init (void)
   sinfoPanel_->init ();
 
   
+
+
+
+  
+
+
+
+
+
+  
   // Create and position at bottom of topForm a
-  // simple label showing the current data file name.
+  // simple label showing the current data file name
   ac = 0;
   XtSetArg (arg[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
   XtSetArg (arg[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
   XtSetArg (arg[ac], XmNrightAttachment, XmATTACH_FORM); ac++;
-  // XtSetArg (arg[ac], XmNrightAttachment, XmATTACH_POSITION); ac++;
-  // XtSetArg (arg[ac], XmNrightPosition, 40); ac++;
   XtSetArg (arg[ac], XmNshadowType, XmSHADOW_ETCHED_OUT); ac++;
-  Widget fnframe = XtCreateWidget ("datafn", xmFrameWidgetClass,
-		       topForm, arg, ac);
+  Widget fnframe = XtCreateWidget ("datafn", xmFrameWidgetClass, topForm, arg, ac);
   t = XmStringCreateSimple ("Data file name");
+
+  // 'Data file name' label with red frame
+  ac = 0;
+  XtSetArg (arg[ac], XmNlabelString, t); ac++;
+  XtSetArg (arg[ac], XmNchildType, XmFRAME_TITLE_CHILD); ac++;
+  Widget datalabel = XtCreateManagedWidget ("datafilelabel", xmLabelGadgetClass, fnframe, arg, ac);
+  XmStringFree (t);
+
+  // draws a box where data file name will be presented
+  ac = 0;
+  XtSetArg (arg[ac], XmNrecomputeSize, FALSE); ac++;
+  XtSetArg (arg[ac], XmNeditable, False); ac++;
+  XtSetArg (arg[ac], XmNheight, 20); ac++;
+  XtSetArg (arg[ac], XmNmarginHeight, 0); ac++;
+  XtSetArg (arg[ac], XmNmarginWidth, 0); ac++;
+  XtSetArg (arg[ac], XmNblinkRate, 0); ac++;
+  t = XmStringCreateSimple ("Unknown");
+  XtSetArg (arg[ac], XmNlabelString, t); ac++;
+  datafile_ = XtCreateManagedWidget ("datafilename", xmLabelWidgetClass, fnframe, arg, ac);
+  XmStringFree (t);
+
+
+
+
+
+
+
+
+
+  /* sergey: Config file box */
+  
+  // Create and position at bottom of topForm a
+  // simple label showing the current config file name
+  ac = 0;
+  /* sergey: 2 following line saying that new widget must be attached to the WIDGET fnframe */
+  XtSetArg (arg[ac], XmNtopAttachment, XmATTACH_WIDGET/*XmATTACH_FORM*/); ac++;
+  XtSetArg (arg[ac], XmNtopWidget, fnframe); ac++;
+  XtSetArg (arg[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
+  XtSetArg (arg[ac], XmNrightAttachment, XmATTACH_FORM); ac++;
+  XtSetArg (arg[ac], XmNshadowType, XmSHADOW_ETCHED_OUT); ac++;
+  Widget cnframe = XtCreateWidget ("datacn", xmFrameWidgetClass, topForm, arg, ac);
+  t = XmStringCreateSimple ("Config file name");
 
   ac = 0;
   XtSetArg (arg[ac], XmNlabelString, t); ac++;
   XtSetArg (arg[ac], XmNchildType, XmFRAME_TITLE_CHILD); ac++;
-  Widget datalabel = XtCreateManagedWidget ("datafilelabel", xmLabelGadgetClass,
-				     fnframe, arg, ac);
+  Widget conflabel = XtCreateManagedWidget ("conffilelabel", xmLabelGadgetClass, cnframe, arg, ac);
   XmStringFree (t);
 
   ac = 0;
@@ -167,34 +229,50 @@ rcInfoRunPanel::init (void)
   XtSetArg (arg[ac], XmNblinkRate, 0); ac++;
   t = XmStringCreateSimple ("Unknown");
   XtSetArg (arg[ac], XmNlabelString, t); ac++;
-
-  datafile_ = XtCreateManagedWidget ("datafilename", xmLabelWidgetClass,
-				     fnframe, arg, ac);
+  conffile_ = XtCreateManagedWidget ("conffilename", xmLabelWidgetClass, cnframe, arg, ac);
   XmStringFree (t);
 
-  // Position status panel, 
+
+
+
+
+
+
+  
+  // event rate histogram
   ac = 0;
   XtSetArg (arg[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
-  XtSetArg (arg[ac], XmNtopWidget, fnframe); ac++;
+  XtSetArg (arg[ac], XmNtopWidget, cnframe); ac++;
   XtSetArg (arg[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
   XtSetArg (arg[ac], XmNrightAttachment, XmATTACH_POSITION); ac++;
   XtSetArg (arg[ac], XmNrightPosition, 40); ac++;
-  //XtSetArg (arg[ac], XmNheight, 100); ac++;
   XtSetArg (arg[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
-  //XtSetArg (arg[ac], XmNbottomAttachment, XmATTACH_WIDGET); ac++;
-  //XtSetArg (arg[ac], XmNbottomWidget, fnframe); ac++;
-  //XtSetValues (statusPanel_->baseWidget(), arg, ac);
-  statusPanel_ = XtCreateManagedWidget ("statuspanel", xmFrameWidgetClass,
-				     topForm, arg, ac);
-
+  statusPanel_ = XtCreateManagedWidget ("statuspanel", xmFrameWidgetClass, topForm, arg, ac);
+  
   ac = 0;
   XtSetArg (arg[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
-  XtSetArg (arg[ac], XmNtopWidget, fnframe); ac++;
+  XtSetArg (arg[ac], XmNtopWidget, cnframe); ac++;
   XtSetArg (arg[ac], XmNleftAttachment, XmATTACH_POSITION); ac++;
   XtSetArg (arg[ac], XmNleftPosition, 40); ac++;
   XtSetArg (arg[ac], XmNrightAttachment, XmATTACH_FORM); ac++;
   XtSetArg (arg[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
   XtSetValues (sinfoPanel_->baseWidget(), arg, ac);
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -205,7 +283,7 @@ rcInfoRunPanel::init (void)
 
 
 
-  /* sergey: !!! if commented out, 'Run Progress' is not shown, but statustic is big !!!*/
+  /* sergey: !!! if commented out, 'Run Progress' is not shown, but statistic is big !!!*/
   XtSetArg (arg[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
 
 
@@ -213,7 +291,6 @@ rcInfoRunPanel::init (void)
   XtSetArg (arg[ac], XmNtopWidget, sessStatFrame); ac++;
   XtSetArg (arg[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
   XtSetArg (arg[ac], XmNrightAttachment, XmATTACH_FORM); ac++;
-  //XtSetArg (arg[ac], XmNheight, 100); ac++;
   XtSetArg (arg[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
   XtSetValues (dinfoPanel_->baseWidget(), arg, ac);
   ac = 0;
@@ -225,8 +302,13 @@ rcInfoRunPanel::init (void)
   installDestroyHandler ();
 
   // manage all widgets except top widget
-  XtManageChild (datalabel);
+  /*XtManageChild (datalabel);*/
+
   XtManageChild (fnframe);
+
+  /*sergey*/
+  XtManageChild (cnframe);
+
   XtManageChild (topForm);
   XtManageChild (sessStatFrame);
   XtManageChild (form);
@@ -245,8 +327,9 @@ rcInfoRunPanel::anaLogChanged (daqNetData* info, int added)
 {
   //statusPanel_->anaLogChanged (info, added);
 #if defined (_CODA_2_0_T) || defined (_CODA_2_0)
-  if (datafile_ != 0) 
-    updateDataFileLabel ();
+  if (datafile_ != 0) updateDataFileLabel ();
+  /*sergey*/
+  if (conffile_ != 0) updateConfFileLabel ();
 #endif
 }
 
@@ -258,12 +341,16 @@ rcInfoRunPanel::manage (void)
   sinfoPanel_->manage ();
   dinfoPanel_->manage ();
   runTypeDialog_->startMonitoringRunTypes ();
+/*
+  runConfigDialog_->startMonitoringRunConfigs ();
+*/
 
 #if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   // check whether a data file name already presented, so update
   // file name on the label
-  if (datafile_ != 0)
-    updateDataFileLabel ();
+  if (datafile_ != 0) updateDataFileLabel ();
+  /*sergey*/
+  if (conffile_ != 0) updateConfFileLabel ();
 #endif
 }
 
@@ -274,6 +361,9 @@ rcInfoRunPanel::unmanage (void)
   sinfoPanel_->unmanage ();
   dinfoPanel_->unmanage ();
   runTypeDialog_->endMonitoringRunTypes ();
+/*
+  runConfigDialog_->endMonitoringRunConfigs ();
+*/
   XcodaUi::unmanage ();
 }
 
@@ -289,6 +379,14 @@ rcInfoRunPanel::runTypeDialog (void)
 {
   return runTypeDialog_;
 }
+
+/*
+rcRunConfigDialog*
+rcInfoRunPanel::runConfigDialog (void)
+{
+  return runConfigDialog_;
+}
+*/
 
 void
 rcInfoRunPanel::zoomOnEventInfo (void)
@@ -310,18 +408,13 @@ rcInfoRunPanel::updateDataFileLabel (void)
   int ac = 0;
   XmString t;
   
+#ifdef _CODA_DEBUG
+  printf("updateDataFileLabel reached\n");fflush(stdout);
+#endif
   char *filename = netHandler_.datalogFile ();
   if (filename && ::strcmp (filename, "unknown") != 0) {
     char *s = 0;
-    //    if ((s = ::strrchr (filename, '/')) != 0) {
-    //  s++;
-    //  if (::strlen (s) > 0) 
-    //	t = XmStringCreateSimple (s);
-    // else
-    //t = XmStringCreateSimple ("   ");
-    //    }
-    //else
-      t = XmStringCreateSimple (filename);
+    t = XmStringCreateSimple (filename);
   }
   else
     t = XmStringCreateSimple ("   ");
@@ -331,5 +424,49 @@ rcInfoRunPanel::updateDataFileLabel (void)
   ac = 0;
   XmStringFree (t);
 }
+
+
+
+
+/*sergey*/
+void
+rcInfoRunPanel::updateConfFileLabel (void)
+{
+  Arg arg[10];
+  int ac = 0;
+  XmString t;
+
+#ifdef _CODA_DEBUG
+  printf("!!!!!!!!!!!!!!!!!!! updateConfFileLabel reached\n");fflush(stdout);
+#endif
+
+/*updating database ??? does not do that ...
+
+  rcClient& client = netHandler_.clientHandler ();
+  if (client.setValueCallback (da,  (rcCallback)&(rcInfoRunPanel::setValueCallback), (void *)0) != CODA_SUCCESS)
+  {
+	err = 1;
+  }
+*/
+
+  char *filename = netHandler_.conflogFile ();
+  if (filename && ::strcmp (filename, "unknown") != 0)
+  {
+    t = XmStringCreateSimple (filename);
+  }
+  else
+  {
+    t = XmStringCreateSimple ("   ");
+  }
+#ifdef _CODA_DEBUG
+  printf("updateConfFileLabel: conflogFile >%s<\n",filename);fflush(stdout);
+#endif
+  XtSetArg (arg[ac], XmNlabelString, t); ac++;
+  XtSetValues (conffile_, arg, ac);
+  ac = 0;
+  XmStringFree (t);
+
+}
+
 #endif
 

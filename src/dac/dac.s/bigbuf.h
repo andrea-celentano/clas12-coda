@@ -19,14 +19,10 @@ typedef struct bigbuf
 
   /* locks and conditions */
 #ifdef VXWORKS
-  SEM_ID read_lock;
-  SEM_ID write_lock;
+  SEM_ID bb_lock;
 #else
-  pthread_mutex_t read_lock;   /* lock the structure */
-  pthread_cond_t read_cond;    /* full <-> not full condition */
-
-  pthread_mutex_t write_lock;  /* lock the structure */
-  pthread_cond_t write_cond;   /* empty <-> notempty condition */
+  pthread_mutex_t bb_lock;   /* lock the structure */
+  /*pthread_cond_t bb_cond;*/    /* full <-> not full condition */
 #endif
 
   int cleanup;

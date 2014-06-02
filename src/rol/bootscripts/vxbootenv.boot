@@ -9,6 +9,9 @@ envGetRemote("EXPID",0,0)
 # get CLON env vars from Unix
 envGetRemote("CLON_PARMS",0,0)
 
+# get CLAS env vars from Unix
+envGetRemote("CLAS",0,0)
+
 # for mysql, coda, cmlog
 #notgoodforiocon167putenv "MYSQL_HOST=clondb1-daq1"
 putenv "MYSQL_HOST=clondb1"

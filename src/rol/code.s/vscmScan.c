@@ -9,8 +9,7 @@
 
 #ifndef VXWORKS
 #include "jvme.h"
-
-extern volatile struct VSCM_regs *VSCMpr[VSCM_MAX_BOARDS + 1];
+#endif
 
 typedef struct {
   unsigned int amp;
@@ -86,7 +85,7 @@ fssrGainScan(int id, char *filename, \
 
     if(filename)
     {
-      sprintf(fname,"%s_sl%02d_u%1d", filename, id, ((ichip % 4) + 1));
+      sprintf(fname,"%s_u%1d_s%02dc%1d", filename, ((ichip % 4) + 1), id, ((ichip > 3) ? 2 : 1));
       if( (fd = fopen(fname, "w")) <= NULL )
       {
         logMsg("ERROR: %s: Opening file: %s\n", __func__, fname);
@@ -118,23 +117,23 @@ fssrGainScan(int id, char *filename, \
 
       fssrKillMaskDisableAll(id, ichip);
       fssrInjectMaskDisableAll(id, ichip);
-      printf("[%d] Chan: ",id);
+	  /*      printf("[%d] Chan: ",id);*/
 
       for (j = 0; j < chan_mult; j++)
       {
         ich = i + (j * (128 / chan_mult));
-        printf("%d ", ich);
+		/*        printf("%d ", ich);*/
         fssrKillMaskEnableSingle(id, ichip, ich);
         fssrInjectMaskEnableSingle(id, ichip, ich);
       }
-      printf("\n");
+	  /*      printf("\n"); fflush(stdout);*/
 
       for (a = 0; a < steps; a++)
       {
         amp = start_amp + (a * step_amp);
         thr = start_thr;
         zero_count = 0;
-        printf("[%d] Amp: %d Start: %d\n",id, amp, thr);
+		/*        printf("[%d] Amp: %d Start: %d\n",id, amp, thr); fflush(stdout);*/
 
         vscmPulser(id, ((ichip > 3) ? 2 : 1), amp, (int)(min_hits / 0.99));
 
@@ -237,6 +236,8 @@ fssrGainScan(int id, char *filename, \
 
 
 
+
+#ifndef VXWORKS
 
 typedef struct {
   unsigned int triggers;
@@ -343,13 +344,8 @@ vscmParseFIFO(DMANODE* event, FILE *f)
   }
   return cnt;
 }
+
 #endif
-
-
-
-
-
-
 
 
 
@@ -438,9 +434,9 @@ fssrThresholdScan(int id, char *filename, \
         vscmReadStripScalers(id, ichip, scaler);
 
 #ifdef DEBUG
-        ref = (float)vmeRead32(&VSCMpr[id]->Fssr[ichip].ScalerRef);
+        ref = (float)fssrReadScalerRef(id, ichip);
         ratio = (scaler[ich]) / (ref * (float)pulser_rate / VSCM_SYS_CLK);
-        gothitref = vmeRead32(&VSCMpr[id]->Fssr[ichip].ScalerGotHit);
+        gothitref = fssrReadScalerGotHit(id, ichip);
         printf("chp=%d chn=%3d thr=%3d scaler=%7d ghit=%7d ref=%.0f -> ratio=%.1f\n", \
                 ichip, ich, thr, scaler[ich], gothitref, ref, ratio);
         fflush(stdout);
@@ -552,8 +548,7 @@ vscmScalerDelayTest(int id, int ticks, int loop)
     return;
 
   for (c = 0; c < loop; c++) {
-//    vscmLatchScalers(id);
-    vmeWrite32(&VSCMpr[id]->ScalerLatch, 1<<31);
+	vscmLatchScalers(id);
     /* Gather data by sleeping */
 #ifdef VXWORKS
     taskDelay(ticks);
@@ -561,9 +556,8 @@ vscmScalerDelayTest(int id, int ticks, int loop)
     nanosleep(&ts, NULL);
 #endif
 
-//    vscmLatchScalers(id);
-    vmeWrite32(&VSCMpr[id]->ScalerLatch, 1<<31);
-    ref = vmeRead32(&VSCMpr[id]->ScalerVmeClk);
+	vscmLatchScalers(id);
+    ref = vscmReadVmeClk(id);
 
     printf("%u\n", ref);
   }
@@ -587,15 +581,9 @@ fssrChipIDTest(int id, int chip)
   if (vscmIsNotInit(&id, __func__))
     return 1;
 
-  // Only use the lower 3 bits i.e. Chip ID wire bonds
-  if (chip >=0 && chip <= 3) {
-    addr = vmeRead32(&VSCMpr[id]->FssrAddrH1) >> (chip * 8) & 7;
-  } 
-  else if (chip >= 4 && chip <= 7) {
-    addr = vmeRead32(&VSCMpr[id]->FssrAddrH2) >> ((chip - 4) * 8) & 7;
-  }
+  addr = fssrGetChipID(id, chip);
 
-  // Make sure that the VSCM register has been set
+  /* Make sure that the VSCM register has been set */
   if (addr == 0) {
     printf("ERROR: %s: Need to set Chip ID register first\n", __func__);
     return 1;
@@ -605,7 +593,7 @@ fssrChipIDTest(int id, int chip)
   fssrMasterReset(id);
   fssrSetActiveLines(id, chip, FSSR_ALINES_1);
   vscmEnableChipScaler(id, chip);
-  // Latch once to clear scalers
+  /* Latch once to clear scalers */
   vscmLatchChipScaler(id, chip);
 #ifdef VXWORKS
   taskDelay(ticks);
@@ -614,14 +602,14 @@ fssrChipIDTest(int id, int chip)
 #endif
   vscmLatchChipScaler(id, chip);
 
-  // First make sure we actually got some new status words
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerStatusWord);
+  /* First make sure we actually got some new status words */
+  res = fssrReadScalerStatusWord(id, chip);
   if (res < 1) {
     printf("%sFAIL%s - No status words\n", "\x1B[1;31m", "\x1B[0m");
     return 1;
   }
-  // Now check the status word
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastStatusWord);
+  /* Now check the status word */
+  res = fssrReadLastStatusWord(id, chip);
   if (addr != (((res >> 14) & 7))) {
     printf("%sFAIL%s - Expected ", "\x1B[1;31m", "\x1B[0m");
     printf("%d got ", addr);
@@ -781,8 +769,8 @@ fssrDiffLineTest(int id, int chip)
   if (vscmIsNotInit(&id, __func__))
     return 1;
 
-  // Check Output Clock by counting number of words
-  // Note that this could fail due to Out1 being bad
+  /* Check Output Clock by counting number of words */
+  /* Note that this could fail due to Out1 being bad */
   printf("%-11s ... ", "OutClk");
   fssrSetActiveLines(id, chip, FSSR_ALINES_1);
   vscmLatchScalers(id); 
@@ -795,9 +783,9 @@ fssrDiffLineTest(int id, int chip)
 #endif
   vscmDisableChipScaler(id, chip);	
 
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerWords);
-  ref = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerRef);
-  // 70e6 = MCLK rate, 12.0 factor comes from using 1 output line
+  res = fssrReadScalerWords(id, chip);
+  ref = fssrReadScalerRef(id, chip);
+  /* 70e6 = MCLK rate, 12.0 factor comes from using 1 output line */
   if ((int)(res - ((double)ref / VSCM_SYS_CLK * (70e6 / 12.0))) != 0) {
     printf("%sFAIL%s\n", "\x1B[1;31m", "\x1B[0m");
     bad |= 1;
@@ -805,8 +793,8 @@ fssrDiffLineTest(int id, int chip)
   else
     printf("%sok%s\n", "\x1B[1;32m", "\x1B[0m");
 
-  // Check MasterReset by setting regsiter 3 to 0xFF then
-  // verifiying is default value (139) after reset
+  /* Check MasterReset by setting regsiter 3 to 0xFF then */
+  /* verifiying is default value (139) after reset */
   printf("%-11s ... ", "MasterReset");
   fssrTransfer(id, chip, 3, FSSR_CMD_SET, 1, NULL);
   fssrMasterReset(id);
@@ -818,10 +806,10 @@ fssrDiffLineTest(int id, int chip)
   else
     printf("%sok%s\n", "\x1B[1;32m", "\x1B[0m");
 
-  // Check GotHit and CoreTalking debug lines by first setting 
-  // threshold to max so that there should be 0 hits on both.
-  // Next lower threshold slightly and inject 1000 pulses (300mV)
-  // and check that both counts are within 0.5% (to allow for noise)
+  /* Check GotHit and CoreTalking debug lines by first setting  */
+  /* threshold to max so that there should be 0 hits on both. */
+  /* Next lower threshold slightly and inject 1000 pulses (300mV) */
+  /* and check that both counts are within 0.5% (to allow for noise) */
   vscmLatchScalers(id); 
   vscmLatchChipScaler(id, chip);	
   fssrSetControl(id, chip, 0x1F);
@@ -833,10 +821,10 @@ fssrDiffLineTest(int id, int chip)
 
   fssrSetThreshold(id, chip, 0, 255);
   vscmDisableChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerGotHit);
+  res = fssrReadScalerGotHit(id, chip);
   if (res != 0)
     tstat1 |= 1;
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerCoreTalking);
+  res = fssrReadScalerCoreTalking(id, chip);
   if (res != 0)
     tstat2 |= 1;
  
@@ -852,7 +840,7 @@ fssrDiffLineTest(int id, int chip)
 #endif
   vscmDisableChipScaler(id, chip);	
   printf("%-11s ... ", "GotHit");
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerGotHit);
+  res = fssrReadScalerGotHit(id, chip);
   if ((res > 1005 || res < 995) || tstat1) {
     printf("%sFAIL%s\n", "\x1B[1;31m", "\x1B[0m");
     bad |= 1;
@@ -861,7 +849,7 @@ fssrDiffLineTest(int id, int chip)
     printf("%sok%s\n", "\x1B[1;32m", "\x1B[0m");
 
   printf("%-11s ... ", "CoreTalking");
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerCoreTalking);
+  res = fssrReadScalerCoreTalking(id, chip);
   if ((res > 1005 || res < 995) || tstat2) {
     printf("%sFAIL%s\n", "\x1B[1;31m", "\x1B[0m");
     bad |= 1;
@@ -870,24 +858,24 @@ fssrDiffLineTest(int id, int chip)
     printf("%sok%s\n", "\x1B[1;32m", "\x1B[0m");
 
   tstat1 = 0;
-  // Check output line 6 via status word, it has bits 23-20
-  // bit 23 - SendData (register 19)
-  // bit 22 - RejectHits (register 20)
-  // bit 21 - output lines MSB (register 16)
-  // bit 20 - output lines LSB
-  // Only check top two bits (0b1100) of status word
+  /* Check output line 6 via status word, it has bits 23-20 */
+  /* bit 23 - SendData (register 19) */
+  /* bit 22 - RejectHits (register 20) */
+  /* bit 21 - output lines MSB (register 16) */
+  /* bit 20 - output lines LSB */
+  /* Only check top two bits (0b1100) of status word */
   printf("%-11s ... ", "Out6");
   fssrMasterReset(id);
   fssrSetActiveLines(id, chip, FSSR_ALINES_6);
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastStatusWord);
+  res = fssrReadLastStatusWord(id, chip);
   if (((res >> 20) & 0xC) != 4)
     tstat1 = 1;
   fssrRejectHits(id, chip, 0);
   fssrSCR(id, chip);
   fssrSendData(id, chip, 1);  
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastStatusWord);
+  res = fssrReadLastStatusWord(id, chip);
   if (((res >> 20) & 0xC) != 8 || tstat1) {
     printf("%sFAIL%s\n", "\x1B[1;31m", "\x1B[0m");
     bad |= 1;
@@ -896,23 +884,23 @@ fssrDiffLineTest(int id, int chip)
     printf("%sok%s\n", "\x1B[1;32m", "\x1B[0m");
 
   tstat1 = 0;
-  // Check output line 5 via status word, it has bits 19-16
-  // bit 19 - AqBCO
-  // bit 18 - Mod255 (bit 4 of register 27)
-  // bit 17 - Pulser Active (register 2)
-  // bit 16 - Chip ID MSB
-  // Only check middle two bits (0b0110) of status word
+  /* Check output line 5 via status word, it has bits 19-16 */
+  /* bit 19 - AqBCO */
+  /* bit 18 - Mod255 (bit 4 of register 27) */
+  /* bit 17 - Pulser Active (register 2) */
+  /* bit 16 - Chip ID MSB */
+  /* Only check middle two bits (0b0110) of status word */
   printf("%-11s ... ", "Out5");
   fssrMasterReset(id);
   fssrSetActiveLines(id, chip, FSSR_ALINES_6);
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastStatusWord);
+  res = fssrReadLastStatusWord(id, chip);
   if (((res >> 16) & 6) != 0)
     tstat1 = 1;
-  fssrSetControl(id, chip, (1 << 4)); // Set bit 18
-  fssrInternalPulserEnable(id, chip); // Set bit 17
+  fssrSetControl(id, chip, (1 << 4)); /* Set bit 18 */
+  fssrInternalPulserEnable(id, chip); /* Set bit 17 */
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastStatusWord);
+  res = fssrReadLastStatusWord(id, chip);
   if (((res >> 16) & 6) != 6 || tstat1) {
     printf("%sFAIL%s\n", "\x1B[1;31m", "\x1B[0m");
     bad |= 1;
@@ -921,11 +909,11 @@ fssrDiffLineTest(int id, int chip)
     printf("%sok%s\n", "\x1B[1;32m", "\x1B[0m");
 
   tstat1 = 0;
-  // Check output line 4 via data word, it has bits 15-12
-  // bit 15 - Logic Set - bit 3
-  // bit 14 - Logic Set - bit 2
-  // bit 13 - Logic Set - bit 1
-  // bit 12 - Logic Set - bit 0
+  /* Check output line 4 via data word, it has bits 15-12 */
+  /* bit 15 - Logic Set - bit 3 */
+  /* bit 14 - Logic Set - bit 2 */
+  /* bit 13 - Logic Set - bit 1 */
+  /* bit 12 - Logic Set - bit 0 */
   printf("%-11s ... ", "Out4");
   fssrMasterReset(id);
   fssrSetControl(id, chip, 0x1F);
@@ -935,7 +923,7 @@ fssrDiffLineTest(int id, int chip)
   fssrSendData(id, chip, 1);
   vscmFifoClear(id);
 
-  // First select channel 4 which has column set: 0b01010 = 10
+  /* First select channel 4 which has column set: 0b01010 = 10 */
   fssrSetThreshold(id, chip, 0, 200);
   vscmPulser(id, ((chip > 3) ? 2 : 1), 300, 1000);
   fssrKillMaskDisableAll(id, chip);
@@ -949,11 +937,11 @@ fssrDiffLineTest(int id, int chip)
   nanosleep(&ts, NULL);
 #endif
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastDataWord);
+  res = fssrReadLastDataWord(id, chip);
   if (((res >> 12) & 0x1F) != 10)
     tstat1 = 1;
 
-  // Next select channel 77 which has column set: 0b10101 = 21
+  /* Next select channel 77 which has column set: 0b10101 = 21 */
   fssrKillMaskDisableAll(id, chip);
   fssrKillMaskEnableSingle(id, chip, 77);
   fssrInjectMaskDisableAll(id, chip);
@@ -965,7 +953,7 @@ fssrDiffLineTest(int id, int chip)
   nanosleep(&ts, NULL);
 #endif
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastDataWord);
+  res = fssrReadLastDataWord(id, chip);
   if (((res >> 12) & 0x1F) != 21 || tstat1) {
     printf("%sFAIL%s\n", "\x1B[1;31m", "\x1B[0m");
     bad |= 1;
@@ -974,11 +962,11 @@ fssrDiffLineTest(int id, int chip)
     printf("%sok%s\n", "\x1B[1;32m", "\x1B[0m");
 
   tstat1 = tstat2 = 0;
-  // Check output line 3 via data word, it has bits 11-8 
-  // bit 11 - BCO # - bit 8
-  // bit 10 - BCO # - bit 7
-  // bit  9 - BCO # - bit 6
-  // bit  8 - BCO # - bit 5
+  /* Check output line 3 via data word, it has bits 11-8  */
+  /* bit 11 - BCO # - bit 8 */
+  /* bit 10 - BCO # - bit 7 */
+  /* bit  9 - BCO # - bit 6 */
+  /* bit  8 - BCO # - bit 5 */
   printf("%-11s ... ", "Out3");
   fssrMasterReset(id);
   fssrSetControl(id, chip, 0x1F);
@@ -990,14 +978,14 @@ fssrDiffLineTest(int id, int chip)
 
   fssrSetThreshold(id, chip, 0, 200);
   vscmPulser(id, ((chip > 3) ? 2 : 1), 300, 1000);
-  // +5 to move to next BCO and +8 to center pulse
+  /* +5 to move to next BCO and +8 to center pulse */
   vscmPulserDelay(id, 13);
   fssrKillMaskDisableAll(id, chip);
   fssrKillMaskEnableSingle(id, chip, 87);
   fssrInjectMaskDisableAll(id, chip);
   fssrInjectMaskEnableSingle(id, chip, 87);
 
-  // First sync to BCO 0
+  /* First sync to BCO 0 */
   vscmPulserBCOSync(id, 0, 1);
   vscmPulserStart(id);
 #ifdef VXWORKS
@@ -1006,11 +994,11 @@ fssrDiffLineTest(int id, int chip)
   nanosleep(&ts, NULL);
 #endif
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastDataWord);
+  res = fssrReadLastDataWord(id, chip);
   if (((res >> 4) & 0xF0) != 0)
     tstat1 = 1;
 
-  // Next sync to BCO 80 (0b0101xxxx)
+  /* Next sync to BCO 80 (0b0101xxxx) */
   vscmPulserBCOSync(id, 80, 1);
   vscmPulserStart(id);
 #ifdef VXWORKS
@@ -1019,11 +1007,11 @@ fssrDiffLineTest(int id, int chip)
   nanosleep(&ts, NULL);
 #endif
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastDataWord);
+  res = fssrReadLastDataWord(id, chip);
   if (((res >> 4) & 0xF0) != 80)
     tstat2 = 1;
 
-  // Finally sync to BCO 160 (0b1010xxxx)
+  /* Finally sync to BCO 160 (0b1010xxxx) */
   vscmPulserBCOSync(id, 160, 1);
   vscmPulserStart(id);
 #ifdef VXWORKS
@@ -1032,7 +1020,7 @@ fssrDiffLineTest(int id, int chip)
   nanosleep(&ts, NULL);
 #endif
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastDataWord);
+  res = fssrReadLastDataWord(id, chip);
   if (((res >> 4) & 0xF0) != 160 || tstat1 || tstat2) {
     printf("%sFAIL%s\n", "\x1B[1;31m", "\x1B[0m");
     bad |= 1;
@@ -1041,11 +1029,11 @@ fssrDiffLineTest(int id, int chip)
     printf("%sok%s\n", "\x1B[1;32m", "\x1B[0m");
 
   tstat1 = tstat2 = 0;
-  // Check output line 2 via data word, it has bits 7-4 
-  // bit 7 - BCO # - bit 4
-  // bit 5 - BCO # - bit 3
-  // bit 5 - BCO # - bit 2
-  // bit 4 - BCO # - bit 1
+  /* Check output line 2 via data word, it has bits 7-4  */
+  /* bit 7 - BCO # - bit 4 */
+  /* bit 5 - BCO # - bit 3 */
+  /* bit 5 - BCO # - bit 2 */
+  /* bit 4 - BCO # - bit 1 */
   printf("%-11s ... ", "Out2");
   fssrMasterReset(id);
   fssrSetControl(id, chip, 0x1F);
@@ -1057,15 +1045,15 @@ fssrDiffLineTest(int id, int chip)
 
   fssrSetThreshold(id, chip, 0, 200);
   vscmPulser(id, ((chip > 3) ? 2 : 1), 300, 1000);
-  // +5 to move to next BCO and +8 to center pulse
-  // Will need to subtract 2 from BCO number
+  /* +5 to move to next BCO and +8 to center pulse */
+  /* Will need to subtract 2 from BCO number */
   vscmPulserDelay(id, 13);
   fssrKillMaskDisableAll(id, chip);
   fssrKillMaskEnableSingle(id, chip, 87);
   fssrInjectMaskDisableAll(id, chip);
   fssrInjectMaskEnableSingle(id, chip, 87);
 
-  // First sync to BCO 0
+  /* First sync to BCO 0 */
   vscmPulserBCOSync(id, 0, 1);
   vscmPulserStart(id);
 #ifdef VXWORKS
@@ -1074,11 +1062,11 @@ fssrDiffLineTest(int id, int chip)
   nanosleep(&ts, NULL);
 #endif
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastDataWord);
+  res = fssrReadLastDataWord(id, chip);
   if ((((res >> 4) & 0xF) - 2) != 0)
     tstat1 = 1;
 
-  // Next sync to BCO 5 (0bxxxx0101)
+  /* Next sync to BCO 5 (0bxxxx0101) */
   vscmPulserBCOSync(id, 5, 1);
   vscmPulserStart(id);
 #ifdef VXWORKS
@@ -1087,11 +1075,11 @@ fssrDiffLineTest(int id, int chip)
   nanosleep(&ts, NULL);
 #endif
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastDataWord);
+  res = fssrReadLastDataWord(id, chip);
   if ((((res >> 4) & 0xF) - 2) != 5)
     tstat2 = 1;
 
-  // Finally sync to BCO 10 (0bxxxx1010)
+  /* Finally sync to BCO 10 (0bxxxx1010) */
   vscmPulserBCOSync(id, 10, 1);
   vscmPulserStart(id);
 #ifdef VXWORKS
@@ -1100,7 +1088,7 @@ fssrDiffLineTest(int id, int chip)
   nanosleep(&ts, NULL);
 #endif
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastDataWord);
+  res = fssrReadLastDataWord(id, chip);
   if ((((res >> 4) & 0xF) - 2) != 10 || tstat1 || tstat2) {
     printf("%sFAIL%s\n", "\x1B[1;31m", "\x1B[0m");
     bad |= 1;
@@ -1109,11 +1097,11 @@ fssrDiffLineTest(int id, int chip)
     printf("%sok%s\n", "\x1B[1;32m", "\x1B[0m");
 
   tstat1 = 0;
-  // Check output line 1 via data word, it has bits 3-0
-  // bit 3 - fADC - bit 3
-  // bit 2 - fADC - bit 2
-  // bit 1 - fADC - bit 1
-  // bit 0 - Word Mark
+  /* Check output line 1 via data word, it has bits 3-0 */
+  /* bit 3 - fADC - bit 3 */
+  /* bit 2 - fADC - bit 2 */
+  /* bit 1 - fADC - bit 1 */
+  /* bit 0 - Word Mark */
   printf("%-11s ... ", "Out1");
   fssrMasterReset(id);
   fssrSetControl(id, chip, 0x10);
@@ -1125,7 +1113,7 @@ fssrDiffLineTest(int id, int chip)
 
   fssrSetThreshold(id, chip, 0, 100);
   vscmPulser(id, ((chip > 3) ? 2 : 1), 300, 1000);
-  // Disable Pulser Delay and BCO Sync from previous output checks
+  /* Disable Pulser Delay and BCO Sync from previous output checks */
   vscmPulserDelay(id, 0);
   vscmPulserBCOSync(id, 0, 0);
   fssrKillMaskDisableAll(id, chip);
@@ -1133,7 +1121,7 @@ fssrDiffLineTest(int id, int chip)
   fssrInjectMaskDisableAll(id, chip);
   fssrInjectMaskEnableSingle(id, chip, 87);
 
-  // All fADC discriminators are at 255 after reset, fADC should = 0
+  /* All fADC discriminators are at 255 after reset, fADC should = 0 */
   vscmPulserStart(id);
 #ifdef VXWORKS
   taskDelay(ticks);
@@ -1141,11 +1129,11 @@ fssrDiffLineTest(int id, int chip)
   nanosleep(&ts, NULL);
 #endif
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastDataWord);
+  res = fssrReadLastDataWord(id, chip);
   if (((res >> 1) & 7) != 0)
     tstat1 = 1;
 
-  // Set all fADC discriminators to 0, fADC should = 7
+  /* Set all fADC discriminators to 0, fADC should = 7 */
   for (i = 1; i < 8; i++) {
     fssrSetThreshold(id, chip, i, 0);
   }
@@ -1156,7 +1144,7 @@ fssrDiffLineTest(int id, int chip)
   nanosleep(&ts, NULL);
 #endif
   vscmLatchChipScaler(id, chip);
-  res = vmeRead32(&VSCMpr[id]->Fssr[chip].LastDataWord);
+  res = fssrReadLastDataWord(id, chip);
   if (((res >> 1) & 7) != 7 || tstat1) {
     printf("%sFAIL%s\n", "\x1B[1;31m", "\x1B[0m");
     bad |= 1;

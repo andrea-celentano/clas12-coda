@@ -26,17 +26,14 @@
 #define SYNC()		{ __asm__ volatile("eieio"); __asm__ volatile("sync"); }
 #define VSCMLOCK
 #define VSCMUNLOCK
-uint32_t
-vmeRead32(volatile uint32_t *addr)
-{
-	return *addr;
-}
 
+/*defined in all_rocs.c
+uint32_t
+vmeRead32(volatile uint32_t *addr) {return *addr;}
 void
-vmeWrite32(volatile uint32_t *addr, uint32_t val)
-{
-	*addr = val;
-}
+vmeWrite32(volatile uint32_t *addr, uint32_t val) {*addr = val;}
+*/
+
 #else
 
 #define SYNC()
@@ -138,20 +135,21 @@ vscmConfigDownload(int id, char *fname)
     return -1;
 
   if ((fd = fopen(fname,"r")) == NULL) {
-    printf("VSCM_ConfigDownload: Can't open config file >%s<\n",fname);
+    printf("[%d] VSCM_ConfigDownload: Can't open config file >%s<\n",id,fname);
     return -1;
   }
 
   nval = 0;
-  while ((ch = fgets(str, STRLEN, fd)) != NULL) {
-/*	printf(">%s< %d\n",str,strlen(ch)); */
+  while ((ch = fgets(str, STRLEN, fd)) != NULL)
+  {
+	/*printf(">%s< %d\n",str,strlen(ch));*/
     if (ch[0] == '#' || ch[0] == ' ' || ch[0] == '\t' || \
         ch[0] == '\n' || ch[0] == '\r') {
       continue;
     }
     else {
       sscanf(str,"%30s", keyword);
-/*      printf("keyword >%s<\n", keyword); */
+      printf("[%d] keyword >%s<\n",id,keyword);
 
 /*0        0        20*/
 /*
@@ -163,7 +161,7 @@ vscmConfigDownload(int id, char *fname)
       }
 */
       if (!strcmp(keyword,"VSCM_CLOCK_EXTERNAL")) {
-        printf("External clock for slot %d\n",id);
+        printf("[%d] External clock\n",id);
         vmeWrite32(&VSCMpr[id]->ClockCfg, 3); /* sets clock */
         vmeWrite32(&VSCMpr[id]->ClockCfg, 1); /* release reset */
         vscmFifoClear(id);
@@ -172,7 +170,7 @@ vscmConfigDownload(int id, char *fname)
       }
 
       else if (!strcmp(keyword,"VSCM_CLOCK_INTERNAL")) {
-        printf("Internal clock for slot %d\n",id);
+        printf("[%d] Internal clock\n",id);
         vmeWrite32(&VSCMpr[id]->ClockCfg, 2); /* sets clock */
         vmeWrite32(&VSCMpr[id]->ClockCfg, 0); /* release reset */
         vscmFifoClear(id);
@@ -836,7 +834,7 @@ fssrSetActiveLines(int id, int chip, unsigned int lines)
   }
 
   val = vmeRead32(&VSCMpr[id]->FssrClkCfg);
-  val &= ~(3 << (16 + (chip * 2))); // Clear Chip ID field prior to setting it
+  val &= ~(3 << (16 + (chip * 2))); /* Clear Chip ID field prior to setting it*/
   val |= (mode << (16 + (chip * 2)));
   vmeWrite32(&VSCMpr[id]->FssrClkCfg, val);
 }
@@ -881,6 +879,29 @@ fssrSetChipID(int id, \
                 ((8 + u4) << 24) | ((8 + u3) << 16) | \
                 ((8 + u2) << 8) | ((8 + u1) << 0));
   }
+}
+
+
+uint32_t
+fssrGetChipID(int id, int chip)
+{
+  uint32_t ret;
+
+  /* Only use the lower 3 bits i.e. Chip ID wire bonds */
+  if (chip >=0 && chip <= 3)
+  {
+    ret = vmeRead32(&VSCMpr[id]->FssrAddrH1) >> (chip * 8) & 7;
+  } 
+  else if (chip >= 4 && chip <= 7)
+  {
+    ret = vmeRead32(&VSCMpr[id]->FssrAddrH2) >> ((chip - 4) * 8) & 7;
+  }
+  else
+  {
+    logMsg("ERROR: %s: chip must be in range 0-7\n", __func__);
+  }
+
+  return(ret);
 }
 
 void
@@ -1003,6 +1024,127 @@ fssrStatus(int id, int chip)
   printf("\n");	
 }
 
+
+/* following functions reads individual FSSR parameters */
+
+uint32_t
+fssrReadLastStatusWord(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].LastStatusWord));
+}
+
+uint32_t
+fssrReadScalerStatusWord(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerStatusWord));
+}
+
+uint32_t
+fssrReadScalerEvent(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerEvent));
+}
+
+uint32_t
+fssrReadScalerWords(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerWords));
+}
+
+uint32_t
+fssrReadScalerIdle(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerIdle));
+}
+
+uint32_t
+fssrReadScalerAqBco(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerAqBco));
+}
+
+uint32_t
+fssrReadScalerMarkErr(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerMarkErr));
+}
+
+uint32_t
+fssrReadScalerEncErr(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerEncErr));
+}
+
+uint32_t
+fssrReadScalerChipIdErr(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerChipIdErr));
+}
+
+uint32_t
+fssrReadLatencyMax(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].LatencyMax));
+}
+
+uint32_t
+fssrReadScalerGotHit(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerGotHit));
+}
+
+uint32_t
+fssrReadScalerStrip(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerStrip));
+}
+
+uint32_t
+fssrReadScalerRef(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerRef));
+}
+
+uint32_t
+fssrReadScalerStripRef(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerStripRef));
+}
+
+uint32_t
+fssrReadScalerCoreTalking(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerCoreTalking));
+}
+
+uint32_t
+fssrReadLastDataWord(int id, int chip)
+{
+  if (vscmIsNotInit(&id, __func__)) return(-1);
+  return(vmeRead32(&VSCMpr[id]->Fssr[chip].LastDataWord));
+}
+
+
+
+/******************/
+/* VSCM functions */
+/******************/
+
 void
 vscmSWSync(int id)
 {
@@ -1036,9 +1178,6 @@ vscmSetTriggerWindow(int id, \
   vmeWrite32(&VSCMpr[id]->TriggerWindow, \
               (bcoStart_r << 0) | (bcoStart_i << 8) | \
               (bcoStop_r << 16) | (bcoStop_i << 24));
-
-
-
 
 #if 0
   /* Check the maximum pulser rate only if its already set */
@@ -1295,6 +1434,11 @@ vscmLatchChipScaler(int id, int chip)
   vscmDisableChipScaler(id, chip);
 }
 
+
+
+
+
+
 void
 vscmClearStripScalers(int id, int chip)
 {
@@ -1322,6 +1466,31 @@ vscmReadStripScalers(int id, int chip, uint32_t *arr)
   return 0;
 }
 
+
+
+int
+vscmPrintStripScalers(int id, int chip)
+{
+  uint32_t arr[128];
+  int i;
+
+  if (vscmIsNotInit(&id, __func__))
+    return -1;
+
+  vscmDisableChipScaler(id, chip);
+  for (i = 0; i < 128; i++)
+  {
+    arr[i] = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerStrip);
+    printf("id=%2d chip=%3d chan=%3d count=%7d\n",id,chip,i,arr[i]);
+  }
+  vscmEnableChipScaler(id, chip);
+
+  return 0;
+}
+
+
+
+
 void
 vscmLatchScalers(int id)
 {
@@ -1329,6 +1498,15 @@ vscmLatchScalers(int id)
     return;
 
   vmeWrite32(&VSCMpr[id]->ScalerLatch, (1 << 31));
+}
+
+uint32_t
+vscmReadVmeClk(int id)
+{
+  if (vscmIsNotInit(&id, __func__))
+    return;
+
+  return(vmeRead32(&VSCMpr[id]->ScalerVmeClk));
 }
 
 void
@@ -1534,9 +1712,9 @@ vscmSetPulserRate(int id, uint32_t freq)
   /* Check to see if need to limit rate only if window is already set */
   if ((window = vmeRead32(&VSCMpr[id]->TriggerWindow))) {
     bcoFreq = vmeRead32(&VSCMpr[id]->FssrClkCfg);
-    window = ((window >> 24 & 0xFF) - (window >> 8 & 0xFF) - 1) * bcoFreq;
+    window = (((window >> 24 & 0xFF) - (window >> 8 & 0xFF) & 0xFF) - 1);
+    window *= bcoFreq;
     trig_rate_limit = 50000000 / (16 * (1 + window / bcoFreq));
-printf("bco: %u window: %u limit: %u\n", bcoFreq, window, trig_rate_limit);
     if (freq > trig_rate_limit) {
       logMsg("INFO: %s: Raised Pulser Period from %u ns ", \
               __func__, periodCycles); 
@@ -1652,11 +1830,11 @@ vscmPulserBCOSync(int id, uint8_t bco, int sync)
   val = vmeRead32(&VSCMpr[id]->DACTrigger);
 
   if (sync == 1) {
-    val &= ~(0x8000FF00); // Clear bit 31 and BCO field
+    val &= ~(0x8000FF00); /* Clear bit 31 and BCO field */
     vmeWrite32(&VSCMpr[id]->DACTrigger, val | (1 << 30) | (bco << 8));
   }
   else {
-    val &= ~(0x4000FF00); // Clear bit 30 and BCO field
+    val &= ~(0x4000FF00); /* Clear bit 30 and BCO field */
     vmeWrite32(&VSCMpr[id]->DACTrigger, val | (1 << 31));
   }
 }
@@ -1878,7 +2056,7 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
       * window. This must be the same on each board in the crate
       */
     if (nvscm > 1) {
-      // set MB base above individual board base
+      /* set MB base above individual board base */
       a32addr = vscmA32Base + (nvscm * VSCM_MAX_FIFO);
 #ifdef VXWORKS
       res = sysBusToLocalAdrs(0x09, (char *)a32addr, (char **)&laddr);
@@ -1895,9 +2073,9 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
 	      return EXIT_FAILURE;
       }
 #endif
-      VSCMpmb = (uintptr_t *)laddr;  // Set a pointer to the FIFO
+      VSCMpmb = (uintptr_t *)laddr;  /* Set a pointer to the FIFO */
 	    for (i = 0; i < nvscm; i++) {
-  	      // Write the register and enable
+  	      /* Write the register and enable */
           vmeWrite32((volatile unsigned int *)&(VSCMpr[vscmID[i]]->Adr32M), \
                     ((a32addr + VSCM_MAX_A32MB_SIZE) >> 7) | \
                     (a32addr >> 23) | (1 << 25));
@@ -1924,7 +2102,7 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
       vmeWrite32(&VSCMpr[boardID]->SwBGpio, 0x01000100);
 #else
 
-      if(flag&0x1==0)
+      if((flag&0x1)==0)
 	  {
         printf("External clock\n");
         /* get clock from switch slot B (2,0-int, 3,1-ext)*/
@@ -1942,8 +2120,18 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
       /* get trigger from switch slot B */
       vmeWrite32(&VSCMpr[boardID]->Trigger, IO_MUX_SWB_TRIG1);
 
-      /* get sync from switch slot B */
-      vmeWrite32(&VSCMpr[boardID]->Sync, IO_MUX_SWB_SYNC);
+      /* if there is no TI, cannot use IO_MUX_SWB_SYNC !!!
+		 to avoid problems, set it to IO_MUX_0 if internal */
+      if((flag&0x1)==0)
+	  {
+        /* get sync from switch slot B */
+        vmeWrite32(&VSCMpr[boardID]->Sync, IO_MUX_SWB_SYNC);
+	  }
+	  else
+	  {
+        /* set SYNC line to IO_MUX_0 */
+        vmeWrite32(&VSCMpr[boardID]->Sync, IO_MUX_0);
+	  }
 
       /* busy to switch slot B */
       vmeWrite32(&VSCMpr[boardID]->SwBGpio, IO_MUX_BUSY | (1 << 24));

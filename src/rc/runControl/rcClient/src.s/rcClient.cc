@@ -177,14 +177,14 @@ rcClient::createAllVariables (void)
   status_ = new    rccDaqData (exptname_, "status", 0);
   nevents_ = new    rccDaqData (exptname_, "nevents", 0);
   nlongs_ = new    rccDaqData (exptname_, "nlongs", 0);
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   database_ = new rccDaqData (exptname_, "database", "unknown");
   dataFile_ = new rccDaqData (exptname_, "dataFile", "unknown");
+  confFile_ = new rccDaqData (exptname_, "confFile", "unknown"); //sergey
   rcsMsgToDbase_ = new rccDaqData (exptname_, "rcsMsgToDbase", 0);
-  logFileDescriptor_ = new rccDaqData (exptname_, "logFileDescriptor", 
-				       "unknown");
+  logFileDescriptor_ = new rccDaqData (exptname_, "logFileDescriptor", "unknown");
   tokenInterval_ = new rccDaqData (exptname_, "tokenInterval", 0);
-#endif
+
   allRunTypes_ = new rccDaqData (exptname_, "allRunTypes", "unknown");
   runType_ = new   rccDaqData(exptname_, "runType", "unknown");
   runTypeNum_ = new rccDaqData (exptname_,"runTypeNum", 0);
@@ -223,13 +223,14 @@ rcClient::createAllVariables (void)
   status_->connect (dataManager_);
   nevents_->connect (dataManager_);
   nlongs_->connect (dataManager_);
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   database_->connect (dataManager_);
   dataFile_->connect (dataManager_);
+  confFile_->connect (dataManager_); //sergey
   rcsMsgToDbase_->connect (dataManager_);
   logFileDescriptor_->connect (dataManager_);
   tokenInterval_->connect (dataManager_);  
-#endif
+
   allRunTypes_->connect (dataManager_);
   runType_->connect (dataManager_);
   runTypeNum_->connect (dataManager_);
@@ -256,11 +257,13 @@ rcClient::createAllVariables (void)
   dataLimit_->enableWrite ();
   updateInterval_->enableWrite ();
   online_->enableWrite ();
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   logFileDescriptor_->enableWrite ();
   tokenInterval_->enableWrite ();
   rcsMsgToDbase_->enableWrite ();
-#endif
+
+  /*confFile_->enableWrite (); //sergey */
+
 }
 
 void
@@ -273,7 +276,10 @@ rcClient::deleteAllVariables (void)
   }
 }
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
+
+
+
 int
 rcClient::connect (char* database, char* session, char* msqld)
 {
@@ -338,88 +344,13 @@ rcClient::connect (char* database, char* session, char* msqld)
   else
     return CODA_ERROR;
 }
-#else
-int
-rcClient::connect (char* hostname, char* exptname, int exptid)
-{
-  rcServerLocater svcl (DAFINDSERVER, hostname, exptname, exptid,
-			NUM_CONN_RETRIES);
-  unsigned short svcport = 0;
-  if (svcl.locatingServer (svcport) == 0) {
-#ifdef _CODA_DEBUG
-    printf ("Try to connect to server at host %s and port %d\n",
-	    hostname, svcport);
-#endif
-    INET_Addr addr (svcport, hostname);
-    if (conServer_.connect (toServer_, addr) != -1) {
-      connected_ = 1;
-#ifdef _CODA_DEBUG
-      printf ("Connected to the server\n");
-#endif
-      reactor_.register_handler (this, Event_Handler::READ_MASK);
-    }
-  }
-  if (connected_) {
-    // set exptname
-    if (exptname_)
-      delete []exptname_;
-    exptname_ = new char[::strlen (exptname) + 1];
-    ::strcpy (exptname_, exptname);
 
-    createAllVariables ();
-    varDeleted_ = 0;
 
-    // send client user name and process id to the server
-    // synchronous call
-    infoRegistered_ = 0;
-    return sendClientInfo ();
-  }
-  else
-    return CODA_ERROR;
-}
 
-int
-rcClient::connect (char* hostname, char* exptname, int exptid,
-		   rcUpdateFunc func, void* arg)
-{
-  rcServerLocater svcl (DAFINDSERVER, hostname, exptname, exptid,
-			NUM_CONN_RETRIES);
-  svcl.registerUpdateFunc (func, arg);
 
-  unsigned short svcport = 0;
-  if (svcl.locatingServer (svcport) == 0) {
-#ifdef _CODA_DEBUG
-    printf ("Try to connect to server at host %s and port %d\n",
-	    hostname, svcport);
-#endif
-    INET_Addr addr (svcport, hostname);
-    if (conServer_.connect (toServer_, addr) != -1) {
-      connected_ = 1;
-#ifdef _CODA_DEBUG
-      printf ("Connected to the server\n");
-#endif
-      reactor_.register_handler (this, Event_Handler::READ_MASK);
-    }
-  }
-  if (connected_) {
-    // set exptname
-    if (exptname_)
-      delete []exptname_;
-    exptname_ = new char[::strlen (exptname) + 1];
-    ::strcpy (exptname_, exptname);
 
-    createAllVariables ();
-    varDeleted_ = 0;
 
-    // send client user name and process id to the server
-    // synchronous call
-    infoRegistered_ = 0;
-    return sendClientInfo ();
-  }
-  else
-    return CODA_ERROR;
-}
-#endif
+
 
 int
 rcClient::disconnect (void)

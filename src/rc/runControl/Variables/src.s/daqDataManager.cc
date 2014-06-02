@@ -70,6 +70,13 @@ daqDataManager::hasData (char *compname, char *attrname)
 {
   char fullname[FULLNAME_LEN];
 
+  /*sergey*/
+  if(compname==NULL || attrname==NULL)
+  {
+    printf("ERROR in daqDataManager::hasData: compname=0x%08x, attrname=0x%08x\n",compname,attrname);
+    return 0;
+  }
+
   ::strcpy (fullname, compname);
   ::strcat (fullname, "+");
   ::strcat (fullname, attrname);

@@ -136,11 +136,156 @@ vmeWrite32(volatile unsigned int *addr, unsigned int val)
   return;
 }
 
+
+
+
+
+
+
+/* VXS Payload Port to VME Slot map */
+#define MAX_VME_SLOTS 21    /* This is either 20 or 21 */
+unsigned short PayloadPort[MAX_VME_SLOTS+1] =
+  {
+    0,     /* Filler for mythical VME slot 0 */ 
+#if MAX_VME_SLOTS == 21
+    0,     /* VME Controller */
+#endif
+    17, 15, 13, 11, 9, 7, 5, 3, 1,  
+    0,     /* Switch Slot A - SD */
+    0,     /* Switch Slot B - CTP/GTP */
+    2, 4, 6, 8, 10, 12, 14, 16, 
+    18     /* VME Slot Furthest to the Right - TI */ 
+  };
+
+
+
+/*!
+ Routine to return the VME slot, provided the VXS payload port.
+
+ @return VME Slot number.
+*/
+int
+vxsPayloadPort2vmeSlot(int payloadport)
+{
+  int rval=0;
+  int islot;
+  if(payloadport<1 || payloadport>18)
+    {
+      printf("%s: ERROR: Invalid payloadport %d\n",
+	     __FUNCTION__,payloadport);
+      return -1;
+    }
+
+  for(islot=1;islot<MAX_VME_SLOTS;islot++)
+    {
+      if(payloadport == PayloadPort[islot])
+	{
+	  rval = islot;
+	  break;
+	}
+    }
+
+  if(rval==0)
+    {
+      printf("%s: ERROR: Unable to find VME Slot from Payload Port %d\n",
+	     __FUNCTION__,payloadport);
+      rval = -1;
+    }
+
+  return rval;
+}
+
+/*!
+ Routine to return the VME slot mask, provided the VXS payload port mask.
+
+ @return VME Slot mask.
+*/
+unsigned int
+vxsPayloadPortMask2vmeSlotMask(unsigned int ppmask)
+{
+  int ipp=0;
+  unsigned int vmemask=0;
+
+  for(ipp=0; ipp<18; ipp++)
+    {
+      if(ppmask & (1<<ipp))
+	vmemask |= (1<<vxsPayloadPort2vmeSlot(ipp+1));
+    }
+
+  return vmemask;
+}
+
+/*!
+  Routine to return the VXS Payload Port provided the VME slot
+
+  @return VXS Payload Port number.
+*/
+int
+vmeSlot2vxsPayloadPort(int vmeslot)
+{
+  int rval=0;
+  if(vmeslot<1 || vmeslot>MAX_VME_SLOTS) 
+    {
+      printf("%s: ERROR: Invalid VME slot %d\n",
+	     __FUNCTION__,vmeslot);
+      return -1;
+    }
+
+  rval = (int)PayloadPort[vmeslot];
+
+  if(rval==0)
+    {
+      printf("%s: ERROR: Unable to find Payload Port from VME Slot %d\n",
+	     __FUNCTION__,vmeslot);
+      rval = -1;
+    }
+
+  return rval;
+}
+
+/*!
+  Routine to return the VXS Payload Port mask provided the VME slot mask
+
+  @return VXS Payload Port mask.
+*/
+unsigned int
+vmeSlotMask2vxsPayloadPortMask(unsigned int vmemask)
+{
+  int islot=0;
+  unsigned int ppmask=0;
+
+  for(islot=0; islot<22; islot++)
+    {
+      if(vmemask & (1<<islot))
+	ppmask |= (1<<(vmeSlot2vxsPayloadPort(islot)-1));
+    }
+
+  return ppmask;
+}
+
+
+
+
+
+
+
+
+
+
+
+
 /***********************************/
 /***********************************/
 /***********************************/
 
 #ifdef VXWORKS
+
+unsigned int
+sleep(unsigned int seconds)
+{
+  taskDelay(seconds*sysClkRateGet());
+}
+
 
 /* returns local target name and stores name in global variable targetname (lower case vsn)
  *  ejw, 10-jul-97 

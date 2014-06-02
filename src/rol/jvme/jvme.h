@@ -35,9 +35,11 @@
 #define OK    0
 #define ERROR -1
 #define LOCAL 
+
 #ifndef _ROLDEFINED
 typedef void            (*VOIDFUNCPTR) ();
 #endif
+
 typedef char            BOOL;
 
 #define LSWAP(x)        ((((x) & 0x000000ff) << 24) | \
@@ -84,5 +86,10 @@ int  vmeBusCreateLockShm();
 int  vmeBusKillLockShm(int kflag);
 int  vmeBusLock();
 int  vmeBusUnlock();
+
+int  vxsPayloadPort2vmeSlot(int payloadport);
+unsigned int vxsPayloadPortMask2vmeSlotMask(unsigned int ppmask);
+int  vmeSlot2vxsPayloadPort(int vmeslot);
+unsigned int vmeSlotMask2vxsPayloadPortMask(unsigned int vmemask);
 
 #endif /* __JVME__ */

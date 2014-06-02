@@ -43,6 +43,7 @@
 //   run control source
 //
 //
+
 #include <stdio.h>
 #include <string.h>
 #include <rcRunTypeDialog.h>
@@ -77,6 +78,8 @@ rcRunTypeOption::~rcRunTypeOption (void)
     delete []runtypes_[i];
 }
 
+
+/* sergey: access 'runTypes' db table here ???*/
 void
 rcRunTypeOption::startMonitoringRunTypes (void)
 {

@@ -31,6 +31,7 @@
 //   run control source
 //
 //
+
 #if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 
 #include <stdio.h>
@@ -94,6 +95,7 @@ rcDbaseHandler::connect (char* host)
     ::exit (1);
     return CODA_ERROR;
   }
+  printf("rcDbaseHandler::connect: Connected to mysql host %s\n",host);
   return CODA_SUCCESS;
 }
 
@@ -103,6 +105,7 @@ rcDbaseHandler::close (void)
   if (dbaseSock_ != NULL)
     ::mysql_close (dbaseSock_);
   dbaseSock_ = NULL;
+  printf("rcDbaseHandler::close: Disconnected from mysql\n");
   return CODA_SUCCESS;
 }
 
@@ -162,6 +165,8 @@ rcDbaseHandler::database (char* dbase)
   }
   else
     return CODA_ERROR;
+
+  printf("Select database >%s<\n",dbase);
   return CODA_SUCCESS;
 }
 
@@ -196,7 +201,7 @@ int
 rcDbaseHandler::listAllSessions (void)
 {
   int i;
-  char qstring[1024];
+  char qstring[2048];
   MYSQL_RES *res = 0;
   MYSQL_ROW    row;
 
@@ -242,4 +247,102 @@ rcDbaseHandler::listAllSessions (void)
 
   return CODA_SUCCESS;
 }
+
+
+
+
+
+/*sergey: update field 'confFile' in '<confname>_option' table*/
+int
+rcDbaseHandler::updateConfFileName (char *confname, char *conffilename)
+{
+  int ii;
+  int found;
+  char qstring[1024];
+  MYSQL_RES *res = 0;
+  MYSQL_ROW    row;
+
+#ifdef _CODA_DEBUG
+  printf("> rcDbaseHandler::updateConfFileName reached\n");fflush(stdout);
+  printf("> rcDbaseHandler::updateConfFileName: confname >%s<, conffilename >%s<\n",confname,conffilename);
+#endif
+
+  if (dbaseSock_ == NULL) return CODA_ERROR;
+
+#ifdef _CODA_DEBUG
+  printf("> rcDbaseHandler::updateConfFileName 1\n");
+#endif
+
+ ::sprintf (qstring, "select * from %s%s",confname,DBASE_OPTION_TABLE);
+  if (mysql_query (dbaseSock_, qstring) != 0)
+  {
+    printf ("> rcDbaseHandler::updateConfFileName error1: %s\n", mysql_error(dbaseSock_));
+    return CODA_ERROR;
+  }
+  res = mysql_store_result(dbaseSock_);
+  if (!res)
+  {
+    printf ("> rcDbaseHandler::updateConfFileName error2: %s\n", mysql_error(dbaseSock_));
+    return CODA_ERROR;
+  }
+
+#ifdef _CODA_DEBUG
+  printf("> rcDbaseHandler::updateConfFileName query >%s< executed successfully\n",qstring);
+#endif
+
+  found = 0;
+  ii=0;
+  while ((row = mysql_fetch_row(res)))
+  {
+#ifdef _CODA_DEBUG
+    printf("   [%2d] option >%s< value >%s<\n",ii,row[0],row[1]);
+#endif
+    if (::strcmp (row[0], "confFile") == 0)
+    {
+      found = 1;
+      break;
+    }
+	/*
+    if (ii++ >= RCXUI_MAX_OPTIONS)
+	{
+      printf("ERROR: the number of options exceeds RCXUI_MAX_OPTIONS=%d\n",RCXUI_MAX_OPTIONS);
+      break;
+	}
+	*/
+  }
+  /*
+  numOptions_ = ii;
+  */
+
+  if(found)
+  {
+    ::sprintf (qstring, "UPDATE %s%s SET value='%s' where name = 'confFile'",confname,DBASE_OPTION_TABLE,conffilename);
+    if (mysql_query (dbaseSock_, qstring) != 0)
+    {
+      printf ("   updateConfFileName error3: %s\n", mysql_error(dbaseSock_));
+      return CODA_ERROR;
+    }
+#ifdef _CODA_DEBUG
+    printf("   query >%s< executed successfully\n",qstring);
+#endif
+  }
+  else
+  {
+    ::sprintf (qstring, "INSERT into %s%s (name,value) VALUES ('confFile','%s')",confname,DBASE_OPTION_TABLE,conffilename);
+    if (mysql_query (dbaseSock_, qstring) != 0)
+    {
+      printf ("   updateConfFileName error5: %s\n", mysql_error(dbaseSock_));
+      return CODA_ERROR;
+    }
+#ifdef _CODA_DEBUG
+    printf("   query >%s< executed successfully\n",qstring);
+#endif
+  }
+
+  // free result
+  ::mysql_free_result(res);
+
+  return CODA_SUCCESS;
+}
+
 #endif

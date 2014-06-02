@@ -3,13 +3,16 @@
 #
 SHELL = /bin/sh
 
-# second target name is used to force VXWORKS cross-compiling
+# second target name is used to force cross-compiling
 ifeq ("$(filter VXWORKS,$(MAKECMDGOALS))","VXWORKS")
   OSTYPE    = VXWORKS
   MACHINE   = ppc
 else ifeq ("$(filter ARM,$(MAKECMDGOALS))","ARM")
   OSTYPE    = Linux
   MACHINE   = armv7l
+else ifeq ("$(filter NIOS,$(MAKECMDGOALS))","NIOS")
+  OSTYPE    = Linux
+  MACHINE   = nios2
 else
   OSTYPE    = $(shell uname)
   MACHINE   = $(shell uname -m)
@@ -49,6 +52,13 @@ globalrol = $(CODA)/$(OSTYPE_MACHINE)/rol
 LIBRARY = $(locallib)/lib$(MAIN).a
 SHLIBRARY = $(locallib)/lib$(MAIN).so
 
+#--------------------
+# optimization flags
+#--------------------
+#OPT           = -g
+#OPT2          = -g
+OPT           = -O
+OPT2          = -O2
 
 #=============
 #=== SunOS ===
@@ -64,22 +74,19 @@ ifeq ("$(OSTYPE)","SunOS")
 # fortran compiler
     FC = f77 
 # fortran flags
-    FFLAGS = -xO5 -KPIC -mt -DSunOS -e -ftrap=no%inexact,no%underflow
-##    FFLAGS = -g -KPIC -mt -DSunOS -e -ftrap=no%inexact,no%underflow
+    FFLAGS = $(OPT) -KPIC -mt -DSunOS -e -ftrap=no%inexact,no%underflow
 # C compiler
     CC = cc
 # C preprocessor
     CPP      = cc -E
 # C flags
-    CFLAGS = -xO5 -KPIC -mt -DSunOS -DOSTYPE="SunOS"
-##    CFLAGS = -g -KPIC -mt -DSunOS -DOSTYPE="SunOS"
+    CFLAGS = $(OPT) -KPIC -mt -DSunOS -DOSTYPE="SunOS"
 # C++ compiler
     CXX = CC
 # C++ flags
     CXXFLAGS = $(CFLAGS)
 
-# linker
-#   LD = $(FC) -xO5 -z muldefs 
+# linker 
     LD = ld
     LDCXX = $(CXX)
     LDCC = $(CC)
@@ -88,7 +95,7 @@ ifeq ("$(OSTYPE)","SunOS")
 # linker flags
     LDFLAGS  =
 # shared linker
-    SHLD = CC -G -xO5
+    SHLD = CC -G $(OPT)
 # archiver
     AR       = ar
 # object file name list printer
@@ -145,16 +152,15 @@ endif
 ifeq ("$(OSTYPE)","Linux")
 
 #debug or optimize
-#    FFLAGS = -O
-#    CFLAGS = -O
-    FFLAGS = -g
-    CFLAGS = -g
-#    FFLAGS = -O2
-#    CFLAGS = -O2
+    FFLAGS = $(OPT2)
+    CFLAGS = $(OPT2)
 ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
     FFLAGS = -g
     CFLAGS = -g
 endif
+
+FFLAGS = -g
+CFLAGS = -g
 
     FC = g77
 
@@ -169,7 +175,6 @@ endif
 ### -D_CODA_DEBUG
 
     CXX = g++
-
     CXXFLAGS = $(CFLAGS)
 
     LD = ld
@@ -185,6 +190,11 @@ ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
     LDFC = gcc
 endif
 
+ifeq ("$(OSTYPE_MACHINE)","Linux_nios2")
+    LDCC = gcc
+    LDFC = gcc
+endif
+
 
 #
 # -Wl, must be used as prefix before flags passed to linker !
@@ -194,7 +204,7 @@ endif
     LDFLAGS = 
 
 #SHLD = g++ -Wl,-soname,libBosio.so -shared -g
-    SHLD = g++ -shared -g 
+    SHLD = g++ -shared $(OPT2)
 
     AR = ar
 
@@ -263,10 +273,8 @@ endif
 ifeq ("$(OSTYPE)","Darwin")
 
 #debug or optimize
-    FFLAGS = -g
-    CFLAGS = -g
-#    FFLAGS = -O2
-#    CFLAGS = -O2
+    FFLAGS = $(OPT2)
+    CFLAGS = $(OPT2)
 
     FC = g77
 
@@ -411,6 +419,94 @@ endif
 
 
 
+#==============
+#==== NIOS ====
+#==============
+
+#ifeq ("$(OSTYPE)","NIOS")
+ifeq ("$(MACHINE)","nios2")
+
+CROSSPATH = /apps/Nios_II_GNU_Linux/bin
+CROSSCOMPILER = nios2-linux-gnu-
+
+#debug or optimize
+    FFLAGS = $(OPT)
+    CFLAGS = $(OPT)
+
+    FC = $(CROSSPATH)/$(CROSSCOMPILER)g77
+
+    FFLAGS += -fno-automatic -finit-local-zero \
+			-ffixed-line-length-none -fno-second-underscore -DLinux -DNIOS
+#CC = gcc -rdynamic
+    CC = $(CROSSPATH)/$(CROSSCOMPILER)gcc
+
+    CPP = $(CROSSPATH)/$(CROSSCOMPILER)gcc -E
+
+    CFLAGS += -fPIC -DLinux -DLINUX  -DNIOS -I$(CODA)/$(OSTYPE_MACHINE)/include
+
+    CXX = $(CROSSPATH)/$(CROSSCOMPILER)g++
+
+    CXXFLAGS = $(CFLAGS)
+
+    LD = $(CROSSPATH)/$(CROSSCOMPILER)ld
+    LDCXX = $(CXX)
+
+
+###    LDCC = $(CC)
+    LDCC = $(CC)
+
+
+    LDFC = $(CC)
+
+#
+# -Wl, must be used as prefix before flags passed to linker !
+#
+
+##    LDFLAGS = -Wl,-static
+    LDFLAGS = 
+
+#SHLD = g++ -Wl,-soname,libBosio.so -shared -g
+    SHLD = $(CROSSPATH)/$(CROSSCOMPILER)g++ -shared -g 
+
+    AR = $(CROSSPATH)/$(CROSSCOMPILER)ar
+
+    NM = $(CROSSPATH)/$(CROSSCOMPILER)nm
+
+    RANLIB   = $(CROSSPATH)/$(CROSSCOMPILER)ranlib
+# rpc generator
+#    RPCGEN = rpcgen
+
+    RM       = rm -f
+
+# include directories
+    X11INCDIR = 
+    TCLINCDIR = 
+
+# CLON flags
+    AC_FLAGS = -DHAVE_UNISTD_H=1 -DSTDC_HEADERS=1 -DTK_FILE_READ_PTR=1 -DHAVE_LIMITS_H=1 \
+		-DTK_FILE_READ_PTR=1
+    CLON_FLAGS = 
+
+# library directories and libraries
+    X11LIBDIRS = 
+    X11LIBS = 
+
+##    SYSLIBDIRS = /usr/lib
+##    SYSLIBS = 
+    SYSLIBDIRS = 
+    SYSLIBS = -pthread -ldl -lm
+
+    F77LIBDIRS = 
+    F77LIBS = 
+
+endif
+
+ifeq ("$(OSTYPE_MACHINE)","Linux_nios2")
+    CFLAGS += -DLinux_nios2
+endif
+
+
+
 
 
 
@@ -418,18 +514,15 @@ endif
 #==== ARM ====
 #=============
 
-ifeq ("$(OSTYPE)","ARM")
+#ifeq ("$(OSTYPE)","ARM")
+ifeq ("$(MACHINE)","armv7l")
 
 CROSSPATH = /apps/Xilinx/SDK/2013.2/gnu/arm/lin/bin
 CROSSCOMPILER = arm-xilinx-linux-gnueabi-
 
 #debug or optimize
-    FFLAGS = -O
-    CFLAGS = -O
-#    FFLAGS = -g
-#    CFLAGS = -g
-#    FFLAGS = -O2
-#    CFLAGS = -O2
+    FFLAGS = $(OPT)
+    CFLAGS = $(OPT)
 
     FC = $(CROSSPATH)/$(CROSSCOMPILER)g77
 
@@ -545,6 +638,14 @@ CERNLIBS = -lgraflib -lgrafX11 -lpacklib
 # list of dib directories in following form: dir1:dir2:dir3:dir4
 # we will remove ::, :::, etc; it may happen if some ..LIBDIRS variable is not defined
 VPATH_DIR3 = $(locallib):$(globallib):$(CERNLIBDIRS):$(X11LIBDIRS):$(SYSLIBDIRS)
+
+ifeq ("$(OSTYPE_MACHINE)","Linux_nios2")
+  VPATH_DIR3 =$(locallib):$(globallib)
+endif
+ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
+  VPATH_DIR3 =$(locallib):$(globallib)
+endif
+
 VPATH_DIR2 = $(subst ::,:,$(VPATH_DIR3))
 VPATH_DIR1 = $(subst ::,:,$(VPATH_DIR2))
 VPATH_DIRR = $(subst ::,:,$(VPATH_DIR1))
@@ -718,28 +819,29 @@ clean:
 
 install_obj:
 	-mkdir -p $(globalobj)
-	cp $(localobj)/*.o $(globalobj)
+	-cp $(localobj)/*.o $(globalobj)
 
 install_lib:
 	-mkdir -p $(globallib)
-	cp $(locallib)/*.a $(globallib)
-	cp $(locallib)/*.so $(globallib)
+	-cp $(locallib)/*.a $(globallib)
+	-cp $(locallib)/*.so $(globallib)
 #Darwin only ?
 #	$(RANLIB) $(globallib)/lib$(MAIN).a
 
 install_bin:
 	-mkdir -p $(globalbin)
-	cp $(localbin)/* $(globalbin)
+	-cp $(localbin)/* $(globalbin)
 
 install_rol:
 	-mkdir -p $(globalrol)
-	cp $(localrol)/* $(globalrol)
+	-cp $(localrol)/* $(globalrol)
 
 
 # define VXWORKS/ARM/etc as empty commands; we are using it not as target
 # but to tell that we want cross compiling
 VXWORKS: ;
 ARM: ;
+NIOS: ;
 
 
 obj: $(OBJ)

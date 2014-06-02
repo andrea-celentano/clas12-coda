@@ -56,6 +56,8 @@ protected:
   static void exptnameCallback (int status, void* arg, daqNetData* data);
   // experiment runtype callback
   static void runtypeCallback (int status, void* arg, daqNetData* data);
+  // experiment runconfig callback
+  static void runconfigCallback (int status, void* arg, daqNetData* data);
   // server host name callback
   static void hostnameCallback (int status, void* arg, daqNetData* data);
 #if defined (_CODA_2_0) || defined (_CODA_2_0_T)
@@ -76,6 +78,8 @@ private:
   Widget exptname_;
   // run type
   Widget runType_;
+  // run config
+  Widget runConfig_;
   // host name
   Widget hostname_;
   // time

@@ -101,17 +101,13 @@
 #define EV_BANK_HDR  0x00000100
 #define EV_BAD       0x10000000
 
-#define PHYS_BANK_HDR(t,e) (unsigned int)((((t)&0xf)<<16) | \
-					     ((e)&0xff) | \
-					     EV_BANK_HDR)
+#define PHYS_BANK_HDR(t,e) (unsigned int)((((t)&0xf)<<16) | ((e)&0xff) | EV_BANK_HDR)
 
-#define CTL_BANK_HDR(t) (unsigned int)((((t)&0xffff)<<16) | \
-					  0x000001CC)
+#define CTL_BANK_HDR(t) (unsigned int)((((t)&0xffff)<<16) | 0x000001CC)
 
 #define IS_BANK(b) (((unsigned int) (b) && EV_BANK_HDR)==EV_BANK_HDR)
 
-#define DECODE_BANK_HEADER(b,t,e) { t = (b[1]>>16)&0xffff;\
-				      e = b[1]&0xff;}
+#define DECODE_BANK_HEADER(b,t,e) { t = (b[1]>>16)&0xffff; e = b[1]&0xff;}
 
 
 #define EV_BANK_ID 0xc0010100
@@ -261,6 +257,35 @@ hrtime_t/*uint64_t*/ gethrtime(void);
 #endif
 
 #endif
+
+
+
+
+
+
+#define USE_128
+
+
+/* to handle 128-bit words, needed by event building process */
+
+typedef struct
+{
+  uint32_t words[4]; /* words[0] is least significant */  
+
+} WORD128;
+
+
+void Print128(WORD128 *hw);
+char *String128(WORD128 *hw);
+void Copy128(WORD128 *hws, WORD128 *hwd);
+void AND128(WORD128 *hwa, WORD128 *hwb, WORD128 *hwc);
+void OR128(WORD128 *hwa, WORD128 *hwb, WORD128 *hwc);
+void XOR128(WORD128 *hwa, WORD128 *hwb, WORD128 *hwc);
+int CheckBit128(WORD128 *hw, int n);
+void SetBit128(WORD128 *hw, int n);
+int EQ128(WORD128 *hwa, WORD128 *hwb);
+void Clear128(WORD128 *hw);
+void Negate128(WORD128 *hw);
 
 
 /* _CODA_DA_H */

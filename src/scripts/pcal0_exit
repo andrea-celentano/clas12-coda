@@ -16,6 +16,8 @@ if ($HOST != "pcal0") then
 endif
 echo ""
 
+echo " Stop ROCs"
+stop_proc -n $host_name -p coda_roc_gef -match "claspcal" -s 0
 
 echo " Stop EB"
 stop_proc -n $host_name -p coda_ebc -match "claspcal" -s 0

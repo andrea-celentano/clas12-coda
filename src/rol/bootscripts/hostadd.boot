@@ -73,14 +73,14 @@ hostAdd "clonioc3.jlab.org",       "129.57.167.76"
 hostAdd "adcecal1",                "129.57.167.91"
 hostAdd "adcecal1.jlab.org",       "129.57.167.91"
 
-hostAdd "adcecal2",                "129.57.167.92"
-hostAdd "adcecal2.jlab.org",       "129.57.167.92"
+hostAdd "adcecal2",                "129.57.167.159"
+hostAdd "adcecal2.jlab.org",       "129.57.167.159"
 
-hostAdd "adcecal3",                "129.57.167.93"
-hostAdd "adcecal3.jlab.org",       "129.57.167.93"
+hostAdd "adcecal3",                "129.57.167.160"
+hostAdd "adcecal3.jlab.org",       "129.57.167.160"
 
-hostAdd "adcecal4",                "129.57.167.94"
-hostAdd "adcecal4.jlab.org",       "129.57.167.94"
+hostAdd "adcecal4",                "129.57.167.58"
+hostAdd "adcecal4.jlab.org",       "129.57.167.58"
 
 hostAdd "adcecal5",                "129.57.167.95"
 hostAdd "adcecal5.jlab.org",       "129.57.167.95"

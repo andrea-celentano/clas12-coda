@@ -20,12 +20,14 @@
 *
 *  Revision  2.0 - Updated to support FADC V2.
 *
-*  SVN: $Rev: 517 $
+*  SVN: $Rev$
 *
 */
 
 #ifndef __FADCLIB__
 #define __FADCLIB__
+
+#define CLAS12
 
 #define FA_BOARD_ID       0xfadc0000
 #define FA_MAX_BOARDS             20
@@ -36,82 +38,122 @@
 #define FA_VME_INT_LEVEL           3     
 #define FA_VME_INT_VEC          0xFA
 
+#define FA_SUPPORTED_CTRL_FIRMWARE 0x19
 
-struct fadc_struct {
-  volatile unsigned int version;		/* (0x000 - 0x0FC) - CTRL */
-  volatile unsigned int csr;
-  volatile unsigned int ctrl1;
-  volatile unsigned int ctrl2;
-  volatile unsigned int blk_level;              /* 0x10 */
-  volatile unsigned int intr;
-  volatile unsigned int adr32;
-  volatile unsigned int adr_mb;
-  volatile unsigned int s_adr;                  /* 0x20 */
-  volatile unsigned int delay;
-  volatile unsigned int itrig_cfg;
-  volatile unsigned int reset;
-  volatile unsigned int trig_scal;              /* 0x30 */
-  volatile unsigned int ev_count;
-  volatile unsigned int blk_count;
-  volatile unsigned int blk_fifo_count;
-  volatile unsigned int blk_wrdcnt_fifo;        /* 0x40 */
-  volatile unsigned int internal_trig_scal;
-  volatile unsigned int ram_word_count;
-  volatile unsigned int dataflow_status;
-  volatile unsigned short dac[16];              /* 0x50 */
-  volatile unsigned int status[4];              /* 0x70 */
-  volatile unsigned int aux[3];                 /* 0x80 */
-  volatile unsigned int mem_adr;
-  volatile unsigned int mem1_data;		/* 0x090 */
-  volatile unsigned int mem2_data;
-  volatile unsigned int prom_reg1;		
-  volatile unsigned int prom_reg2;
-  volatile unsigned int berr_module_scal;       /* 0xA0 */
-  volatile unsigned int berr_crate_scal;
-  volatile unsigned int aux_scal[6];
-  volatile unsigned int busy_level;             /* 0xC0 */
-  volatile unsigned int gen_evt_header;
-  volatile unsigned int gen_evt_data;
-  volatile unsigned int gen_evt_trailer;
-  volatile unsigned int mgt_status;             /* 0xD0 */
-  volatile unsigned int mgt_ctrl;
-  volatile unsigned int reserved_ctrl[2];
-  volatile unsigned int scaler_ctrl;
-  volatile unsigned int spare_ctrl[(0x100-0xE4)>>2];
+struct fadc_struct 
+{
+  /* 0x0000 */ volatile unsigned int version;
+  /* 0x0004 */ volatile unsigned int csr;
+  /* 0x0008 */ volatile unsigned int ctrl1;
+  /* 0x000C */ volatile unsigned int ctrl2;
+  /* 0x0010 */ volatile unsigned int blk_level;
+  /* 0x0014 */ volatile unsigned int intr;
+  /* 0x0018 */ volatile unsigned int adr32;
+  /* 0x001C */ volatile unsigned int adr_mb;
+  /* 0x0020 */ volatile unsigned int s_adr;
+  /* 0x0024 */ volatile unsigned int delay;
+  /* 0x0028 */ volatile unsigned int itrig_cfg;
+  /* 0x002C */ volatile unsigned int reset;
+  /* 0x0030 */ volatile unsigned int trig_scal;
+  /* 0x0034 */ volatile unsigned int ev_count;
+  /* 0x0038 */ volatile unsigned int blk_count;
+  /* 0x003C */ volatile unsigned int blk_fifo_count;
+  /* 0x0040 */ volatile unsigned int blk_wrdcnt_fifo;
+  /* 0x0044 */ volatile unsigned int internal_trig_scal;
+  /* 0x0048 */ volatile unsigned int ram_word_count;
+  /* 0x004C */ volatile unsigned int dataflow_status;
+  /* 0x0050 */ volatile unsigned short dac[16];
+  /* 0x0070 */ volatile unsigned int status[4];
+  /* 0x0080 */ volatile unsigned int aux[2];
+  /* 0x0088 */ volatile unsigned int trig21_delay;
+  /* 0x008C */ volatile unsigned int mem_adr;
+  /* 0x0090 */ volatile unsigned int mem1_data;
+  /* 0x0094 */ volatile unsigned int mem2_data;
+  /* 0x0098 */ volatile unsigned int prom_reg1;		
+  /* 0x009C */ volatile unsigned int prom_reg2;
+  /* 0x00A0 */ volatile unsigned int berr_module_scal;
+  /* 0x00A4 */ volatile unsigned int berr_crate_scal;
+  /* 0x00A8 */ volatile unsigned int proc_words_scal;
+  /* 0x00AC */ volatile unsigned int aux_scal2;
+  /* 0x00B0 */ volatile unsigned int header_scal;
+  /* 0x00B4 */ volatile unsigned int trig2_scal;
+  /* 0x00B8 */ volatile unsigned int trailer_scal;
+  /* 0x00BC */ volatile unsigned int syncreset_scal;
+  /* 0x00C0 */ volatile unsigned int busy_level;
+  /* 0x00C4 */ volatile unsigned int gen_evt_header;
+  /* 0x00C8 */ volatile unsigned int gen_evt_data;
+  /* 0x00CC */ volatile unsigned int gen_evt_trailer;
+  /* 0x00D0 */ volatile unsigned int mgt_status;
+  /* 0x00D4 */ volatile unsigned int mgt_ctrl;
+  /* 0x00D8 */ volatile unsigned int reserved_ctrl[2];
+  /* 0x00E0 */ volatile unsigned int scaler_ctrl;
+  /* 0x00E4 */ volatile unsigned int serial_number[3];
+  /* 0x00F0 */ volatile unsigned int scaler_interval;
+  /* 0x00F4 */ volatile unsigned int spare_ctrl[(0x100-0xF4)>>2];
   
-  volatile unsigned int adc_status[3];          /* (0x100 - 0x1FC) - ADC processing*/
-  volatile unsigned int adc_config[4];
-  volatile unsigned int adc_ptw;
-  volatile unsigned int adc_pl;                 /* 0x120 */
-  volatile unsigned int adc_nsb;
-  volatile unsigned int adc_nsa;
-  volatile unsigned short adc_thres[16];
-  volatile unsigned int ptw_last_adr;
-  volatile unsigned int ptw_max_buf;            /* 0x150 */
-  volatile unsigned int adc_test_data;
-  volatile unsigned int adc_pedestal[16];
-#ifdef HPS
-  volatile unsigned int config6;
-  volatile unsigned int config7;
+  /* 0x0100 */ volatile unsigned int adc_status[3];
+  /* 0x010C */ volatile unsigned int adc_config[4];
+  /* 0x011C */ volatile unsigned int adc_ptw;
+  /* 0x0120 */ volatile unsigned int adc_pl;
+  /* 0x0124 */ volatile unsigned int adc_nsb;
+  /* 0x0128 */ volatile unsigned int adc_nsa;
+  /* 0x012C */ volatile unsigned short adc_thres[16];
+  /* 0x014C */ volatile unsigned int ptw_last_adr;
+  /* 0x0150 */ volatile unsigned int ptw_max_buf;
+  /* 0x0154 */ volatile unsigned int adc_test_data;
+  /* 0x0158 */ volatile unsigned int adc_pedestal[16];
+
+#ifdef CLAS12
+  /* 0x0198 */ volatile unsigned int adc_gain[16];
+  /* 0x0198 */ volatile unsigned int spare_adc[(0x200-0x1d8)>>2];
+#else
+  /* 0x0198 */ volatile unsigned int spare_adc[(0x200-0x198)>>2];
 #endif
-  volatile unsigned int spare_adc[(0x200-0x198)>>2];
 
-  volatile unsigned int hitsum_status;	        /* (0x200 - 0x2FC) - HITSUM processing */
-  volatile unsigned int hitsum_cfg;
-  volatile unsigned int hitsum_hit_width;	/*  secondary address (0x0 - 0xf) */
-  volatile unsigned int hitsum_trig_delay;
-  volatile unsigned int hitsum_trig_width;      /* 0x210 */
-  volatile unsigned int hitsum_window_bits;
-  volatile unsigned int hitsum_window_width;
-  volatile unsigned int hitsum_coin_bits;       
-  volatile unsigned int hitsum_pattern;	        /* 0x220 */
-  volatile unsigned int hitsum_fifo;
-  volatile unsigned int hitsum_sum_thresh;
-  volatile unsigned int spare_hitsum[(0x300-0x22C)>>2];
+  /* 0x0200 */ volatile unsigned int hitsum_status;
+  /* 0x0204 */ volatile unsigned int hitsum_cfg;
+  /* 0x0208 */ volatile unsigned int hitsum_hit_width;
+  /* 0x020C */ volatile unsigned int hitsum_trig_delay;
+  /* 0x0210 */ volatile unsigned int hitsum_trig_width;
+  /* 0x0214 */ volatile unsigned int hitsum_window_bits;
+  /* 0x0218 */ volatile unsigned int hitsum_window_width;
+  /* 0x021C */ volatile unsigned int hitsum_coin_bits;       
+  /* 0x0220 */ volatile unsigned int hitsum_pattern;
+  /* 0x0224 */ volatile unsigned int hitsum_fifo;
+  /* 0x0228 */ volatile unsigned int hitsum_sum_thresh;
+  /* 0x022C */ volatile unsigned int spare_hitsum[(0x300-0x22C)>>2];
 
-  volatile unsigned int scaler[16];             /* (0x300 - 0x3FC) - Scalers */
-  volatile unsigned int time_count;             /* 0x340 */
-  volatile unsigned int spare_scaler[(0x400-0x344)>>2];
+  /* 0x0300 */ volatile unsigned int scaler[16];
+  /* 0x0340 */ volatile unsigned int time_count;
+  /* 0x0344 */ volatile unsigned int spare_scaler[(0x400-0x344)>>2];
+
+  /* 0x0400 */ volatile unsigned int testBit;
+  /* 0x0404 */ volatile unsigned int clock250count;
+  /* 0x0408 */ volatile unsigned int syncp0count; 
+  /* 0x040C */ volatile unsigned int trig1p0count; 
+  /* 0x0410 */ volatile unsigned int trig2p0count; 
+
+#ifdef CLAS12
+  /* 0x0414 */ volatile unsigned int spare_adc_1[(0x500-0x414)>>2];
+  /* 0x0500 */ volatile unsigned int gtx_ctrl;
+  /* 0x0504 */ volatile unsigned int gtx_ctrl_tile;
+  /* 0x0508 */ volatile unsigned int gtx_status;
+  /* 0x050C */ volatile unsigned int gtx_drp_ctrl;
+  /* 0x0510 */ volatile unsigned int gtx_drp_status;
+  /* 0x0514 */ volatile unsigned int gtx_softerr;
+  /* 0x0518 */ volatile unsigned int gtx_la_ctrl;
+  /* 0x051C */ volatile unsigned int gtx_la_status;
+  /* 0x0520 */ volatile unsigned int gtx_la_data[2];
+  /* 0x0528 */ volatile unsigned int gtx_la_mode;
+  /* 0x052C */ volatile unsigned int gtx_la_thr;
+  /* 0x0530 */ volatile unsigned int gtx_la_en[2];
+  /* 0x0538 */ volatile unsigned int gtx_la_val[2];
+  /* 0x0540 */ volatile unsigned int spare_gtx[(0x580-0x540)>>2];
+  /* 0x0580 */ volatile unsigned int hist_ctrl;
+  /* 0x0584 */ volatile unsigned int hist_time;
+  /* 0x0588 */ volatile unsigned int hist_data[16];
+#endif
+
 };
 
 struct fadc_data_struct {
@@ -169,22 +211,28 @@ struct fadc_sdc_struct {
 /* FADC Special Board IDs */
 
 /* Define CSR Bits */
-#define  FA_CSR_EVENT_AVAILABLE           0x1
-#define  FA_CSR_BLOCK_LEVEL_FLAG          0x2
-#define  FA_CSR_BLOCK_READY               0x4
-#define  FA_CSR_BERR_STATUS               0x8
-#define  FA_CSR_TOKEN_STATUS             0x10
-#define  FA_CSR_FIFO1_EMPTY             0x800
-#define  FA_CSR_FIFO1_ALMOST_EMPTY     0x1000
-#define  FA_CSR_FIFO1_HALF_FULL        0x2000
-#define  FA_CSR_FIFO1_ALMOST_FULL      0x4000
-#define  FA_CSR_FIFO1_FULL             0x8000
-#define  FA_CSR_ERROR_MASK         0x0c000000
-#define  FA_CSR_ERROR_CLEAR        0x08000000
-#define  FA_CSR_SYNC               0x10000000
-#define  FA_CSR_TRIGGER            0x20000000
-#define  FA_CSR_SOFT_RESET         0x40000000
-#define  FA_CSR_HARD_RESET         0x80000000
+#define  FA_CSR_EVENT_AVAILABLE                    0x1
+#define  FA_CSR_BLOCK_LEVEL_FLAG                   0x2
+#define  FA_CSR_BLOCK_READY                        0x4
+#define  FA_CSR_BERR_STATUS                        0x8
+#define  FA_CSR_TOKEN_STATUS                      0x10
+#define  FA_CSR_FIFO1_EMPTY                      0x800
+#define  FA_CSR_FIFO1_ALMOST_EMPTY              0x1000
+#define  FA_CSR_FIFO1_HALF_FULL                 0x2000
+#define  FA_CSR_FIFO1_ALMOST_FULL               0x4000
+#define  FA_CSR_FIFO1_FULL                      0x8000
+#define  FA_CSR_SOFT_PULSE_TRIG2              0x100000
+#define  FA_CSR_SOFT_CLEAR                    0x200000
+#define  FA_CSR_DATA_STREAM_SCALERS           0x400000
+#define  FA_CSR_FORCE_EOB_INSERT              0x800000
+#define  FA_CSR_FORCE_EOB_SUCCESS            0x1000000
+#define  FA_CSR_FORCE_EOB_FAILED             0x2000000
+#define  FA_CSR_ERROR_MASK                  0x0c000000
+#define  FA_CSR_ERROR_CLEAR                 0x08000000
+#define  FA_CSR_SYNC                        0x10000000
+#define  FA_CSR_TRIGGER                     0x20000000
+#define  FA_CSR_SOFT_RESET                  0x40000000
+#define  FA_CSR_HARD_RESET                  0x80000000
 
 /* Define Init Flag bits for Clock Source */
 #define FA_SOURCE_INT         0x00
@@ -211,6 +259,7 @@ struct fadc_sdc_struct {
 #define FA_TRIG_FP_ISYNC          0x10
 #define FA_TRIG_P0                0x20
 #define FA_TRIG_P0_ISYNC          0x30
+#define FA_TRIG_VME_PLAYBACK      0x50
 #define FA_TRIG_VME               0x60
 #define FA_TRIG_INTERNAL          0x70
 #define FA_TRIG_MASK              0x70
@@ -261,9 +310,14 @@ struct fadc_sdc_struct {
 /* Define trig_scal bits */
 #define FA_TRIG_SCAL_RESET          (1<<31)
 
+/* Define trig21 delay bits */
+#define FA_TRIG21_DELAY_MASK     0x00000FFF
+
 /* Define MGT Control bits */
 #define FA_MGT_RESET                    0x0
 #define FA_RELEASE_MGT_RESET            0x1
+#define FA_MGT_FRONT_END_TO_CTP         0x2
+#define FA_MGT_ENABLE_DATA_ALIGNMENT    0x4
 
 #define FA_INT_ACTIVE             0x1000000
 #define FA_INT_IACKSTAT_WAIT      0x2000000
@@ -350,7 +404,7 @@ struct fadc_sdc_struct {
 #define FA_ADC_DEFAULT_NP      4
 #define FA_ADC_DEFAULT_THRESH  0
 
-#define FA_ADC_MAX_PL       2000/*1000*/
+#define FA_ADC_MAX_PL       1000
 #define FA_ADC_MAX_PTW       512
 #define FA_ADC_MAX_NSB       500
 #define FA_ADC_MAX_NSA       500
@@ -434,6 +488,20 @@ struct fadc_sdc_struct {
 #define FA_SCALER_CTRL_RESET      (1<<2)
 #define FA_SCALER_CTRL_MASK        (0x7)
 
+/* Define Scaler Interval Mask */
+#define FA_SCALER_INTERVAL_MASK   0x0000FFFF
+
+/* Define Serial Number bits and masks */
+#define FA_SERIAL_NUMBER_ACDI               0x41434449     
+#define FA_SERIAL_NUMBER_ADV_ASSEM_MASK     0xFF000000
+#define FA_SERIAL_NUMBER_ADV_ASSEM          0x42000000
+#define FA_SERIAL_NUMBER_ACDI_BOARDID_MASK  0x0000FFFF
+#define FA_SERIAL_NUMBER_ADV_MNFID1         0x42323135
+#define FA_SERIAL_NUMBER_ADV_MNFID2_MASK    0xFFFF0000
+#define FA_SERIAL_NUMBER_ADV_MNFID2         0x39350000
+#define FA_SERIAL_NUMBER_ADV_BOARDID2_MASK  0x000000FF
+         
+
 /* Define FADC Signal Distribution card bits */
 
 #define FA_SDC_BOARD_ID    0x0200
@@ -460,16 +528,43 @@ struct fadc_sdc_struct {
 #define        FADC_FIRMWARE_LX110    0
 #define        FADC_FIRMWARE_FX70T    1
 
+#define FA_CTRL1_SYSTEM_TEST_MODE   (1<<31)
+
+#define FA_TESTBIT_TRIGOUT          (1<<0)
+#define FA_TESTBIT_BUSYOUT          (1<<1)
+#define FA_TESTBIT_SDLINKOUT        (1<<2)
+#define FA_TESTBIT_TOKENOUT         (1<<3)
+#define FA_TESTBIT_STATBITB         (1<<8)
+#define FA_TESTBIT_TOKENIN          (1<<9)
+#define FA_TESTBIT_CLOCK250_STATUS  (1<<15)
+
+#define FA_CLOCK250COUNT_RESET   (0<<0)
+#define FA_CLOCK250COUNT_START   (1<<0)
+#define FA_SYNCP0COUNT_RESET     (0<<0)
+#define FA_TRIG1P0COUNT_RESET    (0<<0)
+#define FA_TRIG2P0COUNT_RESET    (0<<0)
+
+/* faInit initialization flag bits */
+#define FA_INIT_SOFT_SYNCRESET      (0<<0)
+#define FA_INIT_EXT_SYNCRESET       (1<<0)
+#define FA_INIT_SOFT_TRIG           (0<<1)
+#define FA_INIT_FP_TRIG             (1<<1)
+#define FA_INIT_VXS_TRIG            (1<<2)
+#define FA_INIT_INT_CLKSRC          (0<<4)
+#define FA_INIT_FP_CLKSRC           (1<<4)
+#define FA_INIT_VXS_CLKSRC          (1<<5)
+#define FA_INIT_P2_CLKSRC           ((1<<4) | (1<<5))
+#define FA_INIT_SKIP                (1<<16)
+#define FA_INIT_USE_ADDRLIST        (1<<17)
+#define FA_INIT_SKIP_FIRMWARE_CHECK (1<<18)
 
 /* Function Prototypes */
-int faGetProcMode(unsigned int slot);
-int faGetNfadc();
-int faSlot(unsigned int id);
-int faId(unsigned int slot);
-int faInit(unsigned int addr, unsigned int addr_inc, int nadc, int iFlag);
+int faInit (unsigned int addr, unsigned int addr_inc, int nadc, int iFlag);
+int faSlot(unsigned int i);
 int faSetClockSource(int id, int clkSrc);
 void faStatus(int id, int sflag);
 void faGStatus(int sflag);
+unsigned int faGetFirmwareVersions(int id, int pflag);
 int faSetProcMode(int id, int pmode, unsigned int PL, unsigned int PTW, 
 	          unsigned int NSB, unsigned int NSA, unsigned int NP, int bank);
 void faGSetProcMode(int pmode, unsigned int PL, unsigned int PTW, 
@@ -487,13 +582,21 @@ void faClear(int id);
 void faClearError(int id);
 unsigned int faReadCSR(int id);
 void faReset(int id, int iFlag);
-void faSoftReset(int id);
+void faSoftReset(int id, int cflag);
 void faResetToken(int id);
+int  faTokenStatus(int id);
+int  faGTokenStatus();
 void faSetCalib(int id, unsigned short sdelay, unsigned short tdelay);
 void faChanDisable(int id, unsigned short cmask);
 void faEnable(int id, int eflag, int bank);
 void faDisable(int id, int eflag);
 void faTrig(int id);
+void faGTrig();
+void faTrig2(int id);
+void faGTrig2();
+int  faSetTrig21Delay(int id, int delay);
+int  faGetTrig21Delay(int id);
+int  faEnableInteralPlaybackTrigger(int id);
 void faSync(int id);
 int faDready(int id,int dflag);
 int faBready(int id);
@@ -523,11 +626,13 @@ int faSetThreshold(int id, unsigned short tvalue, unsigned short chmask);
 int faPrintThreshold(int id);
 int faSetDAC(int id, unsigned short dvalue, unsigned short chmask);
 void faPrintDAC(int id);
+int faSetChannelPedestal(int id, unsigned int chan, unsigned int ped);
+int faGetChannelPedestal(int id, unsigned int chan);
 int faLive(int id, int sflag);
 void faDataDecode(unsigned int data);
 
 int faSetMGTTestMode(int id, unsigned int mode);
-
+int faSyncResetMode(int id, unsigned int mode);
 /* FADC scaler routine prototypes */
 int faReadScalers(int id, volatile unsigned int *data, unsigned int chmask, int rflag);
 int faPrintScalers(int id, int rflag);
@@ -560,11 +665,28 @@ void fadcFirmwareSetFilename(char *filename, int chip);
 int  fadcFirmwareReadFile(char *filename);
 int  fadcFirmwareReadMcsFile(char *filename);
 
-#ifdef HPS
-void faWriteHPSConfig(int id, unsigned int config6, unsigned int config7);
-int  faSetHPSParameters(int id, unsigned int tot, 
-			unsigned int maxIntTime, unsigned int sumScaleFactor);
-#endif
+void faTestSetSystemTestMode(int id, int mode);
+void faTestSetTrigOut(int id, int mode);
+void faTestSetBusyOut(int id, int mode);
+void faTestSetSdLink(int id, int mode);
+void faTestSetTokenOut(int id, int mode);
+int  faTestGetStatBitB(int id);
+int  faTestGetTokenIn(int id);
+int  faTestGetClock250CounterStatus(int id);
+unsigned int faTestGetClock250Counter(int id);
+unsigned int faTestGetSyncCounter(int id);
+unsigned int faTestGetTrig1Counter(int id);
+unsigned int faTestGetTrig2Counter(int id);
+void faTestResetClock250Counter(int id);
+void faTestResetSyncCounter(int id);
+void faTestResetTrig1Counter(int id);
+void faTestResetTrig2Counter(int id);
+unsigned int faTestGetTestBitReg(int id);
+int  faGetSerialNumber(int id, char **rval, int snfix);
+int  faSetScalerBlockInterval(int id, unsigned int nblock);
+int  faGetScalerBlockInterval(int id);
+int  faForceEndOfBlock(int id, int scalers);
+void faGForceEndOfBlock(int scalers);
 
 /* FLASH SDC prototypes */
 int faSDC_Config(unsigned short cFlag, unsigned short bMask);
@@ -574,5 +696,21 @@ void faSDC_Disable();
 void faSDC_Sync();
 void faSDC_Trig();
 int faSDC_Busy();
+
+
+/*sergey*/
+int faGetProcMode(unsigned int slot);
+int faGetNfadc();
+int faId(unsigned int slot);
+int faSetThresholdAll(int id, unsigned short tvalue[16]);
+int faSetPedestal(int id, unsigned int wvalue);
+int faPrintPedestal(int id);
+#ifdef CLAS12
+int faResetMGT(int id, int reset);
+int faGetMGTChannelStatus(int id);
+int faSetChannelGain(int id, unsigned int chan, float gain);
+float faGetChannelGain(int id, unsigned int chan);
+#endif
+
 
 #endif /* __FADCLIB__ */

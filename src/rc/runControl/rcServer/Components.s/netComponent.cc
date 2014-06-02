@@ -1050,8 +1050,9 @@ netComponent::timerCallback (void)
     else 
       timerCount_ ++;
   }
-  else {
-    reporter->cmsglog (CMSGLOG_ERROR,"%s boot timeout !!!\n", title_);
+  else
+  {
+    reporter->cmsglog (CMSGLOG_ERROR,"%s boot timeout !!!!!!\n", title_);
     status_ = CODA_ERROR;
     // timer is canceld inside cancel transition
     cancelTransition ();

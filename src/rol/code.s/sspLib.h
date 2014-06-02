@@ -1,317 +1,501 @@
-#ifndef SSP_H
-#define SSP_H
+#ifndef __SSPLIB_H
+#define __SSPLIB_H
+/******************************************************************************
+ *
+ *  sspLib.h    -  Header for Driver library for JLAB config of JLAB Subsystem 
+ *                 Processor (SSP).
+ *
+ */
 
-#define SSP_MODE_NORMAL		0x0
-#define SSP_MODE_HPS		0x1
+#ifndef MAX_VME_SLOTS
+#define MAX_VME_SLOTS    21
+#endif
 
-#define PULSER_CLOCK_FREQ		100000000
+#define SSP_SUPPORTED_FIRMWARE 0x0103
 
-#define GPIO_NIM_NIMA			0
-#define GPIO_NIM_NIMB			1
-
-// Flags: SSP_regs.Config
-#define CFG_CLOCK_SRC_MASK		0x00000003
-#define CFG_CLOCK_SRC_SWA		(0x0<<0)
-#define CFG_CLOCK_SRC_SWB		(0x1<<0)
-#define CFG_CLOCK_SRC_SMA		(0x2<<0)
-#define CFG_CLOCK_SRC_LOCAL	(0x3<<0)
-
-#define CFG_RESET					(0x1<<2)
-
-#define CFG_SYNC_SRC_MASK		0x00000038
-#define CFG_SYNC_SRC_NIMA		(0x0<<3)
-#define CFG_SYNC_SRC_NIMB		(0x1<<3)
-#define CFG_SYNC_SRC_LVDS0		(0x2<<3)
-#define CFG_SYNC_SRC_LVDS1		(0x3<<3)
-#define CFG_SYNC_SRC_LVDS2		(0x4<<3)
-#define CFG_SYNC_SRC_LVDS3		(0x5<<3)
-#define CFG_SYNC_SRC_P0			(0x6<<3)
-#define CFG_SYNC_SRC_NONE		(0x7<<3)
-
-#define CFG_SYNC_SW				(0x1<<6)
-
-// Flags: SSP_regs.SSPConfig
-#define SSPCFG_MODE_MASK		0x000000FF
-#define SSPCFG_MODE_SUM			0
-
-#define SSPCFG_CHANNEL_MASK	0x0000FF00
-#define SSPCFG_CHANNEL_NONE	(0x0<<8)
-#define SSPCFG_CHANNEL_0		(0x1<<8)
-#define SSPCFG_CHANNEL_1		(0x2<<8)
-#define SSPCFG_CHANNEL_2		(0x4<<8)
-#define SSPCFG_CHANNEL_3		(0x8<<8)
-#define SSPCFG_CHANNEL_4		(0x10<<8)
-#define SSPCFG_CHANNEL_5		(0x20<<8)
-#define SSPCFG_CHANNEL_6		(0x40<<8)
-#define SSPCFG_CHANNEL_7		(0x80<<8)
-#define SSPCFG_CHANNEL_ALL		(0xFF<<8)
-
-// Flags: SSP_regs.FLConfig
-#define FLCFG_LATENCY_MASK		0x00003FFF
-#define FLCFG_SLACK_MASK		0x3FFF0000
-#define FLCFG_ERROR_FULL		(0x1<<30)
-#define FLCFG_ERROR_EMPTY		(0x1<<31)
-
-// Flags: SSP_regs.SPI0
-#define SPI_MISO					(0x1<<0)
-#define SPI_MOSI					(0x1<<1)
-#define SPI_NSS					(0x1<<2)
-#define SPI_SCLK					(0x1<<3)
-
-// Flags: SSP_regs.LVDS_IO[] and SSP_regs.NIM_IO[]
-#define GPIO_INPUT_MASK			0x00000001
-
-#define GPIO_OUTPUT_MASK		0x00000002
-#define GPIO_VMEREG_0			(0x0<<2)
-#define GPIO_VMEREG_1			(0x1<<2)
-
-#define GPIO_MUXSEL_MASK		0x000001F0
-#define GPIO_MUXSEL_NIMA		(0x0<<4)
-#define GPIO_MUXSEL_NIMB		(0x1<<4)
-#define GPIO_MUXSEL_LVDS0		(0x2<<4)
-#define GPIO_MUXSEL_LVDS1		(0x3<<4)
-#define GPIO_MUXSEL_LVDS2		(0x4<<4)
-#define GPIO_MUXSEL_LVDS3		(0x5<<4)
-#define GPIO_MUXSEL_CLK100		(0x6<<4)
-#define GPIO_MUXSEL_CLK200		(0x7<<4)
-#define GPIO_MUXSEL_CLK125		(0x8<<4)
-#define GPIO_MUXSEL_CLK250		(0x9<<4)
-#define GPIO_MUXSEL_PULSER0	(0xA<<4)
-#define GPIO_MUXSEL_PULSER1	(0xB<<4)
-#define GPIO_MUXSEL_PULSER2	(0xC<<4)
-#define GPIO_MUXSEL_PULSER3	(0xD<<4)
-#define GPIO_MUXSEL_PULSER4	(0xE<<4)
-#define GPIO_MUXSEL_VMEREG		(0xF<<4)
-#define GPIO_MUXSEL_DISC0		(0x10<<4)
-#define GPIO_MUXSEL_DISC1		(0x11<<4)
-#define GPIO_MUXSEL_DISC2		(0x12<<4)
-#define GPIO_MUXSEL_DISC3		(0x13<<4)
-
-// Flags: SSP_regs.Pulse_IO[].PeriodCycles
-#define PULSER_PERIOD_MASK		0xFFFFFFFF
-
-// Flags: SSP_regs.Pulse_IO[].HighCycles
-#define PULSER_HIGH_MASK		0xFFFFFFFF
-
-// Flags: SSP_regs.DDRStatus[]
-#define DDR_STATUS_RDY_MASK	0x80000000
-#define DDR_STATUS_TAP_A		0x0000003F
-#define DDR_STATUS_TAP_B		0x00000F30
-#define DDR_STATUS_TAP_C		0x0003F000
-
-// Flags: SSP_regs.Discriminators[].Mode
-#define DISC_MODE_MASK			0x00000003
-#define DISC_MODE_DISABLE		(0x0<<0)
-#define DISC_MODE_NONUPDATING	(0x1<<0)
-#define DISC_MODE_UPDATING		(0x2<<0)
-#define DISC_MODE_TOT			(0x3<<0)
-
-// Flags: SSP_regs.Discriminators[].ModeThreshold
-#define DISC_THRESHOLD_MASK	0xFFFFFFFF
-
-// Flags: SSP_regs.Discriminators[].ModePulseWidth
-#define DISC_THRESHOLD_MASK	0xFFFFFFFF
-
-// Flags: SSP_regs.LinkA.Control and SSP_regs.LinkB.Control
-#define LINK_CTRL_RESET			(0x1<<0)
-#define LINK_CTRL_PRBS_RX_EN	(0x3<<2)
-#define LINK_CTRL_PRBS_TX_EN	(0x3<<4)
-#define LINK_CTRL_TSTTX_EN		(0x1<<6)
-#define LINK_CTRL_TSTTX_MASK	(0x3FFFF<<8)
-
-// Flags: SSP_regs.LinkA.Status and SSP_regs.LinkB.Status
-#define LINK_STATUS_CH_MASK	0x000F0000
-#define LINK_STATUS_LANE_MASK	0x00F00000
-#define LINK_STATUS_REM_MASK	0x0F000000
-#define LINK_STATUS_GTX_RDY	0x10000000
-#define LINK_STATUS_DDR_RDY	0x20000000
-
-// Flags: SSP_regs.HPSRegs.TriggerCutEnable
-#define HPS_TRIGCUT_EN_CLUSTER_SUM			0x1
-#define HPS_TRIGCUT_EN_CLUSTER_DIFF			0x2
-#define HPS_TRIGCUT_EN_CLUSTER_ENERGYDIST	0x4
-#define HPS_TRIGCUT_EN_CLUSTER_COPLANAR		0x8
-#define HPS_TRIGMODE_PAIRS					(0x0<<4)
-#define HPS_TRIGMODE_TOPCLUSTERS			(0x1<<4)
-#define HPS_TRIGMODE_BOTCLUSTERS			(0x2<<4)
-#define HPS_TRIGMODE_DISABLED				(0x3<<4)
-
-// Flags: SSP_regs.LinkA.FECStatus and SSP_regs.LinkB.FECStatus
-// Flags: SSP_regs.LinkA.LaneStatus01 and SSP_regs.LinkB.LaneStatus01 and SSP_regs.LinkA.LaneStatus23 and SSP_regs.LinkB.LaneStatus23
-// Flags: SSP_regs.LinkA.GTXDRP and SSP_regs.LinkB.GTXDRP
-// Flags: SSP_regs.LinkA.PRBSStatus and SSP_regs.LinkB.PRBSStatus
-
-/*#ifdef WIN32
-	#pragma pack(push)
-	#pragma pack(1)
-#else
-	#error "Set structure packing here"
-#endif*/
-
+/* Config Peripheral: Board information, fpga flash update */
 typedef struct
 {
-	unsigned int PeriodCycles;
-	unsigned int HighCycles;
-} Pulser;
+  /* 0x0000-0x0003 */ volatile unsigned int BoardId;
+  /* 0x0004-0x0007 */ volatile unsigned int FirmwareRev;
+  /* 0x0008-0x000B */ volatile unsigned int SpiCtrl;
+  /* 0x000C-0x000F */ volatile unsigned int SpiStatus;
+  /* 0x0010-0x0013 */ volatile unsigned int ICapCtrl;
+  /* 0x0014-0x0017 */ volatile unsigned int ICapDataWr;
+  /* 0x0018-0x001B */ volatile unsigned int ICapDataRd;
+  /* 0x001C-0x001E */ volatile unsigned int ICapStatus;
+  /* 0x0020-0x00FF */          unsigned int Reserved0[(0x0100-0x0020)/4];
+} SspCfg_regs;
 
+/* Clock Peripheral: Clock configuration interface */
 typedef struct
 {
-	unsigned int Mode;
-	unsigned int Threshold;
-	unsigned int PulseWidth;
-} Discriminator;
+  /* 0x0000-0x0003 */ volatile unsigned int Ctrl;
+  /* 0x0004-0x0007 */ volatile unsigned int Status;
+  /* 0x0008-0x00FF */          unsigned int Reserved0[(0x0100-0x0008)/4];
+} Clk_regs;
 
+/* SD Peripheral: Internal signal muxing, scalers, pulser */
 typedef struct
 {
-	unsigned int Control;
-	unsigned int Status;
-	unsigned int FECStatus;
-	unsigned int LaneStatus01;
-	unsigned int LaneStatus23;
-	unsigned int GTXDRP;
-	unsigned int PRBSStatus;
-	unsigned int Reserved[1];
-} FiberLink;
+  /* 0x0000-0x003B */ volatile unsigned int SrcSel[17];
+  /* 0x003C-0x007F */          unsigned int Reserved0[(0x0080-0x0044)/4];
+  /* 0x0080-0x0083 */ volatile unsigned int PulserPeriod;
+  /* 0x0084-0x0087 */ volatile unsigned int PulserLowCycles;
+  /* 0x0088-0x008B */ volatile unsigned int PulserNPulses;
+  /* 0x008C-0x008F */ volatile unsigned int PulserStart;
+  /* 0x0090-0x0093 */ volatile unsigned int PulserDone;
+  /* 0x0094-0x00FF */          unsigned int Reserved1[(0x0100-0x0094)/4];
+  /* 0x0100-0x0103 */ volatile unsigned int ScalerLatch;
+  /* 0x0104-0x018F */ volatile unsigned int Scalers[35];
+  /* 0x0190-0x01FF */          unsigned int Reserved2[(0x0200-0x0190)/4];
+} Sd_regs;
 
-// Offset HPS struct in SSP to 0x0700
+/* Trigger Peripheral: Trigger configuration, status */
 typedef struct
 {
-/* 0x0000-0x0003 */ volatile unsigned int Coincidence;
-/* 0x0004-0x0007 */ volatile unsigned int PairSumMax;
-/* 0x0008-0x000B */ volatile unsigned int PairDiffMax;
-/* 0x000C-0x000F */ volatile unsigned int EDSlope;
-/* 0x0010-0x0013 */ volatile unsigned int EMax;
-/* 0x0014-0x0017 */ volatile unsigned int EMin;
-/* 0x0018-0x001B */ volatile unsigned int Delay;
-/* 0x001C-0x001F */ volatile unsigned int TriggerLatency;
-/* 0x0020-0x0023 */ volatile unsigned int TriggerCutEnable;
-/* 0x0024-0x0027 */ volatile unsigned int RAMEDSlope;
-/* 0x0028-0x002B */ volatile unsigned int RAMEDSlopeData;
-/* 0x002C-0x002F */ volatile unsigned int RAMCoplanar;
-/* 0x0030-0x0033 */ volatile unsigned int RAMCoplanarData;
-/* 0x0034-0x0037 */ volatile unsigned int TriggerWidth;
-/* 0x0038-0x003B */ volatile unsigned int EventFifoCfg;
-/* 0x003C-0x003F */ volatile unsigned int EventFifoData;
-/* 0x0040-0x0043 */ volatile unsigned int EventPatternDelay;
-/* 0x0044-0x00FF */ volatile unsigned int Reserved1[(0x0100-0x0044)/4];
-/* 0x0100-0x0103 */ volatile unsigned int ScalerBottomCluster;
-/* 0x0104-0x0107 */ volatile unsigned int ScalerTopCluster;
-/* 0x0108-0x010B */ volatile unsigned int ScalerBottomClusterDisc;
-/* 0x010C-0x010F */ volatile unsigned int ScalerTopClusterDisc;
-/* 0x0110-0x012F */ volatile unsigned int ScalerPairs[8];
-/* 0x0130-0x014F */ volatile unsigned int ScalerSumCut[8];
-/* 0x0150-0x016F */ volatile unsigned int ScalerDiffCut[8];
-/* 0x0170-0x018F */ volatile unsigned int ScalerEDSlopeCut[8];
-/* 0x0190-0x01AF */ volatile unsigned int ScalerCoplanarCut[8];
-/* 0x01B0-0x01CF */ volatile unsigned int ScalerTriggerCut[8];
-/* 0x01D0-0x01FF */ volatile unsigned int Reserved2[(0x0200-0x01D0)/4];
-/* 0x0200-0x0203 */ volatile unsigned int TopEnergyHistData;
-/* 0x0204-0x0207 */ volatile unsigned int TopEnergyHistTime;
-/* 0x0208-0x020B */ volatile unsigned int BottomEnergyHistData;
-/* 0x020C-0x020F */ volatile unsigned int BottomEnergyHistTime;
-/* 0x0210-0x0213 */ volatile unsigned int TopPositionHistData;
-/* 0x0214-0x0217 */ volatile unsigned int TopPositionHistTime;
-/* 0x0218-0x021B */ volatile unsigned int BottomPositionHistData;
-/* 0x021C-0x021F */ volatile unsigned int BottomPositionHistTime;
-/* 0x0220-0x0223 */ volatile unsigned int TopLatencyHistData;
-/* 0x0224-0x0227 */ volatile unsigned int TopLatencyHistTime;
-/* 0x0228-0x022B */ volatile unsigned int BottomLatencyHistData;
-/* 0x022C-0x022F */ volatile unsigned int BottomLatencyHistTime;
-} HPSRegs;
+  /* 0x0000-0x0003 */ volatile unsigned int Ctrl;
+  /* 0x0004-0x0010 */          unsigned int Reserved0[(0x0014-0x0004)/4];
+  /* 0x0014-0x0017 */ volatile unsigned int SumHistThr;
+  /* 0x0018-0x001B */ volatile unsigned int SumHistWindow;
+  /* 0x001C-0x0023 */ volatile unsigned int Reserved1[(0x0024-0x001C)/4];
+  /* 0x0024-0x0027 */ volatile unsigned int SumHistData;
+  /* 0x0028-0x00FF */          unsigned int Reserved2[(0x0100-0x0028)/4];
+} Trg_regs;
 
+/* Serdes Peripheral: Fiber & VXS serdes controls and monitors */
 typedef struct
 {
-/* 0x0000-0x0003 */ volatile unsigned int Config;
-/* 0x0004-0x0007 */ volatile unsigned int SSPConfig;
-/* 0x0008-0x000B */ volatile unsigned int FLConfig;
-/* 0x000C-0x000F */ volatile unsigned int SPI0;
-/* 0x0010-0x0013 */ volatile unsigned int RevisionMain;
-/* 0x0014-0x00FF */ volatile unsigned int Reserved1[(0x0100-0x0014)/4];
-/* 0x0100-0x010F */ volatile unsigned int LVDS_IO[4];
-/* 0x0110-0x011F */ volatile unsigned int Reserved2[(0x0120-0x0110)/4];
-/* 0x0120-0x0127 */ volatile unsigned int NIM_IO[2];
-/* 0x0128-0x014F */ volatile Pulser Pulse_IO[5];
-/* 0x0150-0x01FF */ volatile unsigned int Reserved3[(0x0200-0x0150)/4];
-/* 0x0200-0x023F */ volatile unsigned int DDRStatus[16];
-/* 0x0240-0x02FF */ volatile unsigned int Reserved4[(0x0300-0x0240)/4];
-/* 0x0300-0x032F */ volatile Discriminator Discriminators[4];
-/* 0x0330-0x03FF */ volatile unsigned int Reserved5[(0x400-0x0330)/4];
-/* 0x0400-0x0403 */ volatile unsigned int HistEnable;
-/* 0x0404-0x0407 */ volatile unsigned int HistLogEnable;
-/* 0x0408-0x042B */ volatile unsigned int HistData[9];
-/* 0x042C-0x044F */ volatile unsigned int HistOffset[9];
-/* 0x0450-0x0473 */ volatile unsigned int HistShift[9];
-/* 0x0474-0x04FF */ volatile unsigned int Reserved6[(0x0500-0x0474)/4];
-/* 0x0500-0x0503 */ volatile unsigned int WaveConfig;
-/* 0x0504-0x0527 */ volatile unsigned int WaveThreshold[9];
-/* 0x0528-0x054B */ volatile unsigned int WaveData[9];
-/* 0x054C-0x05FF */ volatile unsigned int Reserved7[(0x0600-0x054C)/4];
-/* 0x0600-0x0603 */ volatile unsigned int ScalerLatch;
-/* 0x0604-0x0607 */ volatile unsigned int ScalerCLK100;
-/* 0x0608-0x060B */ volatile unsigned int ScalerCLK250;
-/* 0x060C-0x060F */ volatile unsigned int ScalerSync;
-/* 0x0610-0x0613 */ volatile unsigned int ScalerTrig1;
-/* 0x0614-0x0617 */ volatile unsigned int ScalerTrig2;
-/* 0x0618-0x061B */ volatile unsigned int ScalerNIMInA;
-/* 0x061C-0x061F */ volatile unsigned int ScalerNIMInB;
-/* 0x0620-0x0623 */ volatile unsigned int ScalerNIMOutA;
-/* 0x0624-0x0627 */ volatile unsigned int ScalerNIMOutB;
-/* 0x0628-0x0637 */ volatile unsigned int ScalerLVDSIn[4];
-/* 0x0638-0x0647 */ volatile unsigned int ScalerLVDSOut[4];
-/* 0x0648-0x06FF */ volatile unsigned int Reserved8[(0x0700-0x0648)/4];
-/* 0x0700-0x092F */ volatile HPSRegs  HPS;
-/* 0x0930-0x7FFF */ volatile unsigned int Reserved9[(0x8000-0x0930)/4];
-/* 0x8000-0x801F */ volatile unsigned int TestRegA[8];
-/* 0x8020-0x8023 */ volatile unsigned int SPI1;
-/* 0x8024-0x8027 */ volatile unsigned int RevisionFiber1;
-/* 0x8028-0x80FF */ volatile unsigned int Reserved10[(0x8100-0x8028)/4];
-/* 0x8100-0x817F */ volatile FiberLink LinkA[4];
-/* 0x8180-0xBFFF */ volatile unsigned int Reserved11[(0xC000-0x8180)/4];
-/* 0xC000-0xC01F */ volatile unsigned int TestRegB[8];
-/* 0xC020-0xC023 */ volatile unsigned int SPI2;
-/* 0xC024-0xC027 */ volatile unsigned int RevisionFiber2;
-/* 0xC028-0xC0FF */ volatile unsigned int Reserved12[(0xC100-0xC028)/4];
-/* 0xC100-0xC17F */ volatile FiberLink LinkB[4];
-/* 0xC180-0xFFFF */ volatile unsigned int Reserved13[(0x10000-0xC180)/4];
+  /* 0x0000-0x0003 */ volatile unsigned int Ctrl;
+  /* 0x0004-0x0007 */ volatile unsigned int CtrlTile0;
+  /* 0x0008-0x000B */ volatile unsigned int CtrlTile1;
+  /* 0x000C-0x000F */ volatile unsigned int DrpCtrl;
+  /* 0x0010-0x0013 */ volatile unsigned int Status;
+  /* 0x0014-0x0017 */ volatile unsigned int DrpStatus;
+  /* 0x0018-0x001B */ volatile unsigned int ErrTile0;
+  /* 0x001C-0x001F */ volatile unsigned int ErrTile1;
+  /* 0x0020-0x0023 */ volatile unsigned int CrateId;
+  /* 0x0024-0x002F */          unsigned int Reserved0[(0x0030-0x0024)/4];
+  /* 0x0030-0x0033 */ volatile unsigned int MonCtrl;
+  /* 0x0034-0x0037 */ volatile unsigned int MonStatus;
+  /* 0x0038-0x003F */          unsigned int Reserved1[(0x0040-0x0038)/4];
+  /* 0x0040-0x004B */ volatile unsigned int MonMask[3];
+  /* 0x004C-0x005F */          unsigned int Reserved2[(0x0060-0x004C)/4];
+  /* 0x0060-0x006B */ volatile unsigned int MonVal[3];
+  /* 0x006C-0x007F */          unsigned int Reserved3[(0x0080-0x006C)/4];
+  /* 0x0080-0x0083 */ volatile unsigned int MonThr[1];
+  /* 0x0084-0x008F */          unsigned int Reserved4[(0x0090-0x0084)/4];
+  /* 0x0090-0x009B */ volatile unsigned int MonData[3];
+  /* 0x009C-0x00FF */          unsigned int Reserved5[(0x0100-0x009C)/4];
+} Serdes_regs;
+
+/* HPS Singles Peripheral */
+typedef struct
+{
+  /* 0x0000-0x0003 */ volatile unsigned int Ctrl;
+  /* 0x0004-0x0007 */ volatile unsigned int Latency;
+  /* 0x0008-0x0017 */ volatile unsigned int Reserved0[(0x0018-0x0008)/4];
+  /* 0x0018-0x001B */ volatile unsigned int ClusterEmin;
+  /* 0x001C-0x001F */ volatile unsigned int ClusterEmax;
+  /* 0x0020-0x0023 */ volatile unsigned int ClusterNHitsmin;
+  /* 0x0024-0x007F */          unsigned int Reserved1[(0x0080-0x0024)/4];
+  /* 0x0080-0x0083 */ volatile unsigned int ScalerSinglesPass;
+  /* 0x0084-0x0087 */ volatile unsigned int ScalerSinglesTot;
+  /* 0x0088-0x00FF */          unsigned int Reserved2[(0x0100-0x0088)/4];
+} Hps_regs;
+
+/* HPS Cluster Peripheral */
+typedef struct
+{
+  /* 0x0000-0x0003 */ volatile unsigned int HistCtrl;
+  /* 0x0004-0x000F */ volatile unsigned int Reserved0[(0x0010-0x0004)/4];
+  /* 0x0010-0x0013 */ volatile unsigned int HistLatency;
+  /* 0x0014-0x0017 */ volatile unsigned int HistPosition;
+  /* 0x0018-0x001B */ volatile unsigned int HistEnergy;
+  /* 0x001C-0x001F */ volatile unsigned int HistNHits;
+  /* 0x0020-0x00FF */          unsigned int Reserved1[(0x0100-0x0020)/4];
+} HpsCluster_regs;
+
+/* HPS Pairs Peripheral */
+typedef struct
+{
+  /* 0x0000-0x0003 */ volatile unsigned int Ctrl;
+  /* 0x0004-0x0007 */ volatile unsigned int Latency;
+  /* 0x0008-0x000B */ volatile unsigned int ClusterDelay;
+  /* 0x000C-0x000F */ volatile unsigned int ClusterTimeCoincidence;
+  /* 0x0010-0x0013 */ volatile unsigned int ClusterSummax;
+  /* 0x0014-0x0017 */ volatile unsigned int ClusterDiffmax;
+  /* 0x0018-0x001B */ volatile unsigned int ClusterEmin;
+  /* 0x001C-0x001F */ volatile unsigned int ClusterEmax;
+  /* 0x0020-0x0023 */ volatile unsigned int ClusterNHitsmin;
+  /* 0x0024-0x0027 */ volatile unsigned int ClusterCoplanarTol;
+  /* 0x0028-0x0028 */ volatile unsigned int ClusterEDFactor;
+  /* 0x002C-0x002F */ volatile unsigned int ClusterEDmin;
+  /* 0x0030-0x007F */          unsigned int Reserved0[(0x0080-0x0030)/4];
+  /* 0x0080-0x0083 */ volatile unsigned int ScalerPairsPass;
+  /* 0x0084-0x0087 */ volatile unsigned int ScalerSumPass;
+  /* 0x0088-0x008B */ volatile unsigned int ScalerDiffPass;
+  /* 0x008C-0x008F */ volatile unsigned int ScalerEDPass;
+  /* 0x0090-0x0093 */ volatile unsigned int ScalerCoplanarPass;
+  /* 0x0094-0x0097 */ volatile unsigned int ScalerTriggerPass;
+  /* 0x0098-0x00FF */          unsigned int Reserved1[(0x0100-0x0098)/4];
+} HpsPair_regs;
+
+/* SSP memory structure */
+typedef struct
+{
+  /* 0x0000-0x00FF */ SspCfg_regs     Cfg;
+  /* 0x0100-0x01FF */ Clk_regs        Clk;
+  /* 0x0200-0x03FF */ Sd_regs         Sd;
+  /* 0x0400-0x04FF */ Trg_regs        Trg;
+  /* 0x0500-0x05FF */ Hps_regs        HpsSingles;
+  /* 0x0600-0x06FF */ HpsCluster_regs HpsClusterTop;
+  /* 0x0700-0x07FF */ HpsCluster_regs HpsClusterBot;
+  /* 0x0800-0x08FF */ HpsPair_regs    HpsPairs;
+  /* 0x0900-0x0FFF */ unsigned int    Reserved0[(0x1000-0x0900)/4];
+  /* 0x1000-0x19FF */ Serdes_regs     Ser[10];
+  /* 0x1A00-0xFFFF */ unsigned int    Reserved1[(0x10000-0x1A00)/4];
 } SSP_regs;
 
-/*#ifdef WIN32
-	#pragma pack(pop)
-#else
-	#error "Restore structure packing here"
-#endif*/
 
-void sspInit(unsigned int addr_a24);
-void sspSetupPulser(Pulser *pPulser, unsigned int period, unsigned int hightime);
-void sspSetupOutput(unsigned int *pIOReg, int mux_sel, int val, 
-		    int disable_output, int delay);
-int  sspGetInput(unsigned int *pIOReg);
-void sspSetupNIM(int port, int mux_sel, int val, int disable_output, int delay);
-void sspSetupLVDS(int port, int mux_sel, int val, int disable_output, int delay);
-void sspSetupDiscriminator(int index, unsigned int threshold, unsigned width, int mode);
-void sspSetupPulserIndex(int index, float period, float duty);
-void sspFiberDisableAll();
-void sspFiberEnableAll();
-void sspFiberEnable(int port);
-void sspFiberDisable(int port);
-/* HPS dependent routines */
-void sspSetCoincidence(unsigned int window);
-void sspSetEnergySumMaximum(unsigned int max);
-void sspSetPairEnergyDifferenceMaximum(unsigned int max);
-void sspSetPairEnergyDistanceThreshold(unsigned int thres);
-void sspSetEnergyMaximum(unsigned int max);
-void sspSetEnergyMinimum(unsigned int min);
-void sspSetClusterDelay(unsigned int delay);
-void sspSetTriggerLatency(unsigned int late);
-void sspSetTriggerCutEnableMask(unsigned int mask);
-void sspInit_HPS(unsigned int addr_a24);
+/* Sd_regs->SrcSel[] IDs */
+#define SD_SRC_LVDSOUT0			0
+#define SD_SRC_LVDSOUT1			1
+#define SD_SRC_LVDSOUT2			2
+#define SD_SRC_LVDSOUT3			3
+#define SD_SRC_LVDSOUT4			4
+#define SD_SRC_GPIO0			5
+#define SD_SRC_GPIO1			6
+#define SD_SRC_P2_LVDSOUT0		7
+#define SD_SRC_P2_LVDSOUT1		8
+#define SD_SRC_P2_LVDSOUT2		9
+#define SD_SRC_P2_LVDSOUT3		10
+#define SD_SRC_P2_LVDSOUT4		11
+#define SD_SRC_P2_LVDSOUT5		12
+#define SD_SRC_P2_LVDSOUT6		13
+#define SD_SRC_P2_LVDSOUT7		14
+#define SD_SRC_TRIG			15
+#define SD_SRC_SYNC			16
+
+#define SD_SRC_NUM			17
+
+/* Sd_regs->SrcSel[] values */
+#define SD_SRC_SEL_0		0
+#define SD_SRC_SEL_1		1
+#define SD_SRC_SEL_SYNC		2
+#define SD_SRC_SEL_TRIG1	3
+#define SD_SRC_SEL_TRIG2	4
+#define SD_SRC_SEL_LVDSIN0	5
+#define SD_SRC_SEL_LVDSIN1	6
+#define SD_SRC_SEL_LVDSIN2	7
+#define SD_SRC_SEL_LVDSIN3	8
+#define SD_SRC_SEL_LVDSIN4	9
+#define SD_SRC_SEL_P2LVDSIN0	10
+#define SD_SRC_SEL_P2LVDSIN1	11
+#define SD_SRC_SEL_P2LVDSIN2	12
+#define SD_SRC_SEL_P2LVDSIN3	13
+#define SD_SRC_SEL_P2LVDSIN4	14
+#define SD_SRC_SEL_P2LVDSIN5	15
+#define SD_SRC_SEL_P2LVDSIN6	16
+#define SD_SRC_SEL_P2LVDSIN7	17
+#define SD_SRC_SEL_PULSER	18
+#define SD_SRC_SEL_BUSY		19
+#define SD_SRC_SEL_TRIGGER0	20
+#define SD_SRC_SEL_TRIGGER1	21
+#define SD_SRC_SEL_TRIGGER2	22
+#define SD_SRC_SEL_TRIGGER3	23
+#define SD_SRC_SEL_TRIGGER4	24
+#define SD_SRC_SEL_TRIGGER5	25
+#define SD_SRC_SEL_TRIGGER6	26
+#define SD_SRC_SEL_TRIGGER7	27
+
+#define SD_SRC_SEL_NUM		28
+
+#define SD_SRC_SEL_MASK         0x0000001F
+
+/* Sd_regs->Scalers[] IDs */
+#define SD_SCALER_SYSCLK	0
+#define SD_SCALER_GCLK		1
+#define SD_SCALER_SYNC		2
+#define SD_SCALER_TRIG1		3
+#define SD_SCALER_TRIG2		4
+#define SD_SCALER_GPIO0		5
+#define SD_SCALER_GPIO1		6
+#define SD_SCALER_LVDSIN0	7
+#define SD_SCALER_LVDSIN1	8
+#define SD_SCALER_LVDSIN2	9
+#define SD_SCALER_LVDSIN3	10
+#define SD_SCALER_LVDSIN4	11
+#define SD_SCALER_LVDSOUT0	12
+#define SD_SCALER_LVDSOUT1	13
+#define SD_SCALER_LVDSOUT2	14
+#define SD_SCALER_LVDSOUT3	15
+#define SD_SCALER_LVDSOUT4	16
+#define SD_SCALER_BUSY		17
+#define SD_SCALER_BUSYCYCLES	18
+#define SD_SCALER_P2_LVDSIN0	19
+#define SD_SCALER_P2_LVDSIN1	20
+#define SD_SCALER_P2_LVDSIN2	21
+#define SD_SCALER_P2_LVDSIN3	22
+#define SD_SCALER_P2_LVDSIN4	23
+#define SD_SCALER_P2_LVDSIN5	24
+#define SD_SCALER_P2_LVDSIN6	25
+#define SD_SCALER_P2_LVDSIN7	26
+#define SD_SCALER_P2_LVDSOUT0	27
+#define SD_SCALER_P2_LVDSOUT1	28
+#define SD_SCALER_P2_LVDSOUT2	29
+#define SD_SCALER_P2_LVDSOUT3	30
+#define SD_SCALER_P2_LVDSOUT4	31
+#define SD_SCALER_P2_LVDSOUT5	32
+#define SD_SCALER_P2_LVDSOUT6	33
+#define SD_SCALER_P2_LVDSOUT7	34
+
+#define SD_SCALER_NUM			35
+
+#define SD_PULSER_DONE			0x1
+#define SD_PULSER_FREQ_MIN		0.01
+#define SD_PULSER_FREQ_MAX		25E6
+
+#define CLK_CTRL_DRPDWE				0x00200000
+#define CLK_CTRL_DRPDEN				0x00400000
+/* #define CLK_CTRL_CLKSOUT0			0x01000000 */
+/* #define CLK_CTRL_CLKSOUT1			0x02000000 */
+/* #define CLK_CTRL_CLKSIN0			0x04000000 */
+/* #define CLK_CTRL_CLKSIN1			0x08000000 */
+/* #define CLK_CTRL_CLKLOAD			0x10000000 */
+/* #define CLK_CTRL_CLKCONF			0x20000000 */
+#define CLK_CTRL_SERDES_MASK                    0x03000000
+#define CLK_CTRL_SERDES_DISABLED                (0<<24)
+#define CLK_CTRL_SERDES_VXS                     (1<<24)
+#define CLK_CTRL_SERDES_P2                      (2<<24)
+#define CLK_CTRL_SERDES_LOCAL                   (3<<24)
+#define CLK_CTRL_LOGIC_MASK                     0x0C000000
+#define CLK_CTRL_LOGIC_DISABLED                 (0<<26)
+#define CLK_CTRL_LOGIC_VXS                      (1<<26)
+#define CLK_CTRL_LOGIC_P2                       (2<<26)
+#define CLK_CTRL_LOGIC_LOCAL                    (3<<26)
+#define CLK_CTRL_GCLKRST			0x80000000
+
+#define CLK_STATUS_DRPRDY			0x00010000
+#define CLK_STATUS_GCLKLOCKED   		0x00020000
+
+#define SSPCFG_SPI_NCSSET			0x00000100
+#define SSPCFG_SPI_NCSCLR			0x00000200
+#define SSPCFG_SPI_START			0x00000400
+#define SSPCFG_SPI_DONE				0x00000800
+
+#define TRG_CTRL_FIBER_EN0			0x00000001
+#define TRG_CTRL_FIBER_EN1			0x00000002
+#define TRG_CTRL_FIBER_EN2			0x00000004
+#define TRG_CTRL_FIBER_EN3			0x00000008
+#define TRG_CTRL_FIBER_EN4			0x00000010
+#define TRG_CTRL_FIBER_EN5			0x00000020
+#define TRG_CTRL_FIBER_EN6			0x00000040
+#define TRG_CTRL_FIBER_EN7			0x00000080
+
+#if 0
+#define TRG_CTRL_GTPSRC_FIBER0	0
+#define TRG_CTRL_GTPSRC_FIBER1	1
+#define TRG_CTRL_GTPSRC_FIBER2	2
+#define TRG_CTRL_GTPSRC_FIBER3	3
+#define TRG_CTRL_GTPSRC_FIBER4	4
+#define TRG_CTRL_GTPSRC_FIBER5	5
+#define TRG_CTRL_GTPSRC_FIBER6	6
+#define TRG_CTRL_GTPSRC_FIBER7	7
+#define TRG_CTRL_GTPSRC_SUM	8
+#endif
+
+#define TRG_CTRL_GTPSRC_FIBER0	(0 << 24)
+#define TRG_CTRL_GTPSRC_FIBER1	(1 << 24)
+#define TRG_CTRL_GTPSRC_FIBER2	(2 << 24)
+#define TRG_CTRL_GTPSRC_FIBER3	(3 << 24)
+#define TRG_CTRL_GTPSRC_FIBER4	(4 << 24)
+#define TRG_CTRL_GTPSRC_FIBER5	(5 << 24)
+#define TRG_CTRL_GTPSRC_FIBER6	(6 << 24)
+#define TRG_CTRL_GTPSRC_FIBER7	(7 << 24)
+#define TRG_CTRL_GTPSRC_SUM	(8 << 24)
 
 
-void sspSetTriggerWidth(int width);
-void sspSetEventPatternDelay(int delay);
-void sspClearEventFifo();
-int sspReadFifo(unsigned int *buf);
-void sspPrintEventPatternDelay();
 
+#define TRG_CTRL_GTPSRC_NUM	9
+
+#define TRG_SUMHISTCTRL_EN	0x00000001
+
+#define TRG_SUMHISTWINDOW_NSA_MASK  0x00FF0000
+#define TRG_SUMHISTWINDOW_NSB_MASK  0x000000FF
+
+#define SSP_SER_FIBER0		0
+#define SSP_SER_FIBER1		1
+#define SSP_SER_FIBER2		2
+#define SSP_SER_FIBER3		3
+#define SSP_SER_FIBER4		4
+#define SSP_SER_FIBER5		5
+#define SSP_SER_FIBER6		6
+#define SSP_SER_FIBER7		7
+#define SSP_SER_VXS0		8
+#define SSP_SER_VXSGTP		9
+
+#define SSP_SER_NUM		10
+
+#define SER_CRATEID_MASK        0x0000FFFF
+
+#define SSP_SER_CTRL_POWERDN	0x00000001
+#define SSP_SER_CTRL_GTXRST	0x00000002
+#define SSP_SER_CTRL_LINKRST	0x00000200
+#define SSP_SER_CTRL_ERRCNT_RST	0x00000400
+#define SSP_SER_CTRL_ERRCNT_EN	0x00000800
+
+#define SSP_SER_STATUS_HARDERR(x)       (1<<x)
+#define SSP_SER_STATUS_LANEUP(x)        (1<<(x+4))
+#define SSP_SER_STATUS_POL_REVERSED(x)  (1<<(x+8))
+#define SSP_SER_STATUS_CHUP             (1<<12)
+#define SSP_SER_STATUS_TXLOCK           (1<<13)
+#define SSP_SER_STATUS_SRCRDYN          (1<<14)
+
+#define SYSCLK_FREQ   50000000
+#define GCLK_FREQ     250000000
+
+#define SSP_CLKSRC_DISABLED             0
+#define SSP_CLKSRC_SWB			1
+#define SSP_CLKSRC_P2			2
+#define SSP_CLKSRC_LOCAL		3
+#define SSP_CLKSRC_NUM                  4
+
+#define SSP_CFG_BOARDID			0x53535020	// "SSP "
+
+#define SSP_CFG_FIRMWAREREV_MASK           0x0000FFFF
+#define SSP_CFG_FIRMWAREREV_MAJOR_MASK     0x0000FF00
+#define SSP_CFG_FIRMWAREREV_MINOR_MASK     0x000000FF
+#define SSP_CFG_SSPTYPE_MASK               0x00FF0000
+#define SSP_CFG_SLOTID_MASK                0x1F000000
+
+#define SPI_CMD_RD		       	0x03
+#define SPI_CMD_GETID			0x9F
+#define SPI_CMD_GETSTATUS		0xD7
+#define SPI_CMD_WRBUF1			0x84
+#define SPI_CMD_PGBUF1ERASE	0x83
+
+#define SPI_BYTE_LENGTH			8*1024*1024
+#define SPI_MFG_ATMEL			0x1F
+#define SPI_DEVID_AT45DB642D	0x2800
+
+/* sspInit iFlag options */
+#define SSP_INIT_MODE_DISABLED         0
+#define SSP_INIT_MODE_P2               1
+#define SSP_INIT_MODE_FP               2
+#define SSP_INIT_MODE_VXS              3
+#define SSP_INIT_MODE_MASK             0x3
+#define SSP_INIT_SKIP_SOURCE_SETUP     (1<<12)
+#define SSP_INIT_SKIP_FIRMWARE_CHECK   (1<<13)
+#define SSP_INIT_NO_INIT               (1<<14)
+#define SSP_INIT_USE_ADDRLIST          (1<<15)
+#define SSP_INIT_FIBER0_ENABLE         (1<<16)
+#define SSP_INIT_FIBER1_ENABLE         (1<<17)
+#define SSP_INIT_FIBER2_ENABLE         (1<<18)
+#define SSP_INIT_FIBER3_ENABLE         (1<<19)
+#define SSP_INIT_FIBER4_ENABLE         (1<<20)
+#define SSP_INIT_FIBER5_ENABLE         (1<<21)
+#define SSP_INIT_FIBER6_ENABLE         (1<<22)
+#define SSP_INIT_FIBER7_ENABLE         (1<<23)
+#define SSP_INIT_FIBER_ENABLE_MASK     0x00FF0000
+
+#define SSP_INIT_GTP_FIBER0_ENABLE     (0<<24)
+#define SSP_INIT_GTP_FIBER1_ENABLE     (1<<24)
+#define SSP_INIT_GTP_FIBER2_ENABLE     (2<<24)
+#define SSP_INIT_GTP_FIBER3_ENABLE     (3<<24)
+#define SSP_INIT_GTP_FIBER4_ENABLE     (4<<24)
+#define SSP_INIT_GTP_FIBER5_ENABLE     (5<<24)
+#define SSP_INIT_GTP_FIBER6_ENABLE     (6<<24)
+#define SSP_INIT_GTP_FIBER7_ENABLE     (7<<24)
+#define SSP_INIT_GTP_FIBER_ENABLE_MASK 0xFF000000
+
+#if 0
+#define SSP_INIT_GTP_FIBER0_ENABLE     (1<<24)
+#define SSP_INIT_GTP_FIBER1_ENABLE     (1<<25)
+#define SSP_INIT_GTP_FIBER2_ENABLE     (1<<26)
+#define SSP_INIT_GTP_FIBER3_ENABLE     (1<<27)
+#define SSP_INIT_GTP_FIBER4_ENABLE     (1<<28)
+#define SSP_INIT_GTP_FIBER5_ENABLE     (1<<29)
+#define SSP_INIT_GTP_FIBER6_ENABLE     (1<<30)
+#define SSP_INIT_GTP_FIBER7_ENABLE     (1<<31)
+#endif
+
+
+/* sspStatus rflag options */
+#define SSP_STATUS_SHOWREGS   (1<<0)
+
+/* Global arrays of strings of names of ports/signals */
+extern const char *ssp_ioport_names[SD_SRC_NUM];
+extern const char *ssp_signal_names[SD_SRC_SEL_NUM];
+extern const char *ssp_gtpsrc_names[TRG_CTRL_GTPSRC_NUM];
+extern const char *ssp_scaler_name[SD_SCALER_NUM];
+extern const char *ssp_clksrc_name[SSP_CLKSRC_NUM];
+extern const char *ssp_serdes_names[SSP_SER_NUM];
+
+/* SSP configuration */
+int  sspInit(unsigned int addr, unsigned int addr_inc, int nfind, int iFlag);
+int  sspSlot(unsigned int i);
+int  sspSetMode(int id, int iFlag, int pflag);
+int  sspStatus(int id, int rflag);
+void sspGStatus(int rflag);
+int  sspSetClkSrc(int id, int src);
+int  sspGetClkStatus(int id);
+int  sspGetClkSrc(int id, int pflag);
+int  sspSetIOSrc(int id, int ioport, int signal);
+void sspPrintIOSrc(int id, int pflag);
+int  sspTriggerSetup(int id, int fiber_mask, int gtp_src, int pflag);
+
+/* HPS routines */
+int  sspHps_SetLatency(int id, int latency);
+int  sspHps_SetSinglesEnableTop(int id, int en);
+int  sspHps_SetSinglesEnableBot(int id, int en);
+int  sspHps_SetSinglesEmin(int id, int min);
+int  sspHps_SetSinglesEmax(int id, int max);
+int  sspHps_SetSinglesNHitsmin(int id, int min);
+int  sspHps_SetPairsTimeCoincidence(int id, int ticks);
+int  sspHps_SetPairsEnableSum(int id, int en);
+int  sspHps_SetPairsEnableDiff(int id, int en);
+int  sspHps_SetPairsEnableCoplanar(int id, int en);
+int  sspHps_SetPairsEnableED(int id, int en);
+int  sspHps_SetPairsSummax(int id, int max);
+int  sspHps_SetPairsDiffmax(int id, int max);
+int  sspHps_SetPairsEmin(int id, int min);
+int  sspHps_SetPairsEmax(int id, int max);
+int  sspHps_SetPairsNHitsmin(int id, int min);
+int  sspHps_SetPairsCoplanarTolerance(int id, int tol);
+int  sspHps_SetPairsEDFactor(int id, int f);
+int  sspHps_SetPairsEDmin(int id, int min);
+void sspPrintHpsScalers(int id);
+void sspPrintHpsConfig(int id);
+
+/* Pulser routines */
+int  sspPulserStatus(int id);
+void sspPulserStart(int id);
+void sspPulserSetup(int id, float freq, float duty, unsigned npulses);
+
+/* SSP serdes */
+void sspPortEnable(int id, int mask, int pflag);
+void sspPortResetErrorCount(int id, int mask);
+int  sspPortGetErrorCount(int id, int port, int lane);
+void sspPortPrintStatus(int id, int mask);
+int  sspGetConnectedFiberMask(int id);
+int  sspGetCrateID(int id, int port);
+void sspSerdesEnable(int id, int mask, int pflag);
+int  sspSerdesGetErrorCount(int id, int ser, int lane);
+void sspSerdesResetErrorCount(int id, int mask);
+void sspSerdesPrintStatus(int id, int mask);
+
+/* Scaler routines */
+void sspPrintScalers(int id);
+
+/* Firmware update routines */
+int  sspFirmwareUpdateVerify(int id, const char *filename);
+int  sspFirmwareUpdate(int id, const char *filename);
+int  sspFirmwareRead(int id, const char *filename);
+int  sspFirmwareVerify(int id, const char *filename);
+
+/* Firmware update utility routines */
+int  sspGetSerialNumber(int id, char *mfg, int *sn);
+unsigned int sspGetFirmwareVersion(int id);
 
 #endif

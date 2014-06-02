@@ -127,6 +127,8 @@ static hrtime_t time3;
 #endif
 #endif
 
+static char confFile[256];
+
 extern char    *session; /* coda_component.c */
 
 #include "libdb.h"
@@ -825,6 +827,11 @@ codaExit()
   rocp = (rocParam) object->privated;
 
 
+  printf("\ncodaExit reached\n");
+  printf("codaExit reached\n");
+  printf("codaExit reached\n\n");
+
+
   /* mark ROC as async */
   /*sergey temporary
   rocp->async_roc_flag = 1;
@@ -870,6 +877,19 @@ codaExit()
 
   }
 #endif
+
+
+
+  /*sergey: exit bb_write's if still active */
+  printf("\nCalls bb_cleanup 1\n");
+  printf("Calls bb_cleanup 1\n");
+  printf("Calls bb_cleanup 1\n\n");
+  bb_cleanup(&big0.gbigBuffer);
+
+  printf("\nCalls bb_cleanup 2\n");
+  printf("Calls bb_cleanup 2\n");
+  printf("Calls bb_cleanup 2\n\n");
+  bb_cleanup(&big1.gbigBuffer);
 
 
 
@@ -1005,6 +1025,7 @@ codaDownload(char *confname)
   printf("download: Downloading configuration >%s<\n",configname);
   fflush(stdout);
 
+  getConfFile(configname, confFile, 255);
 
   UDP_start();
 
@@ -1319,9 +1340,15 @@ printf("listArgc=%d listArgv >%s< >%s<\n",listArgc,listArgv[0],listArgv[1]);
         rolP->name = object->name;
         sprintf(name,"rol%d",jx);
         strcpy(rolP->tclName,name);
+        strncpy(rolP->confFile,confFile,255);
 
         /* initialize rol parameters structure, memory partitions */
         rolP->pid = object->codaid;
+
+        /*set classid based on object class so rols will know if they 'master' or 'slave'*/
+        if(!strcmp(object->className,"ROC"))     rolP->classid = 0; /* slave */
+        else if(!strcmp(object->className,"TS")) rolP->classid = 1; /* master */
+        else                                     rolP->classid = 2; /* standalone */
 
         /* setup pointers to global ROC information */
         rolP->nevents = (unsigned int *) &(object->nevents);
@@ -1418,8 +1445,11 @@ if(dbsock==NULL)
 
   /*sergey temporary*/
 rocp->output_switch = 0;
-rocp->async_roc_flag = 0;
 
+/* let NIOS to be async */
+#ifndef Linux_nios2
+rocp->async_roc_flag = 0;
+#endif
 
 
   /**************************************************************/
@@ -2593,10 +2623,12 @@ rols_loop()
     dabufp[BBIEVENTS] = g_events_in_buffer; /* the number of events */ \
     dabufp[BBIFD]     = rocp_primefd; \
     dabufp[BBIEND]    = 0; \
+	/*bb_check(dabufp);*/  \
 	/* main send */ \
     /*printf("SSS2 %d (0x%08x %d)\n",abc,dabufp,dabufp[0]);*/ \
     if(dabufp[BBIWORDS] > BBHEAD) \
     { \
+	  /*printf("coda_roc: bb_write 1\n");*/	\
       dabufp = bb_write(&big0.gbigBuffer); \
       if(dabufp == NULL) \
       { \
@@ -2673,6 +2705,12 @@ printf("000: %d %d %d %d\n",rocp->state,DA_ENDING,clear_to_send,rocp_primefd);
     codaEnd();
 	*/
 
+printf("\nCalls bb_cleanup.\n");
+printf("Calls bb_cleanup.\n");
+printf("Calls bb_cleanup.\n\n");
+bb_cleanup(&big0.gbigBuffer);
+
+
     setHeartBeat(HB_ROL,0,-1);
     return;
   }
@@ -2743,7 +2781,7 @@ printf("000: %d %d %d %d\n",rocp->state,DA_ENDING,clear_to_send,rocp_primefd);
         /* 'delayed' done */
         if(rolP->doDone)
         {
-          printf("ROLS_LOOP calls __done()\n");fflush(stdout);
+          printf("ROLS_LOOP calls __done() (no space in buffer for the next event ?)\n");fflush(stdout);
           /* "__done()" routine have to be called to enable next trigger;
           we are here if it was not called by 'WRITE_EVENT_'; it happened
           because it was no space in buffer for the next event */

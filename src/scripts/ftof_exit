@@ -16,6 +16,11 @@ endif
 echo ""
 
 
+echo ""
+echo " Stop ROCs"
+stop_proc -n $host_name -p coda_roc_gef -match "clasftof" -s 0
+stop_proc -n ftof1 -p coda_roc_gef -match "clasftof" -s 0
+
 echo " Stop EB"
 stop_proc -n $host_name -p coda_ebc -match "clasftof" -s 0
 

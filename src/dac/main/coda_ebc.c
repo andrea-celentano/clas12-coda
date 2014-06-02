@@ -2,6 +2,26 @@
 /* coda_eb.c - CODA format */
 
 
+
+/* to have more then 32 rocs have to modify:
+
+roc_mask
+roc_mask_local
+
+roc_linked
+fragment_mask
+desc1->rocs[0]
+etevents[nevents2put-1]->control[1]
+sync_mask
+type_mask
+ctl_mask
+
+*/
+
+
+
+
+
 /*
 End transition:
 .....
@@ -45,9 +65,11 @@ coda_eb()
 #include "da.h"
 #include "circbuf.h"
 
-/* for DDL stuff - remove when swap in LINK_... is checked*/
+/* for DDL stuff - remove when swap in LINK_... is checked
 #include "bosio.h"
 #include "etbosio.h"
+*/
+
 
 #include "CODA_format.h"
 #include "libdb.h"
@@ -123,13 +145,21 @@ static pthread_cond_t id_out_empty; /* condition for 'idout' */
 static int nRUNEVENT;
 static int nSCALERS;
 
-/* DDL stuff (initialized during prestart, then read-only by BOS_format) */
-extern int nddl; /* see LINK_support.c and BOS_format.c */
-extern DDL ddl[NDDL]; /* see LINK_support.c and BOS_format.c */
+/* DDL stuff (initialized during prestart, then read-only by BOS_format)
+see LINK_support.c and BOS_format.c
+extern int nddl;
+extern DDL ddl[NDDL];
+*/
 
 
 extern int deflt = 0; /* 1 for CODA format, 0 for BOS format (see LINK_support.c) */
-extern unsigned int roc_linked;   /* linked ROCs mask (see LINK_support.c)*/
+
+#ifdef USE_128
+  extern WORD128 roc_linked;
+#else
+  extern unsigned int roc_linked; /* linked ROCs mask (see LINK_support.c)*/
+#endif
+
 extern CIRCBUF *roc_queues[MAX_ROCS]; /* see LINK_support.c */
 extern int roc_queue_ix; /* cleaned up here, increment in LINK_support.c */
 extern unsigned int *bufpool[MAX_ROCS][QSIZE];  /* see LINK_support.c */
@@ -172,8 +202,14 @@ typedef struct EBpriv
   int nthreads;               /* the number of building threads */
   pthread_t idth[NTHREADMAX]; /* pointers to building threads */
 
+#ifdef USE_128
+  WORD128 roc_mask;
+  WORD128 ctl_mask;
+#else
   unsigned long roc_mask;
   unsigned long ctl_mask;
+#endif
+
   unsigned long cur_cntl;
 
   void *out_id[NTHREADMAX];
@@ -536,7 +572,11 @@ handle_build(trArg arg)
   {
     int bank, subBank, typ, issync;
     unsigned long *soe, *dabufp, *data, *temp;
+#ifdef USE_128
+    WORD128 roc_mask = ebp->roc_mask;
+#else
     unsigned long roc_mask = ebp->roc_mask;
+#endif
     unsigned long indx, indx2;
     BANKPART *prev_val, *cur_val, *temp_val, **This;
     char *ctype, *dtype;
@@ -551,8 +591,12 @@ start2 = gethrtime();
     in that case we have to check if "end event" was already written */
     if(ebp->force_end)
     {
-      printf("[%1d] ROC mask 0x%08x force_end %d end_event_done %d\n",id,
-        ebp->roc_mask,ebp->force_end,ebp->end_event_done);
+      printf("[%1d] force_end %d end_event_done %d\n",id,ebp->force_end,ebp->end_event_done);
+#ifdef USE_128
+      Print128(&ebp->roc_mask);
+#else
+      printf("[%1d] ROC mask: 0x%08x\n",id,ebp->roc_mask);
+#endif
       fflush(stdout);
 
       if(ebp->end_event_done)
@@ -616,17 +660,35 @@ printf("[%1d] .. done\n",id);fflush(stdout);
     /* check if all ROCs are linked (roc_linked must be filled up
        by LINK_sized_read (LINK_support.c file)) */
     /* usually have to wait in Prestart */
+
+#ifdef USE_128
+    while( (EQ128(&roc_mask,&roc_linked)==0) && (ebp->ended==0) && (ebp->ending==0))
+#else
     while((roc_mask!=roc_linked) && (ebp->ended==0) && (ebp->ending==0))
+#endif
     {
+      /*roc_linked hungs sometimes ..*/
+#ifdef USE_128
+      printf("NEED: ");
+      Print128(&roc_mask);
+      printf("HAVE: ");
+      Print128(&roc_linked);
+      printf("[%1d] waiting for the following ROC IDs:\n",arg->id);
+#else
       printf("[%1d] 0x%08x != 0x%08x, waiting for the following ROC IDs:\n",
-			 arg->id,roc_mask,roc_linked); /*roc_linked hungs sometimes ..*/
+			 arg->id,roc_mask,roc_linked);
+#endif
       itmp = 1;
       for(i=0; i<32/*MAX_ROCS*/; i++)
       {
         /*printf("[%2d] -> %d %d\n",i,roc_mask&itmp,roc_linked&itmp);
         fflush(stdout);*/
+#ifdef USE_128
+        if( CheckBit128(&roc_mask,i) != 0 && CheckBit128(&roc_linked,i) == 0 ) printf(" %2d",i);
+#else
         if( ((roc_mask&itmp)!=0) && ((roc_linked&itmp)==0) ) printf(" %2d",i);
         itmp = itmp << 1;
+#endif
       }
       printf("\n\n");
       fflush(stdout);
@@ -642,8 +704,13 @@ printf("[%1d] .. done\n",id);fflush(stdout);
 
     if(print_rocs_report)
     {
+#ifdef USE_128
+      Print128(&roc_mask); Print128(&roc_linked);
+      printf("[%1d] all ROCs reported\n",arg->id);
+#else
       printf("[%1d] 0x%08x == 0x%08x, all ROCs reported\n",
         arg->id,roc_mask,roc_linked);
+#endif
       fflush(stdout);
       print_rocs_report = 0;
 	}
@@ -710,7 +777,10 @@ id,idin,nevbuf,nphys,evptr[0][0][1]&0xff);
 
       if(nevbuf == -1)
       {
+#ifdef USE_128
+#else
         ebp->roc_mask &= ~ (1<<roc); /* ERROR: 'roc' is not defined here !!! */
+#endif
         printf("handle_build: cb_events_get() returned end of file\n");
         fflush(stdout);
         ebp->force_end = 2;
@@ -775,7 +845,7 @@ neventsnew,in_error); fflush(stdout);*/
         desc1->nevbuf = nevbuf;
 
         /* some checks */
-        if(desc1->rocid < 0 || desc1->rocid > 31)
+        if(desc1->rocid < 0 || desc1->rocid >= MAX_ROCS)
           {printf("ERROR: rocid=%d\n",desc1->rocid);fflush(stdout);}
 
         desc1->soe = (unsigned long *)evptr[roc][0]; /* start of first event */
@@ -791,6 +861,8 @@ desc1->evnb, desc1->rocid);fflush(stdout);
         desc1->totbuf = desc1->nevbuf; /* remember total amount of events */
         desc1->ievbuf = 0;
       }
+
+
     }
 
 
@@ -852,8 +924,10 @@ id,desc1->soe,data[0],data[1],data[-1]);fflush(stdout);*/
             printf("[%1d] WE ARE NOT ENDING BUT GOT END EVENT FROM ROC %d\n",
               id,roc);
           }
+
           ebp->force_end = 1;
           goto top;
+
         }
 
         /*********************************************************************/
@@ -933,7 +1007,11 @@ exit(0);
           }
           node_ix++;
 
+#ifdef USE_128
+          if( EQ128(&fragment_mask,&roc_mask) )
+#else
           if(fragment_mask == roc_mask)
+#endif
           {
             in_error = 0;
             skip_mask = 0;
@@ -1268,7 +1346,11 @@ printf("[%1d]: eventtype=%d (%d)\n",id,desc2.eventtype,desc1->eventtype);
           else if(desc1->type == 18) ctype = "go";
           else if(desc1->type == 19) ctype = "pause";
           else if(desc1->type == 20) ctype = "end";  
+#ifdef USE_128
+          if( IFZERO128(&ebp->ctl_mask)==1 )
+#else
           if(ebp->ctl_mask == 0)
+#endif
           {
             ebp->cur_cntl = desc1->type;
 printf("11: %d\n",desc1->rocid);fflush(stdout);
@@ -1306,16 +1388,27 @@ printf("33: %x\n",(*ebp->roc_stream[ebp->roc_nb[desc1->rocid]]));fflush(stdout);
 */
             }
           }
+#ifdef USE_128
+          SetBit128(&ebp->ctl_mask,desc1->rocid);
+          if( EQ128(&ebp->ctl_mask,&ebp->roc_mask) )
+#else
           ebp->ctl_mask |= (1<<(desc1->rocid));
           if(ebp->ctl_mask == ebp->roc_mask)
+#endif
           {
             unsigned long *dabufp;
             printf(")\n-- Got all fragments of %s\n",ctype);
+#ifdef USE_128
+            Clear128(&ebp->ctl_mask);
+#else
             ebp->ctl_mask = 0;
-
+#endif
             /* if thread did not get control event, we still need it !!! */
             desc1->time = time(NULL);
+#ifdef USE_128
+#else
             desc1->rocs[0] = ebp->roc_mask;
+#endif
             desc1->evnb = object->nevents;
             desc1->runty = object->runType;
             desc1->runnb = object->runNumber;
@@ -1397,7 +1490,10 @@ if(ebp->end_event_done) printf("[%1d] output_event 1\n",id);fflush(stdout);
       {
         /* fill ET control words */
         etevents[nevents2put-1]->control[0] = desc2.type;
+#ifdef USE_128
+#else
         etevents[nevents2put-1]->control[1] = ebp->roc_mask;
+#endif
         etevents[nevents2put-1]->control[3] = desc2.user[1];
         /* following can be longer then actual event, but not smaller !!! */
         etevents[nevents2put-1]->length     = (int) total_length;
@@ -1757,7 +1853,7 @@ deb_constructor()
 
 
 #ifdef NOALLOC
-  printf("creating pool of buffers ..\n"); fflush(stdout);
+  printf("creating pool of buffers for %d ROCs ..\n",MAX_ROCS); fflush(stdout);
   for(j=0; j<MAX_ROCS; j++)
   {
     for(i=0; i<QSIZE; i++)
@@ -1862,7 +1958,7 @@ codaDownload(char *confname)
   if(ebp->nthreads != 0)
   {
     printf("WARN: Can't download while %d build threads are active, END first.\n",
-             ebp->nthreads);
+             ebp->nthreads);fflush(stdout);
     return(CODA_ERROR);
   }
 
@@ -1874,7 +1970,7 @@ codaDownload(char *confname)
       if(dlclose ((void *) ebp->out_id[id]) != 0)
       {
         printf("download: failed to unload module to encode >%s<\n",
-          ebp->out_name);
+          ebp->out_name);fflush(stdout);
         return(CODA_ERROR);
       }
     }
@@ -1882,7 +1978,7 @@ codaDownload(char *confname)
 
 
   strcpy(configname,confname); /* Sergey: save CODA configuration name */
-  printf("INFO: Downloading configuration '%s'\n",configname);
+  printf("INFO: Downloading configuration '%s'\n",configname);fflush(stdout);
   strcpy(ebp->out_name,"CODA");
 
 
@@ -2218,7 +2314,11 @@ static trArg args[NTHREADMAX];
   MYSQL *dbsocket;
   MYSQL_RES *result;
   MYSQL_ROW row;
+#ifdef USE_128
+  WORD128 roc_mask_local;
+#else
   unsigned int roc_mask_local;
+#endif
   int roc_id_local;
 
 #ifdef SunOS
@@ -2234,7 +2334,13 @@ static trArg args[NTHREADMAX];
   /* cleanup another ROCs mask; will be filled by 'handle_link' calles
   started by 'debopenlinks' and compared with 'ebp->roc_mask' in the begining
   of building thread */
+
+#ifdef USE_128
+  Clear128(&roc_linked);
+#else
   roc_linked = 0;
+#endif
+
   sleep(1);
 
   debopenlinks();
@@ -2308,6 +2414,7 @@ static trArg args[NTHREADMAX];
   nRUNEVENT = 0;
   nSCALERS = 0;
 
+  /*
   nddl = NDDL;
   etDDLInit(nddl, ddl);
   printf("ddl=0x%08x size=%d\n",ddl,sizeof(DDL));
@@ -2318,7 +2425,7 @@ static trArg args[NTHREADMAX];
     printf("===> id=%d ddlptr=0x%08x\n",83,ddlptr);
     printf("===> ncol=%d\n",ddlptr->ncol);
   }
-
+  */
 
 
 
@@ -2384,7 +2491,11 @@ static trArg args[NTHREADMAX];
     numRows = mysql_num_rows(result);
     printf("nrow=%d\n",numRows);
 
+#ifdef USE_128
+    Clear128(&roc_mask_local);
+#else
     roc_mask_local = 0;
+#endif
 	for(ix=0; ix<numRows; ix++)
     {
       row = mysql_fetch_row(result);
@@ -2394,9 +2505,13 @@ static trArg args[NTHREADMAX];
       if( strncmp(row[2],"no",2) != 0 ) /* 'inuse' != 'no' */
       {
         roc_id_local = atoi(row[2]);
-        if((roc_id_local>=0) && (roc_id_local<=31))
+        if((roc_id_local>=0) && (roc_id_local<MAX_ROCS))
         {
+#ifdef USE_128
+          SetBit128(&roc_mask_local,roc_id_local);
+#else
           roc_mask_local |= (1<<roc_id_local);
+#endif
         }
       }
     }
@@ -2405,16 +2520,24 @@ static trArg args[NTHREADMAX];
   }
 
 
+#ifdef USE_128
+  Copy128(&roc_mask_local, &ebp->roc_mask);
+  Print128(&roc_mask_local);
+#else
   ebp->roc_mask = roc_mask_local;
   printf("++++++++++++++++ roc_mask_local = 0x%08x\n",roc_mask_local);
-
+#endif
 
 
 
   /**********************************************/
   /* set roc mask in mysql so TS can read it out */
   /**********************************************/
+#ifdef USE_128
+  strcpy(temp,String128(&ebp->roc_mask));
+#else
   sprintf(temp,"%d",ebp->roc_mask);
+#endif
   sprintf(tmpp,"SELECT name,value FROM %s_option WHERE name='rocMask'",configname);
 printf("mysql request >%s< (temp>%s<)\n",tmpp,temp);
   if(mysql_query(dbsocket, tmpp) != 0)
@@ -2628,11 +2751,11 @@ printf("codaEnd 9\n");fflush(stdout);
     }
     else
     {
-      printf("deb_end: all threads are exited\n");
+      printf("DEB_END: all threads are exited\n");
     }
 printf("codaEnd 10\n");fflush(stdout);
 	
-    if(count > 5)
+    if(count > 100)
     {
 	  /*
       pthread_cond_broadcast(&id_out_empty);
@@ -2651,9 +2774,9 @@ printf("codaEnd 10\n");fflush(stdout);
     }
 printf("codaEnd 11\n");fflush(stdout);
 
-    if(count > 10) /* ????? */
+    if(count > 110) /* ????? */
     {
-      printf("thread(s) do not respond - do not wait any more\n");
+      printf("DEB_END: thread(s) do not respond - do not wait any more\n");
       for(i=0; i<NTHREADMAX; i++) ebp->idth[i] = NULL;
       break;
 	}

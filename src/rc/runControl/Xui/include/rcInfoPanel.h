@@ -42,6 +42,7 @@
 class rcInfoInitPanel;
 class rcInfoRunPanel;
 class rcRunTypeDialog;
+//class rcRunConfigDialog;
 
 class rcInfoPanel: public XcodaUi, public rcPanel
 {
@@ -64,6 +65,9 @@ public:
 
   // return runType dialog
   rcRunTypeDialog* runTypeDialog (void);
+
+  // return runConfig dialog
+  //rcRunConfigDialog* runConfigDialog (void);
 
   // popup zoomed dialog box for event display
   void zoomOnEventInfo (void);

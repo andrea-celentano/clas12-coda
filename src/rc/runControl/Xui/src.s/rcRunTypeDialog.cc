@@ -37,8 +37,16 @@
 //   run control source
 //
 //
+
+#include <stdio.h>
+
 #include <Xm/Form.h>
 #include <Xm/PushBG.h>
+/*
+#include <Xm/FileSB.h>
+#include <Xm/DialogS.h>
+*/
+#include <rcDbaseHandler.h>
 #include <rcRunTypeOption.h>
 #include <XcodaErrorDialog.h>
 #ifdef USE_CREG
@@ -47,13 +55,16 @@
 #include "rcRunTypeDialog.h"
 #include "rcXpmComdButton.h"
 
+#include <XcodaFileSelDialog.h>
+
+
 rcRunTypeDialog::rcRunTypeDialog (Widget parent,
 				  char* name,
 				  char* title,
 				  rcClientHandler& handler)
 :XcodaFormDialog (parent, name, title), netHandler_ (handler),
- option_ (0), errDialog_ (0),
- ok_ (0), cancel_ (0)
+ option_ (0), errDialog_ (0), fileDialog_ (0),
+ ok_ (0), config_ (0)
 {
 #ifdef _TRACE_OBJECTS
   printf ("                   Create rcRunTypeDialog Class Object\n");
@@ -75,15 +86,16 @@ rcRunTypeDialog::createFormChildren (void)
 {
   Arg arg[20];
   int ac = 0;
+
   ac = 0;  
 
   XtSetValues (_w, arg, ac);
   // create option menu first
-  option_ = new rcRunTypeOption (_w, "runtype","RunType:",
-				 netHandler_, this);
+  option_ = new rcRunTypeOption (_w, "runtype","RunType:",netHandler_, this);
   option_->init ();
   
   ac = 0;  
+
   // create action form
   XtSetArg (arg[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
   XtSetArg (arg[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
@@ -96,20 +108,27 @@ rcRunTypeDialog::createFormChildren (void)
   ac = 0;
 
   // create push buttons
-  rcXpmComdButton *ok = new rcXpmComdButton(actionForm,"Ok",NULL,"select run type",NULL,netHandler_);
-  rcXpmComdButton *cancel = new rcXpmComdButton(actionForm,"Cancel",NULL,"cancel",NULL,netHandler_);
+  rcXpmComdButton *ok     = new rcXpmComdButton(actionForm,"Ok",    NULL,"select run type",NULL,netHandler_);
+  rcXpmComdButton *config = new rcXpmComdButton(actionForm,"Config",NULL,"select run config",NULL,netHandler_);
+
 
   ok->init();
-  cancel->init();
+  config->init();
 
-  ok_   = ok->baseWidget();
-  cancel_   = cancel->baseWidget();
+  
+  ok_     = ok->baseWidget();
+  config_ = config->baseWidget();
+
+
   ac = 0;
   XtSetArg (arg[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
   XtSetArg (arg[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
   XtSetArg (arg[ac], XmNrightAttachment, XmATTACH_FORM); ac++;
-  XtSetValues (cancel_, arg, ac);
+  XtSetValues (config_, arg, ac);
 
+
+
+  /*sergey: 'Ok' displayed already, do not need following ???
   ac = 0;
   XtSetArg (arg[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
   XtSetArg (arg[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
@@ -117,8 +136,12 @@ rcRunTypeDialog::createFormChildren (void)
   XtSetArg (arg[ac], XmNrightAttachment, XmATTACH_WIDGET); ac++;
   XtSetArg (arg[ac], XmNrightWidget, ok_); ac++;
   XtSetValues (ok_, arg, ac);
+  */
+
+
 
   ac = 0;
+
 
   // set resource for option menu
   XtSetArg (arg[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
@@ -131,16 +154,20 @@ rcRunTypeDialog::createFormChildren (void)
   XtSetValues (option_->baseWidget(), arg, ac);
   ac = 0;
 
+
+
   // add callbacks
   XtAddCallback (ok_, XmNactivateCallback,
 		 (XtCallbackProc)&(rcRunTypeDialog::okCallback),
 		 (XtPointer)this);
-  XtAddCallback (cancel_, XmNactivateCallback,
-		 (XtCallbackProc)&(rcRunTypeDialog::cancelCallback),
+
+  XtAddCallback (config_, XmNactivateCallback,
+		 (XtCallbackProc)&(rcRunTypeDialog::configCallback),
 		 (XtPointer)this);
 
   // manage all widgets
   option_->manage ();
+
   // set up default button
   defaultButton (ok_);
 }
@@ -148,7 +175,7 @@ rcRunTypeDialog::createFormChildren (void)
 void
 rcRunTypeDialog::startMonitoringRunTypes (void)
 {
-  option_->startMonitoringRunTypes ();
+  option_->startMonitoringRunTypes (); /* sergey: displays 'runTypes' database table here */
 }
 
 void
@@ -160,48 +187,222 @@ rcRunTypeDialog::endMonitoringRunTypes (void)
 void
 rcRunTypeDialog::configure (void)
 {
-  if (option_->currentRunType () != 0) {
+  if (option_->currentRunType () != 0)
+  {
     rcClient& client = netHandler_.clientHandler ();
-    daqData data ("RCS", "command", option_->currentRunType ());
+#ifdef _CODA_DEBUG
+    printf(">>> rcRunTypeDialog::configure >%s<\n",option_->currentRunType());
+#endif
+    daqData data ("RCS", "command", option_->currentRunType());
     if (client.sendCmdCallback (DACONFIGURE, data,
 		 (rcCallback)&(rcRunTypeDialog::configureCallback),
 		 (void *)this) != CODA_SUCCESS)
+	{
       reportErrorMsg ("Cannot communication with the RunControl Server\n");
+	}
   }
 }
+
+
 
 void
 rcRunTypeDialog::popup (void)
 {
   option_->setAllEntries ();
-
-  XcodaFormDialog::popup ();
+  XcodaFormDialog::popup (); // popup run type configuration dialog
 }
+
+
+
 
 void
 rcRunTypeDialog::okCallback (Widget, XtPointer data, XmAnyCallbackStruct *)
 {
   rcRunTypeDialog* dialog = (rcRunTypeDialog *)data;
-  
-  dialog->popdown ();
-  dialog->configure ();
+  char fname[256], *fn;  
+  int len;
 
+#ifdef _CODA_DEBUG
+  printf("rcRunTypeDialog::okCallback\n");fflush(stdout);
+  printf("dialog = 0x%08x\n",dialog);fflush(stdout);
+#endif
+
+  /* get file name selected in 'Config' button */
+  if(dialog->fileDialog_)
+  {
+    fn = dialog->fileDialog_->selectedFileName();
+
+    if(fn) strcpy(fname,fn);
+    else strcpy(fname,"none");
+
+    /* cleanup filename so next popup returns 0 if file not selected */
+    dialog->fileDialog_->deleteFileName();
+
+    len = strlen(fname);
+#ifdef _CODA_DEBUG
+    printf(">>%s<<\n",(char *)&fname[len-4]);
+#endif
+    if( !strncmp((char *)&fname[len-4],"NONE",4) ) strcpy(fname,"none");
+  }
+  else
+  {
+#ifdef _CODA_DEBUG
+    printf("rcRunTypeDialog::okCallback 2\n");fflush(stdout);
+#endif
+    strcpy(fname,"none");
+  }
+
+#ifdef _CODA_DEBUG
+  printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> FILE1 >%s<\n",fname);
+#endif
+  
+  /*update database*/
+  /*dialog->sendUpdateConfFile(fname);*/ /* does nothing !!! */
+  dialog->updateConfFile(fname);
+
+  dialog->popdown ();
+  dialog->configure (); /*sergey: triggers rcServer activity*/
 }
+
+
+
 
 void
-rcRunTypeDialog::cancelCallback (Widget, XtPointer data, XmAnyCallbackStruct *)
+rcRunTypeDialog::updateConfFile (char *fname)
 {
-  rcRunTypeDialog* dialog = (rcRunTypeDialog *)data;
+  rcDbaseHandler* handler = rcDbaseHandler::dbaseHandler ();
+  char *confname = option_->currentRunType();
+#ifdef _CODA_DEBUG
+  printf("CONF1 >%s<\n",confname);
+#endif
+  handler->connect(getenv("MYSQL_HOST"));
+  handler->updateConfFileName(confname,fname);
+  handler->close();
 
-  dialog->popdown ();
+  return;
 }
+
+
+
+
+
+
+
+
+
+/*sergey: 2 funcs
+
+void
+rcRunTypeDialog::sendUpdateConfFile (char *fname)
+{
+printf("> rcRunTypeDialog::sendUpdateConfFile reached\n");fflush(stdout);
+  // get client handler
+  rcClient& client = netHandler_.clientHandler ();
+
+printf("????????????????????? sendUpdateConfFile >%s<\n",fname);
+
+
+  daqData data (client.exptname (), "confFile", fname);
+  if (client.setValueCallback (data, 
+			       (rcCallback)&(rcRunTypeDialog::simpleCallback),
+			       (void *)this) != CODA_SUCCESS)
+  {
+    return;
+  }
+}
+
+
+
+void
+rcRunTypeDialog::simpleCallback (int status, void* arg, daqNetData* )
+{
+printf("> rcRunTypeDialog::simpleCallback reached\n");fflush(stdout);
+  rcRunTypeDialog* obj = (rcRunTypeDialog *)arg;
+  
+  if (status != CODA_SUCCESS)
+  {
+    obj->reportErrorMsg ("Setting update config file to the server failed !");
+printf("rcRunTypeDialog::simpleCallback: Setting update config file to the server failed !\n");
+    return;
+  }
+  else
+  {
+printf("rcRunTypeDialog::simpleCallback: Setting update config file to the server Ok !\n");
+  }
+}
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void
+rcRunTypeDialog::configCallback (Widget parent, XtPointer data, XmAnyCallbackStruct *)
+{
+printf("> rcRunTypeDialog::configCallback reached\n");fflush(stdout);
+
+  rcRunTypeDialog* dialog = (rcRunTypeDialog *)data;
+  //dialog->popdown ();
+
+  /*sergey: file chooser */
+
+  /*
+  if (!(dialog->fileDialog_))
+  {
+    printf("rcRunTypeDialog::selectConfigFile() created\n");
+    dialog->fileDialog_ = new XcodaFileSelDialog(parent,"run config file","aaaaa");
+    dialog->fileDialog_->init();
+  }
+  */
+
+  /*always recreate file dialog, so it picks newly created files in directory*/
+  if(dialog->fileDialog_) delete dialog->fileDialog_;
+  printf("rcRunTypeDialog::selectConfigFile() created\n");
+  dialog->fileDialog_ = new XcodaFileSelDialog(parent,"run config file","aaaaa");
+  dialog->fileDialog_->init();
+
+
+
+  dialog->fileDialog_->popup();
+
+}
+
 
 void
 rcRunTypeDialog::reportErrorMsg (char* error)
 {
   if (!errDialog_) {
-    errDialog_ = new XcodaErrorDialog (_w,"runTypeError",
-				       "Configuration Error");
+    errDialog_ = new XcodaErrorDialog (_w,"runTypeError", "Configuration Error");
     errDialog_->init ();
   }
   if (errDialog_->isMapped ())
@@ -209,6 +410,7 @@ rcRunTypeDialog::reportErrorMsg (char* error)
   errDialog_->setMessage (error);
   errDialog_->popup ();
 }
+
 
 void
 rcRunTypeDialog::configureCallback (int status, void* arg, daqNetData* data)

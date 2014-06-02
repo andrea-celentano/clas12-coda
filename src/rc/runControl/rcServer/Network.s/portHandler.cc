@@ -166,6 +166,8 @@ portHandler::handle_input (int)
   daqSystem& system = daqrun_->system();
   daqComponent *comp;
 
+  //printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! portHandler::handle_input reached\n");
+
 #ifdef _CODA_DEBUG
   //printf("!!! portHandler::handle_input reached\n");
 #endif

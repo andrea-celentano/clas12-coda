@@ -529,9 +529,10 @@ rcConnectDialog::sessionDropDownCbk (Widget w, XtPointer data,
     }
     dbaseHandler->database (dbase);
 
-    // first to remove all old items
+    /* first to remove all old items */
     XmComboBoxDeleteAllItems (dialog->exptname_);
-    // get all databases from dbase handler
+
+    /* get all databases from dbase handler */
     if (dbaseHandler->listAllSessions () != CODA_SUCCESS) {
       dialog->reportError ("Listing all sessions from msql database failed");
       return;

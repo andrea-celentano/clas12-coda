@@ -6,9 +6,9 @@
 #  SP, 01-Mar-2012  :  implement daq_comp.tcl
 
 
-if ($HOST != clonusr3.jlab.org) then
+if ( ($HOST != "hps1") && ($HOST != "hps1.jlab.org") ) then
   echo ""
-  echo " You should be logged into clonusr3."
+  echo " You should be logged into hps1"
   echo ""
   exit (1)
 endif
@@ -26,7 +26,9 @@ set ER_t  = "-T ER_hps"
 set RC_t  = "-T runcontrol_hps"
 set XT1_t = "-T CRATE_hps1"
 set XT2_t = "-T CRATE_hps2"
-set XT3_t = "-T CRATE_hpstracker"
+set XT3_t = "-T CRATE_hps1gtp"
+set XT4_t = "-T CRATE_hps2gtp"
+###set XT3_t = "-T CRATE_hpstracker"
 
 set ET   = daq_comp.tcl
 set EB   = daq_comp.tcl
@@ -38,9 +40,11 @@ set ET_comp  = 'et_start -n 2000 -s 500000 -f /tmp/et_sys_clashps'
 set EB_comp  = 'coda_ebc -s clashps -o "EB9 CDEB" -i'
 set ER_comp  = 'coda_erc -s clashps -o "ER9 ER" -i'
 set RC_comp  = 'runcontrol -s clashps -cedit -dbedit'
-set XT1_comp  = 'coda_roc_gef -s clashps -o "hps1 ROC" -i '
-set XT2_comp  = 'coda_roc_gef -s clashps -o "hps2 ROC" -i '
-set XT3_comp  = 'coda_roc -s clashps -o "hpstracker ROC" -i '
+set XT1_comp  = 'coda_roc_gef -s clashps -o "hps1 TS" '
+set XT2_comp  = 'coda_roc_gef -s clashps -o "hps2 ROC" '
+set XT3_comp  = 'coda_roc -s clashps -o "hps1gtp ROC" '
+set XT4_comp  = 'coda_roc -s clashps -o "hps2gtp ROC" '
+###set XT3_comp  = 'coda_roc -s clashps -o "hpstracker ROC" '
 
 
 echo ""
@@ -72,11 +76,23 @@ set geom  = "-geometry 70x12+$xpos+"
 set color = "-sb -sl 5000 -bg lightgreen -fg black"
 set tmp   = `xterm $XT2_t $color $geom$ypos -e $XT $XT2_comp >& /dev/null &`
 
-echo " Start connection to CRATE_hpstracker"
+echo " Start connection to CRATE_hps1gtp"
 set ypos  = `expr $ypos + $yinc + 60`
 set geom  = "-geometry 70x12+$xpos+"
 set color = "-sb -sl 5000 -bg lightgreen -fg black"
 set tmp   = `xterm $XT3_t $color $geom$ypos -e $XT $XT3_comp >& /dev/null &`
+
+echo " Start connection to CRATE_hps2gtp"
+set ypos  = `expr $ypos + $yinc + 60`
+set geom  = "-geometry 70x12+$xpos+"
+set color = "-sb -sl 5000 -bg lightgreen -fg black"
+set tmp   = `xterm $XT4_t $color $geom$ypos -e $XT $XT4_comp >& /dev/null &`
+
+###echo " Start connection to CRATE_hpstracker"
+###set ypos  = `expr $ypos + $yinc + 60`
+###set geom  = "-geometry 70x12+$xpos+"
+###set color = "-sb -sl 5000 -bg lightgreen -fg black"
+###set tmp   = `xterm $XT3_t $color $geom$ypos -e $XT $XT3_comp >& /dev/null &`
 
 echo ""
 echo " hps_start done"

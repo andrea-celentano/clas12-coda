@@ -584,8 +584,7 @@ nevent = icycle = time1 = time2 = 0;
 
     if(ifend == 1)
     {
-      printf("proc_thread: ifend==1 (%d), ending ..\n",
-        bigprocptr->doclose);fflush(stdout);
+      printf("proc_thread: ifend==1 (%d), ending ..\n",bigprocptr->doclose);fflush(stdout);
 #ifdef VXWORKS
       taskDelay(60);
 #else
@@ -598,23 +597,27 @@ nevent = icycle = time1 = time2 = 0;
     if(ifend == 1/* && bigprocptr->doclose == 1*/)
     {
       printf("proc_thread: END condition received\n");fflush(stdout);
+      for(jj=0; jj<1/*0*/; jj++) {printf("PROC_THREAD GOT END %d SEC\n",jj);sleep(1);}
       break;
     }
 
   } while(1);
 
-  /* force 'big' buffer read/write methods to exit */
+printf("roc_process cleanup +++++++++++++++++++++++++++++++++++++ 1\n");fflush(stdout);
+sleep(1);
+
+  /* force input 'big' buffer read/write methods to exit */
 #ifdef PMCOFFSET
-    if(offset == 0) /* we are on host board */
-    {
-      bb_cleanup(&(bigprocptr->gbigBuffer));
-    }
-    else            /* we are on pmc board */
-    {
-      bb_cleanup_pci(&(bigprocptr->gbigBuffer));
-    }
-#else
+  if(offset == 0) /* we are on host board */
+  {
     bb_cleanup(&(bigprocptr->gbigBuffer));
+  }
+  else            /* we are on pmc board */
+  {
+    bb_cleanup_pci(&(bigprocptr->gbigBuffer));
+  }
+#else
+  bb_cleanup(&(bigprocptr->gbigBuffer));
 #endif
 
   printf("PROC THREAD EXIT\n");

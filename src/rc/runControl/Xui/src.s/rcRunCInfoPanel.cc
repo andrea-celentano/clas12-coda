@@ -85,6 +85,8 @@ rcRunCInfoPanel::init (void)
   //XtSetArg (arg[ac], XmNfractionBase, 1); ac++;
   Widget form = XtCreateWidget ("runcinfo", xmFormWidgetClass,
 				frame1, arg, ac);
+
+
   // create frame title
   ac = 0;
   XmString t = XmStringCreateSimple ("Static parameters");
@@ -189,6 +191,7 @@ rcRunCInfoPanel::init (void)
   XtSetArg (arg[ac], XmNshadowThickness, 2); ac++;
   XtSetArg (arg[ac], XmNshadowType, XmSHADOW_ETCHED_OUT); ac++;
   Widget frame4 = XmCreateFrame (sform, "frame4", arg, ac );
+
   ac = 0;
   t = XmStringCreateSimple ("Configuration");
   XtSetArg (arg[ac], XmNlabelString, t); ac++;
@@ -196,17 +199,30 @@ rcRunCInfoPanel::init (void)
   Widget rtlabel = XtCreateManagedWidget ("runTypeLabel",
 					  xmLabelWidgetClass,
 					  frame4, arg, ac);
-
   XmStringFree (t);
+
   // Run name
   ac = 0;
   t = XmStringCreateSimple ("");
   XtSetArg (arg[ac], XmNlabelString, t); ac++;
   XtSetArg (arg[ac], XmNrecomputeSize, FALSE); ac++;
-  runType_ = XtCreateManagedWidget ("runType",
-				    xmLabelWidgetClass,
-				    frame4, arg, ac);
+  runType_ = XtCreateManagedWidget ("runType",xmLabelWidgetClass, frame4, arg, ac); /* sergey: runTypee scruds up color of Configuration fiend */
   XmStringFree (t);
+
+
+
+  /*sergey: do it later - field to display obtained runconfig
+  // Run config
+  ac = 0;
+  t = XmStringCreateSimple ("");
+  XtSetArg (arg[ac], XmNlabelString, t); ac++;
+  XtSetArg (arg[ac], XmNrecomputeSize, FALSE); ac++;
+  runConfig_ = XtCreateManagedWidget ("runConfig",xmLabelWidgetClass, frame4, arg, ac);
+  XmStringFree (t);
+  */
+
+
+
 
   // create run control server host info
   ac = 0;
@@ -306,7 +322,7 @@ rcRunCInfoPanel::manage (void)
 #endif
   }
 
-  if (client.monitorOnCallback (client.exptname (), "runType",
+  if (client.monitorOnCallback (client.exptname (), "runType",  /*sergey: if runTypee, does not fill 'Configuration' field */
 				(rcCallback)&(rcRunCInfoPanel::runtypeCallback),
 				(void *)this) != CODA_SUCCESS) {
 #ifdef _CODA_DEBUG
@@ -314,6 +330,15 @@ rcRunCInfoPanel::manage (void)
 #endif
   }
 
+/*
+  if (client.monitorOnCallback (client.exptname (), "runConfig",
+				(rcCallback)&(rcRunCInfoPanel::runconfigCallback),
+				(void *)this) != CODA_SUCCESS) {
+#ifdef _CODA_DEBUG
+    fprintf (stderr, "Cannot register monitor on exptid callback\n");
+#endif
+  }
+*/
   if (client.monitorOnCallback (client.exptname (), "hostName",
 				(rcCallback)&(rcRunCInfoPanel::hostnameCallback),
 				(void *)this) != CODA_SUCCESS) {
@@ -363,7 +388,8 @@ rcRunCInfoPanel::unmanage (void)
     fprintf (stderr, "Cannot register monitor off exptname callback\n"); 
 #endif
   }
-  if (client.monitorOffCallback (client.exptname (), "runType",
+
+  if (client.monitorOffCallback (client.exptname (), "runType",  /* sergey: 'runTypee' seems irrelevant */
 				 (rcCallback)&(rcRunCInfoPanel::runtypeCallback),
 				 (void *)this,
 				 (rcCallback)&(rcRunCInfoPanel::offCallback),
@@ -372,6 +398,18 @@ rcRunCInfoPanel::unmanage (void)
     fprintf (stderr, "Cannot register monitor off runType callback\n"); 
 #endif
   }
+/*
+  if (client.monitorOffCallback (client.exptname (), "runConfig",
+				 (rcCallback)&(rcRunCInfoPanel::runconfigCallback),
+				 (void *)this,
+				 (rcCallback)&(rcRunCInfoPanel::offCallback),
+				 (void *)this) != CODA_SUCCESS) {
+#ifdef _CODA_DEBUG
+    fprintf (stderr, "Cannot register monitor off runConfig callback\n"); 
+#endif
+  }
+*/
+
   if (client.monitorOffCallback (client.exptname (), "hostName",
 				 (rcCallback)&(rcRunCInfoPanel::hostnameCallback),
 				 (void *)this,
@@ -448,6 +486,24 @@ rcRunCInfoPanel::runtypeCallback (int status, void *arg, daqNetData* data)
     XmStringFree (t);
   }
 }
+
+/*
+void
+rcRunCInfoPanel::runconfigCallback (int status, void *arg, daqNetData* data)
+{
+  rcRunCInfoPanel *obj = (rcRunCInfoPanel *)arg;
+  if (status == CODA_SUCCESS) {
+    Arg arg[10];
+    int ac = 0;
+    
+    XmString t = XmStringCreateSimple ((char *)(*data));
+    XtSetArg (arg[ac], XmNlabelString, t); ac++;
+    XtSetValues (obj->runConfig_, arg, ac);
+    ac = 0;
+    XmStringFree (t);
+  }
+}
+*/
 
 void
 rcRunCInfoPanel::hostnameCallback (int status, void *arg, daqNetData* data)

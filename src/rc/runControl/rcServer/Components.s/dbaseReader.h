@@ -67,6 +67,7 @@ private:
 #define DBASE_MAX_SESSIONS    100
 #define DBASE_MAX_CONFIGS     200
 #define DBASE_MAX_DBASES      100
+#define MAX_PROC_TABLE_STRING 4096 /*sergey*/
 #define DBASE_SESSION_TABLE   "sessions"
 #define DBASE_PROCESS_TABLE   "process"
 #define DBASE_RUNTYPE_TABLE   "runTypes"
@@ -77,6 +78,7 @@ private:
 #define DBASE_EVENTLIMIT      "eventLimit"
 #define DBASE_DATALIMIT       "dataLimit"
 #define DBASE_DATAFILE        "dataFile"
+#define DBASE_CONFFILE        "confFile"
 #define DBASE_TOKEN_INTERVAL  "tokenInterval"
 #endif
 
@@ -117,6 +119,10 @@ public:
   // get data file name
   void  putDataFileName (char* name);
   char* getDataFileName (void);
+
+  // sergey: get config file name
+  void  putConfFileName (char* name);
+  char* getConfFileName (void);
 
   // put token interval value to database
   void  putTokenInterval (int itval);

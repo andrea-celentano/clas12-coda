@@ -13,6 +13,7 @@ static int TEST_isAsync;
 static unsigned long TEST_prescale = 1;
 static unsigned long TEST_count = 0;
 
+/*
 struct vme_ts {
     unsigned long csr;       
     unsigned long trig;
@@ -20,18 +21,18 @@ struct vme_ts {
     unsigned long sync;
     unsigned long test;
     unsigned long state;
-    unsigned long blank_1;           /* no register */
-    unsigned long blank_2;           /* no register */
+    unsigned long blank_1;           
+    unsigned long blank_2;          
     unsigned long prescale[8];
     unsigned long timer[5];
-    unsigned long blank_3;           /* no register */
-    unsigned long blank_4;           /* no register */
-    unsigned long blank_5;           /* no register */
+    unsigned long blank_3;          
+    unsigned long blank_4;          
+    unsigned long blank_5;           
     unsigned long sc_as;
     unsigned long scale_0a;
     unsigned long scale_1a;
-    unsigned long blank_6;           /* no register */
-    unsigned long blank_7;           /* no register */
+    unsigned long blank_6;          
+    unsigned long blank_7;          
     unsigned long scale_0b;
     unsigned long scale_1b;
   };
@@ -53,6 +54,8 @@ long ts_memory[4096];
 long preset_count;
 
 long *vme2_ir;
+*/
+
 
 #ifdef USE_GTP
 unsigned int gtpNFIFOEvents();
@@ -74,6 +77,7 @@ unsigned int gtpNFIFOEvents();
 static void 
 testtenable(int code, int val)
 {
+  printf("testtenable reached: code=%d val=%d\n",code,val);fflush(stdout);
   TESTflag = 1;
 }
 
@@ -93,15 +97,16 @@ testttype(int code)
 static int 
 testttest(int code)
 {
-  unsigned int nev;
 
+#ifdef USE_GTP
+
+  unsigned int nev;
   if(TESTflag)
   {
-#ifdef USE_GTP
     /*printf("testttest: befor gtpNFIFOEvents()\n");fflush(stdout);*/
     nev = gtpNFIFOEvents();
     /*printf("testttest: after gtpNFIFOEvents()\n");fflush(stdout);*/
-#endif
+
     if(nev > 0)
     {
       return(1);
@@ -116,19 +121,22 @@ testttest(int code)
     return(0);
   }
 
-
-
-
-
-  /*was:
+#else
 
   TEST_count++;
+  /*printf("TEST_count=%d\n",TEST_count);*/
 
   if(TESTflag && ((TEST_count%TEST_prescale) == 0))
+  {
     return(1);
+  }
   else
+  {
     return(0);
-  */
+  }
+
+#endif
+
 }
 
 

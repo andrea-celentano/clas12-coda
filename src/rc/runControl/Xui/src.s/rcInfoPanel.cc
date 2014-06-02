@@ -41,6 +41,7 @@
 #include <rcInfoInitPanel.h>
 #include <rcInfoRunPanel.h>
 #include <rcRunTypeDialog.h>
+//#include <rcRunConfigDialog.h>
 #include "rcInfoPanel.h"
 #include <rcMenuWindow.h>
 
@@ -175,6 +176,14 @@ rcInfoPanel::runTypeDialog (void)
 {
   return runPanel_->runTypeDialog ();
 }
+
+/*
+rcRunConfigDialog*
+rcInfoPanel::runConfigDialog (void)
+{
+  return runPanel_->runConfigDialog ();
+}
+*/
 
 void
 rcInfoPanel::zoomOnEventInfo (void)

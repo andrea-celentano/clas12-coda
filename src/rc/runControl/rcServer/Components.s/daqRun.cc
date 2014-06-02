@@ -96,6 +96,7 @@
 #include <rcsAnaLogVarWriter.h>
 #include <rcsNumEvTrigger.h>
 #include <rcsNumLongTrigger.h>
+#include <rcsConfFileNameWriter.h> //sergey
 #include <daqCompMonitor.h>
 #include "daqRun.h"
 #include "codaCompClnt.h"
@@ -108,7 +109,8 @@ extern "C" int gethostname (char*, int);
 //============================================================================
 //         Implementation of class runType
 //============================================================================
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
+
 daqRunType::daqRunType (void)
 :type_ (0), number_ (-1), inuse_ (0), cat_ (0)
 {
@@ -195,129 +197,52 @@ daqRunType::operator = (const daqRunType& type)
 	}
 	return *this;
 }
-#else
-daqRunType::daqRunType (void)
-:type_ (0), number_ (-1)
-{
-#ifdef _TRACE_OBJECTS
-	printf ("Create daqRunType Class Object\n");
-#endif
-	// empty
-}
 
-daqRunType::daqRunType (char* type, int number)
-:number_ (number)
-{
-#ifdef _TRACE_OBJECTS
-	printf ("Create daqRunType Class Object\n");
-#endif
-	type_ = new char[::strlen (type) + 1];
-	::strcpy (type_, type);
-}
 
-daqRunType::~daqRunType (void)
-{
-#ifdef _TRACE_OBJECTS
-	printf ("Delete daqRunType Class Object\n");
-#endif
-	if (type_)
-		delete []type_;
-}
 
-daqRunType::daqRunType (const daqRunType& type)
-:number_ (type.number_)
-{
-#ifdef _TRACE_OBJECTS
-	printf ("Create daqRunType Class Object\n");
-#endif
-	if (type.type_) {
-		type_ = new char[::strlen (type.type_) + 1];
-		::strcpy (type_, type.type_);
-	}
-	else
-		type_ = 0;
-}
-
-daqRunType&
-daqRunType::operator = (const daqRunType& type)
-{
-	if (this != &type) {
-		if (type_)
-			delete []type_;
-		number_ = type.number_;
-		if (type.type_) {
-			type_ = new char[::strlen (type.type_) + 1];
-			::strcpy (type_, type.type_);
-		}
-		else
-			type_ = 0;
-	}
-	return *this;
-}
-#endif
 
 //==========================================================================
 //           Implementation of class daqRun
 //==========================================================================
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
+
 daqRun::daqRun (char* dbase, char* ename, int expid, char* msqlhost)
-:system_ (), exptid_ (expid), datafileName_ (0), 
+  :system_ (), exptid_ (expid), datafileName_ (0), /*conffileName_ (0),*/ 
  dataManager_ (), dataUpdater_ (), scriptSystem_ (), dbreader_ (0),
  numtypes_ (0), numDvars_ (0), locked_ (0), cmdBuffer (), netMan_ (0),
  port_ (0)
 {
 #ifdef _TRACE_OBJECTS
-	printf ("    Create daqRun Class Objects\n");
+  printf ("    Create daqRun Class Objects\n");
 #endif
-	dbasename_ = new char[::strlen (dbase) + 1];
-	::strcpy (dbasename_, dbase);
+  dbasename_ = new char[::strlen (dbase) + 1];
+  ::strcpy (dbasename_, dbase);
 
-	exptname_ = new char[::strlen (ename) + 1];
-	::strcpy (exptname_, ename);
+  exptname_ = new char[::strlen (ename) + 1];
+  ::strcpy (exptname_, ename);
 
-	// setup database msql daemon host
-	if (msqlhost) {
-		msqlhost_ = new char[::strlen (msqlhost) + 1];
-		::strcpy (msqlhost_, msqlhost);
-	}
+  // setup database msql daemon host
+  if (msqlhost)
+  {
+	msqlhost_ = new char[::strlen (msqlhost) + 1];
+	::strcpy (msqlhost_, msqlhost);
+  }
 
-	// connect to msqld if possible.
+  // connect to msqld if possible.
 
-	// create components monitor
-	monitor_ = new daqCompMonitor (*this);
+  // create components monitor
+  monitor_ = new daqCompMonitor (*this);
 
-	// send pointer of this daqRun which is the only one to daqSystem
-	system_.run (this);
-	// Create all daq data associated with run
-	createAllVariables ();
-	// set data manager pointer inside updater
-	dataUpdater_.dataManager (&dataManager_);
+  // send pointer of this daqRun which is the only one to daqSystem
+  system_.run (this);
+
+  // Create all daq data associated with run
+  createAllVariables ();
+
+  // set data manager pointer inside updater
+  dataUpdater_.dataManager (&dataManager_);
 }
-#else
-daqRun::daqRun (char* ename, int expid)
-:system_ (), exptid_ (expid), dataManager_ (), dataUpdater_ (), 
- scriptSystem_ (), dbreader_ (0),
- numtypes_ (0), numDvars_ (0), locked_ (0), cmdBuffer (), netMan_ (0),
- port_ (0)
-{
-#ifdef _TRACE_OBJECTS
-	printf ("    Create daqRun Class Objects\n");
-#endif
-	// setup experiment name
-	exptname_ = new char[::strlen (ename) + 1];
-	::strcpy (exptname_, ename);
 
-	// create components monitor
-	monitor_ = new daqCompMonitor (*this);
-
-	// send pointer of this daqRun which is the only one to daqSystem
-	system_.run (this);
-	// Create all daq data associated with run
-	createAllVariables ();
-	// set data manager pointer inside updater
-	dataUpdater_.dataManager (&dataManager_);
-}
-#endif
 
 daqRun::~daqRun (void)
 {
@@ -325,13 +250,9 @@ daqRun::~daqRun (void)
 	printf ("    Delete daqRun Class Objects\n");
 #endif
 	delete []exptname_;
-
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 	delete []msqlhost_;
 	delete []dbasename_;
-	if (datafileName_)
-		delete []datafileName_;
-#endif
+	if (datafileName_) delete []datafileName_;
 
 	// remove monitor
 	delete monitor_;
@@ -360,19 +281,31 @@ daqRun::boot (void)
 	return system_.boot ();
 }
 
+
+
+
+
+/*sergey: command from 'Ok' button in run type popup ??? */
 int
 daqRun::preConfigure (char *type)
 {
-	// remove all dynamic variables
-	removeDynamicVars ();
-	// reset all components to initial state
-	system_.disableAllComponents ();
-	// numtypes_ = 0;
-	if (dbreader_->configure (type) != CODA_SUCCESS)
-		return CODA_ERROR;
-	dbreader_->parseOptions (type);
-	return CODA_SUCCESS;
+  // remove all dynamic variables
+  removeDynamicVars ();
+
+  // reset all components to initial state
+  system_.disableAllComponents ();
+
+  // numtypes_ = 0;
+  if (dbreader_->configure (type) != CODA_SUCCESS) return CODA_ERROR;
+
+//printf("daqRun::preConfigure type >%s<\n",type);fflush(stdout);
+  dbreader_->parseOptions (type);
+
+  return CODA_SUCCESS;
 }
+
+
+
 
 int
 daqRun::configure (char *type)
@@ -489,17 +422,21 @@ daqRun::createAllVariables (void)
 	status_ = new rcsDaqData (exptname_, "status", CODA_DORMANT);
 	nevents_ = new rcsDaqData (exptname_, "nevents", 0);
 	nlongs_ =  new rcsDaqData (exptname_, "nlongs", 0);
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
 	database_ = new rcsDaqData (exptname_, "database", dbasename_);
+
 	dataFile_ = new rcsDaqData (exptname_, "dataFile", "unknown");
+
 	rcsMsgToDbase_ = new rcsDaqData (exptname_, "rcsMsgToDbase", 1);  
+
 	tokenInterval_ = new rcsDaqData (exptname_, "tokenInterval", 0);
-	logFileDescriptor_ = new rcsDaqData (exptname_, "logFileDescriptor",
-		"unknown");
+	confFile_ = new rcsDaqData (exptname_, "confFile", "unknown"); //sergey
+
+	logFileDescriptor_ = new rcsDaqData (exptname_, "logFileDescriptor", "unknown");
 
 	daqRunTypeStruct runtypeInfo;
 	runTypeInfo_ = new rcsDaqData   (exptname_, "runTypeInfo", &runtypeInfo);
-#endif
+
 	allRunTypes_ = new rcsDaqData (exptname_, "allRunTypes", "unknown");
 	runType_ = new rcsDaqData(exptname_, "runType", "unknown");
 	runTypeNum_ = new rcsDaqData (exptname_, "runTypeNum", 0);
@@ -532,16 +469,19 @@ daqRun::createAllVariables (void)
 	runNumberWriter_ = new rcsRunNumberWriter (this);
 	runNumber_->writer (runNumberWriter_);
 	runNumber_->enableWrite ();
+
 	// create associated writer
 	// this writer will be freed from associated data
 	// this writer will handle stop and restarting updating mechanism
 	updateIWriter_ = new rcsUpdateIWriter (this);
 	updateInterval_->writer (updateIWriter_);
+
 	// create eventlimit/datalimit writer
 	evlimitWriter_ = new rcsEvLimitWriter (this);
 	eventLimit_->writer (evlimitWriter_);
 	datalimitWriter_ = new rcsDataLimitWriter (this);
 	dataLimit_->writer (datalimitWriter_);
+
 	// enable write
 	updateInterval_->enableWrite ();
 	autoIncrement_->enableWrite ();
@@ -561,9 +501,11 @@ daqRun::createAllVariables (void)
 	status_->connect (dataManager_);
 	nevents_->connect (dataManager_);
 	nlongs_->connect (dataManager_);
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
 	database_->connect (dataManager_);
+
 	dataFile_->connect (dataManager_);
+
 	rcsMsgToDbase_->connect (dataManager_);
 	runTypeInfo_->connect (dataManager_);
 
@@ -573,14 +515,22 @@ daqRun::createAllVariables (void)
 	tokenInterval_->connect (dataManager_);
 	tokenInterval_->enableWrite ();
 
+	confFile_->connect (dataManager_); //sergey
+	confFile_->enableWrite ();         //sergey
+
 	rcsMsgToDbase_->enableWrite ();
 
-		logfdesWriter_ = new rcsLogFileDesWriter (this);
+	logfdesWriter_ = new rcsLogFileDesWriter (this);
 	logFileDescriptor_->writer (logfdesWriter_);  
 
 	tokenIWriter_ = new rcsTokenIntervalWriter (this);
 	tokenInterval_->writer (tokenIWriter_);
-#endif
+
+	confnameWriter_ = new rcsConfFileNameWriter (this); //sergey
+	confFile_->writer (confnameWriter_);                //sergey
+
+
+
 	allRunTypes_->connect (dataManager_);
 	runType_->connect (dataManager_);
 	runTypeNum_->connect (dataManager_);
@@ -618,6 +568,7 @@ daqRun::createAllVariables (void)
 	dataUpdater_.startUpdating ();
 }
 
+
 void
 daqRun::resetAllVariables (void)
 {
@@ -636,14 +587,16 @@ daqRun::resetAllVariables (void)
 	*dataLimit_ = 0;
 	*compnames_ = "unknown";
 	*runMsg_ = "";
-#if defined (_CODA_2_0) || defined (_CODA_2_0_T)
+	
 	*dataFile_ = "unknown";
+
 	*tokenInterval_ = 0;
+	*confFile_ = "unknown";
+
 	*logFileDescriptor_ = "unknown";
-	if (datafileName_)
-		delete []datafileName_;
+
+	if (datafileName_) delete []datafileName_;
 	datafileName_ = 0;
-#endif
 
 	daqCompBootStruct tmp;				   
 	*compBootInfo_ = &tmp; // clean up the boot information
@@ -658,11 +611,9 @@ daqRun::resetAllVariables (void)
 	mtmp.timerInterval (monitor_->timerInterval ());
 	*monitorParms_ = &mtmp;
 
-#if defined (_CODA_2_0) || defined (_CODA_2_0_T)
 	// reset session name to no use
 		dbreader_->giveupSession (exptname_);
 	// for coda 2 exptname = session
-#endif
 
 	// reset all dynamic variables
 	if (numDvars_ != 0) {
@@ -672,6 +623,7 @@ daqRun::resetAllVariables (void)
 			dvars_[i]->deactivate ();
 		}
 	}
+
 }
 
 void
@@ -691,6 +643,8 @@ daqRun::createDynamicVars (void)
   count = system_.allEnabledComponents (cs, bufsize);
   if (count != 0) {
     for (i = 0; i < count; i++) {
+
+      /*nlongs*/
       if (dataManager_.findData (cs[i], DYN_ATTR0, serverData) == CODA_SUCCESS){
 	dvars_[numDvars_++] = serverData;
 	serverData->notifyChannels ();
@@ -705,6 +659,8 @@ daqRun::createDynamicVars (void)
 
 	dvars_[numDvars_++] = ndata;
       }
+
+      /*nevents*/
       if (dataManager_.findData (cs[i], DYN_ATTR1, serverData) == CODA_SUCCESS){
 	dvars_[numDvars_++] = serverData;
 	serverData->notifyChannels ();
@@ -719,6 +675,8 @@ daqRun::createDynamicVars (void)
 
 	dvars_[numDvars_++] = edata;
       }
+
+      /*status*/
       if (dataManager_.findData (cs[i], DYN_ATTR2, serverData) == CODA_SUCCESS){
 	dvars_[numDvars_++] = serverData;
 	serverData->notifyChannels ();
@@ -733,6 +691,8 @@ daqRun::createDynamicVars (void)
 	// no need to copy the content of cs[i]
 	newComp[newcount++] = cs[i];
       }
+
+      /*erate*/
       if (dataManager_.findData (cs[i], DYN_ATTR3, serverData) == CODA_SUCCESS){
 	dvars_[numDvars_++] = serverData;
 	serverData->notifyChannels ();
@@ -748,6 +708,7 @@ daqRun::createDynamicVars (void)
 	newComp[newcount++] = cs[i];
       }
 
+	  /*drate*/
       if (dataManager_.findData (cs[i], DYN_ATTR4, serverData) == CODA_SUCCESS){
 	dvars_[numDvars_++] = serverData;
 	serverData->notifyChannels ();
@@ -764,22 +725,24 @@ daqRun::createDynamicVars (void)
       }
 
 
-      /*sergey*/
-      if (dataManager_.findData (cs[i], DYN_ATTR5, serverData) == CODA_SUCCESS){
-	dvars_[numDvars_++] = serverData;
-	serverData->notifyChannels ();
-	// no need to copy the content of cs[i], client side will handle adding
-	// dynamic variable appropriatly
-	newComp[newcount++] = cs[i];
-      }
-      else {
-	daqData* sdata = new rcsDaqData (cs[i], DYN_ATTR5, 0.0);
-	sdata->connect (dataManager_);
-	dvars_[numDvars_++] = sdata;
-	// no need to copy the content of cs[i]
-	newComp[newcount++] = cs[i];
-      }
-
+	/*sergey: livetime*/
+    if (dataManager_.findData (cs[i], DYN_ATTR5, serverData) == CODA_SUCCESS)
+    {
+	  dvars_[numDvars_++] = serverData;
+	  serverData->notifyChannels ();
+	  // no need to copy the content of cs[i], client side will handle adding
+	  // dynamic variable appropriatly
+	  newComp[newcount++] = cs[i];
+    }
+    else
+    {
+	  daqData* sdata = new rcsDaqData (cs[i], DYN_ATTR5, 0.0);
+	  sdata->connect (dataManager_);
+	  dvars_[numDvars_++] = sdata;
+	  // no need to copy the content of cs[i]
+	  newComp[newcount++] = cs[i];
+    }
+	
 
 
     }
@@ -896,151 +859,25 @@ daqRun::numDynamicVars (void) const
 void
 daqRun::createAnaLogVars (void)
 {
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 	return;
-#else
-	// no way a run control system has more than MAX_NUM_DYN_VARS ANAs
-	char *anas[MAX_NUM_DYN_VARS];
-	int  numNewAnas = 0;
-
-	daqSubSystem* anasys = 0;
-
-	if (system_.locateSystem (CODA_ANA_CLASS, anasys) == CODA_SUCCESS) {
-		codaSlistIterator ite (anasys->compList());
-		daqComponent* comp = 0;
-		char* log = 0;
-		daqData* logdata = 0;
-
-		for (ite.init (); !ite; ++ite) {
-			comp = (daqComponent *) ite();
-			getNetConfigInfo (comp->title(), log);
-			if (dataManager_.findData (comp->title(), DYN_ANA_LOG, logdata) 
-				== CODA_SUCCESS) {
-				if (log != 0) {
-					*logdata = log;
-					logdata->notifyChannels ();
-				}
-				else {
-					*logdata = "unkown";
-					logdata->notifyChannels ();	  
-				}
-			}
-			else {
-				daqData *ldata = 0;
-				daqDataWriter *lwriter = 0;
-				if (log != 0) 
-					ldata = new rcsDaqData (comp->title(), DYN_ANA_LOG, log);
-				else
-					ldata = new rcsDaqData (comp->title(), DYN_ANA_LOG, "unknown");
-				lwriter = new rcsAnaLogVarWriter (this);
-				ldata->connect (dataManager_);
-				ldata->enableWrite ();
-				// hook up the writer for this variable
-				ldata->writer (lwriter);
-
-					anas[numNewAnas++] = comp->title();
-			}
-		} 
-		if (numNewAnas > 0) {
-			// tell all clients all ANA components with log information
-			daqNetData data (exptname_, "command", anas, numNewAnas);
-			netMan_->sendToAllClients ((int)DAADD_ANALOG_VARS, data, 0);
-		} 
-	}
-#endif
 }
 
 void
 daqRun::removeAnaLogVars (void)
 {
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 	return;
-#else
-	// no way a run control system has more than MAX_NUM_DYN_VARS ANAs
-	char *anas[MAX_NUM_DYN_VARS];
-	int  numAnas = 0;
-
-	daqSubSystem* anasys = 0;
-
-	if (system_.locateSystem (CODA_ANA_CLASS, anasys) == CODA_SUCCESS) {
-		codaSlistIterator ite (anasys->compList());
-		daqComponent* comp = 0;
-		daqData* logdata = 0;
-
-		for (ite.init (); !ite; ++ite) {
-			comp = (daqComponent *)ite ();
-			if (dataManager_.findData (comp->title(), DYN_ANA_LOG, logdata) 
-				== CODA_SUCCESS) 
-				anas[numAnas++] = comp->title();
-		}
-		if (numAnas > 0) {
-			// tell all clients all ANA components with log information
-			daqNetData data (exptname_, "command", anas, numAnas);
-			netMan_->sendToAllClients ((int)DAREMOVE_ANALOG_VARS, data, 0);
-		}
-	}
-#endif
 }
 
 void
 daqRun::updateAnaLogInfo (char* ana, char* logpath)
 {
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 	return;
-#else
-	dbreader_->setNetConfigInfo (ana, logpath);
-#endif
 }
 
 void
 daqRun::sendAnaLogVarsInfo (rccIO *chan)
 {
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 	return;
-#else
-	// no way a run control system has more than MAX_NUM_DYN_VARS ANAs
-	char *anas[MAX_NUM_DYN_VARS];
-	int  numNewAnas = 0;
-
-	daqSubSystem* anasys = 0;
-
-	if (system_.locateSystem (CODA_ANA_CLASS, anasys) == CODA_SUCCESS) {
-		codaSlistIterator ite (anasys->compList());
-		daqComponent* comp = 0;
-		char* log = 0;
-		daqData* logdata = 0;
-
-		for (ite.init (); !ite; ++ite) {
-			comp = (daqComponent *)ite ();
-			getNetConfigInfo (comp->title(), log);
-			if (dataManager_.findData (comp->title(), DYN_ANA_LOG, logdata) 
-				== CODA_SUCCESS) {
-				if (log != 0) {
-					*logdata = log;
-					logdata->notifyChannels ();
-				}
-				else {
-					*logdata = "unkown";
-					logdata->notifyChannels ();	  
-				}
-			}
-			else {
-				daqData *ldata = 0;
-				if (log != 0) 
-					ldata = new rcsDaqData (comp->title(), DYN_ANA_LOG, log);
-				else
-					ldata = new rcsDaqData (comp->title(), DYN_ANA_LOG, "unknown");
-				ldata->connect (dataManager_);
-			}
-			anas[numNewAnas++] = comp->title();
-		}
-		if (numNewAnas > 0) {
-			// tell all clients all ANA components with log information
-			daqNetData data (exptname_, "command", anas, numNewAnas);
-			chan->sendResult ((int)DAADD_ANALOG_VARS, data, 0);
-		}
-	}
-#endif
 }
   
 void
@@ -1086,7 +923,6 @@ daqRun::controlDisplay (void) const
 	return disp;
 }
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 char*
 daqRun::msqlhost (void) const
 {
@@ -1119,30 +955,55 @@ daqRun::selectSession (char* session)
 	return dbreader_->selectSession (session);
 }
 
+
+
+
+
 void
 daqRun::tokenInterval (int itval, int writeUpdate)
 {
 	// if not write to database, disable the write
-	if (!writeUpdate) 
-		tokenInterval_->disableWrite ();
-
+	if (!writeUpdate) tokenInterval_->disableWrite ();
 	*tokenInterval_ = itval;
-
-	if (!writeUpdate) 
-		tokenInterval_->enableWrite ();  
+	if (!writeUpdate) tokenInterval_->enableWrite ();  
 }
-#endif
+
+
+/*sergey: changing 'confFile_' here triggers confFile_->writer to update database by calling
+  rcsConfFileNameWriter::write -> daqRun::updateConfFile -> dbaseReader::putConfFileName;
+  it happens because operator '=' overloaded in daqData class, calling 'notifychannels' and 'write'
+  methods; 'write' method calls rcsConfFileNameWriter::write */
+void
+daqRun::confFile (char *fname, int writeUpdate)
+{
+  // if not write to database, disable the write
+  if (!writeUpdate) confFile_->disableWrite ();
+//  printf("daqRun::confFile: fname >%s<\n",fname);
+
+  *confFile_ = fname; /* sergey: that overloaded operation triggers described above */
+
+  if (!writeUpdate) confFile_->enableWrite ();  
+}
+
+
+
+
+
+
+
 
 void
 daqRun::runtype (char *name)
 {
-	*runType_ = name;
-	for (int i = 0; i < numtypes_; i++) {
-		if (::strcmp (name, runtypes_[i].type_) == 0) {
-			*runTypeNum_ = runtypes_[i].number_;
-			break;
-		}
+  *runType_ = name;
+  for (int i = 0; i < numtypes_; i++)
+  {
+	if (::strcmp (name, runtypes_[i].type_) == 0)
+    {
+	  *runTypeNum_ = runtypes_[i].number_;
+	  break;
 	}
+  }
 }
 
 char*
@@ -1216,7 +1077,10 @@ daqRun::dataLimit (void) const
 	return (int) (*dataLimit_);
 }
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
+
+
+
 void
 daqRun::dataFile (char *file)
 {
@@ -1263,32 +1127,55 @@ daqRun::writeDataFileNameToDbase (char* file)
 void
 daqRun::setDataFileName (char* name)
 {
-	if (datafileName_)
-		delete []datafileName_;
-	datafileName_ = 0;
+  if (datafileName_) delete []datafileName_;
+  datafileName_ = 0;
 
-	if (name) {
-		datafileName_ = new char[::strlen (name) + 1];
-		::strcpy (datafileName_, name);
-		dataFile (runNumber ());
+  if (name)
+  {
+	datafileName_ = new char[::strlen (name) + 1];
+	::strcpy (datafileName_, name);
+	dataFile (runNumber ());
 
-		// prevent writing back the same thing to the database
-		logFileDescriptor_->disableWrite ();
-		*logFileDescriptor_ = name;
-		logFileDescriptor_->enableWrite ();
-	}
-	else {
-		logFileDescriptor_->disableWrite ();
-		*logFileDescriptor_ = "unknown";
-		logFileDescriptor_->enableWrite ();
-	}
+	// prevent writing back the same thing to the database
+	logFileDescriptor_->disableWrite ();
+	*logFileDescriptor_ = name;
+	logFileDescriptor_->enableWrite ();
+  }
+  else
+  {
+	logFileDescriptor_->disableWrite ();
+	*logFileDescriptor_ = "unknown";
+	logFileDescriptor_->enableWrite ();
+  }
 }
+
+
+
+
+
+
+
 
 void
 daqRun::updateTokenInterval (int itval)
 {
-	dbreader_->putTokenInterval (itval);
+  dbreader_->putTokenInterval (itval);
 }
+
+/*sergey*/
+void
+daqRun::updateConfFile (char *fname)
+{
+//printf("daqRun::updateConfFile: fname >%s<\n",fname);
+  dbreader_->putConfFileName (fname);
+}
+
+
+
+
+
+
+
 
 void
 daqRun::enableRcsMsgToDbase (void)
@@ -1307,16 +1194,17 @@ daqRun::rcsMsgToDbase (void) const
 {
 	return (int) (*rcsMsgToDbase_);
 }
-#endif
+
+
+
+
 
 void
 daqRun::runNumber (int num)
 {
 	*runNumber_ = num;
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 	dataFile (num);
-#endif
 }
 
 void
@@ -1361,9 +1249,7 @@ daqRun::increaseRunNumber (void)
 	oldNum++;
 	*runNumber_ = oldNum;
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 	dataFile (oldNum);
-#endif
 }  
 
 void
@@ -1450,66 +1336,52 @@ daqRun::eraseEndTime (void)
 	*endTimeBin_ = 0;
 }
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
+
+
 void
 daqRun::addRunType (char* runtype, int number, int inuse, char* cat)
 {
-	daqRunType rt (runtype, number, inuse, cat);
-
-	runtypes_[numtypes_++] = rt;
-}
-
-void
-daqRun::setAllRunTypes (void)
-{
-	int i = 0;
-
-	if (numtypes_ > 1) {
-		char **temp = new char*[numtypes_];
-		for (i = 0; i < numtypes_; i++) 
-			temp[i] = runtypes_[i].type_;
-		allRunTypes_->assignData (temp, numtypes_);
-		delete []temp;
-	}
-	else if (numtypes_ == 1) 
-		*allRunTypes_ = runtypes_[0].type_;
-
-
-	// update run type information structure
-	daqRunTypeStruct runtypeInfo;
-
-	for (i = 0; i < numtypes_; i++) 
-		runtypeInfo.insertRunType (runtypes_[i].type_, runtypes_[i].number_,
-			runtypes_[i].inuse_, runtypes_[i].cat_);
-	*runTypeInfo_ = (daqArbStruct *)&runtypeInfo;
-
-	daqArbStruct* bs = (daqArbStruct *)(*runTypeInfo_);
-	daqRunTypeStruct* rs = (daqRunTypeStruct *)bs;
-}
-#else
-void
-daqRun::addRunType (char* runtype, int number)
-{
-	daqRunType rt (runtype, number);
-
-	runtypes_[numtypes_++] = rt;
-}
-
-void
-daqRun::setAllRunTypes (void)
-{
-	if (numtypes_ > 1) {
-		char **temp = new char*[numtypes_];
-		for (int i = 0; i < numtypes_; i++) 
-			temp[i] = runtypes_[i].type_;
-		allRunTypes_->assignData (temp, numtypes_);
-		delete []temp;
-	}
-	else if (numtypes_ == 1) {
-		*allRunTypes_ = runtypes_[0].type_;
-	}
-}
+  daqRunType rt (runtype, number, inuse, cat);
+#ifdef _CODA_DEBUG
+  printf("daqRun::addRunType: numtypes_=%d\n",numtypes_);
 #endif
+  runtypes_[numtypes_++] = rt;
+}
+
+void
+daqRun::setAllRunTypes (void)
+{
+  int i = 0;
+#ifdef _CODA_DEBUG
+  printf("daqRun::setAllRunTypes reached, numtypes_=%d\n",numtypes_);
+#endif
+
+  if (numtypes_ > 1)
+  {
+	char **temp = new char*[numtypes_];
+	for (i = 0; i < numtypes_; i++) temp[i] = runtypes_[i].type_;
+	allRunTypes_->assignData (temp, numtypes_);
+	delete []temp;
+  }
+  else if (numtypes_ == 1)
+  { 
+    *allRunTypes_ = runtypes_[0].type_;
+  }
+
+  // update run type information structure
+  daqRunTypeStruct runtypeInfo;
+
+  for (i = 0; i < numtypes_; i++)
+  { 
+	runtypeInfo.insertRunType (runtypes_[i].type_, runtypes_[i].number_,
+			runtypes_[i].inuse_, runtypes_[i].cat_);
+  }
+  *runTypeInfo_ = (daqArbStruct *)&runtypeInfo;
+
+  daqArbStruct* bs = (daqArbStruct *)(*runTypeInfo_);
+  daqRunTypeStruct* rs = (daqRunTypeStruct *)bs;
+}
 
 
 void
@@ -1594,14 +1466,13 @@ void
 daqRun::cleanAll (void)
 {
 	numtypes_ = 0;
+
 	// reset all variables
 	resetAllVariables ();
+
 	// remove all dynamic variables
 	removeDynamicVars ();
-#if !defined (_CODA_2_0) && !defined (_CODA_2_0_T)
-	// remove all ANA log information variables
-		removeAnaLogVars ();
-#endif
+
 	// last to clean out information which may be used by the previous call
 	system_.cleanAll ();
 }
@@ -1610,31 +1481,25 @@ int
 daqRun::loadDatabase (char* direc, char* session)
 {
 
-	cleanAll ();
+  cleanAll ();
 
-	if (dbreader_) {
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
-		dbreader_->database (direc);
-		if (dbreader_->sessionCreated (session))
-			return dbreader_->selectSession (session);
-		else
-			return dbreader_->createSession (session);
-#else
-		dbreader_->database (direc);
-		if (dbreader_->getComponents () != CODA_SUCCESS)
-			return CODA_ERROR;
-		if (dbreader_->getAllRunTypes () != CODA_SUCCESS)
-			return CODA_ERROR;
-		if (dbreader_->getRunNumber () != CODA_SUCCESS)
-			return CODA_ERROR;
-		// create all ana log information, must be called after all
-		// system and components information have been set up
-		createAnaLogVars ();
-#endif
-		return CODA_SUCCESS;
+  if (dbreader_)
+  {
+	dbreader_->database (direc);
+	if (dbreader_->sessionCreated (session))
+	{
+	  return dbreader_->selectSession (session);
 	}
 	else
-		return CODA_ERROR;
+	{
+	  return dbreader_->createSession (session);
+	}
+	return CODA_SUCCESS;
+  }
+  else
+  {
+	return CODA_ERROR;
+  }
 }
 
 int
@@ -1702,8 +1567,8 @@ daqRun::cmdFinalResult (int success)
 	// Invariant: number of commands == number of commands in the buffer
 	// --jie chen 6/17/96
 #ifndef _CENTERLINE
-	assert (locked_);               // must be locked at this moment
-	assert (!cmdBuffer.isEmpty ()); // command buffer cannot be empty
+    assert (locked_);               // must be locked at this moment
+    assert (!cmdBuffer.isEmpty ()); // command buffer cannot be empty
 #endif
 	// get first command from queue
 	rcCmdBufItem *item = cmdBuffer.removeCmd ();
@@ -1741,6 +1606,9 @@ daqRun::processCommand (rccIO* chan, int command, rcMsg* cmsg)
 	unsigned long cmd;
 	daqNetData *res = 0;
 
+
+//printf("daqRun::processCommand command %d\n",command);
+
 	if (locked_) {
 		cmdBuffer.insertCmd (chan, cmsg);
 		return 0;
@@ -1759,46 +1627,48 @@ daqRun::processCommand (rccIO* chan, int command, rcMsg* cmsg)
 #endif
 	*/
 
-	switch (cmd) {
-	case DALOADDBASE:
+	switch (cmd)
+    {
+	  case DALOADDBASE:
 		{
 			char *sdata[2];
 			int   count = 2;
 			status = CODA_ERROR;
-
+#ifdef _CODA_DEBUG
+  printf("daqRun::processCommand DALOADDBASE\n");fflush(stdout);
+#endif
 			daqNetData ndata = (daqNetData)(*cmsg);
 			if (ndata.getData (sdata, count) == CODA_SUCCESS)
-				status = loadDatabase (sdata[0], sdata[1]);
+			{
+			  status = loadDatabase (sdata[0], sdata[1]);
+			}
 			res = new daqNetData (exptname_,"command",status);
 			// free memory
 			delete []sdata[0]; delete []sdata[1];
+
 		}
 		break;
-	case DASESSION:
+	  case DASESSION:
 		{
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 			daqNetData ndata = (daqNetData)(*cmsg);
 			char *session = new char[::strlen ((char *)ndata) + 1];
 			::strcpy (session, (char *)ndata);
 			status = selectSession (session);
 			res = new daqNetData (exptname_, "command", status);
 			delete []session;
-#endif
 		}
 		break;
-	case DACREATESES:
+	  case DACREATESES:
 		{
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 			daqNetData ndata = (daqNetData)(*cmsg);
 			char *session = new char[::strlen ((char *)ndata) + 1];
 			::strcpy (session, (char *)ndata);
 			status = createSession (session);
 			res = new daqNetData (exptname_, "command", status);
 			delete []session;
-#endif
 		}
 		break;
-	case DACONFIGURE:
+	  case DACONFIGURE:
 		{
 			daqNetData ndata = (daqNetData)(*cmsg);
 
@@ -1809,11 +1679,13 @@ daqRun::processCommand (rccIO* chan, int command, rcMsg* cmsg)
 #ifdef _CODA_DEBUG
 			printf("processCommand configure: runtype >%s<\n",(char *)ndata);
 #endif
-			if (preConfigure (runtype) != CODA_SUCCESS) {
+			if (preConfigure (runtype) != CODA_SUCCESS)
+            {
 				delete []runtype;
 				res = new daqNetData (exptname_, "command", CODA_ERROR);
 			}
-			else {
+			else
+            {
 				// configure also behaves like state transition, see note below
 				cmdBuffer.insertCmd (chan, cmsg);
 				status = configure (runtype);
@@ -1821,7 +1693,7 @@ daqRun::processCommand (rccIO* chan, int command, rcMsg* cmsg)
 			}
 		}
 		break;
-	case DACHANGE_STATE:
+	  case DACHANGE_STATE:
 		{
 			daqNetData ndata = (daqNetData)(*cmsg);
 			// Important note:
@@ -1839,65 +1711,64 @@ daqRun::processCommand (rccIO* chan, int command, rcMsg* cmsg)
 			return 0;
 		}
 		break;
-	case DADOWNLOAD:
+	  case DADOWNLOAD:
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = download ();
 		return 0;
 		break;
-	case DAPRESTART:
+	  case DAPRESTART:
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = prestart ();
 		return 0;
 		break;
-	case DAGO:
+	  case DAGO:
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = go ();
 		return 0;
 		break;
-	case DAEND:
+	  case DAEND:
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = end ();
 		return 0;
 		break;
-	case DAPAUSE:
+	  case DAPAUSE:
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = pause ();
 		return 0;
 		break;
-	case DAABORT:
+	  case DAABORT:
 		abort (CODA_CONFIGURED);
 		res = new daqNetData(exptname_,"command",status);  
 		break;
-	case DATERMINATE:
+	  case DATERMINATE:
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = reset ();
 		return 0;
 		break;
-	case DARESET:
+	  case DARESET:
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = reset ();
 		return 0;
 		break;
-	case DATEST:
+	  case DATEST:
 		{
 			for (int i = 0; i < 10; i++)
 				sleep (1);
 		}
 		res = new daqNetData(exptname_,"command",status);
 		break;
-	case DADISCONNECT:
+	  case DADISCONNECT:
 		// close this socket
 		status = CODA_ERROR;
 		sendCallback = 0;
 		break;
-	case DAZAP: 
+	  case DAZAP: 
 		// if there is only one client connected to this server, kill the server
 		// else do nothing
 
 		if (netMan_->numberClients () == 1) {
 			// kill all remote process first
 			cmdBuffer.insertCmd (chan, cmsg);
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 			printf("call terminate from daqRun\n");
 			terminate ();
 			// remove this server information from the database
@@ -1908,20 +1779,18 @@ daqRun::processCommand (rccIO* chan, int command, rcMsg* cmsg)
 
 			// give up configuration if holding one
 			dbreader_->giveupConfiguration ((char *)(*runType_));
-#else
-			terminate ();
-#endif
 
 			// finally exit
 			::exit (0);
 		}
 		sendCallback = 0;
 		break;
-	default:
+	  default:
 		status = CODA_ERROR;
 		res = new daqNetData(exptname_,"command",status);
 		break;
 	}
+
 	if (sendCallback == 1) {
 		chan->sendResult (command, *res, cmsg->reqId ());
 		unlock ();
@@ -1953,10 +1822,12 @@ daqRun::getValue (rccIO* chan, rcMsg *cmsg)
 	daqData* data = 0; // server side data
 	dataManager_.findData (ndata.name(), ndata.attribute(), data);
 
+//printf("----- daqRun::getValue\n");
+
 	// client side has variables having the same names as the server side
 	// client will never send over a variable which is not inside data manager
 #ifndef _CENTERLINE
-	assert (data);
+    assert (data);
 #endif
 	// get new value
 	if (!data->historyKept ())
@@ -1977,6 +1848,9 @@ daqRun::setValue (rccIO* chan, rcMsg* cmsg)
 {
 	daqNetData& ndata = (daqNetData &)(*cmsg); // client request data
 	daqData* data = 0; // server side data
+
+//printf("----- daqRun::setValue\n");
+
 	// client side will never send a data which is not inside data manager
 	dataManager_.findData (ndata.name(), ndata.attribute(), data);
 #ifndef _CENTERLINE
@@ -2016,9 +1890,12 @@ daqRun::setValue (rccIO* chan, rcMsg* cmsg)
 int
 daqRun::monitorOnValue (rccIO* chan, rcMsg* cmsg)
 {
+//printf("111\n");fflush(stdout);
 	daqNetData& ndata = (daqNetData &)(*cmsg); // client request data
 	daqData* data = 0; // server side data
+//printf("222\n");fflush(stdout);
 	dataManager_.findData (ndata.name(), ndata.attribute(), data);
+//printf("333\n");fflush(stdout);
 #ifndef _CENTERLINE
 	assert (data);
 #endif

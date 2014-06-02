@@ -264,6 +264,7 @@ void vscmLatchChipScaler(int id, int chip);
 void vscmClearStripScalers(int id, int chip);
 int vscmReadStripScalers(int id, int chip, uint32_t *arr);
 void vscmLatchScalers(int id);
+uint32_t vscmReadVmeClk(int id);
 
 void vscmSetBCOFreq(int id, uint32_t freq);
 int vscmReadBlock(int id, volatile uintptr_t *data, int nwrds, int rflag);
@@ -274,17 +275,34 @@ void vscmSetTriggerWindow(int id, \
 void vscmSetBlockLevel(int id, int block_level);
 void vscmSWSync(int id);
 void fssrMasterReset(int id);
-char * readNormalizedScaler(char *buf, char *prefix, \
+char *readNormalizedScaler(char *buf, char *prefix, \
                                 uint32_t ref, uint32_t scaler);
 
 void fssrStatusAll();
 void fssrStatus(int id, int chip);
+uint32_t fssrReadLastStatusWord(int id, int chip);
+uint32_t fssrReadScalerStatusWord(int id, int chip);
+uint32_t fssrReadScalerEvent(int id, int chip);
+uint32_t fssrReadScalerWords(int id, int chip);
+uint32_t fssrReadScalerIdle(int id, int chip);
+uint32_t fssrReadScalerAqBco(int id, int chip);
+uint32_t fssrReadScalerMarkErr(int id, int chip);
+uint32_t fssrReadScalerEncErr(int id, int chip);
+uint32_t fssrReadScalerChipIdErr(int id, int chip);
+uint32_t fssrReadLatencyMax(int id, int chip);
+uint32_t fssrReadScalerGotHit(int id, int chip);
+uint32_t fssrReadScalerStrip(int id, int chip);
+uint32_t fssrReadScalerRef(int id, int chip);
+uint32_t fssrReadScalerStripRef(int id, int chip);
+uint32_t fssrReadScalerCoreTalking(int id, int chip);
+uint32_t fssrReadLastDataWord(int id, int chip);
+
 void fssrSetChipID(int id, \
-                    unsigned int hfcb, \
-                    unsigned int u1, \
-                    unsigned int u2, \
-                    unsigned int u3, \
-                    unsigned int u4);
+                   unsigned int hfcb, \
+                   unsigned int u1, \
+                   unsigned int u2, \
+                   unsigned int u3, \
+                   unsigned int u4);
 void fssrSetControl(int id, int chip, uint8_t mask);
 uint8_t fssrGetControl(int id, int chip);
 void fssrSetThreshold(int id, int chip, int idx, uint8_t thr);

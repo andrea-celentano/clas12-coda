@@ -222,7 +222,8 @@ rcConnect::startRcServer (void)
 
   if (connect () != CODA_SUCCESS) { //try to create rcServer
     char msg[256];
-    ::sprintf(msg,"$CODA_BIN/rcServer -m %s -d %s -s %s &\n",
+    /*::sprintf(msg,"$CODA/src/rc/runControl/rcServer/Linux_i686_vme/bin/rcServer -m %s -d %s -s %s &\n",*/
+	::sprintf(msg,"$CODA_BIN/rcServer -m %s -d %s -s %s &\n",
 	      option->msqldhost(),
 	      option->dbasename (),
 	      option->session ());

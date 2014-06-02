@@ -838,14 +838,14 @@ printf("tdc(cor)-----> %d\n",tdc);
 	              ww   = 1.;
 	              hf1_(&idn,&tmpx,&ww);
 
-                  idn = 11;
-	              hf1_(&idn,&tmpx,&ww);
-
 
 
           		  idn = slot*1000+chan;
                   tmpx = (float)tdc-(float)tdcref;
 	              ww   = 1.;
+	              hf1_(&idn,&tmpx,&ww);
+
+                  idn = 11;
 	              hf1_(&idn,&tmpx,&ww);
 				  /*
 				}

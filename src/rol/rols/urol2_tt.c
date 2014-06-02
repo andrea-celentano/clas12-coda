@@ -117,6 +117,7 @@ __prestart()
 
   printf("RAW=%d  PROFILE=%d  NOTRANS=%d\n",ttp->wannaraw,ttp->profile,ttp->notrans);
   printf("MAX_EVENT_LENGTH = %d NWBOS = %d\n",MAX_EVENT_LENGTH,NWBOS);
+  printf("rol->pid=%d\n",rol->pid);
 
   /* set pointers to the translation routines and translation flags */
   switch(rol->pid)
@@ -335,7 +336,11 @@ __prestart()
        ttp->profile=1;
        break;
    default:
-	 printf("ERROR: illegal roc id = %d\n",rol->pid);
+	   printf("ERROR: illegal roc id = %d, use default rol2\n",rol->pid);
+       TrFunPtr = NULL; /**/
+       ttp->wannaraw=1;
+       ttp->notrans=1;
+       ttp->profile=1;
   }
 
 

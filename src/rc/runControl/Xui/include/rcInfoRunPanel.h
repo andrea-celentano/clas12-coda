@@ -41,6 +41,7 @@ class rcRunSInfoPanel;
 class rcRunDInfoPanel;
 class rcRunStatusPanel;
 class rcRunTypeDialog;
+//class rcRunConfigDialog;
 class daqNetData;
 
 class rcInfoRunPanel: public XcodaUi
@@ -67,6 +68,9 @@ public:
   // return run type dialog
   rcRunTypeDialog* runTypeDialog (void);
 
+  // return run config dialog
+  //rcRunConfigDialog* runConfigDialog (void);
+
   // popup zoomed display of event information
   void zoomOnEventInfo (void);
 
@@ -83,10 +87,17 @@ private:
   Widget parent_;  
 
 #if defined (_CODA_2_0_T) || defined (_CODA_2_0)
-  // widget to hold data log file
+  // widget to hold data file
   Widget datafile_;
+
+  /*sergey: widget to hold conf file*/
+  Widget conffile_;
+
   // update data file label to this widget
   void updateDataFileLabel (void);
+
+  /*sergey*/
+  void updateConfFileLabel (void);
 #endif
        
   Widget statusPanel_;
@@ -94,5 +105,6 @@ private:
   rcRunSInfoPanel*  sinfoPanel_;
   rcRunDInfoPanel*  dinfoPanel_;
   rcRunTypeDialog*  runTypeDialog_;
+  //rcRunConfigDialog*  runConfigDialog_;
 };
 #endif

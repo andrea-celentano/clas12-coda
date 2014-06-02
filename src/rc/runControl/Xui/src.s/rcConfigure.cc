@@ -39,6 +39,7 @@
 //
 #include <rcInfoPanel.h>
 #include <rcRunTypeDialog.h>
+//#include <rcRunConfigDialog.h>
 #include <rcButtonPanel.h>
 #include <rcComdOption.h>
 #include <rcAudioOutput.h>
@@ -67,20 +68,17 @@ rcConfigure::~rcConfigure (void)
 
 void doitCbk(rcConfigure *obj)
 {
+/*printf("c1\n");fflush(stdout);*/
   obj->doit();
 }
 
 void
 rcConfigure::doit (void)
 {
+/*printf("c2\n");fflush(stdout);*/
   assert (infoPanel_);
-
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   rcComdOption* option = rcComdOption::option ();
   loadRcDbase (option->dbasename (), option->session ());
-#else
-  infoPanel_->runTypeDialog()->popup ();
-#endif
   rcAudio ("configure a run");
 }
 
@@ -90,10 +88,10 @@ rcConfigure::undoit (void)
   // empty
 }
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 void
 rcConfigure::loadRcDbase (char *dbase, char* session)
 {
+/*printf("c3\n");fflush(stdout);*/
   // get network handler
   rcClient& client = netHandler_.clientHandler ();
 
@@ -108,25 +106,31 @@ rcConfigure::loadRcDbase (char *dbase, char* session)
   // free memory
   delete []temp[0]; 
   delete []temp[1];
-  
+
+  /*sergey: send command 'DALOADDBASE'  to rcServer's daqRun.cc*/
   int status = client.sendCmdCallback (DALOADDBASE, data, 
 	       (rcCallback)&(rcConfigure::loadRcDbaseCbk), 
 	       (void *)this);
-  if (status != CODA_SUCCESS) {
+  if (status != CODA_SUCCESS)
+  {
     reportErrorMsg ("Cannot send load database command");
     rcAudio ("can not send load database command");
   }
 }
 
+/*sergey: executed when "Configure" button pushed */
 void
 rcConfigure::loadRcDbaseCbk (int status, void* arg, daqNetData* data)
 {
+/*printf("c4\n");fflush(stdout);*/
   rcConfigure* obj = (rcConfigure *)arg;
   if (status != CODA_SUCCESS && status != CODA_IGNORED) {
     obj->reportErrorMsg ("rcConfigure::loadRcDbaseCbk: Loading database failed !!!");
     rcAudio ("rcConfigure::loadRcDbaseCbk: loading database failed");
   }
-  else 
+  else
+  { 
+	/* sergey: popup runtype dialog window */
     obj->infoPanel_->runTypeDialog()->popup ();
+  }
 }
-#endif

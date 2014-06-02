@@ -70,12 +70,7 @@ cleanvxworks:
 	- cd rol;                            $(MAKE) clean   VXWORKS
 
 arm:
-	cd evio-4.0;                         $(MAKE) all     ARM
-	- cd evio-4.0;                       $(MAKE) install ARM
-	- cd et-12.0;                        $(MAKE) all     ARM
-	- cd et-12.0;                        $(MAKE) ulib    ARM
-	- cd et-12.0;                        $(MAKE) install ARM
-	- cd mysql4.1.20;                    $(MAKE) all     ARM
+	cd mysql4.1.20;                      $(MAKE) all     ARM
 	- cd mysql4.1.20;                    $(MAKE) install ARM
 	- cd codatt;                         $(MAKE) all     ARM
 	- cd codatt;                         $(MAKE) install ARM
@@ -90,6 +85,30 @@ cleanarm:
 	- cd codatt;                         $(MAKE) clean   ARM
 	- cd dac;                            $(MAKE) clean   ARM
 	- cd rol;                            $(MAKE) clean   ARM
+
+nios:
+	cd mysql4.1.20;                      $(MAKE) all     NIOS
+	- cd mysql4.1.20;                    $(MAKE) install NIOS
+	- cd evio-4.0;                       $(MAKE) lib     NIOS
+	- cd evio-4.0;                       $(MAKE) shlib   NIOS
+	- cd evio-4.0;                       $(MAKE) install NIOS
+#	- cd codatt;                         $(MAKE) all     NIOS
+#	- cd codatt;                         $(MAKE) install NIOS
+#	- cd dac;                            $(MAKE) all     NIOS
+	- cd dac;                            $(MAKE) Linux_nios2/bin/coda_roc NIOS
+	- cd dac;                            $(MAKE) shlib   NIOS
+	- cd dac;                            $(MAKE) install NIOS
+	- cd rol;                            $(MAKE) lib     NIOS
+	- cd rol;                            $(MAKE) shlib   NIOS
+	- cd rol;                            $(MAKE) rols    NIOS
+	- cd rol;                            $(MAKE) install NIOS
+
+cleannios:
+	cd mysql4.1.20;                      $(MAKE) clean   NIOS
+	- cd evio-4.0;                       $(MAKE) clean   NIOS
+#	- cd codatt;                         $(MAKE) clean   NIOS
+	- cd dac;                            $(MAKE) clean   NIOS
+	- cd rol;                            $(MAKE) clean   NIOS
 
 
 ###########################################

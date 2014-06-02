@@ -128,9 +128,8 @@ rcNetConfig::config (char* cf)
 //=====================================================================
 //    Implementation of dbaseReader Class
 //=====================================================================
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
 int dbaseReader::numRetries_ = 20;
-#endif
 
 static int emptyLine (char *line)
 {
@@ -209,7 +208,11 @@ static void toLower (char *str)
   }
 }
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)    
+
+
+
+
+
 dbaseReader::dbaseReader (int exptid, daqRun& run)
 :dbaseDir_ (0), exptid_ (exptid), run_(run), dbaseSock_ (NULL),
  cinfos_ (CODA_CONFIG_HASH_SIZE, codaStrHashFunc)
@@ -850,10 +853,11 @@ dbaseReader::giveupSession (char* session)
   return CODA_SUCCESS;
 }
 
+
 int
 dbaseReader::getComponents (void)
 {
-  char qstring[1024];
+  char qstring[MAX_PROC_TABLE_STRING];
 
   reporter->cmsglog (CMSGLOG_INFO1,"Parsing process table ....\n");
 
@@ -1145,17 +1149,57 @@ dbaseReader::putDataFileName (char* name)
   ::sprintf (qstring, "update %s_option set value = '%s' where name = '%s'",
 	     run_.runtype (), name, DBASE_DATAFILE);
 
-  if (::mysql_query (dbaseSock_, qstring) != 0) {
+  if (::mysql_query (dbaseSock_, qstring) != 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("update dataFile error: %s\n", mysql_error(dbaseSock_));
 #endif
     reporter->cmsglog (CMSGLOG_ERROR,"Update dataFile error: %s\n", mysql_error(dbaseSock_));
     
-    if (reconnectMysql () == CODA_SUCCESS) {
+    if (reconnectMysql () == CODA_SUCCESS)
+    {
       if (::mysql_query (dbaseSock_, qstring) != 0) 
-	reporter->cmsglog (CMSGLOG_ERROR,"Update dataFile error: %s\n", mysql_error(dbaseSock_));
+	    reporter->cmsglog (CMSGLOG_ERROR,"Update dataFile error: %s\n", mysql_error(dbaseSock_));
     }
   }
+}
+
+/* sergey: call this routine after session has been selected */
+void 
+dbaseReader::putConfFileName (char* name)
+{
+  char qstring[256];
+  
+  if (strcmp(run_.runtype (), "unknown") == 0)
+  {
+#ifdef _CODA_DEBUG
+    printf("dbaseReader::putConfFileName: ignore 'unknown'\n");
+#endif
+    return;
+  }  
+
+  ::sprintf (qstring, "update %s_option set value = '%s' where name = '%s'",
+	     run_.runtype (), name, DBASE_CONFFILE);
+
+#ifdef _CODA_DEBUG
+  printf("dbaseReader::putConfFileName: query >%s<\n",qstring);
+#endif
+
+/* we updated database already from runcontrol - see Xui/src.s/rcDbaseHandler.cc 
+  if (::mysql_query (dbaseSock_, qstring) != 0)
+  {
+#ifdef _CODA_DEBUG
+    printf ("update confFile error: %s\n", mysql_error(dbaseSock_));
+#endif
+    reporter->cmsglog (CMSGLOG_ERROR,"Update confFile error: %s\n", mysql_error(dbaseSock_));
+    
+    if (reconnectMysql () == CODA_SUCCESS)
+    {
+      if (::mysql_query (dbaseSock_, qstring) != 0) 
+	    reporter->cmsglog (CMSGLOG_ERROR,"Update confFile error: %s\n", mysql_error(dbaseSock_));
+    }
+  }
+*/
 }
 
 void 
@@ -1386,6 +1430,8 @@ dbaseReader::giveupConfiguration (char* config)
   return CODA_SUCCESS;
 }
 
+
+/* sergey: called from daqRun::preConfigure */
 int 
 dbaseReader::parseOptions (char* runtype)
 {
@@ -1471,7 +1517,8 @@ dbaseReader::parseOptions (char* runtype)
   }
   
   // get every row of the options table
-  while ((row = mysql_fetch_row (res))) {
+  while ((row = mysql_fetch_row (res)))
+  {
     //printf(DBASE_DBG,"Options Table Row %s",row[0]);
     if (::strcmp (row[0], DBASE_EVENTLIMIT) == 0) {
       int eventl;
@@ -1497,620 +1544,77 @@ dbaseReader::parseOptions (char* runtype)
 	}
       }
     }
-    else if (::strcmp (row[0], DBASE_DATAFILE) == 0) {
+    else if (::strcmp (row[0], DBASE_DATAFILE) == 0)
+    {
       char filename[128];
-      //printf(DBASE_DBG," File = %s\n",row[1]);
-      if (::sscanf (row[1], "%s", filename) >= 1) {
-	run_.setDataFileName (filename);
-	reporter->cmsglog (CMSGLOG_INFO1,"Data file name %s \n", filename);
+      //printf(DBASE_DBG," dataFile = %s\n",row[1]);
+      if (::sscanf (row[1], "%s", filename) >= 1)
+      {
+	    run_.setDataFileName (filename);
+	    reporter->cmsglog (CMSGLOG_INFO1,"Data file name %s \n", filename);
       }
     }
-    else if (::strcmp (row[0], DBASE_TOKEN_INTERVAL) == 0) {
+
+
+
+
+	/*sergey: database update (or read ???) starts here !!!*/
+    else if (::strcmp (row[0], DBASE_CONFFILE) == 0) /* DBASE_CONFFILE="confFile" */
+    {
+#ifdef _CODA_DEBUG
+      printf(">>>>>>>>>> dbaseReader::parseOptions (DBASE_CONFFILE): confFile >%s<\n",row[1]);
+#endif
+      char filename[128];
+      //printf(DBASE_DBG," confFile = %s\n",row[1]);
+      if (::sscanf (row[1], "%s", filename) >= 1)
+      {
+#ifdef _CODA_DEBUG
+        printf(">>>>>>>>>> dbaseReader::parseOptions (DBASE_CONFFILE): filename >%s<\n",filename);
+#endif
+	    run_.confFile (filename,1); /*sergey: inside daqRun::confFile() overloaded '=' coast calling 'write' */
+	    reporter->cmsglog (CMSGLOG_INFO1,"Config file name %s \n", filename);
+      }
+    }
+
+
+
+
+    else if (::strcmp (row[0], DBASE_TOKEN_INTERVAL) == 0) /* DBASE_TOKEN_INTERVAL="tokenInterval" */
+    {
       int titval;
       //printf(DBASE_DBG," Token = %s\n",row[1]);
-      if (::sscanf (row[1], "%d", &titval) >= 1) {
-	run_.tokenInterval (titval, 0);
-	reporter->cmsglog (CMSGLOG_INFO1,"Token interval %d \n", titval);
+      if (::sscanf (row[1], "%d", &titval) >= 1)
+      {
+	    run_.tokenInterval (titval, 0);
+	    reporter->cmsglog (CMSGLOG_INFO1,"Token interval %d \n", titval);
       }
     }
+
+
+
+
+
     else if ((action = codaDaqActions->action (row[0])) != CODA_ERROR) {
       //printf(DBASE_DBG," Action = %d Script = %s\n",action,row[1]);
       reporter->cmsglog (CMSGLOG_INFO,"Insert global %s transition script %s \n",
 			 row[0], row[1]);
       ssys.addScript (action, row[1]);
     }
+
+
     else {
       //printf(DBASE_DBG," Value = %s\n",row[1]);
     }
+
   }
   mysql_free_result (res);
 
   return CODA_SUCCESS;
 }
-#else // coda_2_0 && coda_2_0_T
-dbaseReader::dbaseReader (int exptid,
-			  daqRun& run)
-:dbaseDir_ (0), exptid_ (exptid), run_(run),
- cinfos_ (CODA_CONFIG_HASH_SIZE, codaStrHashFunc)
-{
-#ifdef _TRACE_OBJECTS
-  printf ("Create dbaseReader Class Object\n");
-#endif
-  compFactory_ = new factory (exptid, run_.system());
-}
-
-dbaseReader::~dbaseReader (void)
-{
-#ifdef _TRACE_OBJECTS
-  printf ("Delete dbaseReader Class Object\n");
-#endif
-  if (dbaseDir_)
-    delete []dbaseDir_;
-  delete compFactory_;
-  codaStrHashIterator ite (cinfos_);
-  rcNetConfig* cf = 0;
-
-  for (ite.init(); !ite; ++ite) {
-    cf = (rcNetConfig *)ite ();
-    delete cf;
-  }
-}
-
-int
-dbaseReader::getComponents (void)
-{
-  int status = CODA_SUCCESS;
-  char fullname [FILENAME_MAX_LEN];
-
-  if (!dbaseDir_)
-    return CODA_ERROR;
-
-  // get rcNetwork filename
-  ::strcpy (fullname, dbaseDir_);
-  ::strcat (fullname, "/");
-  ::strcat (fullname, CODA_NETWORK);
-  FILE *fd = fopen (fullname, "r");  
-
-  char line[BUFFER_SIZE];
-  if (fd != 0) {
-    reporter->cmsglog (CMSGLOG_INFO1,"Parsing rcNetwork file.....\n");
-    while (!feof (fd)) {
-      line[0] = '\0';
-      fgets (line, sizeof (line), fd);
-      if (line[0] != '!' && !emptyLine (line)) { // ignore comments
-	char title[40], type[32], node[64], boot[128], bootpre[128];
-	int  number;
-	int status = sscanf (line, "%s %d %s %s %s",
-			     title, &number, type, node, bootpre);
-	// ignore LOG component which is not an real daqComponent
-	if (status == 5) {
-	  // get remaining of the line as boot script
-	  ::strncpy (boot, ::strstr (line, bootpre), sizeof (boot));
-	  // trim the bootString
-	  trimBootString (boot);
-
-	  if (::strcmp (node, "$NODE") == 0) {
-	    char *nodenv = ::getenv ("NODE");
-	    if (nodenv) {
-	      ::strncpy (node, nodenv, sizeof (node));
-	      compFactory_->createComponent (title, number, type,
-					     node, boot);
-	      reporter->cmsglog (CMSGLOG_INFO1,"Success: Component %s created\n",title);
-	    }
-	    else
-	      reporter->cmsglog (CMSGLOG_ERROR,"Error: $NODE undefined \n");
-	  }
-	  else {
-	    compFactory_->createComponent (title, number, type,
-					   node, boot);
-	    reporter->cmsglog (CMSGLOG_INFO1,"Success: Component %s created\n",title);
-	  }
-	}
-	else if (status == 4) { // no boot script
-	  reporter->cmsglog (CMSGLOG_WARN,"Warning: Component %s has no boot script\n", title);
-	  compFactory_->createComponent (title, number, type, node, 0);
-	}
-	else
-	  reporter->cmsglog (CMSGLOG_ERROR,"rcNetwork format error\n");
-      }
-    }
-    reporter->cmsglog (CMSGLOG_INFO1,"Parsing rcNetwork file finished\n");
-    fclose (fd);
-  }
-  else {
-    reporter->cmsglog (CMSGLOG_ERROR,"no rcNetwork file\n");
-    status = CODA_ERROR;
-  }
-  // Add priority information to all subsystems
-  // get rcPriority information
-
-  ::strcpy (fullname, dbaseDir_);
-  ::strcat (fullname, "/");
-  ::strcat (fullname, CODA_RUN_PRIORITY);
-  fd = fopen (fullname, "r");  
-  
-  if (fd != 0) {
-    reporter->cmsglog (CMSGLOG_INFO1,"Parsing rcPriority file......\n");
-    while (!feof (fd)) {
-      line[0] = '\0';
-      fgets (line, sizeof (line), fd);
-      if (line[0] != '!' && !emptyLine (line)) { // ignore comments
-	char type[40];
-	int  priority;
-	int status = sscanf (line, "%s %d", type, &priority);
-	if (status == 2) {
-	  compFactory_->subSystemPriority (type, priority);
-	  reporter->cmsglog (CMSGLOG_INFO1,"Success: subSystem %s has default priority %d\n",
-				   type, priority);
-	}
-	else {
-	  reporter->cmsglog (CMSGLOG_ERROR,"Error: Format Error\n");
-	  status = CODA_ERROR;
-	}
-      }
-    }
-    fclose (fd);
-  }
-  else {
-    reporter->cmsglog (CMSGLOG_ERROR,"No rcPriority File\n");
-    status = CODA_ERROR;
-  }
-  return status;
-}
-  
-int
-dbaseReader::getAllRunTypes (void)
-{
-  int status = CODA_SUCCESS;
-  char fullname [FILENAME_MAX_LEN];
-
-  if (!dbaseDir_)
-    return CODA_ERROR;
-
-  // get rcRunTypes filename
-  ::strcpy (fullname, dbaseDir_);
-  ::strcat (fullname, "/");
-  ::strcat (fullname, CODA_RUN_TYPES);
-  FILE *fd = fopen (fullname, "r");  
-
-  char line[BUFFER_SIZE];
-  if (fd != 0) {
-    reporter->cmsglog (CMSGLOG_INFO1,"Parsing rcRunTypes File......\n");
-    while (!feof (fd)) {
-      line[0] = '\0';
-      fgets (line, sizeof (line), fd);
-      if (line[0] != '!' && !emptyLine (line)) { // ignore comments  
-	char runtype[80];
-	int  runtypenum;
-	int status = ::sscanf (line, "%s %d", runtype, &runtypenum);
-	if (status == 2){
-	  toLower (runtype);
-	  run_.addRunType (runtype, runtypenum);
-	  reporter->cmsglog (CMSGLOG_INFO1,"Runtype %s with type number %d has been added\n",
-				   runtype, runtypenum);
-	}
-	else {
-	  reporter->cmsglog (CMSGLOG_ERROR,"Format error\n");
-	  status = CODA_WARNING;
-	}
-      }
-    }
-    fclose (fd);
-    reporter->cmsglog (CMSGLOG_INFO1,"Parsing rcRunTypes file finished\n");
-    // set whole run types for daqRun
-    run_.setAllRunTypes ();
-  }
-  else {
-    reporter->cmsglog (CMSGLOG_ERROR,"no rcRunTypes file\n");
-    status = CODA_ERROR;
-  }
-  return status;
-}
-
-int
-dbaseReader::getRunNumber (void)
-{
-  int status = CODA_SUCCESS;
-  char fullname [FILENAME_MAX_LEN];
-
-  if (!dbaseDir_)
-    return 0;
-
-  // get rcRunTypes filename
-  ::strcpy (fullname, dbaseDir_);
-  ::strcat (fullname, "/");
-  ::strcat (fullname, CODA_RUN_NUMBER);
-  FILE *fd = fopen (fullname, "r");  
-
-  char line[BUFFER_SIZE];
-  if (fd != 0) {
-    reporter->cmsglog (CMSGLOG_INFO1,"Parsing rcRunNumber File......\n");
-    while (!feof (fd)) {
-      line[0] = '\0';
-      fgets (line, sizeof (line), fd);
-      if (line[0] != '!' && !emptyLine (line)) { // ignore comments  
-	int number;
-	int status = ::sscanf (line, "%d", &number);
-	if (status == 1){
-	  run_.runNumber (number);
-	  reporter->cmsglog (CMSGLOG_INFO1,"Experiment run number is %d",
-				   number);
-	}
-	else {
-	  reporter->cmsglog (CMSGLOG_ERROR,"Format error\n");
-	  status = CODA_WARNING;
-	}
-      }
-    }
-    fclose (fd);
-    reporter->cmsglog (CMSGLOG_INFO1,"Parsing rcRunNumber file finished\n");
-  }
-  else {
-    reporter->cmsglog (CMSGLOG_ERROR,"no rcRunNumber file\n");
-    status = CODA_ERROR;
-  }
-  return status;
-}
-
-void
-dbaseReader::putRunNumber (int number)
-{
-  char fullname [FILENAME_MAX_LEN];
-
-  if (!dbaseDir_)
-    return;
-
-  // get rcRunTypes filename
-  ::strcpy (fullname, dbaseDir_);
-  ::strcat (fullname, "/");
-  ::strcat (fullname, CODA_RUN_NUMBER);
-
-  FILE *fd = fopen (fullname, "w");  
-
-  if (fd != 0) {
-    fprintf (fd, "%d", number);
-    fclose (fd);
-  }
-}
-
-void
-dbaseReader::putDataLimit (int dl)
-{
-  char fullname [FILENAME_MAX_LEN];
-  // internal memory buffer for option file
-  char mbuffer  [40][256];  
-  int  found = 0;
-  int  i = 0;
-
-  if (!dbaseDir_)
-    return;
-
-  // get rcRunTypes filename
-  ::strcpy (fullname, dbaseDir_);
-  ::strcat (fullname, "/");
-  ::strcat (fullname, run_.runtype ());
-  ::strcat (fullname, CODA_OPTIONS);
-  FILE *fd = fopen (fullname, "r");  
-
-  if (fd != 0) { 
-    while (!feof (fd)) {
-      
-      if (i >= 40) {
-	reporter->cmsglog (CMSGLOG_ERROR,
-			   "Option file has too many lines\n");
-	fclose (fd);
-	return;
-      }
-      
-      mbuffer[i][0] = '\0';
-      fgets (mbuffer[i], sizeof (mbuffer[i]), fd);
-      if (mbuffer[i][0] != '!' && !emptyLine (mbuffer[i])) { // ignore comments
-	char title[40], action[80], script[128];
-	int num = 0;
-
-	// user specify script components
-	if ((num = sscanf (mbuffer[i], "%s %s %s", title, action, script)) == 2) {
-	  if (::strcmp (title, "dataLimit") == 0) {
-	    found = 1;
-	    sprintf (mbuffer[i], "dataLimit %d", dl);
-	    reporter->cmsglog (CMSGLOG_INFO1,
-	       "Data limit is set to %d (kbytes) in the option file\n", dl);
-	  }
-	}
-      }
-      i++;
-    }
-    fclose (fd);
-  }
-
-  // write new content to the same file
-  fd = fopen (fullname, "w");    
-  int   j;
-  if (fd != 0) {
-    for (j = 0; j < i; j++)
-      fprintf (fd, "%s", mbuffer[j]);
-    if (!found) {
-      fprintf (fd, "dataLimit %d", dl);
-      reporter->cmsglog (CMSGLOG_INFO1,
-			 "Data limit is set to %d (kbytes) in the option file\n", dl);
-    }
-    fclose (fd);
-  }
-}
-
-void
-dbaseReader::putEventLimit (int el)
-{
-  char fullname [FILENAME_MAX_LEN];
-  // internal memory buffer for option file
-  char mbuffer  [40][256];  
-  int  found = 0;
-  int  i = 0;
-
-  if (!dbaseDir_)
-    return;
-
-  // get rcRunTypes filename
-  ::strcpy (fullname, dbaseDir_);
-  ::strcat (fullname, "/");
-  ::strcat (fullname, run_.runtype ());
-  ::strcat (fullname, CODA_OPTIONS);
-  FILE *fd = fopen (fullname, "r");  
-
-  if (fd != 0) { 
-    while (!feof (fd)) {
-      
-      if (i >= 40) {
-	reporter->cmsglog (CMSGLOG_ERROR,
-			   "Option file has too many lines\n");
-	fclose (fd);
-      }
-      
-      mbuffer[i][0] = '\0';
-      fgets (mbuffer[i], sizeof (mbuffer[i]), fd);
-      if (mbuffer[i][0] != '!' && !emptyLine (mbuffer[i])) { // ignore comments
-	char title[40], action[80], script[128];
-	int num = 0;
-
-	// user specify script components
-	if ((num = sscanf (mbuffer[i], "%s %s %s", title, action, script)) == 2) {
-	  if (::strcmp (title, "eventLimit") == 0) {
-	    found = 1;
-	    sprintf (mbuffer[i], "eventLimit %d", el);
-	    reporter->cmsglog (CMSGLOG_INFO1,
-			       "Event limit is set to %d in the option file\n",
-			       el);
-	  }
-	}
-      }
-      i++;
-    }
-    fclose (fd);
-  }
-
-  // write new content to the same file
-  fd = fopen (fullname, "w");    
-  int   j;
-  if (fd != 0) {
-    for (j = 0; j < i; j++)
-      fprintf (fd, "%s", mbuffer[j]);
-    if (!found) {
-      fprintf (fd, "eventLimit %d", el);
-      reporter->cmsglog (CMSGLOG_INFO1,
-			 "Event limit is set to %d in the option file\n",
-			 el);
-    }
-    fclose (fd);
-  }
-}
-  
-
-int
-dbaseReader::configure (char* runtype)
-{
-  // clean up hashed information
-  codaStrHashIterator ite (cinfos_);
-  rcNetConfig* cf = 0;
-  for (ite.init(); !ite; ++ite) {
-    cf = (rcNetConfig *)ite ();
-    delete cf;
-  }
-  cinfos_.deleteAllValues ();
-
-  int status = CODA_SUCCESS;
-  char fullname [FILENAME_MAX_LEN];
-
-  // get rcRunTypes filename
-  ::strcpy (fullname, dbaseDir_);
-  ::strcat (fullname, "/");
-  ::strcat (fullname, runtype);
-  ::strcat (fullname, CODA_CONFIG);
-  FILE *fd = fopen (fullname, "r");  
-
-  if (fd != 0) { 
-    reporter->cmsglog (CMSGLOG_INFO1,"Parsing configuration file %s.config ......",
-			     runtype);
-    char line[128];
-    while (!feof (fd)) {
-      line[0] = '\0';
-      fgets (line, sizeof (line), fd);
-      if (line[0] != '!' && !emptyLine (line)) { // ignore comments
-	char title[40], config[128];
-	if (sscanf (line, "%s %s", title, config) == 1) {
-	  rcNetConfig* cf = 0;
-	  if (!compInsideHash (title) ) {
-#ifdef __ultrix
-	    cf = new rcNetConfig (title, "unknown");
-#else
-	    cf = new rcNetConfig (title, 0);
-#endif
-	    cinfos_.add (title, (void *)cf);
-	    reporter->cmsglog (CMSGLOG_INFO1,"Activate component %s\n",title);
-	  }
-	  else 
-	    reporter->cmsglog (CMSGLOG_WARN,"Duplicated entry %s\n",title);
-	}
-	else {
-	  rcNetConfig* cf = 0;
-	  if (!compInsideHash (title)) {
-	    char *nstr = expandFilename (config);
-	    cf = new rcNetConfig (title, nstr);
-	    cinfos_.add (title, (void *)cf);
-	    reporter->cmsglog (CMSGLOG_INFO1,"Activate component %s\n",title);
-	  }
-	  else
-	    reporter->cmsglog (CMSGLOG_ERROR,"Duplicated entry %s\n",title);
-	}
-      }
-    }
-    fclose (fd);
-    reporter->cmsglog (CMSGLOG_INFO1,"Parsing %s.config file finished\n",runtype);
-    run_.runtype (runtype);
-    // create or update all ANA log file information
-    run_.createAnaLogVars ();
-  }
-  else {
-    reporter->cmsglog (CMSGLOG_ERROR,"no configuration file %s.config\n",
-			     runtype);
-    status = CODA_ERROR;
-  }
-  return status;
-}
-
-int
-dbaseReader::parseOptions (char* runtype)
-{
-  // first clean out all old script components
-  daqSystem& sys = run_.system ();
-  sys.removeAllScriptComp ();
-
-  // clean out script system
-  daqScriptSystem& ssys = run_.scriptSystem ();
-  ssys.cleanup ();
-
-  int status = CODA_SUCCESS;
-  char fullname [FILENAME_MAX_LEN];
-  int  saction;
-
-  if (!dbaseDir_)
-    return CODA_ERROR;
-
-  // get rcRunTypes filename
-  ::strcpy (fullname, dbaseDir_);
-  ::strcat (fullname, "/");
-  ::strcat (fullname, runtype);
-  ::strcat (fullname, CODA_OPTIONS);
-  FILE *fd = fopen (fullname, "r");  
-
-  if (fd != 0) { 
-    reporter->cmsglog (CMSGLOG_INFO1,"Parsing option file %s%s ......",
-		       runtype, CODA_OPTIONS);
-    char line[256];
-    while (!feof (fd)) {
-      line[0] = '\0';
-      fgets (line, sizeof (line), fd);
-      if (line[0] != '!' && !emptyLine (line)) { // ignore comments
-	char title[40], action[80], script[128];
-	int num = 0;
-
-	// user specify script components
-	if ((num = sscanf (line, "%s %s %s", title, action, script)) == 3) {
-	  if (::strcasecmp (title, "system") == 0) { // success script
-	    if ((saction = codaDaqAction->action (action)) != CODA_ERROR) {
-	      // set script as the remnant of this line
-	      strcpy (script, ::strstr (line, script));
-	      ssys.addScript (saction, script);
-	    }
-	  }
-	  else {
-	    daqComponent *comp = 0;
-	    if (sys.has (title, comp) == CODA_SUCCESS) {
-	      daqComponent *scomp = 0;
-	      // set script as the remnant of this line
-	      strcpy (script, ::strstr (line, script));
-	      scomp = compFactory_->createComponent (comp, action, script);
-	      if (scomp == 0)
-		reporter->cmsglog (CMSGLOG_WARN,"Wrong action specification: %s\n",
-				   action);
-	      else
-		reporter->cmsglog (CMSGLOG_INFO1,"%s user script component created",
-				   scomp->title () );
-	    }
-	    else
-	      reporter->cmsglog (CMSGLOG_ERROR,"Cannot find component %s\n",
-				 title);
-	  }
-	}
-	else if (num == 2) {
-	  if (::strcmp (title, "runNumber") == 0) {
-	    if (::strcmp (action, "increment") == 0) {
-	      reporter->cmsglog (CMSGLOG_WARN,"Automatic run number increment enabled\n");
-	      run_.autoIncrement (1);
-	    }
-	    else {
-	      run_.autoIncrement (0);
-	      reporter->cmsglog (CMSGLOG_WARN,"Automatic run number increment disabled\n");
-	    }
-	  }
-	  else if (::strcmp (title, "eventLimit") == 0) {
-	    int limit = 0;
-	    if (::sscanf (action, "%d", &limit) == 1) {
-	      run_.eventLimit (limit);
-	      if (limit) {
-		reporter->cmsglog (CMSGLOG_WARN,"Event limit is set to %d\n", limit);
-	      } else {
-		reporter->cmsglog (CMSGLOG_WARN,"No limit on event number\n", limit);
-	      }	       
-	    }   
-	  }
-	  else if (::strcmp (title, "dataLimit") == 0) {
-	    int limit = 0;
-	    // data limit in kBytes
-	    if (::sscanf (action, "%d", &limit) == 1) {
-	      run_.dataLimit (limit);
-	      if (limit) {
-		reporter->cmsglog (CMSGLOG_WARN,"Data limit is set to %d (kbytes)\n", limit);
-	      } else {
-		reporter->cmsglog (CMSGLOG_WARN,"No limit on data count\n", limit);
-	      }
-	    }
-	  }
-	  else if (::strcmp (title, "updateInterval") == 0) {
-	    int interval = 0;
-	    if (::sscanf (action, "%d", &interval) == 1) {
-	      run_.dataUpdateInterval (interval);
-	      reporter->cmsglog (CMSGLOG_WARN,"Data updating interval is %d (sec)\n", 
-				       interval);
-	    }
-	  }
-	}
-	else
-	  reporter->cmsglog (CMSGLOG_ERROR,"Wrong format in %s%s file\n",
-				   runtype, CODA_OPTIONS);
-      }
-    }
-    fclose (fd);
-    reporter->cmsglog (CMSGLOG_INFO1,"Parsing %s%s file finished\n",
-			     runtype, CODA_OPTIONS);
-  }
-  else {
-    reporter->cmsglog (CMSGLOG_ERROR,"no options file %s%s\n",
-			     runtype, CODA_OPTIONS);
-    status = CODA_ERROR;
-  }
-  return status;
-}
 
 
-void
-dbaseReader::database (char* path)
-{
-  if (dbaseDir_)
-    delete []dbaseDir_;
-  dbaseDir_ = new char[::strlen (path) + 1];
-  ::strcpy (dbaseDir_, path);
-}
-#endif
+
+
 
 char* 
 dbaseReader::database (void) const

@@ -303,6 +303,7 @@ private:
 #if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   daqData* database_;
   daqData* dataFile_;
+  daqData* confFile_; //sergey
   daqData* rcsMsgToDbase_;
   daqData* logFileDescriptor_;
   daqData* tokenInterval_;

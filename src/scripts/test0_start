@@ -3,7 +3,7 @@
 #  test0_start - starts DAQ for CODA testing
 #
 
-set hh = `echo $HOST | cut -c 1-3 `
+#set hh = `echo $HOST | cut -c 1-3 `
 
 #if ($hh != test0") then
 #  echo ""
@@ -25,23 +25,17 @@ set ER_t  = "-T ER_test0"
 set RC_t  = "-T runcontrol_test0"
 set XT1_t = "-T CRATE_test0"
 
-set ET   = daq_comp.tcl
-set EB   = daq_comp.tcl
-set ER   = daq_comp.tcl
-set RC   = daq_comp.tcl
+set ET   = daq_comp_nossh.tcl
+set EB   = daq_comp_nossh.tcl
+set ER   = daq_comp_nossh.tcl
+set RC   = daq_comp_nossh.tcl
 set XT   = daq_comp_nossh.tcl
 
-set ET_comp   = 'et_start -n 1000 -s 100000 -f /tmp/et_sys_clastest0'
-set EB_comp1  = 'coda_ebc -s clastest0 -o "EB0'
-set EB_comp2  = ' CDEB" '
-set EB_comp   = "$EB_comp1$EB_comp2"
-set ER_comp1  = 'coda_erc -s clastest0 -o "ER0'
-set ER_comp2  = ' ER" '
-set ER_comp   = "$ER_comp1$ER_comp2"
-set RC_comp   = 'runcontrol -s clastest0 -cedit -dbedit'
-set XT1_comp1 = 'coda_roc -s clastest0 -o "ROC0'
-set XT1_comp2 = ' ROC" '
-set XT1_comp  = "$XT1_comp1$XT1_comp2"
+set ET_comp  = 'et_start -n 1000 -s 100000 -f /tmp/et_sys_clastest0'
+set EB_comp  = 'coda_ebc -s clastest0 -o "EB0 CDEB" '
+set ER_comp  = 'coda_erc -s clastest0 -o "ER0 ER" '
+set RC_comp  = 'runcontrol -s clastest0 -cedit -dbedit'
+set XT1_comp = 'coda_roc -s clastest0 -o "ROC0 ROC" '
 
 
 echo ""

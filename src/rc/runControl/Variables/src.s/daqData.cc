@@ -212,6 +212,7 @@ daqData::operator double (void)
 
 daqData::operator char* (void)
 {
+  //printf("daqData::operator char* >%s<\n",(char *)data_);
   return (char *)data_;
 }
 
@@ -269,6 +270,7 @@ daqData&
 daqData::operator = (char* val)
 {
   data_ = val;
+  //printf("daqData::operator = >%s<\n",val);
   notifyChannels ();
   if (writable_ && writer_)
     writer_->write (this);
@@ -440,8 +442,7 @@ daqData::update (void)
 void
 daqData::dumpAll (void)
 {
-  printf ("Data %s %s has value %s\n", compname(), attrname(),
-	  (char *)(*this));
+  printf ("Data %s %s has value %s\n", compname(), attrname(), (char *)(*this));
 }
 
 void

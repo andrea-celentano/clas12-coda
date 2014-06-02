@@ -9,17 +9,26 @@
 
 *************************************************************************/
 
-#ifdef VXWORKS
+#if defined(VXWORKS) || defined(Linux_vme)
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+#ifdef VXWORKS
 
 #include <vxWorks.h>
 
 /*sergey*/
 #define EIEIO    __asm__ volatile ("eieio")
 #define SYNC     __asm__ volatile ("sync")
+
+#else
+
+#define EIEIO
+#define SYNC
+
+#endif
 
 /*
 #include "tdc890.h"
@@ -238,6 +247,13 @@ tcd1190firmware(0x90260000,"v1190core0.6.rbf",0)
 tcd1190firmware(0x90270000,"v1190core0.6.rbf",0)
 tcd1190firmware(0x90280000,"v1190core0.6.rbf",0)
 
+
+cd "/usr/local/clas12/release/0.1/parms/firmwares"
+
+##tcd1190firmware(0x11180000, "v1190core0.6.rbf",0)
+
+tcd1190firmware(0x19180000, "v1190core0.6.rbf",0)
+
 */
 
 
@@ -374,9 +390,8 @@ printf("page: bcnt=%d pcnt=%d\n",bcnt,pcnt);
 
 
 
-tdc1190firmware_test()
+tdc1190firmware_test1(unsigned int baseaddr)
 {
-  unsigned int baseaddr = 0xfa210000;
   unsigned char pdr[264];
 
   read_flash_page(baseaddr, pdr, FIRST_PAGE_STD);  /* read page */

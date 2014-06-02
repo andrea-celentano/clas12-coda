@@ -48,6 +48,10 @@ class XcodaFileSelDialog: public XcodaUi
   enum FILESTATUS {NOTFOUND, OPEN_ERR, DIREC, READABLE, WRITABLE};
   FILESTATUS fileStatus()  { return file_status;}
   char *selectedFileName(); // user free it
+
+  /*sergey*/
+  int deleteFileName();
+
   // class name
   virtual const char *className() const {return "XcodaFileSelDialog";}
   

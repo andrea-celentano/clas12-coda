@@ -1,6 +1,19 @@
 
 /* dsc2firmware.c */
 
+/* UNIX version usage:
+
+  cd $CLON_PARMS/firmwares
+  dsc2firmware vmeDSC_firmware_v1_c.bin
+
+VXWORKS:
+
+  dsc2Init(0x100000,0x80000,16,0xc0000)
+  dsc2UpdateFirmwareAll("/usr/local/clas12/release/0.1/parms/firmwares/vmeDSC_firmware_v1_c.bin")
+
+*/
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,7 +61,7 @@ main(int argc, char *argv[])
 
   /* update firmware */
   
-  dsc2Init(0x100000,0x80000,20,0);
+  dsc2Init(0x100000,0x80000,20,0xc0000);
   dsc2UpdateFirmwareAll(myname);
 
   exit(0);

@@ -32,6 +32,7 @@
 #define DBASE_SESSION_TABLE   "sessions"
 #define DBASE_PROCESS_TABLE   "process"
 #define DBASE_RUNTYPE_TABLE   "runTypes"
+/*#define DBASE_RUNCONF_TABLE   "runTypes"*/
 #define DBASE_PRIORITY_TABLE  "priority"
 #define DBASE_POSITION_TABLE  "_pos"
 #define DBASE_OPTION_TABLE    "_option"
@@ -60,6 +61,9 @@ public:
   // get all sessions
   int    listAllSessions  (void);
 
+  /*sergey: update run config file name*/
+  int updateConfFileName (char *, char *);
+
   // get all databases
   char** allDatabases     (int& numdbases);
   // get all sessions 
@@ -78,6 +82,10 @@ private:
   char*  sessions_[RCXUI_MAX_SESSIONS];
   int    sessionActive_[RCXUI_MAX_SESSIONS];
   int    numSessions_;
+
+  /*sergey*/
+  char*  options_[RCXUI_MAX_OPTIONS];
+  int    numOptions_;
 
   // static instannce: only copy
   static rcDbaseHandler* handler_;

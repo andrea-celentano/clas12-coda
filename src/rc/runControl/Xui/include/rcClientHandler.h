@@ -63,19 +63,12 @@ public:
 
   // connect to remoter server and monitor status
   // return CODA_SUCCESS on success
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   int     connect    (char* database, char* exptname, char* msqld = 0);
-#else
-  int     connect    (char* host, char* exptname, int exptid);
-  int     connect    (char* host, char* exptname, int exptid,
-		      rcUpdateFunc func, void* arg);
-#endif
 
   // return how many clients are connected to the rc server
   int     numConnectedClients (void) const;
   char**  connectedClients (int& num);
 
-#if defined (_CODA_2_0) || defined (_CODA_2_0_T)
   // return how many database and each database name
   int     numDatabases        (void) const;
   char**  databases           (int& num);
@@ -88,6 +81,9 @@ public:
   // return data log file
   char*   datalogFile         (void) const;
 
+  // sergey: return config file
+  char*   conflogFile         (void) const;
+
   // return data log descriptor
   char*   logFileDescriptor   (void) const;
 
@@ -97,7 +93,6 @@ public:
   void    setTokenInterval    (int val);
   // state of server msg to database changed, update all panels
   void    setRcsMsgToDbaseFlag (int state);
-#endif
 
   // return how many active components
   int     numComponents       (void) const;
@@ -130,14 +125,10 @@ public:
   void    setOnlineOption (int option);
   // when update interval has been changed, change apperance on all panels
   void    setUpdateInterval (int interval);
+
   // return whether all ANA has real logging files
   int     anaLogToRealFiles (void);
 
-#if !defined (_CODA_2_0_T) && !defined (_CODA_2_0)
-  // return number of ANAs with list of daqNetData pointers
-  codaSlist& allAnas (void);
-#endif
-  
   // give direct handle of rcClient
   rcClient& clientHandler (void);
 
@@ -156,7 +147,7 @@ protected:
   // requestMaster and giveup master callback
   static void  reqMastershipCbk   (int status, void* arg, daqNetData* data);
   static void  giveupMastershipCbk(int status, void* arg, daqNetData* data);
-#if defined  (_CODA_2_0_T) || defined (_CODA_2_0)
+
   // moinitor on all databases
   static void  dbaseCallback      (int status, void* arg, daqNetData* data);
   // moinitor on all sessions
@@ -171,7 +162,7 @@ protected:
 
   // monitor on rcs msg logging to a database
   static void  rcsMsgToDbaseCbk      (int status, void* arg, daqNetData* data);
-#endif
+
   // monitor on component auto boot information
   static void  cabootinfoCallback (int status, void* arg, daqNetData* data);
 
@@ -186,14 +177,12 @@ protected:
   // ana log callback
   static void anaLogCallback      (int status, void* arg, daqNetData* data);
 
+  // sergey: config file callback
+  static void confFileCallback    (int status, void* arg, daqNetData* data);
+
   // when any changes happen to a ANA components, tell everyone attached
   // to this handler
   void        anaLogChanged  (daqNetData* info, int added);
-
-
-#if !defined (_CODA_2_0_T) && !defined (_CODA_2_0)
-  void        monitorDataLogFiles (void);  
-#endif
 
   // clients connection changed
   void        clientsConnectionChanged (void);
@@ -228,16 +217,14 @@ private:
   // all options for monitoring
   daqMonitorStruct*  monParms_;
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   char* datalogFile_;
+  char* conflogFile_; //sergey
   char* logFileDes_;
   int   tokenIVal_;
-#else
-  // all ANA components with daqNetData*
-  codaSlist anas_;
-#endif
+
   // network handler to runcontrol server
   rcClient handler_;
+
   // list for all rcPanel
   codaSlist panels_;
 };

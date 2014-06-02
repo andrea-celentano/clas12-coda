@@ -5,18 +5,34 @@
 
 v1495firmware 0x11A00000 ECALTrigger.rbf
 
-mv6100:
-cd "/usr/local/clas12/release/0.1/coda/src/rol/firmwares"
-v1495firmware(0x90A00000,"ECALTrigger.rbf",0,0)
 
+cd "/usr/local/clas12/release/0.1/parms/firmwares"
+mv6100:
+v1495firmware(0x90A00000,"ECALTrigger.rbf",0,0)
+mv5100:
+v1495firmware(0xfa980000,"PCALTrigger_Board0.rbf",0,0)
+v1495firmware(0xfaA00000,"PCALTrigger_Board1.rbf",0,0)
+*/
+
+/*
+cd "/usr/local/clas12/release/0.1/parms/firmwares"
+mv5100:
+v1495firmware(0xfa980000,"PCALTrigger_Board0.rbf",0,0)
+v1495firmware(0xfaA00000,"PCALTrigger_Board1.rbf",0,0)
+mv6100:
+v1495firmware(0x90980000,"PCALTrigger_Board0.rbf",0,0)
+v1495firmware(0x90A00000,"PCALTrigger_Board1.rbf",0,0)
 */
 
 
-
-
 /*
-v1495firmware(0xfa510000,"v1495USER1.0.rbf",0,0)
-v1495firmware(0xfa510000,"v1495vtop.rbf",0,1)
+VME update
+mv5100:
+v1495firmware(0xfa980000,"v1495vtop.rbf",0,1)
+v1495firmware(0xfaa00000,"v1495vtop.rbf",0,1)
+mv6100:
+v1495firmware(0x90980000,"v1495vtop.rbf",0,1)
+v1495firmware(0x90a00000,"v1495vtop.rbf",0,1)
 */
 
 #include <stdio.h>

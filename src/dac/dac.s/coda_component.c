@@ -368,19 +368,34 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
   char *p0, *p1, *p2;
   int nchar = 0;
   int res;
-  char *env, rolnameful[256], tmp[128];
+  char *env, rolnametmp[256], rolnameful[256], tmp[128];
 #ifdef VXWORKS
   SYM_TYPE sType;
 #endif
 
-  memset((char *) ObjInitName, 0, 100);
+  /* if 'rolname' does not start from '/', '.' or '$', assume that it contains no path
+	 and add default one */
+  if(rolname[0]!='/'&&rolname[0]!='.'&&rolname[0]!='$')
+  {
+#ifdef VXWORKS
+    strcpy(rolnametmp,"$CODA/VXWORKS_ppc/rol/");
+#else
+    strcpy(rolnametmp,"$CODA/$OSTYPE_MACHINE/rol/");
+#endif
+    strcat(rolnametmp,rolname);
+  }
+  else
+  {
+    strcpy(rolnametmp,rolname);
+  }
 
+  memset((char *) ObjInitName, 0, 100);
   /* 'strrchr' returns the pointer to the last occurrence of '/' */
   /* (actual readout list name starts after last '/') */
-  if((p1 = strrchr (rolname, '/')) == 0) p1 = rolname;
+  if((p1 = strrchr (rolnametmp, '/')) == 0) p1 = rolnametmp;
   /* 'strrchr' returns the pointer to the last occurrence of '.' */
   /* (actual readout list name ends before last '.') */
-  if((p2 = strrchr (rolname, '.')) == 0) p2 = rolname;
+  if((p2 = strrchr (rolnametmp, '.')) == 0) p2 = rolnametmp;
   nchar = (p2 - p1) - 1;
   if(nchar > 0)
   {
@@ -394,10 +409,9 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
     printf("ERROR: cannot extract ObjInitName from the rolname\n");
   }
 
-
 #if defined(VXWORKS)
 
-  scrcpy(rolnameful,rolname);
+  strcpy(rolnameful,rolnametmp);
 
   dalf = open (rolnameful, 0, 0);
   if(dalf == ERROR)
@@ -415,7 +429,7 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
   /* resolve environment variables in rolname; go from '/' to '/' and replace
   env names starting from '$' by actual directories */
   rolnameful[0] = '\0';
-  p0 = rolname;
+  p0 = rolnametmp;
   while( (p1 = strchr(p0, '$')) != 0)
   {
     strncat(rolnameful,p0,(int)(p1-p0));
@@ -810,7 +824,7 @@ listSplit2(char *list, char *separator, int *argc, char argv[LISTARGV1][LISTARGV
 void
 CODA_Init(int argc, char **argv)
 {
-  char       *args, *obj, *p, buf[20];
+  char       *args, *obj, *p, buf[20], tmp[128];
   int        i, code;
   MYSQL *dbsock;
   int  listArgc;
@@ -838,6 +852,42 @@ CODA_Init(int argc, char **argv)
     }
     else if (strncasecmp(argv[i],"-objects",2)==0) {
 	  strcpy(Objects,argv[i+1]);
+
+
+      /*************************************************************/
+      /* if argument is just "ROC" or "TS", add hostname before it */
+
+      if(!strcmp(Objects,"ROC"))
+	  {
+#ifdef VXWORKS
+        sprintf(Objects,"%s ROC",targetName());
+#else
+        strcpy(tmp,getenv("HOST"));
+        if( (p=strchr(tmp,'.'))!=NULL )
+		{
+          printf("Will use everything before first '.' appearance in HOST=>%s<\n",tmp);
+          *p = '\0';
+		}
+        sprintf(Objects,"%s ROC",tmp);
+#endif
+        printf("Received object 'ROC', will use '%s'\n",Objects);
+	  }
+      else if(!strcmp(Objects,"TS"))
+	  {
+#ifdef VXWORKS
+        sprintf(Objects,"%s TS",targetName());
+#else
+        strcpy(tmp,getenv("HOST"));
+        if( (p=strchr(tmp,'.'))!=NULL )
+		{
+          printf("Will use everything before first '.' appearance in HOST=>%s<\n",tmp);
+          *p = '\0';
+		}
+        sprintf(Objects,"%s TS",tmp);
+#endif
+        printf("Received object 'TS', will use '%s'\n",Objects);
+	  }
+
       objects = Objects;
       i=i+2;
     }
@@ -900,6 +950,11 @@ CODA_Init(int argc, char **argv)
     }
   }
 
+
+
+
+
+
   dbsock = dbConnect(mysql_host, getenv("EXPID"));
   printf("333333333333333\n");fflush(stdout);
 
@@ -907,7 +962,6 @@ CODA_Init(int argc, char **argv)
      match that of whoever is running RunControl */
   {
     static char tmp[256], tmpp[256], list[256];
-
 
     sprintf(tmp,"SELECT owner FROM sessions WHERE name='%s'",session);
     if(dbGetStr(dbsock, tmp, tmpp)==CODA_ERROR)
@@ -921,6 +975,7 @@ CODA_Init(int argc, char **argv)
 	  printf(">>>>>>>%d<<<<<<<<< %d\n",strlen(tmpp));fflush(stdout);
 	  printf(">>>>>>>%s<<<<<<<<< %d\n",tmpp);fflush(stdout);
 	  /*>>>>>>>clon00 boiarino 1538 146<<<<<<<<< 24*/
+
       dbDisconnect(dbsock);
 
 
@@ -961,6 +1016,7 @@ CODA_Init(int argc, char **argv)
 	  }
 
     }
+
   }
 
 
@@ -990,22 +1046,29 @@ CODA_Init(int argc, char **argv)
       printf("object class: >%s<\n",ObjectsClass);/*TS*/
 
 
-
+	  /* set 'type' field in 'process' table if ROC or TS */
+      if( (!strcmp(ObjectsClass,"ROC")) || (!strcmp(ObjectsClass,"TS")) )
+	  {
+        dbsock = dbConnect(mysql_host, getenv("EXPID"));
+        printf("44444444444444\n");fflush(stdout);
+        sprintf(tmp,"UPDATE process SET type='%s' WHERE name='%s'",ObjectsClass,ObjectsName);
+        printf("DB update: >%s<\n",tmp);
+        if(mysql_query(dbsock, tmp) != 0)
+        {
+          printf("DB update ERROR - exit\n");
+          exit(0);
+        }
+        dbDisconnect(dbsock);
+	  }
 
 
 printf("CODA_Init 13: coda_constructor starts\n");fflush(stdout);
-   
  coda_constructor();
-
 printf("CODA_Init 14: coda_constructor ends\n");fflush(stdout);
-
-
-
-
-    }  
-
-
+    }
   }
+
+  return;
 }
 
 
@@ -1167,7 +1230,6 @@ CODA_bswap(cbuf, nlongs)
 
 
 /* returns session name */
-
 void
 getSessionName(char *sessionName, int lname)
 {
@@ -1185,6 +1247,34 @@ getSessionName(char *sessionName, int lname)
   return;
 }
 
+
+
+/* returns confFile from database */
+void
+getConfFile(char *configname, char *conffile, int lname)
+{
+  MYSQL *dbsock;
+  char tmp[1000];
+  char tmpp[1000];
+
+  /* connect to database */
+  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+
+  sprintf(tmp,"SELECT value FROM %s_option WHERE name='confFile'",configname);
+  if(dbGetStr(dbsock, tmp, tmpp)==CODA_ERROR)
+  {
+    printf("cannot get 'confFile' from table >%s_option<\n",configname);
+    return;
+  }
+  else
+  {
+    strncpy(conffile,tmpp,lname);
+    printf("got conffile >%s<\n",conffile);
+  }
+
+  /* disconnect from database */
+  dbDisconnect(dbsock);
+}
 
 
 
@@ -1592,7 +1682,7 @@ UDP_send(int socket)
       strcpy(tmp,udpstr[i].message); /* not 'sta:' messages */
     }
 
-	/*	
+	/*
     printf("UDP_send[%d] >%s<\n",i,tmp);
     printf(" udpport=%d\n",udpport);
 	*/
@@ -1619,21 +1709,26 @@ retry3:
       {
         if(errno == EWOULDBLOCK)
         {
-          printf("Operation would block 2: retry ...\n");
+          printf("UDP_send: Operation would block 2: retry ...\n");
           goto retry3;
         }
 
-        if(errno==ENOBUFS) printf("No buffer space available (errno=%d)\n",errno);
-        else if(errno==EPIPE) printf("Broken pipe (errno=%d)\n",errno);
+        if(errno==ENOBUFS) printf("UDP_send: No buffer space available (errno=%d)\n",errno);
+        else if(errno==EPIPE) printf("UDP_send: Broken pipe (errno=%d)\n",errno);
+        else if(errno==EHOSTDOWN) printf("UDP_send: Host is down (errno=%d)\n",errno);
         else if(errno==ECONNREFUSED)
         {
           /*if rcServer dies, mv2400/mv5500/mv6100 reports following message,
           while mv5100 does not !!!; I think mv5100 is right and others are
           wrong, but must figure it out ... */
-          /*printf("Connection refused (errno=%d)\n",errno);*/
+
+          /* following message will be printed if rcServer killed, vety annoying - comment it out */
+		  /*
+          printf("UDP_send: Connection to host %s port %d refused (udpsocket=%d, errno=%d)\n",udphost,udpport,udpsocket,errno);
+		  */
           ;
         }
-        else printf("Unknown error errno=%d\n",errno);
+        else printf("UDP_send: Unknown error errno=%d\n",errno);
 
 
 
@@ -1737,6 +1832,7 @@ UDP_loop()
   printf("UDP_loop started\n");fflush(stdout);
 
   udpsocket = UDP_establish(udphost, udpport);
+  printf("udpsocket=%d\n",udpsocket);
 
   /* initialize heartbeats */
   resetHeartBeats();
@@ -1778,18 +1874,25 @@ int
 UDP_start()
 {
   MYSQL *dbsock;
-  char tmpp[1000];
+  char tmpp[512];
   int ii, iii;
+
+  printf("111\n");fflush(stdout);
 
   dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
 
+  printf("112\n");fflush(stdout);
   sprintf(tmpp,"SELECT host FROM process WHERE name='%s'",session);
+  printf("112-1\n");fflush(stdout);
+  printf("112-2 >%s<\n",tmpp);fflush(stdout);
   if(dbGetStr(dbsock, tmpp, udphost)==CODA_ERROR) return(CODA_ERROR);
+  printf("113\n");fflush(stdout);
 
   sprintf(tmpp,"SELECT port FROM process WHERE name='%s'",session);
   if(dbGetInt(dbsock, tmpp, &udpport)==CODA_ERROR) return(CODA_ERROR);
 
-  printf("download: UDP host is >%s< port id %d\n",udphost,udpport);
+  printf("114\n");fflush(stdout);
+  printf("download: UDP host is >%s< port id %d\n",udphost,udpport);fflush(stdout);
 
   dbDisconnect(dbsock);
 
@@ -2002,6 +2105,7 @@ CODAtcpServer(void)
   /* accept new connect requests and spawn tasks to process them */ 
   while(1)
   {
+
 #ifdef VXWORKS
     /* check for free net buffers */
     usrNetStackSysPoolStatus("CODAtcpServer",0);
@@ -2018,6 +2122,7 @@ CODAtcpServer(void)
 #else
       sleep(1);
 #endif
+
       continue;
     }
 
@@ -2653,3 +2758,169 @@ codaExecute(char *command)
 }
 
 
+/* to handle 128-bit words, needed by event building process */
+
+#define MY_LONG_BIT 32
+
+static void
+Print32(unsigned long k)
+{
+  int i, lastbit;
+  uint32_t j, jj;
+
+  j = 1;
+  lastbit = 8*sizeof(long) - 1;
+  for(i = 0; i < lastbit; i++) j *= 2;
+
+  jj = j;
+  for(i = lastbit; i >=0; i--)
+  {
+    if(k & jj) fprintf(stdout, "|");
+    else       fprintf(stdout, "o");
+    
+    jj = jj >> 1;
+  }
+
+  return;
+}
+
+void
+Print128(WORD128 *hw)
+{
+  int i;
+  uint32_t *w;
+  w = (uint32_t *)hw->words;
+  printf("128> ");
+  for(i=3; i>=0; i--) {Print32(w[i]); printf(" ");}
+  printf("\n");
+
+  return;
+}
+
+char *
+String128(WORD128 *hw)
+{
+  char str[80];
+  int i;
+  uint32_t *w;
+  w = (uint32_t *)hw->words;
+  sprintf(str,"0x%08x 0x%08x 0x%08x 0x%08x",w[3],w[2],w[1],w[0]);
+
+  return(str);
+}
+
+void
+Copy128(WORD128 *hws, WORD128 *hwd)
+{
+  int i;
+  uint32_t *a = (uint32_t *)hws->words;
+  uint32_t *b = (uint32_t *)hwd->words;
+  for(i=0; i<4; i++) b[i] = a[i];
+  return;
+}
+
+void
+AND128(WORD128 *hwa, WORD128 *hwb, WORD128 *hwc)
+{
+  int i;
+  uint32_t *a = (uint32_t *)hwa->words;
+  uint32_t *b = (uint32_t *)hwb->words;
+  uint32_t *c = (uint32_t *)hwc->words;
+  for(i=0; i<4; i++) c[i] = a[i] & b[i];
+  return;
+}
+
+void
+OR128(WORD128 *hwa, WORD128 *hwb, WORD128 *hwc)
+{
+  int i;
+  uint32_t *a = (uint32_t *)hwa->words;
+  uint32_t *b = (uint32_t *)hwb->words;
+  uint32_t *c = (uint32_t *)hwc->words;
+  for(i=0; i<4; i++) c[i] = a[i] | b[i];
+  return;
+}
+
+void
+XOR128(WORD128 *hwa, WORD128 *hwb, WORD128 *hwc)
+{
+  int i;
+  uint32_t *a = (uint32_t *)hwa->words;
+  uint32_t *b = (uint32_t *)hwb->words;
+  uint32_t *c = (uint32_t *)hwc->words;
+  for(i=0; i<4; i++) c[i] = a[i] ^ b[i];
+  return;
+}
+
+int
+CheckBit128(WORD128 *hw, int n)
+{
+  uint32_t *w = (uint32_t *)hw->words;
+  int whatword, whatbit;
+  uint32_t mask = 1;
+
+  whatword = n / MY_LONG_BIT;
+  whatbit = n % MY_LONG_BIT;
+  mask <<= whatbit;
+
+  return((w[whatword] & mask) == mask);
+}
+
+void
+SetBit128(WORD128 *hw, int n)
+{
+  uint32_t *w = (uint32_t *)hw->words;
+  int whatword, whatbit;
+  uint32_t mask = 1;
+
+  whatword = n / MY_LONG_BIT;
+  whatbit = n % MY_LONG_BIT;
+  mask <<= whatbit;
+  w[whatword] |= mask;
+
+  return;
+}
+
+int
+EQ128(WORD128 *hwa, WORD128 *hwb)
+{
+  int i;
+  uint32_t *a = (uint32_t *)hwa->words;
+  uint32_t *b = (uint32_t *)hwb->words;
+  for(i=0; i<4; i++)
+  {
+	/*printf("i=%d->%d %d\n",i,a[i],b[i]);*/
+    if(a[i]!=b[i]) return(0);
+  }
+  return(1);
+}
+
+int
+IFZERO128(WORD128 *hwa)
+{
+  int i;
+  uint32_t *a = (uint32_t *)hwa->words;
+  for(i=0; i<4; i++)
+  {
+    if(a[i]!=0) return(0);
+  }
+  return(1);
+}
+
+void
+Clear128(WORD128 *hw)
+{
+  memset(hw->words,0,sizeof(WORD128));/* dol'she?*/
+
+  return;
+}
+
+void
+Negate128(WORD128 *hw)
+{
+  int i;
+  uint32_t *w;
+  w = hw->words;
+  for(i=0; i<4; i++) w[i] = ~w[i];
+  return;
+}

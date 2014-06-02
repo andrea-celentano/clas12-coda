@@ -76,8 +76,9 @@ typedef struct {
  * @return  0 if success
  * @return -1 if nwrd or nfmt arg(s) < 0
  */
-int eviofmtswap(int32_t *iarr, int nwrd, unsigned char *ifmt, int nfmt, int tolocal, int padding) {
-
+int
+eviofmtswap(int32_t *iarr, int nwrd, unsigned char *ifmt, int nfmt, int tolocal, int padding)
+{
     int      imt, ncnf, kcnf, lev, iterm;
     int64_t *b64, *b64end;
     int32_t *b32, *b32end;

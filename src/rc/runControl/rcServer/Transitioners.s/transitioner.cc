@@ -447,17 +447,16 @@ transitioner::timerCallback(void)
   if(transitionBusy())
   {
     if(!waitScript_) timeoutCount_ ++;
+
     if(timeoutCount_ >=
        (transitionTimeout()*1000)/transitioner::tickInterval_)
     {
       timer_.dis_arm();
       printf("%s : %s subsystem(s) timeout !!!(%d %d %d)\n",
-			 title(),
-			 names_,timeoutCount_,transitionTimeout(),
+			 title(),names_,timeoutCount_,transitionTimeout(),
 			 transitioner::tickInterval_);
       reporter->cmsglog(CMSGLOG_ERROR,"%s : %s subsystem(s) timeout !!!(%d %d %d)\n",
-			 title(),
-			 names_,timeoutCount_,transitionTimeout(),
+			 title(),names_,timeoutCount_,transitionTimeout(),
 			 transitioner::tickInterval_);
       // cancel transition
       cancel(CODA_ERROR);
@@ -526,14 +525,14 @@ transitioner::transitionBusy (void)
 int
 transitioner::transitionTimeout (void)
 {
-  //printf("transitioner 18\n");
+  //printf("transitioner::transitionTimeout: returns %d\n",transitioner::timeout_);
   return transitioner::timeout_;
 }
 
 void
 transitioner::setTransitionTimeout (int sec)
 {
-  //printf("transitioner 19\n");
+  //printf("transitioner::setTransitionTimeout: set %d (%d)\n",transitioner::timeout_,sec);
   transitioner::timeout_ = sec;
 }
 

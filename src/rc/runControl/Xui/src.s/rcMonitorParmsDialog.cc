@@ -40,6 +40,7 @@
 #include <Xm/ToggleBG.h>
 #include <Xm/RowColumn.h>
 #include <Xm/Scale.h>
+
 #include <rcClient.h>
 #include <rcMonitorParmsButton.h>
 #include <daqMonitorStruct.h>

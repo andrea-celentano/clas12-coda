@@ -43,14 +43,22 @@ extern char *mysql_host;
 extern unsigned long *dataSent; /* see coda_component.c */
 
 int deflt; /* 1 for CODA format, 0 for BOS format (see coda_eb_inc.c) */
-unsigned int roc_linked; /* see deb_component.c */
+#ifdef USE_128
+  WORD128 roc_linked;
+#else
+  unsigned int roc_linked; /* see deb_component.c */
+#endif
 CIRCBUF *roc_queues[MAX_ROCS]; /* see deb_component.c */
 int      roc_queue_ix; /* see deb_component.c */
 unsigned int *bufpool[MAX_ROCS][QSIZE]; /* see deb_component.c */
 int roc_queue_evsize[MAX_ROCS]; /* see deb_component.c */
 
-int nddl; /* see deb_component.c and BOS_format.c */
-DDL ddl[NDDL]; /* see deb_component.c and BOS_format.c */
+
+/* see deb_component.c and BOS_format.c
+int nddl;
+DDL ddl[NDDL];
+*/
+
 
 typedef struct thread_args *trArg;
 typedef struct thread_args
@@ -83,14 +91,12 @@ LINK_support_Init(Tcl_Interp *interp)
 */
 /*****************************************************************************/
 
-/* swap big buffer (includes BOS banks (2-word header format)) */
-/* called by network thread on receiving buffer from ROC */
-
+/* swap big buffer; called by network thread on receiving buffer from ROC */
 int
 bufferSwap(unsigned int *cbuf, int nlongs)
 {
   unsigned int lwd, t1, t2;
-  int ii, jj, ix;
+  int ii, jj, kk, ix;
   int tlen, blen, dtype, typ, num;
   short shd;
   char cd;
@@ -110,12 +116,88 @@ bufferSwap(unsigned int *cbuf, int nlongs)
   }
   ii += BBHEAD;
 
+
 #ifdef DEBUG
   printf("\nbuffer header: length=%d words, buffer#=%d, rocid=%d, #events=%d, fd/magic=0x%08x, end=%d\n",
 		 cbuf[BBIWORDS],cbuf[BBIBUFNUM],cbuf[BBIROCID],cbuf[BBIEVENTS],cbuf[BBIFD],cbuf[BBIEND]);
 #endif
 
-  /* swap CODA fragments and BOS banks inside every fragment */
+
+#ifdef DEBUG
+  /* print CODA fragments 
+  kk = ii;
+  while(kk<nlongs)
+  {
+    lp = (unsigned int *)&cbuf[kk];
+
+    lwd = LSWAP(*lp);
+    lp++;
+    blen = lwd - 1;
+	t1=lwd;
+	
+	printf("CODA fragment: length = %d, current kk=%d, ",blen+1,kk);
+	
+    lwd = LSWAP(*lp);
+    lp++;
+    num = lwd&0xff;
+    dtype = (lwd>>8)&0x3f;
+    typ = (lwd>>16)&0xff;
+	t2=lwd;
+	
+	printf("2nd word(0x%08x): tag=%d, dtype=%d, num=%d\n",lwd,typ,dtype,num);
+	
+    kk += 2;
+
+    if(blen == 0) continue;
+
+    if(dtype != DT_BANK)
+    {
+	  switch(dtswap[dtype])
+      {
+        case 0:
+		  printf("case 0: no swap\n");
+	      kk += blen;
+	    break;
+
+        case 1:
+		  printf("case 1: short swap\n");
+	      kk += blen;
+	      break;
+
+        case 2:
+		  printf("case 2: int swap, deflt=%d\n",deflt);
+	      kk += blen;
+	      break;
+
+        case 3:
+		  printf("case 3: double swap\n");
+	      kk += blen;
+	      break;
+
+        case 4:
+		  printf("case 4: composite swap, blen=%d\n",blen);fflush(stdout);
+	      kk += blen;
+		  break;
+
+        case 5:
+		  printf("case 5: bank of banks swap - do nothing (header swapped already)\n");
+		  break;
+
+        default:
+		  printf("default: no swap\n");
+	      kk += blen;
+      }
+    }
+    else
+    {
+      printf("DT_BANK: dtype=0x%08x\n",dtype);
+    }
+  }
+  */
+#endif
+
+
+  /* swap CODA fragments */
   while(ii<nlongs)
   {
     lp = (unsigned int *)&cbuf[ii];
@@ -126,7 +208,7 @@ bufferSwap(unsigned int *cbuf, int nlongs)
 	t1=lwd;
 	
 #ifdef DEBUG
-	printf("CODA fragment: length = %d, ",blen+1);
+	printf("CODA fragment: length = %d, current ii=%d, ",blen+1,ii);
 #endif
 	
     lwd = LSWAP(*lp);    /* Swap the CODA fragment header */
@@ -149,9 +231,10 @@ bufferSwap(unsigned int *cbuf, int nlongs)
 	  switch(dtswap[dtype])
       {
         case 0:
-		  /*
+#ifdef DEBUG
 		  printf("case 0: no swap\n");
-		  */		/*
+#endif
+	/*
 		  printf("ii=%d nlongs=%d 0x%08x 0x%08x)\n",
             ii,nlongs,t1,t2);
 		  {
@@ -168,9 +251,9 @@ bufferSwap(unsigned int *cbuf, int nlongs)
 	    break;
 
         case 1:
-		  /*
+#ifdef DEBUG
 		  printf("case 1: short swap\n");
-		  */
+#endif
 	      /* short swap */
 	      sp = (short *)&cbuf[ii];
 	      for(jj=0; jj<(blen<<1); jj++)
@@ -182,125 +265,23 @@ bufferSwap(unsigned int *cbuf, int nlongs)
 	      break;
 
         case 2:
-		  /*
+#ifdef DEBUG
 		  printf("case 2: int swap, deflt=%d\n",deflt);
-		  */
+#endif
           /* int swap */
-          if(deflt || ((typ > 15) && (typ < 32)) || blen < 2) /* CODA fragment contains CODA data */
+          lp = (unsigned int *)&cbuf[ii];
+          for(jj=0; jj<blen; jj++)
           {
-            lp = (unsigned int *)&cbuf[ii];
-            for(jj=0; jj<blen; jj++)
-            {
-              lwd = LSWAP(*lp);
-              *lp++ = lwd;
-            }
+            lwd = LSWAP(*lp);
+            *lp++ = lwd;
           }
-          else /* CODA fragment contains BOS banks */
-          {
-            unsigned int bankid, banknum, ncol, nrow, lfmt, fmtlen, nwords, bb;
-
-            lp = (unsigned int *)&cbuf[ii];
-
-            bb = 0;
-			
-            /*printf("=== fragment contains BOS banks, blen=%d\n",blen);
-            for(jj=0; jj<blen; jj++) printf("=== [%3d] 0x%08x\n",jj,LSWAP(lp[jj]));*/
-			
-            while(bb < blen)
-            {
-              /* swap BOS bank header */
-              for(jj=0; jj<2; jj++)
-              {
-                lwd = LSWAP(*lp);
-                *lp++ = lwd;
-              }
-              bb += 2;
-			  if(bb >= blen)
-              {
-                printf("warn: early break: bb=%d, blen=%d\n",bb,blen);
-                break;
-              }
-              bankid  = ((*(lp-2))>>16)&0xFFFF;
-              banknum = (*(lp-2))&0xFFFF;
-              nrow    = *(lp-1);
-              ncol = ddl[bankid].ncol;
-              lfmt = ddl[bankid].lfmt;
-
-if(lfmt <= 0)
-{
-  printf("ERROR: lfmt=%d bankid=%d\n",lfmt,bankid);fflush(stdout);
-
-		  {
-            FILE *fd;
-            int iii;
-            fd = fopen("/home/clasrun/coda_eb/abc.txt","w");
-            fprintf(fd,"Beginning of fragment: ii=%d, cbuf[ii]=0x%08x, bb=%d\n",ii,cbuf[ii],bb);
-            fprintf(fd,"Whole buffer (nlongs=%d):\n",nlongs);
-            for(iii=0; iii<nlongs; iii++) fprintf(fd,"[%6d] 0x%08x\n",iii,cbuf[iii]);
-            fclose(fd);
-		  }
-
-  exit(0);
-}
-
-              fmtlen = 4 / lfmt;
-              nwords = (ncol * nrow * fmtlen + 3) / 4;
-
-              /* if BOS bank length inconsistent with CODA fragment length,
-              print error message and try to recover */
-              if((bb+nwords) > blen)
-              {
-                printf("ERROR: bb=%d nwords=%d -> (bb+nwords)=%d > blen=%d\n",
-                  bb,nwords,(bb+nwords),blen);
-                printf("ERROR: bankid=0x%04x (%d)\n",bankid,bankid);
-                printf("ERROR: banknum=%d\n",banknum);
-                printf("ERROR: nrow=%d ncol=%d lfmt=%d\n",nrow,ncol,lfmt);
-                nwords = blen - bb;
-                printf("Trying to recover: set nwords=%d, nrow=%d (%d %d)\n",
-					   nwords,(nwords*lfmt)/ncol,lfmt,ncol);
-                nrow = (nwords*lfmt)/ncol;
-                *(lp-1) = nrow;
-              }
-
-              /*printf("=== bb=%d, bankid=%d, banknum=%d, nwords=%d, nrow=%d, ncol=%d, fmtlen=%d\n",
-                bb, bankid, banknum, nwords, nrow, ncol, lfmt);*/
-			  
-              /* convert BOS data */
-              if(lfmt == 1) /* long */
-              {
-                /*printf("=== swap %6d long words\n",nwords);*/
-                for(jj=0; jj<nwords; jj++)
-                {
-                  lwd = LSWAP(*lp);
-                  *lp++ = lwd;
-                }
-              }
-              else if(lfmt == 2) /* short */
-              {
-                /*printf("=== swap %6d short words\n",nwords*2);*/
-                sp = (short *)lp;
-                for(jj=0; jj<(nwords*2); jj++)
-                {
-                  shd = SSWAP(*sp);
-                  *sp++ = shd;
-                }
-                lp += nwords;
-              }
-              /* do nothing for char */
-
-              bb += nwords;
-              /*printf("=== bb = %d\n",bb);*/
-            }
-
-          }
-
 	      ii += blen;
 	      break;
 
         case 3:
-		  /*
+#ifdef DEBUG
 		  printf("case 3: double swap\n");
-		  */
+#endif
 	      /* double swap */
 	      lp = (unsigned int *)&cbuf[ii];
 	      for(jj=0; jj<blen; jj++)
@@ -312,21 +293,30 @@ if(lfmt <= 0)
 	      break;
 
         case 4:
+#ifdef DEBUG
+		  printf("case 4: composite swap, blen=%d\n",blen);fflush(stdout);
+#endif
+
 		  /*
-		  printf("case 4: composite swap\n");fflush(stdout);
+lp = (unsigned int *)&cbuf[ii+blen];
+printf("befor: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",lp[0],lp[1],lp[2],lp[3],lp[4],lp[5],lp[6],lp[7],lp[8],lp[9]);
 		  */
 		  lp = (unsigned int *)&cbuf[ii];
           swap_composite_t(lp, 1, NULL);
 		  /*
           printf("case 4: composite swap done\n");fflush(stdout);
 		  */
+		  /*
+lp = (unsigned int *)&cbuf[ii+blen];
+printf("after: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",lp[0],lp[1],lp[2],lp[3],lp[4],lp[5],lp[6],lp[7],lp[8],lp[9]);
+		  */
 	      ii += blen;
 		  break;
 
         case 5:
-		  /*
+#ifdef DEBUG
 		  printf("case 5: bank of banks swap - do nothing (header swapped already)\n");
-		  */
+#endif
 		  break;
 
         default:
@@ -337,7 +327,7 @@ if(lfmt <= 0)
     }
     else
     {
-      printf("dtype=0x%08x\n",dtype);
+      printf("DT_BANK: dtype=0x%08x\n",dtype);
     }
   }
 
@@ -393,6 +383,7 @@ start1 = start3 = gethrtime();
   {
 
 
+goto skiipp;
     {
       int nbytes, lbytes;
 
@@ -408,12 +399,15 @@ start1 = start3 = gethrtime();
       printf("socket buffer size is %d(0x%08x) bytes\n",nbytes,nbytes);
 	  */
     }
-
-
-
+skiipp:
+	/*
+  printf("RECV1: fd=%d, bufferp=0x%08x, rembytes=0x%08x, recv_flags=%d\n",
+    fd, bufferp, rembytes, recv_flags);fflush(stdout);
+	*/
 /*printf("0: rembytes=%d [%d]\n",rembytes,fd);*/
     /*printf("processing 1 >%d<\n",fd);*/
     cc = recv(fd, bufferp, rembytes, /*MSG_DONTWAIT*/recv_flags);
+
     /*printf("processing 2 >%d<\n",fd);*/
 /*printf("1: %d %d [%d]\n",rembytes,cc,fd);*/
     if(cc == -1)
@@ -437,10 +431,10 @@ start1 = start3 = gethrtime();
 		sleep(1); /* is 1 sec too big ??? */
         /* we do not know if ROC still alive and will send more data later,
         or ROC is dead ... */
-		/*
+		
         printf("LINK_sized_read(): recv would block, retrying ...");
         fflush(stdout);
-		*/
+		
       }
       else
       {
@@ -569,13 +563,15 @@ start2 = gethrtime();
   {
 
 retry1:
-/*
-printf("fd=%d, bufferp=0x%08x, rembytes=0x%08x, recv_flags=%d\n",
-fd, bufferp, rembytes, recv_flags);fflush(stdout);
-*/
+
+	/*
+  printf("RECV2: fd=%d, bufferp=0x%08x, rembytes=0x%08x, recv_flags=%d\n",
+    fd, bufferp, rembytes, recv_flags);fflush(stdout);
+	*/
 
 
     cc = recv(fd, bufferp, rembytes, recv_flags);
+
 
 
 /*printf("2: %d %d [%d]\n",rembytes,cc,fd);*/
@@ -595,7 +591,7 @@ printf("cc=0x%08x\n",cc);fflush(stdout);
     if(cc == 0)
     { /* EOF - process died */
       /* GHGHGH */
-      printf("process died - return\n");
+      printf("process died (cc==0) - return\n");
       fflush(stdout);
       return(0);
     }
@@ -629,12 +625,17 @@ printf("cc=0x%08x\n",cc);fflush(stdout);
 
 
 
-
-
-
-
   /* we received buffer, lets swap it if necessary */
   bigbuf = (unsigned int *) *buf;
+
+
+
+
+/* chack buffer integrity */
+/*
+bb_check(bigbuf);
+*/
+
   /*
 printf("RECV3: %d %d %d %d 0x%08x %d - 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x (%d)\n",
 bigbuf[0],bigbuf[1],bigbuf[2],bigbuf[3],bigbuf[4],bigbuf[5],
@@ -643,9 +644,6 @@ bigbuf[6],bigbuf[7],bigbuf[8],bigbuf[9],bigbuf[10],bigbuf[11],size);
   magic = bigbuf[BBIFD];
   if(magic == 0x01020304)
   {
-#ifdef DEBUG
-    printf("SWAP (0x%08x)\n",magic);
-#endif
     llenw = size >> 2;
 	/*
     if(llenw>200000)
@@ -656,12 +654,19 @@ bigbuf[6],bigbuf[7],bigbuf[8],bigbuf[9],bigbuf[10],bigbuf[11],size);
       bigbuf[6],bigbuf[7],bigbuf[8],bigbuf[9],bigbuf[10],bigbuf[11],size);
 	}
 	*/
+#ifdef DEBUG
+    printf("SWAP (0x%08x), llenw=%d\n",magic,llenw);
+#endif
     bufferSwap(bigbuf,llenw);
   }
 #ifdef DEBUG
   else
   {
     printf("DO NOT SWAP (0x%08x)\n",magic);
+#ifdef DEBUG
+  printf("\nbuffer header: length=%d words, buffer#=%d, rocid=%d, #events=%d, fd/magic=0x%08x, end=%d\n",
+		 bigbuf[BBIWORDS],bigbuf[BBIBUFNUM],bigbuf[BBIROCID],bigbuf[BBIEVENTS],bigbuf[BBIFD],bigbuf[BBIEND]);
+#endif
   }
 #endif
 
@@ -724,7 +729,11 @@ if(time3 > 3000000)
 */
 
   /* set appropriate bit letting building thread know we are ready */
-roc_linked |= (1<<tmp[2]); /* tmp[2] contains rocid */
+#ifdef USE_128
+  SetBit128(&roc_linked, tmp[2]);
+#else
+  roc_linked |= (1<<tmp[2]); /* tmp[2] contains rocid */
+#endif
 
   /*
   printf("LINK_sized_read(): set roc_linked for rocid=%d (0x%08x)\n",
@@ -967,9 +976,11 @@ end4 = gethrtime();
 #endif
     if(numRead <= 0)
     {
-      printf("handle_link(): LINK_sized_read() returns %d\n",numRead);
-      fflush(stdout);
+      printf("handle_link(): LINK_sized_read() returns %d\n",numRead);fflush(stdout);
+      printf("handle_link(): put_cb_data calling ...\n");fflush(stdout);
+	  sleep(1);
       put_cb_data(&theLink->roc_queue, (void *) -1);
+      printf("handle_link(): put_cb_data called\n");fflush(stdout);
       break;
     }
 
@@ -1584,14 +1595,6 @@ printf("906\n"); fflush(stdout);
 }
 
 #else /* ifndef VXWORKS */
-
-/* just to resolve */
-
-/*
-#include "etbosio.h"
-int nddl;
-DDL ddl[NDDL];
-*/
 
 void
 LINK_support_vxworks_dummy()

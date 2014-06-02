@@ -28,18 +28,24 @@ CLON_FLAGS += -I./src.s -DCODAMYSQL \
 
 # brakes compilation: -I/usr/include/mysql
 
-ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
-CLON_FLAGS += -I$(CODA)/Linux_armv7l/include
+ifeq ("$(OSTYPE_MACHINE)","VXWORKS_ppc")
+  CLON_FLAGS += -I$(CODA)/VXWORKS_ppc/include
 endif
 
-ifeq ("$(OSTYPE_MACHINE)","VXWORKS_ppc")
-CLON_FLAGS += -I$(CODA)/VXWORKS_ppc/include
+ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
+  CLON_FLAGS += -I$(CODA)/Linux_armv7l/include
+endif
+
+ifeq ("$(OSTYPE_MACHINE)","Linux_nios2")
+  CLON_FLAGS += -I$(CODA)/Linux_nios2/include
 endif
 
 # compress/uncompress
 ifneq ("$(OSTYPE_MACHINE)","VXWORKS_ppc")
 ifneq ("$(OSTYPE_MACHINE)","Linux_armv7l")
+ifneq ("$(OSTYPE_MACHINE)","Linux_nios2")
   LIBNAMES += -lz
+endif
 endif
 endif
 
@@ -71,4 +77,11 @@ install: install_lib install_bin
 	chmod 664 tmp/*
 	-mkdir -p $(CODA)/Linux_armv7l/include/mysql
 	cp tmp/* $(CODA)/Linux_armv7l/include/mysql
+	rm -rf tmp
+#
+	mkdir tmp
+	cp src.s/*.h tmp
+	chmod 664 tmp/*
+	-mkdir -p $(CODA)/Linux_nios2/include/mysql
+	cp tmp/* $(CODA)/Linux_nios2/include/mysql
 	rm -rf tmp

@@ -130,11 +130,9 @@ rccIO::handle_input (int)
 		  recver->type(),recver->dataSize(),recver->reqId(),recver->reqId());
 #endif
 
-  /*
 #ifdef _CODA_DEBUG
-  printf("handle_input: >%s<\n",(char *)(daqNetData)(*recver));
+  printf("rccIO::handle_input: >%s<\n",(char *)(daqNetData)(*recver));
 #endif
-  */
 
   switch (n)
   {
@@ -251,15 +249,15 @@ rccIO::handle_input (int)
       break;
     default:
       // command callback
-      printf("command callback\n");
+//printf("rccIO::handle_input: command callback\n");
       if (master_ || !acceptor_->hasMaster ())
 	  {
-        printf("processCommand\n");
+//printf("rccIO::handle_input: processCommand\n");
 	    status = run_->processCommand (this, recver->type(), recver); 
 	  }
       else
 	  {
-        printf("accessViolation\n");
+//printf("rccIO::handle_input: accessViolation\n");
 	    status = accessViolation (recver->type(), recver->reqId () );
 	  }
       break;

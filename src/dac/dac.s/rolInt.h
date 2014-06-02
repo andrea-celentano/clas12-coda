@@ -1,3 +1,4 @@
+
 /* Readout list parameters */
 /* default values all zero, cleaned up in roc_component.c in Download */
 
@@ -19,8 +20,9 @@ typedef struct rolParameters
 
   unsigned int   recNb;	           /* count of output buffers processed */
   unsigned int  *nevents;          /* number of events taken */
-  int            bla_rol_sync_flag;    /* communication flag between ROL1 and rols_loop */
-  char           usrString[32];     /* string passed in download */
+  int            classid;          /* object class id (0-slave, 1-master, 2-single) */
+  char           confFile[256];    /* contains config file name selected by runcontrol */
+  char           usrString[32];    /* string passed in download */
   void          *private_storage;  /* private storage */
   int            pid;              /* ROC ID */
   int            poll;             /* to poll or not to poll */
@@ -41,8 +43,6 @@ typedef struct rolParameters
 #define DA_DONE_PROC        7
 #define DA_REPORT_PROC      8
 #define DA_FREE_PROC        9
-
-
 
 
 

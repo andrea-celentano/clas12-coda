@@ -1,7 +1,4 @@
 
-#ifdef Linux
-#define HPS_TEST
-#endif
 
 /*trying to use big buffers directly*/
 #define NEW_READOUT
@@ -38,7 +35,7 @@
 #define MAX_EVENT_LENGTH (NWBOS*4)
 #define MAX_EVENT_POOL   400
 
-#define SEND_BUF_SIZE  (3/*10*/ * 1024 * 1024) /*sergey: use 3 for CLAs !!!!!*/
+#define SEND_BUF_SIZE  (3/*10*/ * 1024 * 1024) /*sergey: use 3 for CLAS !!!!!*/
 #define TOTAL_RECEIVE_BUF_SIZE  SEND_BUF_SIZE
 
 #else
@@ -55,14 +52,11 @@
 /* decrease it if have small memory */
 #ifdef SunOS_sun4u
 #define MAX_ROCS 19 /* must accomodate biggest roc id, not the number of rocs !!! */
-/*#define MAX_ROCS 32*/
 #else
-#ifdef HPS_TEST
-#define MAX_ROCS 16
-#else
-#define MAX_ROCS 32
+#define MAX_ROCS 41
 #endif
-#endif
+
+#define QSIZE 8
 
 
 #define NTHREADMAX 7
@@ -70,11 +64,6 @@
 #define NIDMAX     7 /*(NFIFOMAX+NTHREADMAX)*/
 #define NCHUNKMAX  400
 
-#ifdef HPS_TEST
-#define QSIZE 32
-#else
-#define QSIZE 16/*8*/ /*sergey: use 16 for CLAS !!! */
-#endif
 
 /* big buffer defines */
 #define BBIWORDS   0  /* index of buffer length in words */

@@ -203,10 +203,10 @@ dsc2ReadConfigFile(char *filename)
   {
     /* obtain our hostname */
     gethostname(host,ROCLEN);
-    sprintf(fname, "%s/dsc2/%s.conf", clonparms, host);
+    sprintf(fname, "%s/dsc2/%s.cnf", clonparms, host);
     if((fd=fopen(fname,"r")) == NULL)
     {
-      sprintf(fname, "%s/dsc2/%s.conf", clonparms, expid);
+      sprintf(fname, "%s/dsc2/%s.cnf", clonparms, expid);
       if((fd=fopen(fname,"r")) == NULL)
       {
         printf("\nReadConfigFile: Can't open config file >%s<\n",fname);

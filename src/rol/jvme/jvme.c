@@ -41,7 +41,10 @@
 /* global variables */
 unsigned int vmeQuietFlag=0;
 
-STATUS taskDelay(int ticks) {
+
+STATUS
+taskDelay(int ticks)
+{
   return usleep(16700*ticks);  
 }
 
@@ -563,3 +566,70 @@ vmeBusUnlock()
   return OK;
 }
 
+
+
+
+
+
+/* Register Read/Write routines 
+unsigned char
+vmeRead8(volatile unsigned char *addr)
+{
+  unsigned char rval;
+
+  rval = *addr;
+
+  return rval;
+}
+
+unsigned short
+vmeRead16(volatile unsigned short *addr)
+{
+  unsigned short rval;
+
+  rval = *addr;
+  rval = SSWAP(rval);
+
+  return rval;
+}
+
+unsigned int
+vmeRead32(volatile unsigned int *addr)
+{
+  unsigned int rval;
+
+  rval = *addr;
+  rval = LSWAP(rval);
+
+  return rval;
+}
+
+void
+vmeWrite8(volatile unsigned char *addr, unsigned char val)
+{
+
+  *addr = val;
+
+  return;
+}
+
+void
+vmeWrite16(volatile unsigned short *addr, unsigned short val)
+{
+
+  val = SSWAP(val);
+  *addr = val;
+
+  return;
+}
+
+void
+vmeWrite32(volatile unsigned int *addr, unsigned int val)
+{
+
+  val = LSWAP(val);
+  *addr = val;
+
+  return;
+}
+*/

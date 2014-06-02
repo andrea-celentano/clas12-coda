@@ -126,6 +126,8 @@ alarmHandler(int sig)
 * -> tcpClient("remoteSystemName","This is my message");  
 * * RETURNS: OK, or ERROR if the message could not be sent to the server. */ 
 
+#define DEBUG_MSGS
+
 static int
 tcpClient(char *name, char *message)
 {
@@ -213,13 +215,13 @@ tcpClient(char *name, char *message)
   sprintf(myRequest.message,"%s\0",message);
   myRequest.reply = FALSE;
 
-  /* convert integers to network byte order */
-  myRequest.msgLen = htonl(myRequest.msgLen);
-  myRequest.reply = htonl(myRequest.reply);
-
 #ifdef DEBUG_MSGS
   printf(" Sending %d bytes: %s\n",myRequest.msgLen, myRequest.message);
 #endif
+
+  /* convert integers to network byte order */
+  myRequest.msgLen = htonl(myRequest.msgLen);
+  myRequest.reply = htonl(myRequest.reply);
 
   /* send request to server */ 
   if(write(sFd, (char *) &myRequest, sizeof (myRequest)) == ERROR)
