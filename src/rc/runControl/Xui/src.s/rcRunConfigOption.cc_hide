@@ -1,0 +1,165 @@
+//-----------------------------------------------------------------------------
+// Copyright (c) 1994,1995 Southeastern Universities Research Association,
+//                         Continuous Electron Beam Accelerator Facility
+//
+// This software was developed under a United States Government license
+// described in the NOTICE file included as part of this distribution.
+//
+// CEBAF Data Acquisition Group, 12000 Jefferson Ave., Newport News, VA 23606
+//       coda@cebaf.gov  Tel: (804) 249-7030     Fax: (804) 249-5800
+//-----------------------------------------------------------------------------
+//
+// Description:
+//      Implementation of run config option menu
+//
+// Sergey: copied from rcRunTypeOption.cc and modified
+//
+
+#include <stdio.h>
+#include <string.h>
+#include <rcRunConfigDialog.h>
+#ifdef USE_CREG
+#include <codaRegistry.h>
+#endif
+#include "rcRunConfigOption.h"
+
+rcRunConfigOption::rcRunConfigOption (Widget parent,
+				  char* name,
+				  char* title,
+				  rcClientHandler& handler,
+  				  rcRunConfigDialog* dialog)
+:XcodaSimpleOptionMenu (parent, name, title), netHandler_ (handler),
+ dialog_ (dialog), numRunconfigs_ (0), currRunConfig_ (0)
+{
+#ifdef _TRACE_OBJECTS
+  printf ("                       Create rcRunConfigOption Class Object\n");
+#endif
+  // empty
+}
+
+rcRunConfigOption::~rcRunConfigOption (void)
+{
+#ifdef _TRACE_OBJECTS
+  printf ("                       Delete rcRunConfigOption Class Object\n");
+#endif
+  if (currRunConfig_)
+    delete []currRunConfig_;
+
+  for (int i = 0; i < numRunconfigs_; i++)
+    delete []runconfigs_[i];
+}
+
+
+/* sergey: access databaseb here ??? (see rcRunTypeOption.cc) */
+/* we will open directory instead to pick run config file */
+void
+rcRunConfigOption::startMonitoringRunConfigs (void)
+{
+  /*
+  rcClient& client = netHandler_.clientHandler ();
+  if (client.monitorOnCallback (client.exptname (), "allRunConfigs",
+				(rcCallback)&(rcRunConfigOption::runConfigsCallback),
+				(void *)this) != CODA_SUCCESS) {
+#ifdef _CODA_DEBUG
+    fprintf (stderr, "Cannot register monitor on allRunConfigs callback\n");
+#endif
+  }
+  */
+}
+
+void
+rcRunConfigOption::endMonitoringRunConfigs (void)
+{
+  /*
+  rcClient& client = netHandler_.clientHandler ();
+  if (client.monitorOffCallback (client.exptname (), "allRunConfigs",
+				 (rcCallback)&(rcRunConfigOption::runConfigsCallback),
+				 (void *)this,
+				 (rcCallback)&(rcRunConfigOption::offCallback),
+				 (void *)this) != CODA_SUCCESS) {
+#ifdef _CODA_DEBUG
+    fprintf (stderr, "Cannot register monitor off allRunConfigs callback\n");
+#endif
+  }
+  */
+}
+
+void
+rcRunConfigOption::runConfigsCallback (int status, void* arg, daqNetData* data)
+{
+  rcRunConfigOption* obj = (rcRunConfigOption *)arg;
+
+  if (status == CODA_SUCCESS) {
+    // do not expecet more than 100 run configs
+    int count = RCXUI_MAX_RUNCONFIGS;
+
+    // delete old run configs
+    for (int i = 0; i < obj->numRunconfigs_; i++)
+      delete obj->runconfigs_[i];
+    obj->numRunconfigs_ = 0;
+
+    if (data->getData (obj->runconfigs_, count) != CODA_ERROR) 
+      obj->numRunconfigs_ = count;
+  }
+}
+
+void
+rcRunConfigOption::offCallback (int status, void* , daqNetData* data)
+{
+  if (status != CODA_SUCCESS) {
+#ifdef _CODA_DEBUG
+    printf ("monitor off failed\n");
+#endif
+  }
+}
+
+void
+rcRunConfigOption::setAllEntries (void)
+{
+  int i;
+  // clean up old entries and add new ones
+  removeAll  ();
+
+  if (currRunConfig_) {
+    for (i = 0; i < numRunconfigs_; i++) {
+      if (::strcmp (currRunConfig_, runconfigs_[i]) == 0) 
+	break;
+    }
+    if (i < numRunconfigs_)
+      addEntries (runconfigs_, numRunconfigs_, i);
+    else
+      addEntries (runconfigs_, numRunconfigs_);
+  }
+  else
+    addEntries (runconfigs_, numRunconfigs_);
+}
+
+extern int doTk;
+char*
+rcRunConfigOption::currentRunConfig (void)
+{
+  assert (currentSel_ < numRunconfigs_);
+
+  // remove old information
+  if (currRunConfig_)
+    delete []currRunConfig_;
+  currRunConfig_ = 0;
+
+  if (::strcmp (runconfigs_[currentSel_], "unknown") == 0)
+    return 0;
+  else {
+    currRunConfig_ = new char[::strlen (runconfigs_[currentSel_]) + 1];
+    ::strcpy (currRunConfig_, runconfigs_[currentSel_]);
+
+    {
+      char cmd[100];
+      sprintf(cmd,"c:%s",currRunConfig_);
+printf("CEDIT 4: >%s<\n",cmd);
+#ifdef USE_CREG
+      coda_send(XtDisplay(this->baseWidget()),"CEDIT",cmd);
+#endif
+    }
+    
+    return runconfigs_[currentSel_];
+  }
+}

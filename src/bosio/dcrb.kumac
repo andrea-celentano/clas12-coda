@@ -1,0 +1,171 @@
+hi/file 66 dcrbhist.his
+opt stat
+opt fit 1111111
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+zone 1 1
+hi/pl 11(800.:1300.)
+wait
+*
+zone 1 4
+*hi/pl 1
+*hi/pl 2
+*
+hi/pl 1(1100.:1200.)
+hi/pl 2(2000.:2100.)
+hi/pl 3(-1000.:-900.)
+hi/pl 900(-50.:50.)
+wait
+*
+hi/pl 1(0.:3000.)
+hi/pl 2(475.:575.)
+hi/pl 3(-550.:-450.)
+hi/pl 900(-50.:50.)
+wait
+*
+zone 4 4
+*
+hi/pl 900
+hi/pl 901
+hi/pl 902
+hi/pl 903
+hi/pl 904
+hi/pl 905
+hi/pl 906
+hi/pl 907
+hi/pl 908
+hi/pl 909
+hi/pl 910
+hi/pl 911
+hi/pl 912
+hi/pl 913
+hi/pl 914
+hi/pl 915
+wait
+*
+hi/pl 1000
+hi/pl 1001
+hi/pl 1002
+hi/pl 1003
+hi/pl 1004
+hi/pl 1005
+hi/pl 1006
+hi/pl 1007
+hi/pl 1008
+hi/pl 1009
+hi/pl 1010
+hi/pl 1011
+hi/pl 1012
+hi/pl 1013
+hi/pl 1014
+hi/pl 1015
+wait
+*
+hi/pl 1016
+hi/pl 1017
+hi/pl 1018
+hi/pl 1019
+hi/pl 1020
+hi/pl 1021
+hi/pl 1022
+hi/pl 1023
+hi/pl 1024
+hi/pl 1025
+hi/pl 1026
+hi/pl 1027
+hi/pl 1028
+hi/pl 1029
+hi/pl 1030
+hi/pl 1031
+wait
+*
+hi/pl 1032
+hi/pl 1033
+hi/pl 1034
+hi/pl 1035
+hi/pl 1036
+hi/pl 1037
+hi/pl 1038
+hi/pl 1039
+hi/pl 1040
+hi/pl 1041
+hi/pl 1042
+hi/pl 1043
+hi/pl 1044
+hi/pl 1045
+hi/pl 1046
+hi/pl 1047
+wait
+*
+hi/pl 1048
+hi/pl 1049
+hi/pl 1050
+hi/pl 1051
+hi/pl 1052
+hi/pl 1053
+hi/pl 1054
+hi/pl 1055
+hi/pl 1056
+hi/pl 1057
+hi/pl 1058
+hi/pl 1059
+hi/pl 1060
+hi/pl 1061
+hi/pl 1062
+hi/pl 1063
+wait
+*
+hi/pl 1064
+hi/pl 1065
+hi/pl 1066
+hi/pl 1067
+hi/pl 1068
+hi/pl 1069
+hi/pl 1070
+hi/pl 1071
+hi/pl 1072
+hi/pl 1073
+hi/pl 1074
+hi/pl 1075
+hi/pl 1076
+hi/pl 1077
+hi/pl 1078
+hi/pl 1079
+wait
+*
+hi/pl 1080
+hi/pl 1081
+hi/pl 1082
+hi/pl 1083
+hi/pl 1084
+hi/pl 1085
+hi/pl 1086
+hi/pl 1087
+hi/pl 1088
+hi/pl 1089
+hi/pl 1090
+hi/pl 1091
+hi/pl 1092
+hi/pl 1093
+hi/pl 1094
+hi/pl 1095
+wait
+*
+hi/pl 410
+hi/pl 410(-50.:50.)
+*
+*hi/pl 410(630.:680.)
+*hi/pl 4010(-10.:10.)
+*hi/pl 10(-10.:70.)
+*
+*hi/pl 531(10.:30.)
+
+*hi/fit 1031(0.0:7.0) g
+*hi/fit 1032(-7.0:1.0) g
+*
+wait
+*
+*close 66

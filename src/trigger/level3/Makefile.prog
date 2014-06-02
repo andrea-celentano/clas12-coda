@@ -1,0 +1,37 @@
+#
+#  builds event_monitor executable 
+#
+#  ejw, 6-may-98
+#
+
+
+DEBUG = -g
+
+PROG = level3
+CLON_INC = $(CODA)/common/include -I$(CLON)/common/include 
+VPATH = $(CLON_INC)
+
+
+OBJS = pc_bor.o pc_trans.o pc_store_raw.o pc_store_pul.o pc_pack_ev.o pcbookrzhpul.o pcbookrzhraw.o pcbookcwnpul.o pcbookcwnraw.o ec_bor.o ec_trans.o ec_store_pul.o ecbookrzhpul.o ec_pack_ev.o ecbookcwnraw.o ecbookrzhraw.o ecbookcwnpul.o ec_store_raw.o \
+	level3_user.o reset_hist.o 
+
+level3.o: level3.cc
+
+
+$(PROG): $(OBJS) level3.o
+	rtlink -cxx $(DEBUG) -mt -o $(PROG) level3.o $(OBJS) \
+	$(CODA)/$(OSTYPE_MACHINE)/lib/libevio.so \
+	$(CODA)/$(OSTYPE_MACHINE)/lib/libet.a \
+	-L$(CERN_ROOT)/lib -lpacklib \
+	/usr/lib/gcc/i386-redhat-linux/3.4.6/libg2c.a \
+	-lexpat -lpthread -lrt -lresolv -ldl -lm -lcrypt 
+
+#	$(CLON)/$(OSTYPE_MACHINE)/lib/libipc.a \
+#	$(CLON)/$(OSTYPE_MACHINE)/lib/libclonutil.a \
+
+.f.o:
+	g77 -c -e -fno-automatic -finit-local-zero -ffixed-line-length-none -fno-second-underscore $(DEBUG) $(BOUNDS) -I. -I$(CLON_INC) $<
+.c.o:
+	rtlink -c $(DEBUG) $(BOUNDS) -I$(CLON_INC) -I$(CODA)/common/include -I$(RTHOME)/include/rtworks  $<
+.cc.o:
+	rtlink -cxx -c $(DEBUG) $(BOUNDS) -I$(CLON_INC) -I$(CODA)/common/include -I$(RTHOME)/include/rtworks  $<

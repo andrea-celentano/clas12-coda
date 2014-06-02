@@ -1,0 +1,29 @@
+  /*sergey: file chooser*/
+  if(1)
+  {
+    Widget           toplevel = _w;
+    Arg              args[5];
+    int              n = 0;
+    XtSetLanguageProc (NULL, NULL, NULL);
+
+    printf("\n\n>>>>>>>>>>>>>>>>>>>>> file chooser\n\n\n");
+
+    XtSetArg (args[n], XmNfileSearchProc, do_search); n++;
+    filedialog = XmCreateFileSelectionDialog (toplevel, "Files", args, n);
+    XtSetSensitive (XtNameToWidget (filedialog, "Help"), False);
+
+
+
+    /* if user presses OK button, call new_file_cb() */
+    XtAddCallback (filedialog, XmNokCallback, new_file_cb, NULL);
+
+
+
+    /* if user presses Cancel button, exit program */
+    XtAddCallback (filedialog, XmNcancelCallback, destroy_dialog, NULL);
+
+
+
+    XtManageChild (filedialog);
+  }
+

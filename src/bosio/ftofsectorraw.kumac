@@ -1,0 +1,39 @@
+hi/file 66 ftofsectorhist.his
+*
+opt stat
+*opt fit 1111111
+*
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+zone 4 4
+DO ID1 = 1,12
+DO ID2 = 0,15
+  IDN = 530 + [ID1]*50 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+zone 4 4
+DO ID1 = 1,12
+DO ID2 = 0,15
+  IDN = 1050 + [ID1]*100 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+zone 4 4
+DO ID1 = 1,12
+DO ID2 = 0,15
+  IDN = 1000 + [ID1]*100 + [ID2]
+  hi/pl [IDN](10.:8000.)
+ENDDO
+wait
+ENDDO
+*
+*
+*close 66

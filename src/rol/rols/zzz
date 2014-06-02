@@ -1,0 +1,386 @@
+2c2
+< /* hps1.c */
+---
+> /* fadc1.c */
+6a7
+> 
+19c20
+< /* hps1.c - first readout list for VXS crates with FADC250 and new TI */
+---
+> /* fadc1.c - first readout list for VXS crates with FADC250 and new TI */
+22a24,29
+> /* if ADC1182 is used, do not use FADC250 */
+> #ifdef USE_ADC1182
+> #undef USE_FADC250
+> #undef DMA_TO_BIGBUF
+> #endif
+> 
+24c31
+< #define DEBUG
+---
+> #undef DEBUG
+47c54
+< #define ROL_NAME__ "HPS1"
+---
+> #define ROL_NAME__ "FADC1"
+55a63,71
+> 
+> 
+> #ifdef USE_ADC1182
+> 
+> #define INIT_NAME fadc1_1182__init
+> #define TI_READOUT TI_READOUT_EXT_POLL /* Poll for available data, front panel triggers */
+> 
+> #else
+> 
+58c74
+< #define INIT_NAME hps1_master__init
+---
+> #define INIT_NAME fadc1_master__init
+62c78
+< #define INIT_NAME hps1_slave__init
+---
+> #define INIT_NAME fadc1_slave__init
+65c81
+< #define INIT_NAME hps1__init
+---
+> #define INIT_NAME fadc1__init
+69a86,90
+> #endif
+> 
+> 
+> 
+> 
+88,90d108
+< #include "sspLib.h"
+< extern int nSSP;   /* Number of SSPs found with sspInit(..) */
+< 
+96a115,125
+> 
+> 
+> 
+> 
+> #ifdef USE_ADC1182
+> #define NADCS 1
+> static int nadcs;
+> static unsigned long adcadr[4] = {0x180000, 0, 0, 0};
+> #endif
+> 
+> 
+382,383d410
+<   /* Allow set/clear control of sync reset - for s/w pulse control */
+<   tiSetUserSyncResetReceive(1);
+385c412,414
+<   /*usrVmeDmaSetConfig(2,5,1);*/ /*A32,2eSST,267MB/s*/
+---
+> 
+> 
+>   usrVmeDmaSetConfig(2,5,1); /*A32,2eSST,267MB/s*/
+387c416
+<   usrVmeDmaSetConfig(2,3,0); /*A32,MBLT*/
+---
+>   /*usrVmeDmaSetConfig(2,3,0);*/ /*A32,MBLT*/
+395a425,429
+> 
+> #ifdef USE_ADC1182
+>   nadcs = adc1182init(adcadr, NADCS);
+> #endif
+> 
+543a578,581
+>     /*set threshold for pulse integration in trigger
+>     faWriteHPSConfig(FA_SLOT, 1000, 0x4 | (0x6<<4));
+> 	*/
+> 
+546a585,588
+> 
+> 
+> 
+> 
+549d590
+<     faResetMGT(FA_SLOT,1);
+552,553d592
+<     /* FOR TESTING ONLY - need to have these set by config file or database */
+<     faSetThreshold(FA_SLOT,400,0xFFFF);
+556,558c595
+< 	  /*faSetChannelPedestal(FA_SLOT,ichan,ic_adc_ped[FA_SLOT][ichan]);*/
+<       faSetChannelPedestal(FA_SLOT,ichan,740);
+<       faSetChannelGain(FA_SLOT,ichan,1.0);
+---
+>       faSetChannelPedestal(FA_SLOT,ichan,ic_adc_ped[FA_SLOT][ichan]);
+560a598,610
+> 
+>     {
+>       /* trigger thresholds: was 80; 50 from May 8 11:30am*/
+>       unsigned int fa_tot = 80; /* 1V / 4096chan = 0.25mV/chan -> 20 means 5mV: Time Over Threshold value for integration window Value (<4095)*/
+> 
+> 
+>       unsigned int fa_maxIntTime = 7; /*The Maximum Integration time (in 16 ns steps) (<8) */
+> 
+> 	  /*
+>       faSetHPSParameters(FA_SLOT, fa_tot, fa_maxIntTime, fa_sumScaleFactor);
+> 	  */
+>     }
+> 	
+562a613
+> 
+626c677
+<   sdInit(1);   /* Initialize the SD library */
+---
+>   sdInit(1); /* Initialize the SD library; 1-ignore firmware version */
+629d679
+< #endif
+631a682,693
+>   /*****************
+>    *   CTP SETUP
+>    *****************/
+> 
+> 
+>   /*HPS stuff
+>   ctpInit();
+>   ctpSetVmeSlotEnableMask(fadcSlotMask);
+>   */
+> 
+> 
+>   /*debugging
+632a695,721
+>   ctpSetVmeSlotEnableMask(0x20); slot 5 only
+> #else
+>   ctpSetVmeSlotEnableMask(0x2000); slot 13 only
+> #endif
+>   debugging */
+> 
+>   /*HPS stuff
+>   ctpSetClusterMinimumThreshold(cluster_threshold);
+>   ctpSetClusterWindow(cluster_window);
+>   ctpStatus();
+>   int iwait=0;
+>   int allchanup=0;
+>   while(allchanup  != (0x7) )
+>   {
+>     iwait++;
+>     allchanup = ctpGetAllChanUp();
+>     if(iwait>1000)
+> 	{
+> 	  printf("iwait timeout   allchup - 0x%x\n",allchanup);
+> 	  break;
+> 	}
+>   }
+>   */
+> 
+> 
+> #ifndef TI_SLAVE
+> 
+637,638c726,737
+<   iFlag = SSP_INIT_MODE_DISABLED; /* Disabled, initially */
+<   iFlag|= SSP_INIT_SKIP_FIRMWARE_CHECK;
+---
+>   /*HPS stuff
+>   sspInit_HPS(ssp_addr_a24);
+>   sspSetCoincidence(coincidence_window);
+>   sspSetEnergySumMaximum(energy_sum_max);
+>   sspSetPairEnergyDifferenceMaximum(pair_energy_difference_max);
+>   sspSetPairEnergyDistanceThreshold(pair_energy_difference_threshold);
+>   sspSetEnergyMaximum(energy_max);
+>   sspSetEnergyMinimum(energy_min);
+>   sspSetClusterDelay(cluster_delay);
+>   sspSetTriggerLatency(trigger_latency);
+>   sspSetTriggerCutEnableMask(trigger_cut_enable_mask);
+>   */
+640d738
+<   sspInit(0, 0, 0, iFlag); /* Scan for, and initialize all SSPs in crate */
+642a741,747
+> 
+> #endif
+> 
+> 
+>   /*
+>   vmeServer("hps1");
+>   */
+663a769
+> 
+711,717d816
+< 
+<     if(!faGetMGTChannelStatus(FA_SLOT))
+<     {
+<       faResetMGT(FA_SLOT,1);
+<       faResetMGT(FA_SLOT,0);
+<     }
+< 
+738,743d836
+< #endif
+< 
+< #ifdef TI_MASTER
+<   /*****************
+<    *   SSP SETUP
+<    *****************/
+745,793c838,842
+<   iFlag = SSP_INIT_MODE_DISABLED; /* Disabled, initially */
+< 
+<   /* Configure the SSP modules */
+<   iFlag  = SSP_INIT_MODE_VXS;
+<   iFlag |= SSP_INIT_FIBER0_ENABLE;         /* Enable hps1gtp fiber ports */
+<   iFlag |= SSP_INIT_FIBER1_ENABLE;         /* Enable hps1gtp fiber ports */
+<   iFlag |= SSP_INIT_GTP_FIBER_ENABLE_MASK; /* Enable all fiber port data to GTP */
+<   for(id=0; id<nSSP; id++)
+<     {
+<       sspSetMode(sspSlot(id),iFlag,0);
+<       /* Direct SSP Internal "Trigger 0" to LVDS0 Output on Front Panel */
+<       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT0, SD_SRC_SEL_TRIGGER0); /* HPS Trigger = */
+<       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT1, SD_SRC_SEL_TRIGGER1); /* HPS Trigger = */
+<       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT2, SD_SRC_SEL_TRIGGER2); /* HPS Trigger = */
+<       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT3, SD_SRC_SEL_TRIGGER3); /* HPS Trigger = */
+<       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT4, SD_SRC_SEL_TRIGGER4); /* HPS Trigger = */
+< 
+<       /* SSP Trigger Configuration - NEEDS TO BE MOVED/LOADED BY CONFIG FILE */
+<       sspHps_SetLatency(sspSlot(id), 500);	/* 500 = 2us L1 trigger decision latency */
+<       sspHps_SetSinglesEnableTop(sspSlot(id), 1);
+<       sspHps_SetSinglesEnableBot(sspSlot(id), 1);
+<       sspHps_SetSinglesEmin(sspSlot(id), 0);
+<       sspHps_SetSinglesEmax(sspSlot(id), 8191);
+<       sspHps_SetSinglesNHitsmin(sspSlot(id), 1);
+< /*
+<       sspHps_SetPairsEnableSum(sspSlot(id), int en);
+<       sspHps_SetPairsEnableDiff(sspSlot(id), int en);
+<       sspHps_SetPairsEnableCoplanar(sspSlot(id), int en);
+<       sspHps_SetPairsEnableED(sspSlot(id), int en);
+<       sspHps_SetPairsTimeCoincidence(sspSlot(id), int ticks);
+<       sspHps_SetPairsSummax(sspSlot(id), int max);
+<       sspHps_SetPairsDiffmax(sspSlot(id), int max);
+<       sspHps_SetPairsEmin(sspSlot(id), int min);
+<       sspHps_SetPairsEmax(sspSlot(id), int max);
+<       sspHps_SetPairsNHitsmin(sspSlot(id), int min);
+<       sspHps_SetPairsCoplanarTolerance(sspSlot(id), int tol);
+<       sspHps_SetPairsEDFactor(sspSlot(id), int f);
+<       sspHps_SetPairsEDmin(sspSlot(id), int min);
+< */
+<       /* SSP Status */
+<       /*sspPrintHpsScalers(sspSlot(id));*/
+<       sspPrintHpsConfig(sspSlot(id));
+< 
+< 		/* Setup 10Hz pulser on fp trig 0, or comment out to use single cluster trigger from fadc->gtp->ssp */
+<       /* note currently for test LVDSOUT1 is going to TS input 1 */
+< /*		sspPulserSetup(sspSlot(id), 10, 0.5, 0xFFFFFFFF);
+<       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT1, SD_SRC_SEL_PULSER);
+< */
+<     }
+---
+>   /* do following after the FADC clocks have been set to P0 */
+>   /*HPS stuff
+>   ctpFiberLinkReset();
+>   ctpStatus();
+>   */
+804d852
+< /*
+808,814d855
+< */
+< 
+<   sleep(1);
+<   tiUserSyncReset(1);
+<   sleep(1); /* long sync pulse to ensure trigger pipelines are clear. only needs to be ~trigger latency long. */
+<   tiUserSyncReset(0);
+<   sleep(1);
+820c861
+<     tiSyncReset(0);
+---
+>     tiSyncReset(1);
+837a879,890
+> 
+> goto a678;
+> #ifdef TI_MASTER
+>   sspSetTriggerWidth(8000); /*7000-28us, 8000-32us, 10000-40us, 12000-48us, 16000-64us*/
+>   /*6250=25us svt runs, 6000=24us brakes SVT completely, need power recycle; 7000-chash on high rate (10kHz)*/ 
+> 
+>   sspClearEventFifo();
+>   sspSetEventPatternDelay(210); /*to place ssp trigger info into readout window*/
+>   sspPrintEventPatternDelay();
+> #endif
+> a678:
+> 
+903d955
+< 
+920a973,977
+> #ifdef USE_ADC1182
+>   /* adc1182 reset */
+>   for(jj=0; jj<nadcs; jj++) adc1182reset(jj);
+> #endif
+> 
+931c988
+<   int *jw, ind, ind2, i, ii, jj, jjj, blen, len, rlen, itdcbuf, nbytes;
+---
+>   int *jw, ind, ind2, ii, jj, jjj, blen, len, nwords, dCnt, rlen, itdcbuf, nbytes;
+939c996
+<   int nwords, njjloops;
+---
+>   int njjloops;
+942c999
+<   int dCnt, idata;
+---
+>   int idata;
+977a1035,1038
+> #ifndef VXWORKS
+> TIMERL_START;
+> #endif
+> 
+1010,1012d1070
+< 
+< 
+< 
+1017a1076,1085
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+1092,1096d1159
+<  /*->25us*/
+< #ifdef DEBUG
+<   		  printf("dCnt=%d\n",dCnt);
+<           for(jjj=0; jjj<dCnt; jjj++) printf(" [%3d]  0x%08x\n",jjj,rol->dabufp[jjj]);
+< #endif
+1098c1161,1165
+< 
+---
+>  /*->25us*/
+> 		  /*  
+>  		  printf("dCnt=%d, data: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",dCnt,
+>  		  rol->dabufp[0],rol->dabufp[1],rol->dabufp[2],rol->dabufp[3],rol->dabufp[4],rol->dabufp[5]);
+>  		  */
+1146d1212
+< 
+1149d1214
+<             for(jjj=0; jjj<len; jjj++) printf(" [%3d]  0x%08x\n",jjj,tdcbuf[(dCnt-len)+jjj]);
+1203a1269,1293
+> #endif /*FADC250 */
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> #ifdef USE_ADC1182
+> 
+>     /* wait for all ADCs to finish conversion */
+>     for(ii=0; ii<nadcs; ii++) while( adc1182cip(ii) );
+>     dCnt = 0;
+>     for(ii=0; ii<nadcs; ii++)
+>     {
+>       for(jj=0; jj<8; jj++)
+>       {
+>         tdcbuf[dCnt++] = adc1182read(ii, jj);
+>       }
+> 	}
+>     for(jj=0; jj<dCnt; jj++) *rol->dabufp++ = tdcbuf[jj];
+> 
+>     /* reset all ADC boards */
+>     for(ii=0; ii<nadcs; ii++) adc1182reset(ii);
+> 
+1205a1296,1298
+> #ifndef VXWORKS
+> TIMERL_STOP(1000,0);
+> #endif

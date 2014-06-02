@@ -1,0 +1,85 @@
+//-----------------------------------------------------------------------------
+// Copyright (c) 1994,1995 Southeastern Universities Research Association,
+//                         Continuous Electron Beam Accelerator Facility
+//
+// This software was developed under a United States Government license
+// described in the NOTICE file included as part of this distribution.
+//
+// CEBAF Data Acquisition Group, 12000 Jefferson Ave., Newport News, VA 23606
+//       coda@cebaf.gov  Tel: (804) 249-7030     Fax: (804) 249-5800
+//-----------------------------------------------------------------------------
+//
+// Description:
+//      RunControl RunConfig Dialog Class
+//
+// Sergey: copied from rcRunTypeDialog.h and modified
+//
+
+#ifndef _RC_RUN_CONFIG_DIALOG_H
+#define _RC_RUN_CONFIG_DIALOG_H
+
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+
+#include <rcClientHandler.h>
+#include <XcodaFormDialog.h>
+
+class rcRunConfigOption;
+class XcodaErrorDialog;
+
+class rcRunConfigDialog: public XcodaFormDialog
+{
+public:
+  // constructor and destructor
+  rcRunConfigDialog (Widget parent,
+		   char* name,
+		   char* title,
+		   rcClientHandler& handler);
+  virtual ~rcRunConfigDialog (void);
+
+  // start monitoring runConfig of runControl server
+  // this will be called by runPanel manage routine
+  void startMonitoringRunConfigs (void);
+  void endMonitoringRunConfigs   (void);
+
+  // dialog send out configure command
+  void configure (void);
+
+  // redefine popup function
+  void popup (void);
+
+  // class name
+  virtual const char* className (void) const {return "rcRunConfigDialog";}
+
+protected:
+  // implementation of this class required by super class of XcodaFormDialog
+  void createFormChildren (void);
+
+  // report error message
+  void reportErrorMsg (char *msg);
+
+  // push button callbacks
+  static void okCallback (Widget, XtPointer data, XmAnyCallbackStruct *);
+  static void cancelCallback (Widget, XtPointer data, XmAnyCallbackStruct *);
+
+  // send configure command to the server callback
+  static void configureCallback (int status, void* arg, daqNetData* data);
+
+private:
+  // network handler
+  rcClientHandler& netHandler_;
+  // option menu
+  rcRunConfigOption* option_;
+  // widget of pushbuttons
+  // error dialog
+  XcodaErrorDialog* errDialog_;
+  // push button widgets
+  Widget ok_;
+  Widget cancel_;
+
+  /*sergey*/
+  Widget filedialog;
+
+};
+#endif

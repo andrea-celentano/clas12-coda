@@ -1,0 +1,87 @@
+hi/file 66 sectorhist.his
+*
+opt stat
+*opt fit 1111111
+*
+***set stat 1111111
+meta 10 -111
+*
+*
+* reference
+zone 1 1
+hi/pl 12(50.:150.)
+wait
+*
+*
+* raw tdc, slot 3
+zone 4 4
+DO ID1 = 0,1
+DO ID2 = 0,15
+  IDN = 3000000 + 3000 + [ID1]*16 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+* raw tdc, slot 16
+zone 4 4
+DO ID1 = 0,3
+DO ID2 = 0,15
+  IDN = 500 + [ID1]*16 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+*
+*
+zone 1 6
+DO ID1 = 1,2
+DO ID2 = 1,6
+  IDN = 12200 + [ID1]*100 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+DO ID2 = 7,12
+  IDN = 12200 + [ID1]*100 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+DO ID2 = 13,18
+  IDN = 12200 + [ID1]*100 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+DO ID2 = 19,24
+  IDN = 12200 + [ID1]*100 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+*
+*
+zone 1 6
+DO ID2 = 1,6
+  IDN = 14500 + [ID2]
+  hi/pl [IDN](-50.:50.)
+ENDDO
+wait
+DO ID2 = 7,12
+  IDN = 14500 + [ID2]
+  hi/pl [IDN](-50.:50.)
+ENDDO
+wait
+DO ID2 = 13,18
+  IDN = 14500 + [ID2]
+  hi/pl [IDN](-50.:50.)
+ENDDO
+wait
+DO ID2 = 19,24
+  IDN = 14500 + [ID2]
+  hi/pl [IDN](-50.:50.)
+ENDDO
+wait
+*
+*close 66
+*

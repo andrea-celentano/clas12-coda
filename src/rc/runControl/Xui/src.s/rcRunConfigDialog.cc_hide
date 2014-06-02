@@ -1,0 +1,358 @@
+//-----------------------------------------------------------------------------
+// Copyright (c) 1994,1995 Southeastern Universities Research Association,
+//                         Continuous Electron Beam Accelerator Facility
+//
+// This software was developed under a United States Government license
+// described in the NOTICE file included as part of this distribution.
+//
+// CEBAF Data Acquisition Group, 12000 Jefferson Ave., Newport News, VA 23606
+//       coda@cebaf.gov  Tel: (804) 249-7030     Fax: (804) 249-5800
+//-----------------------------------------------------------------------------
+//
+// Description:
+//      Implementation of run config dialog
+//
+// Sergey: copied from rcRunTypeDialog.cc and modified
+//
+
+#include <stdio.h>
+
+#include <Xm/Form.h>
+#include <Xm/PushBG.h>
+#include <Xm/FileSB.h>
+#include <Xm/DialogS.h>
+
+#include <rcDbaseHandler.h>
+/*#include <rcRunConfigOption.h>*/
+#include <XcodaErrorDialog.h>
+#ifdef USE_CREG
+#include <codaRegistry.h>
+#endif
+#include "rcRunConfigDialog.h"
+#include "rcXpmComdButton.h"
+
+
+
+
+/*
+
+void
+destroy_dialog (Widget dialog, XtPointer client_data, XtPointer call_data)
+{
+    XtDestroyWidget (XtParent (dialog));
+}
+
+
+
+int
+is_writable (char *file)
+{
+  struct stat s_buf;
+
+  if (stat (file, &s_buf) == -1)
+    return -1;
+  else if ((s_buf.st_mode & S_IFMT) == S_IFDIR)
+    return 0;
+  else if (!(s_buf.st_mode & S_IFREG) || access (file, W_OK) == -1)
+
+    return -1;
+
+  return 1;
+}
+
+void
+new_file_cb (Widget widget, XtPointer client_data, XtPointer call_data)
+{
+  char *file;
+
+  XmFileSelectionBoxCallbackStruct *cbs = (XmFileSelectionBoxCallbackStruct *) call_data;
+
+
+  if (!(file = (char *) XmStringUnparse (cbs->value,
+                                         XmFONTLIST_DEFAULT_TAG,
+                                         XmCHARSET_TEXT,
+                                         XmCHARSET_TEXT,
+                                         NULL, 0, XmOUTPUT_ALL)))
+      return;
+  if (*file != '/')
+  {
+    char *dir, *newfile; 
+    if (dir = (char *)XmStringUnparse (cbs->dir,
+                                   XmFONTLIST_DEFAULT_TAG,
+                                   XmCHARSET_TEXT,
+                                   XmCHARSET_TEXT,
+                                   NULL, 0, XmOUTPUT_ALL))
+    {
+      newfile = XtMalloc (strlen (dir) + 1 + strlen (file) + 1);
+      sprintf (newfile, "%s/%s", dir, file);
+      XtFree (file);
+      XtFree (dir);
+      file = newfile;
+    }
+  }
+  switch (is_writable (file))
+  {
+    case 1:
+      {
+        printf("Selected file >%s< will go to the database\n",file);
+
+
+		printf("1\n");
+        rcDbaseHandler* handler = rcDbaseHandler::dbaseHandler ();
+
+        handler->connect("clondb1");
+        handler->database("daq_clasdev");
+
+		printf("2\n");
+        handler->updateConfigFileName(file);
+		printf("3\n");
+
+        handler->close();
+
+
+        break;
+	  }
+    case 0:
+      {
+ 
+        XmString str = XmStringCreateLocalized (file);
+        XmFileSelectionDoSearch (widget, str);
+        XmStringFree (str);
+        break;
+      }
+    case -1:
+
+      perror (file);
+  }
+  XtFree (file);
+}
+
+void
+do_search (Widget widget,
+                XtPointer search_data, XtPointer call_data)
+{
+    char          *mask, buf[BUFSIZ], *p;
+    XmString       names[256];
+    int            i = 0;
+    FILE          *pp;
+
+    XmFileSelectionBoxCallbackStruct *cbs = (XmFileSelectionBoxCallbackStruct 
+                                             *) search_data;
+    if (!(mask = (char *) XmStringUnparse (cbs->mask,
+                                           XmFONTLIST_DEFAULT_TAG,
+                                           XmCHARSET_TEXT,
+                                           XmCHARSET_TEXT,
+                                           NULL, 0, XmOUTPUT_ALL)))
+        return; 
+    sprintf (buf, "/bin/ls %s", mask);
+    XtFree (mask);
+
+    if (!(pp = popen (buf,"r")))
+        return;
+ 
+    while (fgets (buf, sizeof buf, pp)) {
+        if (p = index (buf, '\n'))
+            *p = 0;
+
+        if (is_writable (buf) == 1 && 
+            (names[i] = XmStringCreateLocalized (buf))) i++; 
+    }
+    pclose (pp); 
+    if (i) {
+        XtVaSetValues (widget,
+                       XmNfileListItems, names,
+                       XmNfileListItemCount, i,
+                       XmNdirSpec, names[0],
+                       XmNlistUpdated, True,
+                       NULL);        
+        while (i > 0)
+            XmStringFree (names[--i]);
+    } else
+        XtVaSetValues (widget,
+                       XmNfileListItems, NULL, 
+                       XmNfileListItemCount, 0,
+                       XmNlistUpdated, True,
+                       NULL);
+}
+
+*/
+
+
+
+
+
+
+
+
+
+rcRunConfigDialog::rcRunConfigDialog (Widget parent,
+				  char* name,
+				  char* title,
+				  rcClientHandler& handler)
+:XcodaFormDialog (parent, name, title), netHandler_ (handler),
+ /*option_ (0),*/ errDialog_ (0),
+ ok_ (0), cancel_ (0)
+{
+#ifdef _TRACE_OBJECTS
+  printf ("                   Create rcRunConfigDialog Class Object\n");
+#endif
+  // empty
+
+}
+
+rcRunConfigDialog::~rcRunConfigDialog (void)
+{
+#ifdef _TRACE_OBJECTS
+  printf ("                   Delete rcRunConfigDialog Class Object\n");
+#endif
+  // empty
+  // option_ and dialog_ will be destroyed by Xt destroy mechanism
+}
+
+void
+rcRunConfigDialog::createFormChildren (void)
+{
+  Arg arg[20];
+  int ac = 0;
+  ac = 0;  
+
+  XtSetValues (_w, arg, ac);
+
+  // create option menu first
+  /*
+  option_ = new rcRunConfigOption (_w, "runconfig","RunConfig:",
+				 netHandler_, this);
+  option_->init ();
+  */
+
+  /* HERE ??? */
+
+
+}
+
+void
+rcRunConfigDialog::startMonitoringRunConfigs (void)
+{
+  /*option_->startMonitoringRunConfigs ();*/
+}
+
+void
+rcRunConfigDialog::endMonitoringRunConfigs (void)
+{
+  /*option_->endMonitoringRunConfigs ();*/
+}
+
+void
+rcRunConfigDialog::configure (void)
+{
+  /*
+  if (option_->currentRunConfig () != 0) {
+    rcClient& client = netHandler_.clientHandler ();
+    daqData data ("RCS", "command", option_->currentRunConfig ());
+    if (client.sendCmdCallback (DACONFIGURE, data,
+		 (rcCallback)&(rcRunConfigDialog::configureCallback),
+		 (void *)this) != CODA_SUCCESS)
+      reportErrorMsg ("Cannot communication with the RunControl Server\n");
+  }
+  */
+}
+
+void
+rcRunConfigDialog::popup (void)
+{
+  /*
+  option_->setAllEntries ();
+  */
+
+  printf(">>>>>>>>>>>>>>>>>>>>>>>> actual popup\n");
+
+/* sergey: replace this with file chooser
+  XcodaFormDialog::popup ();
+*/
+
+
+  /*sergey: file chooser
+  if(1)
+  {
+    Widget           toplevel = _w;
+    Arg              args[5];
+    int              n = 0;
+    XtSetLanguageProc (NULL, NULL, NULL);
+
+    printf("\n\n>>>>>>>>>>>>>>>>>>>>> file chooser\n\n\n");
+
+    XtSetArg (args[n], XmNfileSearchProc, do_search); n++;
+    filedialog = XmCreateFileSelectionDialog (toplevel, "Files", args, n);
+    XtSetSensitive (XtNameToWidget (filedialog, "Help"), False);
+
+
+
+    XtAddCallback (filedialog, XmNokCallback, new_file_cb, NULL);
+
+
+
+    XtAddCallback (filedialog, XmNcancelCallback, destroy_dialog, NULL);
+
+
+
+    XtManageChild (filedialog);
+  }
+  */
+
+
+
+
+
+
+
+
+
+}
+
+void
+rcRunConfigDialog::okCallback (Widget, XtPointer data, XmAnyCallbackStruct *)
+{
+  rcRunConfigDialog* dialog = (rcRunConfigDialog *)data;
+  
+  dialog->popdown ();
+  dialog->configure ();
+
+}
+
+void
+rcRunConfigDialog::cancelCallback (Widget, XtPointer data, XmAnyCallbackStruct *)
+{
+  rcRunConfigDialog* dialog = (rcRunConfigDialog *)data;
+
+
+printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>> cancel\n");
+//filedialog->popdown ();
+//filedialog->close ();
+
+  dialog->popdown ();
+}
+
+void
+rcRunConfigDialog::reportErrorMsg (char* error)
+{
+  if (!errDialog_) {
+    errDialog_ = new XcodaErrorDialog (_w,"runConfigError","Configuration Error");
+    errDialog_->init ();
+  }
+  if (errDialog_->isMapped ())
+    errDialog_->popdown ();
+  errDialog_->setMessage (error);
+  errDialog_->popup ();
+}
+
+void
+rcRunConfigDialog::configureCallback (int status, void* arg, daqNetData* data)
+{
+  rcRunConfigDialog* obj = (rcRunConfigDialog *)arg;
+
+  if (status != CODA_SUCCESS)
+    obj->reportErrorMsg ("Configuring a run failed !!!");
+}
+
+
+

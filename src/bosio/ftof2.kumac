@@ -1,0 +1,91 @@
+hi/file 66 sectorhist.his
+*
+opt stat
+*opt fit 1111111
+*
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+* ADC pulses
+*
+zone 4 4
+DO ID1 = 3,10
+DO ID2 = 0,15
+  IDN = 11100000 + [ID1]*1000 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+zone 4 4
+DO ID1 = 13,16
+DO ID2 = 0,15
+  IDN = 11100000 + [ID1]*1000 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+* ADC pedestals
+*
+zone 4 4
+DO ID1 = 3,10
+DO ID2 = 0,15
+  IDN = 21100000 + [ID1]*1000 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+zone 4 4
+DO ID1 = 13,16
+DO ID2 = 0,15
+  IDN = 21100000 + [ID1]*1000 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+* ADC spectra
+*
+zone 4 4
+DO ID1 = 3,10
+DO ID2 = 0,15
+  IDN = 31100000 + [ID1]*1000 + [ID2]
+  hi/pl [IDN](10.:8000.)
+ENDDO
+wait
+ENDDO
+*
+zone 4 4
+DO ID1 = 13,16
+DO ID2 = 0,15
+  IDN = 31100000 + [ID1]*1000 + [ID2]
+  hi/pl [IDN](10.:8000.)
+ENDDO
+wait
+ENDDO
+*
+* TDC spectra
+*
+zone 4 4
+DO ID1 = 3,9,3
+DO ID2 = 0,15
+  IDN = 1200000 + [ID1]*1000 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+zone 4 4
+DO ID1 = 13,16,3
+DO ID2 = 0,15
+  IDN = 1200000 + [ID1]*1000 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+*close 66

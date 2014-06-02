@@ -1,0 +1,17 @@
+*** Begin of history file: Tue Nov  5 14:39:55 2013
+hi/file 66 ecal3_1.rzn 8192
+hi/file 66 ecal4_1.rzn 8192
+hi/file 67 ecal4_1.rzn
+hi/file 67 ecal3_1.rzn
+hi/file 67 ecal3_1.rzh
+hi/file 67 ecal4_1.rzh
+hi/li
+ldir
+hi/pl 0
+ldir
+cd ecpc
+cd //paw
+cd paw
+hi/li
+exit
+*** End   of history file: Tue Nov  5 14:42:13 2013
