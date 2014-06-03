@@ -76,22 +76,49 @@ cleanvxworks:
 	- cd dac;                            $(MAKE) clean   VXWORKS
 	- cd rol;                            $(MAKE) clean   VXWORKS
 
+#with cross-compiling
+#arm:
+#	cd mysql4.1.20;                      make all     ARM
+#	- cd mysql4.1.20;                    make install ARM
+#	- cd codatt;                         make all     ARM
+#	- cd codatt;                         make install ARM
+#	- cd dac;                            make all     ARM
+#	- cd dac;                            make install ARM
+#	- cd rol;                            make all     ARM
+#	- cd rol;                            make rols    ARM
+#	- cd rol;                            make install ARM
+#
+#cleanarm:
+#	cd mysql4.1.20;                      make clean   ARM
+#	- cd codatt;                         make clean   ARM
+#	- cd dac;                            make clean   ARM
+#	- cd rol;                            make clean   ARM
+
 arm:
-	cd mysql4.1.20;                      $(MAKE) all     ARM
-	- cd mysql4.1.20;                    $(MAKE) install ARM
-	- cd codatt;                         $(MAKE) all     ARM
-	- cd codatt;                         $(MAKE) install ARM
-	- cd dac;                            $(MAKE) all     ARM
-	- cd dac;                            $(MAKE) install ARM
-	- cd rol;                            $(MAKE) all     ARM
-	- cd rol;                            $(MAKE) rols    ARM
-	- cd rol;                            $(MAKE) install ARM
+	cd mysql4.1.20;                      make
+	- cd mysql4.1.20;                    make install 
+	- cd evio-4.0;                       make
+	- cd evio-4.0;                       make install
+	- cd et-12.0;                        make
+	- cd et-12.0;                        make ulib
+	- cd et-12.0;                        make install
+	- cd codatt;                         make lib
+	- cd codatt;                         make shlib
+	- cd codatt;                         make install 
+	- cd dac;                            make     
+	- cd dac;                            make install 
+	- cd rol;                            make     
+	- cd rol;                            make install 
+	- cd rol;                            make rols    
+	- cd rol;                            make install 
 
 cleanarm:
-	cd mysql4.1.20;                      $(MAKE) clean   ARM
-	- cd codatt;                         $(MAKE) clean   ARM
-	- cd dac;                            $(MAKE) clean   ARM
-	- cd rol;                            $(MAKE) clean   ARM
+	cd mysql4.1.20;                      make clean   
+	- cd evio-4.0;                       make clean
+	- cd et-12.0;                        make clean
+	- cd codatt;                         make clean   
+	- cd dac;                            make clean   
+	- cd rol;                            make clean   
 
 nios:
 	cd mysql4.1.20;                      $(MAKE) all     NIOS
