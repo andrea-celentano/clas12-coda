@@ -378,16 +378,16 @@ __download()
   /*************************************/
   /* redefine TI settings if neseccary */
 
+  /* tiInit() does nothing for busy, tiConfig() sets fiber, we set the rest */
 #ifdef TI_MASTER
-  tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1);
+  tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,0);
 #else
-  tiSetBusySource(TI_BUSY_SWB,1);
+  tiSetBusySource(TI_BUSY_SWB,0);
 #endif
 
   /* for timing measurements in FADC250s */
   tiSetTriggerHoldoff(1,5,0);   /* No more than 1 trigger within 80 ns */
   tiSetTriggerHoldoff(4,41,0);  /* No more than 4 triggers within 656 ns */
-tiSetBlockBufferLevel(1);
 
   /* Allow set/clear control of sync reset - for s/w pulse control */
   tiSetUserSyncResetReceive(1);
