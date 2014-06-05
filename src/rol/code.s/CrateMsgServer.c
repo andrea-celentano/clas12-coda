@@ -1,5 +1,5 @@
 
-#ifdef Linux_nios2
+#ifdef Linux_vme
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>

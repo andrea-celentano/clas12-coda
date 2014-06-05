@@ -27,6 +27,20 @@ if {[string match "*tsconnect*" $argv]} {
   send \r
 }
 
+
+
+
+if {[string match "*DiagGuiServer*" $argv]} {
+  set roc [lindex [split [lindex [split [lindex [split $argv] 1] '"'] 1] '\}'] 0]
+  send "ssh $roc \r"
+  send \r
+  expect "$roc"
+  send \r
+}
+
+
+
+
 set str ""
 foreach copm $argv { set str "$str $copm" }
 send \r

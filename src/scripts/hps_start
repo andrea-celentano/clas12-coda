@@ -28,7 +28,8 @@ set XT1_t = "-T CRATE_hps1"
 set XT2_t = "-T CRATE_hps2"
 set XT3_t = "-T CRATE_hps1gtp"
 set XT4_t = "-T CRATE_hps2gtp"
-###set XT3_t = "-T CRATE_hpstracker"
+set XT5_t = "-T CRATE_hps1server"
+set XT6_t = "-T CRATE_hps2server"
 
 set ET   = daq_comp.tcl
 set EB   = daq_comp.tcl
@@ -44,7 +45,8 @@ set XT1_comp  = 'coda_roc_gef -s clashps -o "hps1 TS" '
 set XT2_comp  = 'coda_roc_gef -s clashps -o "hps2 ROC" '
 set XT3_comp  = 'coda_roc -s clashps -o "hps1gtp ROC" '
 set XT4_comp  = 'coda_roc -s clashps -o "hps2gtp ROC" '
-###set XT3_comp  = 'coda_roc -s clashps -o "hpstracker ROC" '
+set XT5_comp  = 'DiagGuiServer "hps1" '
+set XT6_comp  = 'DiagGuiServer "hps2" '
 
 
 echo ""
@@ -88,11 +90,18 @@ set geom  = "-geometry 70x12+$xpos+"
 set color = "-sb -sl 5000 -bg lightgreen -fg black"
 set tmp   = `xterm $XT4_t $color $geom$ypos -e $XT $XT4_comp >& /dev/null &`
 
-###echo " Start connection to CRATE_hpstracker"
-###set ypos  = `expr $ypos + $yinc + 60`
-###set geom  = "-geometry 70x12+$xpos+"
-###set color = "-sb -sl 5000 -bg lightgreen -fg black"
-###set tmp   = `xterm $XT3_t $color $geom$ypos -e $XT $XT3_comp >& /dev/null &`
+echo " Start connection to CRATE_hps1server"
+set ypos  = `expr $ypos + $yinc + 60`
+set geom  = "-geometry 70x12+$xpos+"
+set color = "-sb -sl 5000 -bg lightgreen -fg black"
+set tmp   = `xterm $XT5_t $color $geom$ypos -e $XT $XT5_comp >& /dev/null &`
+
+echo " Start connection to CRATE_hps2server"
+set ypos  = `expr $ypos + $yinc + 60`
+set geom  = "-geometry 70x12+$xpos+"
+set color = "-sb -sl 5000 -bg lightgreen -fg black"
+set tmp   = `xterm $XT6_t $color $geom$ypos -e $XT $XT6_comp >& /dev/null &`
+
 
 echo ""
 echo " hps_start done"

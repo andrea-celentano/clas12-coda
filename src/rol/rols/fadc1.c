@@ -387,9 +387,11 @@ __download()
   printf("\n>>>>>>>>>>>>>>> ROCID=%d, CLASSID=%d <<<<<<<<<<<<<<<<\n",rol->pid,rol->classid);
   printf("CONFFILE >%s<\n\n",rol->confFile);
 
+  /*
   printf("rol1: downloading DDL table ...\n");
   clonbanks_();
   printf("rol1: ... done.\n");
+  */
 
   /**/
   CTRIGINIT;
@@ -408,9 +410,9 @@ __download()
 
 
 #ifdef TI_MASTER
-  tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1);
+  tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,0);
 #else
-  tiSetBusySource(TI_BUSY_SWB,1);
+  tiSetBusySource(TI_BUSY_SWB,0);
 #endif
 
   /* for timing measurements in FADC250s */

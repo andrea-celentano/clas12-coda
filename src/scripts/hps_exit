@@ -26,6 +26,12 @@ ssh -n hps2gtp kill -9 $aaa
 set aaa = `ssh -n hps1 ps -ef | grep coda_roc | awk '{print $2}'`
 ssh -n hps1 kill -9 $aaa
 
+set aaa = `ssh -n hps1 ps -ef | grep DiagGuiServer | awk '{print $2}'`
+ssh -n hps1 kill -9 $aaa
+
+set aaa = `ssh -n hps2 ps -ef | grep DiagGuiServer | awk '{print $2}'`
+ssh -n hps1 kill -9 $aaa
+
 ###stop_proc -n hpstracker1 -p coda_roc_gef -match "clashps" -s 0
 ##stop_proc -n hps2 -p coda_roc_gef -match "clashps" -s 0
 ##stop_proc -n hps1gtp -p coda_roc -match "clashps" -s 0
@@ -74,8 +80,12 @@ echo "                 CRATE_hps1 done"
 stop_proc -n hps1 -p xterm -match "CRATE_hps2" -s 0
 echo "                 CRATE_hps2 done"
 
-###stop_proc -n hps1 -p xterm -match "CRATE_hpstracker" -s 0
-###echo "                 CRATE_hpstracker done"
+stop_proc -n hps1 -p xterm -match "CRATE_hps1server" -s 0
+echo "                 CRATE_hps1 done"
+
+stop_proc -n hps1 -p xterm -match "CRATE_hps2server" -s 0
+echo "                 CRATE_hps2 done"
+
 
 
 echo ""

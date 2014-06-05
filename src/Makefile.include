@@ -514,8 +514,8 @@ endif
 #==== ARM ====
 #=============
 
-#ifeq ("$(OSTYPE)","ARM")
-ifeq ("$(MACHINE)","armv7l")
+ifeq ("$(OSTYPE)","ARM")
+#ifeq ("$(MACHINE)","armv7l")
 
 CROSSPATH = /apps/Xilinx/SDK/2013.2/gnu/arm/lin/bin
 CROSSCOMPILER = arm-xilinx-linux-gnueabi-
