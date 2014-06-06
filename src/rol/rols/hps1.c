@@ -379,11 +379,12 @@ __download()
   /* redefine TI settings if neseccary */
 
   /* tiInit() does nothing for busy, tiConfig() sets fiber, we set the rest */
-#ifdef TI_MASTER
-  tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,0);
-#else
-  tiSetBusySource(TI_BUSY_SWB,0);
+#ifndef TI_SLAVE
+  tiSetBusySource(TI_BUSY_LOOPBACK,0);
 #endif
+  tiSetBusySource(TI_BUSY_SWB,0);
+
+
 
   /* for timing measurements in FADC250s */
   tiSetTriggerHoldoff(1,5,0);   /* No more than 1 trigger within 80 ns */
