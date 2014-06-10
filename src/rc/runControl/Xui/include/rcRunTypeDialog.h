@@ -84,6 +84,7 @@ protected:
 
 
   /*sergey*/
+  int parseConfigFile(char *fname);
   void updateConfFile (char *fname);
   void sendUpdateConfFile (char *fname);
   static void simpleCallback (int status, void* arg, daqNetData* data);

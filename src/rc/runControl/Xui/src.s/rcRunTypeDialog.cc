@@ -39,6 +39,8 @@
 //
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <Xm/Form.h>
 #include <Xm/PushBG.h>
@@ -219,8 +221,8 @@ void
 rcRunTypeDialog::okCallback (Widget, XtPointer data, XmAnyCallbackStruct *)
 {
   rcRunTypeDialog* dialog = (rcRunTypeDialog *)data;
-  char fname[256], *fn;  
-  int len;
+  char fname[256], *fn, *ptr;
+  int len, ret;
 
 #ifdef _CODA_DEBUG
   printf("rcRunTypeDialog::okCallback\n");fflush(stdout);
@@ -255,6 +257,30 @@ rcRunTypeDialog::okCallback (Widget, XtPointer data, XmAnyCallbackStruct *)
 #ifdef _CODA_DEBUG
   printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> FILE1 >%s<\n",fname);
 #endif
+
+
+  /* resolve INCLUDE statements in the file */
+  if( (ret=dialog->parseConfigFile(fname)) < 0 )
+  {
+    printf("ERROR in parseRunConfigFile: ret=%d\n",ret);
+    strcpy(fname,"none");
+  }
+  else /* change extension from 'trg' to 'cnf' */
+  {
+    ptr = strrchr(fname,'.');
+    if(ptr != NULL)
+    {
+      *ptr = '\0';
+      strcat(fname,".cnf");
+    }
+    else
+    {
+      printf("ERROR: there is no '.' in file name >%s<\n",fname);
+      strcpy(fname,"none");
+    }
+  }
+
+
   
   /*update database*/
   /*dialog->sendUpdateConfFile(fname);*/ /* does nothing !!! */
@@ -262,6 +288,151 @@ rcRunTypeDialog::okCallback (Widget, XtPointer data, XmAnyCallbackStruct *)
 
   dialog->popdown ();
   dialog->configure (); /*sergey: triggers rcServer activity*/
+}
+
+
+
+
+#define STRLEN 256
+
+/* parse run config file *.trg resolving 'include' etc, and create new file in the same directory
+with name <fname>.cnf; 'fname' assumed to be full path name */
+int
+rcRunTypeDialog::parseConfigFile(char *fname)
+{
+  FILE *fin, *fout, *fd;
+  char fnameout[STRLEN];
+  char filename[STRLEN], filename_full[STRLEN];
+  char str_tmp[STRLEN];
+  char keyword[STRLEN];
+  char *clonparms;
+  char *expid;
+  char *ch, *ptr;
+
+  clonparms = getenv("CLON_PARMS");
+
+  if((fin=fopen(fname,"r")) == NULL)
+  {
+    printf("\ncodaParseRunConfigFile: Can't open input run config file >%s<\n",fname);
+    return(-1);
+  }
+
+  strcpy(fnameout,fname);
+  ptr = strrchr(fnameout,'.');
+  if(ptr != NULL)
+  {
+    *ptr = '\0';
+    strcat(fnameout,".cnf");
+  }
+  else
+  {
+    printf("ERROR: there is no '.' in file name >%s<\n",fnameout);
+    return(-1);
+  }
+
+  if((fout=fopen(fnameout,"w")) == NULL)
+  {
+    printf("\ncodaParseRunConfigFile: Can't open output run config file >%s<\n",fnameout);
+    return(-2);
+  }
+
+  printf("\ncodaParseRunConfigFile: parsing run config file >%s<\n",fname);
+  printf("\ncodaParseRunConfigFile: writing run config file >%s<\n",fnameout);
+
+
+  while ((ch = fgets(str_tmp, STRLEN, fin)) != NULL)
+  {
+    sscanf (str_tmp, "%s %s", keyword, filename);
+
+	/*
+    printf("keyword >%s<\n",keyword);
+	*/
+
+    /* Start parsing real config inputs */
+    if(strcmp(keyword,"include")==0 || strcmp(keyword,"INCLUDE")==0)
+    {
+
+      if(strlen(filename)!=0) /* filename specified */
+      {
+        if ( filename[0]=='/' || (filename[0]=='.' && filename[1]=='/') )
+	    {
+          sprintf(filename_full, "%s", filename);
+	    }
+        else
+	    {
+          sprintf(filename_full, "%s/%s", clonparms, filename);
+	    }
+
+        if((fd=fopen(filename_full,"r")) == NULL)
+        {
+          printf("\nReadConfigFile: Can't open config file >%s<\n",filename_full);
+          return(-1);
+        }
+        else
+		{
+          printf("\nReadConfigFile: including config file >%s<\n",filename_full);
+	    }
+
+
+        /* write 'include statement commenting it out */
+        strcpy(str_tmp,"\n# ");
+        strcat(str_tmp,keyword);
+        strcat(str_tmp," ");
+        strcat(str_tmp,filename);
+        strcat(str_tmp,"\n\n");
+        if( fputs(str_tmp, fout) == EOF)
+	    {
+          printf("ERROR writing %s\n",fnameout);
+          return(-3);
+	    }
+        /*else
+	    {
+          printf("Write >%s<\n",str_tmp);
+		}*/
+
+        /* open and copy included file contents */
+        while ((ch = fgets(str_tmp, STRLEN, fd)) != NULL)
+		{
+          if( fputs(str_tmp, fout) == EOF)
+	      {
+            printf("ERROR writing %s\n",fnameout);
+            return(-3);
+	      }
+          /*else
+	      {
+            printf("Write >%s<\n",str_tmp);
+		  }*/
+		}
+
+		fclose(fd);
+
+      }
+      else
+	  {
+        printf("ERROR included file is not specified\n");
+        return(-4);
+	  }
+
+    }
+    else /* just copy string 'as is' */
+	{
+      if( fputs(str_tmp, fout) == EOF)
+	  {
+        printf("ERROR writing %s\n",fnameout);
+        return(-3);
+	  }
+      /*else
+	  {
+        printf("Write >%s<\n",str_tmp);
+	  }*/
+    }
+
+
+  } /* end of while */
+
+  fclose(fin);
+  fclose(fout);
+
 }
 
 

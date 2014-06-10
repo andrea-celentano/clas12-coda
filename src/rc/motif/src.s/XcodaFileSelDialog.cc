@@ -85,7 +85,7 @@ XcodaFileSelDialog::init()
 
 	/*sergey: set starting directory*/
     char str[256];
-    sprintf(str,"%s/trigger/",getenv("CLON_PARMS"));
+    sprintf(str,"%s/trigger/*.trg",getenv("CLON_PARMS"));
 printf("XcodaFileSelDialog::init: use starting directory >%s<\n",str);
     XmString xms = XmStringCreateLocalized(str);
     XtVaSetValues( _w, XmNdirMask, xms, NULL );
@@ -155,6 +155,7 @@ void XcodaFileSelDialog::ok()
     file_status = NOTFOUND; 
     return;
   }
+
   if (*file != '/')
   {
     // if it is not a directory, determine the full pathname 
@@ -178,6 +179,7 @@ void XcodaFileSelDialog::ok()
     strcpy(_filename, file);
     XtFree (file);
   }
+
   switch(status(_filename))
   {
     case 1:
@@ -196,6 +198,7 @@ void XcodaFileSelDialog::ok()
       file_status = NOTFOUND;
       break;
   }
+
   if(!checkFile())
   {
     char temp[100];
