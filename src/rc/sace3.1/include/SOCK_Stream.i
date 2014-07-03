@@ -26,7 +26,7 @@ SOCK_Stream::close_writer (void)
 #ifdef Darwin
 inline ssize_t
 #else
-inline int
+inline ssize_t /*was int - Sergey */
 #endif
 SOCK_Stream::recv_n (void *buf, int buf_size, int flags) const
 {
@@ -48,7 +48,7 @@ SOCK_Stream::send_n (const void *buf, int buf_size, int flags) const
 #ifdef Darwin
 inline ssize_t
 #else
-inline int
+inline /*int*/ssize_t
 #endif
 SOCK_Stream::recv_n (void *buf, int buf_size) const
 {

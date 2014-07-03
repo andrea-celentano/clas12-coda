@@ -57,6 +57,17 @@ static void codaSplitBuffer (char **s, char *buffer, int count, int& size)
   }
 }
   
+#ifdef Linux_x86_64
+daqNetData::daqNetData (char* compname, char* attrname, int data)
+:type_ (CODA_INT), count_ (1)
+{
+#ifdef _TRACE_OBJECTS
+  printf ("Create daqNetData Class Object\n");
+#endif
+  ctrNameAndAttr (compname, attrname);
+  u_.ival = data;
+}
+#endif
 
 daqNetData::daqNetData (char* compname, char* attrname, int data)
 :type_ (CODA_INT), count_ (1)

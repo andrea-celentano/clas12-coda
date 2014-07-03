@@ -222,6 +222,15 @@ public:
 				pHistLatency[1]->SetBinContent(i, buf[i]);
 		}
 
+		double max = (pHistLatency[0]->GetMaximum() > pHistLatency[1]->GetMaximum()) ?
+		              pHistLatency[0]->GetMaximum() : pHistLatency[1]->GetMaximum();
+
+		pHistLatency[0]->GetYaxis()->SetRangeUser(0.0, max);
+		pHistLatency[1]->GetYaxis()->SetRangeUser(0.0, max);
+
+		pHistLatency[0]->GetYaxis()->UnZoom();
+		pHistLatency[1]->GetYaxis()->UnZoom();
+
 		pCanvas->GetCanvas()->Modified();
 		pCanvas->GetCanvas()->Update();
 	}
@@ -280,6 +289,15 @@ public:
 				pHistEnergy[1]->SetBinContent(i, buf[i]);
 		}
 
+		double max = (pHistEnergy[0]->GetMaximum() > pHistEnergy[1]->GetMaximum()) ?
+		              pHistEnergy[0]->GetMaximum() : pHistEnergy[1]->GetMaximum();
+
+		pHistEnergy[0]->GetYaxis()->SetRangeUser(0.0, max);
+		pHistEnergy[1]->GetYaxis()->SetRangeUser(0.0, max);
+
+		pHistEnergy[0]->GetYaxis()->UnZoom();
+		pHistEnergy[1]->GetYaxis()->UnZoom();
+
 		pCanvas->GetCanvas()->Modified();
 		pCanvas->GetCanvas()->Update();
 	}
@@ -307,6 +325,15 @@ public:
 			else
 				pHistNHits[1]->SetBinContent(i, buf[i]);
 		}
+
+		double max = (pHistNHits[0]->GetMaximum() > pHistNHits[1]->GetMaximum()) ?
+		              pHistNHits[0]->GetMaximum() : pHistNHits[1]->GetMaximum();
+
+		pHistNHits[0]->GetYaxis()->SetRangeUser(0.0, max);
+		pHistNHits[1]->GetYaxis()->SetRangeUser(0.0, max);
+
+		pHistNHits[0]->GetYaxis()->UnZoom();
+		pHistNHits[1]->GetYaxis()->UnZoom();
 
 		pCanvas->GetCanvas()->Modified();
 		pCanvas->GetCanvas()->Update();

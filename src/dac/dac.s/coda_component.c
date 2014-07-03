@@ -740,12 +740,14 @@ printf("\n\ncoda_constructor reached\n");fflush(stdout);
   strcpy (localobject->name, ObjectsName);
   printf("object->name >%s<\n",localobject->name);
 
+  localobject->state = (char *) calloc(81,1);
+
   localobject->className = ObjectsClass;
   printf("object->className >%s<\n",localobject->className);
 
   localobject->codaid = 0;
 
-  printf("CODA %s,Name : %s, Type %s Id : %d\x1b[0m\n",
+  printf("\nCODA version >%s<, Name >%s<, Type >%s<, Id %d\n\n",
 	 VERSION,
 	 localobject->name,
 	 localobject->className,
@@ -845,16 +847,19 @@ CODA_Init(int argc, char **argv)
   i = 1;
   while(i<argc)
   {
-    if(strncasecmp(argv[i],"-h",2)==0) {
+    if(strncasecmp(argv[i],"-h",2)==0)
+    {
       printf("%s",help);
       exit(0);
     }
-    else if (strncasecmp(argv[i],"-session",2)==0) {
+    else if (strncasecmp(argv[i],"-session",2)==0)
+    {
       strcpy(Session,argv[i+1]);
       session = Session;
       i=i+2;
     }
-    else if (strncasecmp(argv[i],"-objects",2)==0) {
+    else if (strncasecmp(argv[i],"-objects",2)==0)
+    {
 	  strcpy(Objects,argv[i+1]);
 
 
@@ -895,13 +900,17 @@ CODA_Init(int argc, char **argv)
       objects = Objects;
       i=i+2;
     }
-    else if (strncasecmp(argv[i],"-mysql_host",2)==0) {
+    else if (strncasecmp(argv[i],"-mysql_host",2)==0)
+    {
       strcpy(Mysql_host,argv[i+1]);
       mysql_host = Mysql_host;
       i=i+2;
     }
-    else if (strncasecmp(argv[i],"-",1)==0) {
-      printf("Unknown command line arg: %s %s\n\n",argv[i],argv[i+1]);
+    else if (strncasecmp(argv[i],"-",1)==0)
+    {
+      printf("Unknown command line arg\n\n");fflush(stdout);
+      printf("Unknown command line arg >%s< - exit\n\n",argv[i]);
+	  exit(0);
       i=i+2;
     }
   }
@@ -1814,8 +1823,11 @@ printf("codaUpdateStatus: updating request ..\n");fflush(stdout);
   UDP_standard_request(localobject->name,status);
 printf("codaUpdateStatus: updating request done\n");fflush(stdout);
 
+
   /* TODO: need also to keep status in some local variable .. */
   /*tcpState ? rocp->state ? */
+  strcpy(localobject->state,status);
+
 
   return(CODA_OK);
 }

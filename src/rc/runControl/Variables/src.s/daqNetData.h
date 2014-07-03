@@ -65,6 +65,9 @@ public:
   // construtor for an empty data
   daqNetData (void);
   // constructors for all valid data
+#ifdef Linux_x86_64
+  daqNetData (char* compname, char* attrname, int64_t data);
+#endif
   daqNetData (char* compname, char* attrname, int data);
   daqNetData (char* compname, char* attrname, float  data);
   daqNetData (char* compname, char* attrname, double data);

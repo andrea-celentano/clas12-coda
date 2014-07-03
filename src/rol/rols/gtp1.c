@@ -37,8 +37,9 @@
 void usrtrig(unsigned long, unsigned long);
 void usrtrig_done();
 
-/* test readout */
-#include "TEST_source.h"
+/* gtp readout */
+#include "GTP_source.h"
+
 
 /************************/
 /************************/
@@ -52,6 +53,48 @@ static char rcname[5];
 long decrement;
 extern long nevent;
 */
+
+
+#define TIMERL_VAR \
+  static hrtime_t startTim, stopTim, dTim; \
+  static int nTim; \
+  static hrtime_t Tim, rmsTim, minTim=10000000, maxTim, normTim=1
+
+#define TIMERL_START \
+{ \
+  startTim = gethrtime(); \
+}
+
+#define TIMERL_STOP(whentoprint_macros,histid_macros) \
+{ \
+  stopTim = gethrtime(); \
+  if(stopTim > startTim) \
+  { \
+    nTim ++; \
+    dTim = stopTim - startTim; \
+    /*if(histid_macros >= 0)   \
+    { \
+      uthfill(histi, histid_macros, (int)(dTim/normTim), 0, 1); \
+    }*/														\
+    Tim += dTim; \
+    rmsTim += dTim*dTim; \
+    minTim = minTim < dTim ? minTim : dTim; \
+    maxTim = maxTim > dTim ? maxTim : dTim; \
+    /*logMsg("good: %d %ud %ud -> %d\n",nTim,startTim,stopTim,Tim,5,6);*/ \
+    if(nTim == whentoprint_macros) \
+    { \
+      logMsg("timer: %7llu microsec (min=%7llu max=%7llu rms**2=%7llu)\n", \
+                Tim/nTim/normTim,minTim/normTim,maxTim/normTim, \
+                ABS(rmsTim/nTim-Tim*Tim/nTim/nTim)/normTim/normTim,5,6); \
+      nTim = Tim = 0; \
+    } \
+  } \
+  else \
+  { \
+    /*logMsg("bad:  %d %ud %ud -> %d\n",nTim,startTim,stopTim,Tim,5,6);*/ \
+  } \
+}
+
 
 static void
 __download()
@@ -69,14 +112,8 @@ __download()
   /* Clear some global variables etc for a clean start */
   CTRIGINIT;
 
-  /* init trig source TEST */
-  TEST_INIT;
-  /*CDOINIT(TIPRIMARY,TIR_SOURCE);*/
-
-  /* initialize Gtp and set clock source disabled until prestart */
-  gtpInit(0);
-  gtpSetClock(0);
-  gtpPayloadTriggerReset(0xFFFF);
+  /* init trig source GTP */
+  CDOINIT(GTP, 1);
 
   printf("INFO: User Download 1 Executed\n");
 
@@ -92,23 +129,25 @@ __prestart()
 
   *(rol->nevents) = 0;
 
-  /* Register a sync trigger source
-  CTRIGRSS(TEST, 1, usrtrig, usrtrig_done);
-*/
-
-  /* Register a async trigger source */
-  CTRIGRSA(TEST, 1, usrtrig, usrtrig_done);
-
-
-  /* not needed here ??? */
-  rol->poll = 1;
-
+#ifdef POLLING_MODE
+  /* Register a sync trigger source (polling mode)) */
+  CTRIGRSS(GTP, 1, usrtrig, usrtrig_done);
+  rol->poll = 1; /* not needed here ??? */
+#else
+  /* Register a async trigger source (interrupt mode) */
+  CTRIGRSA(GTP, 1, usrtrig, usrtrig_done);
+  rol->poll = 0; /* not needed here ??? */
+#endif
 
   sprintf(rcname,"RC%02d",rol->pid);
   printf("rcname >%4.4s<\n",rcname);
 
   /* set clock source to VXS */
   gtpSetClock(1);
+
+  /* reset the link to TI */
+  gtpTiGtpLinkReset();
+
   /* set sync source to VXS */
   gtpSetSync(GTP_SD_SRC_SEL_SYNC);
   /* enable payloads 3-16 for HPS running with 14 FADCs, missing 2 in middle */
@@ -138,7 +177,7 @@ __end()
 {
   int ii, total_count, rem_count;
 
-  CDODISABLE(TEST,1,0);
+  CDODISABLE(GTP,1,0);
 
   printf("INFO: User End 1 Executed\n");
 
@@ -148,7 +187,7 @@ __end()
 static void
 __pause()
 {
-  CDODISABLE(TEST,1,0);
+  CDODISABLE(GTP,1,0);
 
   printf("INFO: User Pause 1 Executed\n");
 
@@ -160,39 +199,52 @@ __go()
 {
   char *env;
 
-  printf("INFO: User Go 1 Enabling\n");
-  CDOENABLE(TEST,1,1);
-  printf("INFO: User Go 1 Enabled\n");
+  gtpTiGtpFifoReset();
+  gtpEnableInt(1);
 
-  printf("INFO: User Go 1 Executed\n");
+  printf("INFO: User Go 1 Enabling\n");
+  CDOENABLE(GTP,1,1);
+  printf("INFO: User Go 1 Enabled\n");
 
   return;
 }
+
+
+#define MAXBUFSIZE 4000
 
 void
 usrtrig(unsigned long EVTYPE, unsigned long EVSOURCE)
 {
   int len, ii;
+  unsigned int buf[MAXBUFSIZE];
+  TIMERL_VAR;
 
-  
+  /*
   usleep(1000);
-  
-
+  */
   rol->dabufp = (long *) 0;
+
+TIMERL_START;
+
+  len = gtpReadBlock(buf, MAXBUFSIZE, 0);
 
   CEOPEN(EVTYPE, BT_BANKS);
 
-  len = 20;
+  /*printf("\nlen=%d\n",len);*/
   for(ii=0; ii<len; ii++)
   {
-    *rol->dabufp++ = ii;
+    /*printf("ti[%2d] = 0x%08x\n",ii,buf[ii]);*/
+    *rol->dabufp++ = buf[ii];
   }
 
   CECLOSE;
 
+TIMERL_STOP(10000,1000+rol->pid);
+
   return;
+
 }
-  
+
 void
 usrtrig_done()
 {
@@ -204,6 +256,12 @@ __done()
 {
   /* from parser */
   poolEmpty = 0; /* global Done, Buffers have been freed */
+
+  /*printf("__done reached\n");*/
+
+
+  /* Acknowledge tir register */
+  CDOACK(GTP,1,1);
 
   return;
 }

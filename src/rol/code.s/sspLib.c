@@ -326,13 +326,17 @@ sspInit(unsigned int addr, unsigned int addr_inc, int nfind, int iFlag)
       for(issp=0; issp<nSSP; issp++)
 	{
 	  result = sspSetMode(sspSlot(issp),iFlag,0);
-	  if(result != OK)
+		if(result != OK)
+		{
 	    return ERROR;
+		}
 	}	
     }
+    printf("sspInit: found %d SSPs\n",nSSP);
 
-  return OK;
+	return(nSSP);
 }
+
 
 void
 sspCheckAddresses(int id)
@@ -1046,7 +1050,7 @@ sspPulserStart(int id)
  */
 
 void 
-sspPulserSetup(int id, float freq, float duty, unsigned npulses)
+sspPulserSetup(int id, float freq, float duty, unsigned int npulses)
 {
   unsigned int per, low;
 	
@@ -1080,7 +1084,7 @@ sspPulserSetup(int id, float freq, float duty, unsigned npulses)
 
   SSPLOCK;	
   // Setup period register...
-  per = SYSCLK_FREQ / freq;
+	per = /*SYSCLK_FREQ*/GCLK_FREQ / freq;
   if(!per)
     per = 1;
   sspWriteReg(&pSSP[id]->Sd.PulserPeriod, per);
@@ -1095,8 +1099,10 @@ sspPulserSetup(int id, float freq, float duty, unsigned npulses)
 	
   printf("%s: Actual frequency = %f, duty = %f\n", 
 	 __FUNCTION__,
-	 (float)SYSCLK_FREQ/(float)per, (float)low/(float)per);
+	 (float)/*SYSCLK_FREQ*/GCLK_FREQ/(float)per, (float)low/(float)per);
   SSPUNLOCK;
+
+	if(npulses<0xFFFFFFFF) sspPulserStart(id);
 }
 
 /************************************************************

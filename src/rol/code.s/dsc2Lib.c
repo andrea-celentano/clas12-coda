@@ -228,6 +228,7 @@ dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
 
     /* Get and check the module's slot number */
     slotno = vmeRead32(&dsc->Geo) & DSC_GEO_SLOTID_MASK;
+    /*printf("slotno=%d\n",slotno);*/
     if((slotno<1) || (slotno>DSC_MAX_SLOTS))
 	{
 	  printf("%s: Module at addr=0x%x has an invalid slot number (%d)\n",
@@ -246,7 +247,7 @@ dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
 
     dscp[dscID[Ndsc]] = (struct dsc_struct*)laddr_inc;
     printf("Initialized dsc2 ID %d slot %d at VME (USER) address 0x%x (0x%x).\n",
-		   Ndsc, slotno_save, (UINT32) dscp[dscID[Ndsc]] - dscA24Offset, (UINT32) dscp[dscID[Ndsc]]);
+		   Ndsc, dscID[Ndsc], (UINT32) dscp[dscID[Ndsc]] - dscA24Offset, (UINT32) dscp[dscID[Ndsc]]);
     Ndsc++;
     if(Ndsc>=ndsc) break;
   }
@@ -322,14 +323,12 @@ dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
 
 
   if(Ndsc==0)
-    {
-      printf("%s: ERROR: Unable to initialize any dsc2 modules\n",
-	     __FUNCTION__);
-      return ERROR;
-    }
+  {
+    printf("%s: ERROR: Unable to initialize any dsc2 modules\n",__FUNCTION__);
+    return ERROR;
+  }
 
-  printf("%s: Found and configured %d dsc2 modules\n",
-	 __FUNCTION__,Ndsc);
+  printf("%s: Found and configured %d dsc2 modules\n",__FUNCTION__,Ndsc);
 
   return(OK);
 }
@@ -2197,8 +2196,8 @@ dsc2ReadScalers(UINT32 id, volatile UINT32 *data, int nwrds, int rflag, int rmod
     return dCnt;
 #endif /* OLDREV */
   }
-  else if (rmode==1)
-  { /* Single Module Block Transfer */
+  else if (rmode==1) /* Single Module Block Transfer */
+  {
 #ifdef NODMA
       /* FIXME: Not supported until A32 is software configured */
       logMsg("%s: ERROR: Unsupported mode (%d)\n",__FUNCTION__,rmode,3,4,5,6);
@@ -2207,7 +2206,7 @@ dsc2ReadScalers(UINT32 id, volatile UINT32 *data, int nwrds, int rflag, int rmod
       DSCLOCK;
       rflag |= DSC_READOUTSTART_SOURCE_SOFT;
       vmeWrite32(&dscp[id]->readoutStart,rflag);
-      rflag = DSC_READOUTSTART_SOFT_TRIG;
+      rflag |= DSC_READOUTSTART_SOFT_TRIG;
       vmeWrite32(&dscp[id]->readoutStart,rflag);
 
       iwait=0;
@@ -2226,8 +2225,9 @@ dsc2ReadScalers(UINT32 id, volatile UINT32 *data, int nwrds, int rflag, int rmod
 	    return -1;
 	  }
       else
-        printf("%s(%2d): ready... \n",__FUNCTION__,id);
-	
+	  {
+        /*printf("%s(%2d): ready... \n",__FUNCTION__,id)*/;
+	  }
 
       /* Assume that the DMA programming is already setup. */
 
@@ -2249,7 +2249,7 @@ dsc2ReadScalers(UINT32 id, volatile UINT32 *data, int nwrds, int rflag, int rmod
 	}
       
       vmeAdr = ((unsigned int)(dscpd[id]) - dscA32Offset);
-      printf("%s: vmeAdr = 0x%08x\n",__FUNCTION__,vmeAdr);
+      /*printf("%s: vmeAdr = 0x%08x\n",__FUNCTION__,vmeAdr);*/
 	  /*
 #ifdef VXWORKS
       retVal = sysVmeDmaSend((UINT32)laddr, vmeAdr, (nwrds<<2), 0);
@@ -2275,7 +2275,7 @@ dsc2ReadScalers(UINT32 id, volatile UINT32 *data, int nwrds, int rflag, int rmod
 	  */
 
     retVal = usrVme2MemDmaDone();
-      if(retVal > 0)
+    if(retVal > 0)
 	{
 #ifdef VXWORKS
 	  xferCount = (/*nwrds - */(retVal>>2) + dummy); /* Number of longwords transfered */
@@ -2322,6 +2322,8 @@ dsc2ReadScalers(UINT32 id, volatile UINT32 *data, int nwrds, int rflag, int rmod
 
 }
 
+
+
 /*******************************************************************
  *   Function : dsc2PrintScalers
  *                      
@@ -2343,15 +2345,17 @@ dsc2ReadScalers(UINT32 id, volatile UINT32 *data, int nwrds, int rflag, int rmod
  *                                                    
  *******************************************************************/
 
+#ifdef OLDREV
+
 int
 dsc2PrintScalers(UINT32 id, int rflag);
-#ifdef OLDREV
 {
   volatile UINT32 data[4*16+3];
   int nwrds=4*16+3;
   int dCnt, iword=0, ii;
   UINT32 header=0, header_rflag=0;
   CHECKID(id);
+
 
   printf("%s: Scalers read for DSC in slot %d:\n\n",__FUNCTION__,id);
   dCnt = dsc2ReadScalers(id,(volatile UINT32 *)&data,nwrds,rflag,0);
@@ -2437,7 +2441,11 @@ dsc2PrintScalers(UINT32 id, int rflag);
 
   return dCnt;
 }
+
 #endif
+
+
+
 /*******************************************************************
  *   Function : dsc2PrintScalerRates
  *                      
@@ -2456,9 +2464,10 @@ dsc2PrintScalers(UINT32 id, int rflag);
  *                                                    
  *******************************************************************/
 
+#ifdef OLDREV
+
 int
 dsc2PrintScalerRates(UINT32 id, int rflag);
-#ifdef OLDREV
 {
   UINT32 latch_flag=0;
   volatile UINT32 data[4*16+3];
@@ -2638,7 +2647,9 @@ dsc2PrintScalerRates(UINT32 id, int rflag);
 
   return dCnt;
 }
+
 #endif
+
 
 static void
 dsc2FlashChipSelect(UINT32 id, int select)

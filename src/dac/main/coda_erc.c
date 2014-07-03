@@ -396,7 +396,7 @@ int
 outputEvents(ERp erp, et_event **pe, int start, int stop)
 {
   int handle1, i, buflen, len, tmp, status=0;
-  unsigned int *buffer;
+  unsigned int *buffer, *ptr;
 
   /* evio file output */
   for (i=start; i <= stop; i++)
@@ -409,29 +409,40 @@ outputEvents(ERp erp, et_event **pe, int start, int stop)
     erp->object->nevents++;
     erp->nevents++;
 
-    status = evOpenBuffer(pe[i]->pdata, MAXBUF, "r", &handle1);
-    if(status!=0) {printf("evOpenBuffer returns %d\n",status);return(status);}
+
+
+	
+    et_event_getlength(pe[i], &len);
+    ptr = (unsigned int *)pe[i]->pdata;
+    ptr += 8;
+    len -= 32;
+    status = evWrite(erp->fd, ptr);
+    if(status!=0) {printf("evWrite returns %d\n",status);return(status);}
+	
+
+
 
 
 
 	/*
-    status = evRead(handle1, hpsbuf, MAXBUF);
-    if(status!=0) {printf("evRead returns %d\n",status);return(status);}
-    status = evWrite(erp->fd, hpsbuf);
-    if(status!=0) {printf("evWrite returns %d\n",status);return(status);}
-	*/
+    status = evOpenBuffer(pe[i]->pdata, MAXBUF, "r", &handle1);
+    if(status!=0) {printf("evOpenBuffer returns %d\n",status);return(status);}
     status = evReadNoCopy(handle1, &buffer, &buflen);
     if(status!=0) {printf("evReadNoCopy returns %d\n",status);return(status);}
     status = evWrite(erp->fd, buffer);
     if(status!=0) {printf("evWrite returns %d\n",status);return(status);}
-
-
-
     status = evClose(handle1);
     if(status!=0) {printf("evClose returns %d\n",status);return(status);}
+	*/
 
 
-	/*SPLIT !!!!!!!!!!!!!!!!!!!!!!! */	
+
+
+
+
+
+
+	/*SPLIT !!!!!!!!!!!!!!!!!!!!!!! */
 	if(erp->split && (erp->nlongs >= (erp->split)>>2 ))
     {
 	  evClose(erp->fd);

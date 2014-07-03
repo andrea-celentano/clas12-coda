@@ -354,7 +354,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 /*   tiDisableVXSSignals(); */
 
 /*sergey: need that ? */
-  tiReload();
+  /*tiReload();*/
   taskDelay(60);
 
 
@@ -3802,6 +3802,36 @@ tiSetFiberDelay(unsigned int delay, unsigned int offset)
   printf("%s: inputs: delay=0x%08x, offset=0x%08x -> Wrote 0x%08x to fiberSyncDelay\n",__FUNCTION__,delay,offset,syncDelay);
 
 }
+
+
+int
+tiAddRocSWA()
+{
+  if(TIp == NULL) 
+  {
+    printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  TILOCK;
+  vmeWrite32(&TIp->rocmask,0x3);
+  TIUNLOCK;
+}
+
+int
+tiRemoveRocSWA()
+{
+  if(TIp == NULL) 
+  {
+    printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  TILOCK;
+  vmeWrite32(&TIp->rocmask,0x1);
+  TIUNLOCK;
+}
+
 
 /*******************************************************************************
  *

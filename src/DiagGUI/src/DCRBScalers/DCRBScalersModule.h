@@ -10,8 +10,6 @@ class DCRBScalersModule	: public ModuleFrame
 public:
 	DCRBScalersModule(const TGWindow *p, CrateMsgClient *pClient, unsigned int baseAddr) : ModuleFrame(p, pClient, baseAddr)
 	{
-		SetLayoutManager(new TGVerticalLayout(this));
-	
 		TGTab *pTabs;
 
 		TGCompositeFrame *tFrame;

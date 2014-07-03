@@ -140,6 +140,7 @@ tiprimarytinit(int code)
 
   /* Initialize VME Interrupt interface - use defaults */
   tiInit(TI_ADDR,TI_READOUT,0); /*tiInit((21<<19),2,0)*/
+  tiSetBusySource(0,1); /* remove all busy conditions */
 
   tiIntDisable();
 
@@ -169,7 +170,7 @@ tiprimarytinit(int code)
   /* only 1 trigger type for physics trigger */
   tiSetTriggerSource(TI_TRIGGER_TSINPUTS);  
   tiDisableTSInput(TI_TSINPUT_ALL);
-  tiEnableTSInput( TI_TSINPUT_1 );
+  tiEnableTSInput( TI_TSINPUT_1 | TI_TSINPUT_2 | TI_TSINPUT_3 | TI_TSINPUT_4 | TI_TSINPUT_5);
   tiLoadTriggerTable(0);
 
 #endif

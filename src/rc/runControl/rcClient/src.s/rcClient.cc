@@ -779,7 +779,11 @@ rcClient::monitorOffCallback (char* compname,
   codaRcCallback *cbk = rccdata->monCallback (tcbk);
 
   // nothing goes out for monitor off
+#ifdef Linux_x86_64
+  daqNetData data (compname, attrname, (int64_t)cbk);
+#else
   daqNetData data (compname, attrname, (int)cbk);
+#endif
   // all callback information is inside offcbk
   codaRcCallback* offcbk = new codaRcCallback (callback, arg);
   rcMsg msg (DAMONITOR_VAL_OFF, data, (long)offcbk);

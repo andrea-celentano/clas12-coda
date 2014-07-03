@@ -46,7 +46,7 @@ public:
 #ifdef Darwin
 ssize_t
 #else
-int
+ssize_t/*int*/
 #endif
 get_remote_addr (Addr &) const;
   // Return the address of the remotely connected peer (if there is one).

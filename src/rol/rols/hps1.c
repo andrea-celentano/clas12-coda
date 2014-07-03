@@ -55,6 +55,7 @@ typedef      long long       hrtime_t;
 
 
 /* name used by loader */
+
 #ifdef TI_MASTER
 #define INIT_NAME hps1_master__init
 #define TI_READOUT TI_READOUT_EXT_POLL /* Poll for available data, front panel triggers */
@@ -87,7 +88,7 @@ void usrtrig_done();
 #include "tdc1190.h"
 
 #include "sspLib.h"
-extern int nSSP;   /* Number of SSPs found with sspInit(..) */
+static int nssp;   /* Number of SSPs found with sspInit(..) */
 
 static char rcname[5];
 
@@ -217,7 +218,7 @@ static int NFADC;                   /* The Maximum number of tries the library w
 static int FA_SLOT;                 /* We'll use this over and over again to provide
 				                     * us access to the current FADC slot number */ 
 
-static int FADC_ROFLAG           = 1;  /* 0-noDMA, 1-board-by-board DMA, 2-chainedDMA */
+static int FADC_ROFLAG           = 2;  /* 0-noDMA, 1-board-by-board DMA, 2-chainedDMA */
 
 /* for the calculation of maximum data words in the block transfer */
 static unsigned int MAXFADCWORDS = 0;
@@ -374,7 +375,8 @@ __download()
   CDOINIT(TIPRIMARY,TIR_SOURCE);
 #endif
 
-
+printf("***1***\n");
+tiStatus(1); /* Ben & William Testing */
   /*************************************/
   /* redefine TI settings if neseccary */
 
@@ -384,14 +386,32 @@ __download()
 #endif
   tiSetBusySource(TI_BUSY_SWB,0);
 
+printf("***2***\n");
+tiStatus(1); /* Ben & William Testing */
+
+  /* hps only, busy from trigger board and ack mask for it */
+  tiSetBusySource(TI_BUSY_SWA,0);
+
+
+printf("***3***\n");
+tiStatus(1); /* Ben & William Testing */
+tiAddRocSWA();
+printf("***4***\n");
+tiStatus(1); /* Ben & William Testing */
 
 
   /* for timing measurements in FADC250s */
   tiSetTriggerHoldoff(1,5,0);   /* No more than 1 trigger within 80 ns */
+printf("***5***\n");
+tiStatus(1); /* Ben & William Testing */
   tiSetTriggerHoldoff(4,41,0);  /* No more than 4 triggers within 656 ns */
+printf("***6***\n");
+tiStatus(1); /* Ben & William Testing */
 
   /* Allow set/clear control of sync reset - for s/w pulse control */
   tiSetUserSyncResetReceive(1);
+printf("***7***\n");
+tiStatus(1); /* Ben & William Testing */
 
 
 #ifdef NEW
@@ -639,6 +659,8 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
 */
 
 
+printf("***8***\n");
+tiStatus(1); /* Ben & William Testing */
 
 
 
@@ -651,49 +673,13 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
   sdStatus();
 #endif
 
+printf("***9***\n");
+tiStatus(1); /* Ben & William Testing */
 
-
-#ifdef TI_MASTER
-  /*****************
-   *   SSP SETUP
-   *****************/
-
-#ifdef NEW
-  iFlag = SSP_INIT_MODE_DISABLED; /* Disabled, initially */
-  iFlag|= SSP_INIT_SKIP_FIRMWARE_CHECK;
-
-  sspInit(0, 0, 0, iFlag); /* Scan for, and initialize all SSPs in crate */
-#endif
-
-#endif
-
-
-
-/*!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-#ifdef TI_MASTER
-
-  /*
-  printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
-  printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
-  printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
-  printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
-  printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
-  printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
-
-
-    printf("enable fiber 1\n");fflush(stdout);
-    printf("enable fiber 1\n");fflush(stdout);
-    printf("enable fiber 1\n");fflush(stdout);
-    printf("enable fiber 1\n");fflush(stdout);
-    printf("enable fiber 1\n");fflush(stdout);
-    printf("enable fiber 1\n");fflush(stdout);
-    tiAddSlave(1);
-  */
-
-#endif
 
   logMsg("INFO: User Download Executed\n",1,2,3,4,5,6);
 }
+
 
 static void
 __prestart()
@@ -770,23 +756,24 @@ __prestart()
   sleep(2);
 #endif
 
-#ifdef TI_MASTER
 
-#ifdef NEW
-  /*****************
-   *   SSP SETUP
-   *****************/
-
-  iFlag = SSP_INIT_MODE_DISABLED; /* Disabled, initially */
-
-  /* Configure the SSP modules */
-  iFlag  = SSP_INIT_MODE_VXS;
+ /*****************
+  *   SSP SETUP - must do sspInit() after master TI clock is stable, so do it in Prestart
+  *****************/
+  iFlag  = SSP_INIT_MODE_DISABLED; /* Disabled, initially */
+  iFlag |= SSP_INIT_SKIP_FIRMWARE_CHECK;
+  iFlag |= SSP_INIT_MODE_VXS;
   iFlag |= SSP_INIT_FIBER0_ENABLE;         /* Enable hps1gtp fiber ports */
   iFlag |= SSP_INIT_FIBER1_ENABLE;         /* Enable hps1gtp fiber ports */
   iFlag |= SSP_INIT_GTP_FIBER_ENABLE_MASK; /* Enable all fiber port data to GTP */
-  for(id=0; id<nSSP; id++)
+  /*iFlag|= SSP_INIT_NO_INIT;*/ /* does not configure SSPs, just set pointers */
+  nssp = sspInit(0, 0, 0, iFlag); /* Scan for, and initialize all SSPs in crate */
+  printf("hps1: found %d SSPs\n",nssp);
+
+  if(nssp>0)
+  {
+    for(id=0; id<nssp; id++)
     {
-      sspSetMode(sspSlot(id),iFlag,0);
       /* Direct SSP Internal "Trigger 0" to LVDS0 Output on Front Panel */
       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT0, SD_SRC_SEL_TRIGGER0); /* HPS Trigger = */
       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT1, SD_SRC_SEL_TRIGGER1); /* HPS Trigger = */
@@ -820,15 +807,14 @@ __prestart()
       /*sspPrintHpsScalers(sspSlot(id));*/
       sspPrintHpsConfig(sspSlot(id));
 
+
 		/* Setup 10Hz pulser on fp trig 0, or comment out to use single cluster trigger from fadc->gtp->ssp */
       /* note currently for test LVDSOUT1 is going to TS input 1 */
-/*		sspPulserSetup(sspSlot(id), 10, 0.5, 0xFFFFFFFF);
-      sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT1, SD_SRC_SEL_PULSER);
-*/
-    }
-#endif
+	  sspPulserSetup(sspSlot(id), 0.0, 0.5, 0);
+      sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT0, SD_SRC_SEL_PULSER);
 
-#endif
+    }
+  }
 
   /* USER code here */
   /******************/
@@ -842,13 +828,16 @@ __prestart()
   tiSyncReset(1);
   sleep(1);
 
+
+/* long sync pulse to ensure trigger pipelines are clear. only needs to be ~trigger latency long. 
 #ifdef NEW
   sleep(1);
   tiUserSyncReset(1);
-  sleep(1); /* long sync pulse to ensure trigger pipelines are clear. only needs to be ~trigger latency long. */
+  sleep(1);
   tiUserSyncReset(0);
   sleep(1);
 #endif
+*/
 
   if(tiGetSyncResetRequest())
   {
@@ -987,6 +976,13 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 
   rol->dabufp = (int *) 0;
 
+  /*
+usleep(100);
+  */
+  /*
+  sleep(1);
+  */
+
   CEOPEN(EVTYPE, BT_BANKS);
 
   if((syncFlag<0)||(syncFlag>1))         /* illegal */
@@ -1010,8 +1006,6 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   }
   else           /* physics and physics_sync events */
   {
-
-
     /* for EVIO format, will dump raw data */
     tdcbuf_save = tdcbuf;
 
@@ -1060,9 +1054,6 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
     if(nfadc != 0)
     {
 
-#ifndef VXWORKS
-TIMERL_START;
-#endif
 
 /*COMMENT OUT FOLLOWING 'FOR' LOOP FOR SPEED UP !!!*/
       for(itime=0; itime<100000; itime++) 
@@ -1079,19 +1070,23 @@ TIMERL_START;
 
 
 
+#ifndef VXWORKS
+TIMERL_START;
+#endif
 
 
 
 
 goto a234;
-#ifdef TI_MASTER
-	nwords = sspReadFifo(sspbuf);	
+  if(nssp>0)
+  {
+    nwords = sspReadFifo(sspbuf);	
     sspbuf[7] = time(0);
 	/*
     printf("sspbuf[%2d]: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
       nwords,sspbuf[0],sspbuf[1],sspbuf[2],sspbuf[3],sspbuf[4],sspbuf[5],sspbuf[6]);
 	*/
-#endif
+  }
 a234:
 
 
@@ -1119,13 +1114,11 @@ a234:
  
 
 goto a345;
-#ifdef TI_MASTER
-          for(jjj=0; jjj<NSSP; jjj++) *rol->dabufp++ = sspbuf[jjj];
-#endif
+          for(jjj=0; jjj<nssp; jjj++) *rol->dabufp++ = sspbuf[jjj];
 a345:
  
  /*25us->*/
- 	      dCnt = faReadBlock(FA_SLOT,rol->dabufp,500000/*MAXFADCWORDS*/,FADC_ROFLAG);
+ 	      dCnt = faReadBlock(FA_SLOT,rol->dabufp,0x100000/*MAXFADCWORDS*/,FADC_ROFLAG);
  /*->25us*/
 #ifdef DEBUG
   		  printf("dCnt=%d\n",dCnt);
@@ -1165,10 +1158,8 @@ a345:
             usrChangeVmeDmaMemory(pMemBase, uMemBase, mSize);
 
 goto a3456;
-#ifdef TI_MASTER
             /* report ssp data before first fadc board */
-            if(jj==0) for(jjj=0; jjj<NSSP; jjj++) *rol->dabufp++ = sspbuf[jjj];
-#endif
+            if(jj==0) for(jjj=0; jjj<nssp; jjj++) *rol->dabufp++ = sspbuf[jjj];
 a3456:
 
 	        len = faReadBlock(faSlot(jj),rol->dabufp,10000/*MAXFADCWORDS*/,FADC_ROFLAG);
@@ -1198,9 +1189,7 @@ a3456:
 #ifndef DMA_TO_BIGBUF
 
 goto a4321;
-#ifdef TI_MASTER
-          for(jjj=0; jjj<NSSP; jjj++) *rol->dabufp++ = sspbuf[jjj];
-#endif
+          for(jjj=0; jjj<nssp; jjj++) *rol->dabufp++ = sspbuf[jjj];
 a4321:
 
           for(jj=0; jj<dCnt; jj++) *rol->dabufp++ = tdcbuf[jj];

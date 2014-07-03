@@ -17,8 +17,6 @@ public:
 	{
 		SetupRegisters();
 
-//		SetLayoutManager(new TGVerticalLayout(this));
-
 		AddFrame(pTabs = new TGTab(this), new TGLayoutHints(kLHintsBottom | kLHintsRight | kLHintsExpandX | kLHintsExpandY));
 
 		TGCompositeFrame *tFrame;
@@ -122,6 +120,9 @@ public:
 					{"nsa",						REGMEM_DESC_FLAGS_UINT,		{0x0128, 0, 9, 32}},
 				{NULL, 0},
 				{"Scalers", 0},
+					{"enable",					REGMEM_DESC_FLAGS_UINT,		{0x00E0, 0, 1, 32}},
+					{"latch",					REGMEM_DESC_FLAGS_UINT,		{0x00E0, 1, 1, 32}},
+					{"reset",					REGMEM_DESC_FLAGS_UINT,		{0x00E0, 2, 1, 32}},
 					{"trig_scal",				REGMEM_DESC_FLAGS_UINT,		{0x0030, 0, 32, 32}},
 					{"ev_count",				REGMEM_DESC_FLAGS_UINT,		{0x0034, 0, 32, 32}},
 					{"blk_count",				REGMEM_DESC_FLAGS_UINT,		{0x0038, 0, 32, 32}},
@@ -199,6 +200,36 @@ public:
 					{"ChannelUp",				REGMEM_DESC_FLAGS_UINT,		{0x0508, 12, 1, 32}},
 					{"TxLock",					REGMEM_DESC_FLAGS_UINT,		{0x0508, 13, 1, 32}},
 					{"RxSrcRdyN",				REGMEM_DESC_FLAGS_UINT,		{0x0508, 14, 1, 32}},
+				{NULL, 0},
+				{"CSR", 0},
+					{"ClearModule",			REGMEM_DESC_FLAGS_HEX,		{0x0004, 21, 1, 32}},
+					{"SyncReset",				REGMEM_DESC_FLAGS_HEX,		{0x0004, 28, 1, 32}},
+					{"Trigger1",				REGMEM_DESC_FLAGS_HEX,		{0x0004, 29, 1, 32}},
+					{"SoftReset",				REGMEM_DESC_FLAGS_HEX,		{0x0004, 30, 1, 32}},
+					{"HardReset",				REGMEM_DESC_FLAGS_HEX,		{0x0004, 31, 1, 32}},
+				{NULL, 0},
+				{"CTRL1", 0},
+					{"ClkSource",				REGMEM_DESC_FLAGS_STRING,	{0x0008, 0, 2, 32}, {4,{"INT","FP","P0","P0"},{0,1,2,3}}},
+					{"IntClkEnable",			REGMEM_DESC_FLAGS_HEX,		{0x0008, 3, 1, 32}},
+					{"TrigSource",				REGMEM_DESC_FLAGS_STRING,	{0x0008, 4, 3, 32}, {7,{"FP-ASYNC","FP-SYNC","P0-ASYNC","P0-SYNC","SW-T2+dT1","SW-T1","INT"},{0,1,2,3,5,6,7}}},
+					{"TrigSoftEnable",		REGMEM_DESC_FLAGS_HEX,		{0x0008, 7, 1, 32}},
+					{"SyncSource",				REGMEM_DESC_FLAGS_STRING,	{0x0008, 8, 3, 32}, {5,{"FP-ASYNC","FP-SYNC","P0-ASYNC","P0-SYNC","SW"},{0,1,2,3,6}}},
+					{"SyncSoftEnable",		REGMEM_DESC_FLAGS_HEX,		{0x0008, 11, 1, 32}},
+				{NULL, 0},
+				{"CTRL2", 0},
+					{"Go",						REGMEM_DESC_FLAGS_HEX,		{0x000C, 0, 1, 32}},
+					{"TrigEnable",				REGMEM_DESC_FLAGS_HEX,		{0x000C, 1, 1, 32}},
+					{"SyncEnable",				REGMEM_DESC_FLAGS_HEX,		{0x000C, 2, 1, 32}},
+				{NULL, 0},
+				{"Reset", 0},
+					{"HardResetCtrl",			REGMEM_DESC_FLAGS_HEX,		{0x0002C, 0, 1, 32}},
+					{"HardResetAdc",			REGMEM_DESC_FLAGS_HEX,		{0x0002C, 1, 1, 32}},
+					{"SoftResetCtrl",			REGMEM_DESC_FLAGS_HEX,		{0x0002C, 4, 1, 32}},
+					{"SoftResetAdc",			REGMEM_DESC_FLAGS_HEX,		{0x0002C, 5, 1, 32}},
+					{"ResetAdcFifo",			REGMEM_DESC_FLAGS_HEX,		{0x0002C, 8, 1, 32}},
+					{"ResetHitsumFifo",		REGMEM_DESC_FLAGS_HEX,		{0x0002C, 10, 1, 32}},
+					{"ResetDac",				REGMEM_DESC_FLAGS_HEX,		{0x0002C, 11, 1, 32}},
+					{"ResetRam",				REGMEM_DESC_FLAGS_HEX,		{0x0002C, 12, 1, 32}},
 				{NULL, 0},
 				{"Misc", 0},
 					{"version",					REGMEM_DESC_FLAGS_HEX,		{0x0000, 0, 32, 32}},

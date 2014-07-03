@@ -18,16 +18,21 @@
 
 #include "CrateMsgTypes.h"
 
-static ServerCBFunctions gServerCBFucntions;
+
+
+
+
+static ServerCBFunctions gServerCBFunctions;
 short gListenPort;
 
 typedef struct
 {
-	int sock;
-	CrateMsgStruct msg;
+  int sock;
+  CrateMsgStruct msg;
 } SocketThreadStruct;
 
-int CrateMsg_Read16(CrateMsgStruct *msg, int swap)
+int
+CrateMsg_Read16(CrateMsgStruct *msg, int swap)
 {
 	if(swap)
 	{
@@ -35,13 +40,14 @@ int CrateMsg_Read16(CrateMsgStruct *msg, int swap)
 		msg->msg.m_Cmd_Read16.addr = DW_SWAP(msg->msg.m_Cmd_Read16.addr);
 		msg->msg.m_Cmd_Read16.flags = DW_SWAP(msg->msg.m_Cmd_Read16.flags);
 	}
-	if(gServerCBFucntions.Read16)
-		return (*gServerCBFucntions.Read16)(&msg->msg.m_Cmd_Read16, &msg->msg.m_Cmd_Read16_Rsp);
+	if(gServerCBFunctions.Read16)
+		return (*gServerCBFunctions.Read16)(&msg->msg.m_Cmd_Read16, &msg->msg.m_Cmd_Read16_Rsp);
 	
 	return 0;
 }
 
-int CrateMsg_Write16(CrateMsgStruct *msg, int swap)
+int
+CrateMsg_Write16(CrateMsgStruct *msg, int swap)
 {
 	int i;
 	
@@ -54,13 +60,14 @@ int CrateMsg_Write16(CrateMsgStruct *msg, int swap)
 		for(i = msg->msg.m_Cmd_Write16.cnt-1; i >= 0; i--)
 			msg->msg.m_Cmd_Write16.vals[i] = HW_SWAP(msg->msg.m_Cmd_Write16.vals[i]);		
 	}
-	if(gServerCBFucntions.Write16)
-		(*gServerCBFucntions.Write16)(&msg->msg.m_Cmd_Write16);
+	if(gServerCBFunctions.Write16)
+		(*gServerCBFunctions.Write16)(&msg->msg.m_Cmd_Write16);
 	
 	return 0;
 }
 
-int CrateMsg_Read32(CrateMsgStruct *msg, int swap)
+int
+CrateMsg_Read32(CrateMsgStruct *msg, int swap)
 {
 	if(swap)
 	{
@@ -68,13 +75,14 @@ int CrateMsg_Read32(CrateMsgStruct *msg, int swap)
 		msg->msg.m_Cmd_Read32.addr = DW_SWAP(msg->msg.m_Cmd_Read32.addr);
 		msg->msg.m_Cmd_Read32.flags = DW_SWAP(msg->msg.m_Cmd_Read32.flags);
 	}
-	if(gServerCBFucntions.Read32)
-		return (*gServerCBFucntions.Read32)(&msg->msg.m_Cmd_Read32, &msg->msg.m_Cmd_Read32_Rsp);
+	if(gServerCBFunctions.Read32)
+		return (*gServerCBFunctions.Read32)(&msg->msg.m_Cmd_Read32, &msg->msg.m_Cmd_Read32_Rsp);
 	
 	return 0;
 }
 
-int CrateMsg_Write32(CrateMsgStruct *msg, int swap)
+int
+CrateMsg_Write32(CrateMsgStruct *msg, int swap)
 {
 	int i;
 	
@@ -87,130 +95,161 @@ int CrateMsg_Write32(CrateMsgStruct *msg, int swap)
 		for(i = msg->msg.m_Cmd_Write32.cnt-1; i >= 0; i--)
 			msg->msg.m_Cmd_Write32.vals[i] = DW_SWAP(msg->msg.m_Cmd_Write32.vals[i]);
 	}
-	if(gServerCBFucntions.Write32)
-		(*gServerCBFucntions.Write32)(&msg->msg.m_Cmd_Write32);
+	if(gServerCBFunctions.Write32)
+		(*gServerCBFunctions.Write32)(&msg->msg.m_Cmd_Write32);
 	
 	return 0;
 }
 
-int CrateMsg_Delay(CrateMsgStruct *msg, int swap)
+int
+CrateMsg_Delay(CrateMsgStruct *msg, int swap)
 {
 	if(swap)
 		msg->msg.m_Cmd_Delay.ms = DW_SWAP(msg->msg.m_Cmd_Delay.ms);
-	if(gServerCBFucntions.Delay)
-		(*gServerCBFucntions.Delay)(&msg->msg.m_Cmd_Delay);
+	if(gServerCBFunctions.Delay)
+		(*gServerCBFunctions.Delay)(&msg->msg.m_Cmd_Delay);
 	
 	return 0;
 }
 
-int CrateMsg_ReadScalers(CrateMsgStruct *msg, int swap)
+int
+CrateMsg_ReadScalers(CrateMsgStruct *msg, int swap)
 {
-	if(gServerCBFucntions.Delay)
-		return (*gServerCBFucntions.ReadScalers)(&msg->msg.m_Cmd_ReadScalers_Rsp);
-	
-	return 0;
+  if(gServerCBFunctions.ReadScalers)
+  {
+	return (*gServerCBFunctions.ReadScalers)(&msg->msg.m_Cmd_ReadScalers, &msg->msg.m_Cmd_ReadScalers_Rsp);
+  }
+  return(0);
 }
 
-void *ConnectionThread(void *parm)
+void *
+ConnectionThread(void *parm)
 {
-	int swap, result, val;
-	SocketThreadStruct *pParm = (SocketThreadStruct *)parm;
+  int swap, result, val;
+  SocketThreadStruct *pParm = (SocketThreadStruct *)parm;
 
-	val = CRATEMSG_HDR_ID;
-	if(send(pParm->sock, &val, 4, 0) <= 0) 
-	{
-		printf("Error in %s: failed to send HDRID\n", __FUNCTION__);
-		goto ConnectionThread_exit;
-	}
+  val = CRATEMSG_HDR_ID;
+  if(send(pParm->sock, &val, 4, 0) <= 0) 
+  {
+	printf("Error in %s: failed to send HDRID\n", __FUNCTION__);
+	goto ConnectionThread_exit;
+  }
+  printf("ConnectionThread: send val=0x%08x\n",val);
+
+  if(recv(pParm->sock, &val, 4, 0) != 4)
+  {
+	printf("Error in %s: failed to recv HDRID\n", __FUNCTION__);
+	goto ConnectionThread_exit;
+  }
+  printf("ConnectionThread: recv val=0x%08x\n",val);
+
+  // determine sender endianess...
+  if(val == CRATEMSG_HDR_ID)
+  {
+	printf("swap=0\n");
+	swap = 0;
+  }
+  else if(val == DW_SWAP(CRATEMSG_HDR_ID))
+  {
+	printf("swap=1\n");
+   	swap = 1;
+  }
+  else
+  {
+   	printf("Error in %s: bad recv HDRID\n", __FUNCTION__);
+   	goto ConnectionThread_exit;
+  }
+
+  while(1)
+  {
+    /*printf("ConnectionThread befor recv1 - expecting  message length and message type - 8 bytes total\n");*/
+   	if( (result = recv(pParm->sock, (char *)&pParm->msg, 8, 0)) != 8)
+   	{
+      printf("break 1: result=%d\n",result);
+      if(result==0) printf("Probably client closed connection\n");
+   	  break;
+   	}
+    /*printf("ConnectionThread after recv1, result=%d\n",result);*/
+
+   	if(swap)
+   	{
+   	  pParm->msg.len = DW_SWAP(pParm->msg.len);
+   	  pParm->msg.type = DW_SWAP(pParm->msg.type);
+   	}
 	
-	if(recv(pParm->sock, &val, 4, 0) != 4)
+   	if( (pParm->msg.len > MAX_MSG_SIZE) || (pParm->msg.len < 0) )
 	{
-		printf("Error in %s: failed to recv HDRID\n", __FUNCTION__);
-		goto ConnectionThread_exit;
+      printf("break 2: pParm->msg.len=%d > MAX_MSG_SIZE=%d, or pParm->msg.len=%d < 0\n",pParm->msg.len, MAX_MSG_SIZE, pParm->msg.len);
+	  break;
 	}
 
-	// determine sender endianess...
-	if(val == CRATEMSG_HDR_ID)
-	{
-		printf("swap=0\n");
-		swap = 0;
+    /*printf("ConnectionThread befor recv2, expecting msg.len=%d msg.type=%d\n",pParm->msg.len,pParm->msg.type);*/
+   	if(pParm->msg.len && ((result = recv(pParm->sock, (char *)&pParm->msg.msg, pParm->msg.len, 0)) != pParm->msg.len))
+	{	
+      printf("break 3: result=%d, pParm->msg.len=%d\n",result,pParm->msg.len);
+	  break;
 	}
-	else if(val == DW_SWAP(CRATEMSG_HDR_ID))
+    /*printf("ConnectionThread after recv2, result=%d\n",result);*/
+
+	result = -1;
+
+
+	/* VME commands */
+	if(pParm->msg.type == CRATEMSG_TYPE_READ16)
+	  result = CrateMsg_Read16(&pParm->msg, swap);
+	else if(pParm->msg.type == CRATEMSG_TYPE_WRITE16)
+	  result = CrateMsg_Write16(&pParm->msg, swap);
+	else if(pParm->msg.type == CRATEMSG_TYPE_READ32)
+	  result = CrateMsg_Read32(&pParm->msg, swap);
+	else if(pParm->msg.type == CRATEMSG_TYPE_WRITE32)
+	  result = CrateMsg_Write32(&pParm->msg, swap);
+	else if(pParm->msg.type == CRATEMSG_TYPE_DELAY)
+	  result = CrateMsg_Delay(&pParm->msg, swap);
+
+	/* scaler commands */
+	else if(pParm->msg.type == SCALER_SERVER_READ_BOARD)
 	{
-		printf("swap=1\n");
-		swap = 1;
+	  result = CrateMsg_ReadScalers(&pParm->msg, swap);
 	}
+
 	else
 	{
-		printf("Error in %s: bad recv HDRID\n", __FUNCTION__);
-		goto ConnectionThread_exit;
+   	  printf("Error in %s: unhandled message type %u\n", __FUNCTION__, pParm->msg.type);
+	  break;
 	}
-	
-	while(1)
+		
+	if(result < 0)
 	{
-		if(recv(pParm->sock, (char *)&pParm->msg, 8, 0) != 8)
-			break;
-		
-		if(swap)
-		{
-			pParm->msg.len = DW_SWAP(pParm->msg.len);
-			pParm->msg.type = DW_SWAP(pParm->msg.type);
-		}
-		
-		if( (pParm->msg.len > MAX_MSG_SIZE) || (pParm->msg.len < 0) )
-			break;
-		
-		if(pParm->msg.len && (recv(pParm->sock, (char *)&pParm->msg.msg, pParm->msg.len, 0) != pParm->msg.len))
-			break;
-		
-		result = -1;	
-		if(pParm->msg.type == CRATEMSG_TYPE_READ16)
-			result = CrateMsg_Read16(&pParm->msg, swap);
-		else if(pParm->msg.type == CRATEMSG_TYPE_WRITE16)
-			result = CrateMsg_Write16(&pParm->msg, swap);
-		else if(pParm->msg.type == CRATEMSG_TYPE_READ32)
-			result = CrateMsg_Read32(&pParm->msg, swap);
-		else if(pParm->msg.type == CRATEMSG_TYPE_WRITE32)
-			result = CrateMsg_Write32(&pParm->msg, swap);
-		else if(pParm->msg.type == CRATEMSG_TYPE_DELAY)
-			result = CrateMsg_Delay(&pParm->msg, swap);
-		else if(pParm->msg.type == CRATEMSG_TYPE_READSCALERS)
-			result = CrateMsg_ReadScalers(&pParm->msg, swap);
-		else
-		{
-			printf("Error in %s: unhandled message type %u\n", __FUNCTION__, pParm->msg.type);
-			break;
-		}
-		
-		if(result < 0)
-		{
-			printf("Error in %s: failed to process msg type %u\n", __FUNCTION__, pParm->msg.type);
-			break;
-		}
-		else if(result > 0)
-		{
-			pParm->msg.len = result;
-			pParm->msg.type = CMD_RSP(pParm->msg.type);
-			if(send(pParm->sock, &pParm->msg, pParm->msg.len+8, 0) <= 0) 
-			{
-				printf("Error in %s: failed to send msg type %u\n", __FUNCTION__, pParm->msg.type);
-				break;
-			}
-		}
+	  printf("Error in %s: failed to process msg type %u\n", __FUNCTION__, pParm->msg.type);
+	  break;
 	}
+	else if(result > 0)
+	{
+	  pParm->msg.len = result;
+	  pParm->msg.type = CMD_RSP(pParm->msg.type);
+	  if(send(pParm->sock, &pParm->msg, pParm->msg.len+8, 0) <= 0) 
+	  {
+		printf("Error in %s: failed to send msg type %u\n", __FUNCTION__, pParm->msg.type);
+		break;
+	  }
+	}
+  }
+
 	
 ConnectionThread_exit:
-	printf("Closing connection...\n");
+  printf("Closing connection...\n");
 	
-	close(pParm->sock);
-	free(pParm);
+  close(pParm->sock);
+  free(pParm);
 	
-	pthread_exit(NULL);
+  pthread_exit(NULL);
 	
-	return 0;
+  return(0);
 }
 
-void *ListenerThread(void *p)
+
+void *
+ListenerThread(void *p)
 {
 	pthread_t cThread;
 	SocketThreadStruct *pcThreadParm;
@@ -219,66 +258,94 @@ void *ListenerThread(void *p)
 	struct sockaddr_in serverAddr;
 	int lsock, csock;
 
+	printf("ListenerThread reached, port >%d<\n",gListenPort);fflush(stdout);
+
 	memset((char *)&serverAddr, 0, sockAddrSize);
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(gListenPort);
 	serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	
+	printf("ListenerThread befor socket\n");fflush(stdout);
 	lsock = socket(AF_INET, SOCK_STREAM, 0);
+	printf("ListenerThread after socket\n");fflush(stdout);
 	if(lsock == -1)
 	{
 		printf("Error in %s: create socket failed\n", __FUNCTION__);
 		return 0;
 	}
-	
+
+next_port:	
+	printf("ListenerThread befor bind\n");fflush(stdout);
 	if(bind(lsock, (struct sockaddr *)&serverAddr, sockAddrSize) == -1)
 	{
 		printf("Error in %s: bind() failed\n", __FUNCTION__);
+
+		/* in case if port is busy, grab next one */
+        gListenPort ++;
+        serverAddr.sin_port = htons(gListenPort);
+        goto next_port;
+
 		close(lsock);
 		return 0;
 	}
+	printf("ListenerThread after bind\n");fflush(stdout);
 	
+	printf("ListenerThread befor listen\n");fflush(stdout);
 	if(listen(lsock, 1) == -1)
 	{
 		printf("Error in %s: listen() failed\n", __FUNCTION__);
 		close(lsock);
 		return 0;
 	}
+	printf("ListenerThread after listen\n");fflush(stdout);
 
 	while(1)
 	{
-		csock = accept(lsock, (struct sockaddr *)&clientAddr, &sockAddrSize);
-		if(csock < 0)
-		{
-			printf("Error in %s: accept() failed\n", __FUNCTION__);
-			break;
-		}
-		pcThreadParm = (SocketThreadStruct *)malloc(sizeof(SocketThreadStruct));;
-		pcThreadParm->sock = csock;
-		if(!pcThreadParm)
-		{
-			printf("Error in %s: malloc() failed\n", __FUNCTION__);
-			break;
-		}
-		pthread_create(&cThread, NULL, ConnectionThread, (void *)pcThreadParm);
+	  printf("waiting for accept, port >%d<\n",gListenPort);fflush(stdout);
+	  csock = accept(lsock, (struct sockaddr *)&clientAddr, &sockAddrSize);
+	  printf("accepted\n");fflush(stdout);
+	  if(csock < 0)
+	  {
+	  	printf("Error in %s: accept() failed\n", __FUNCTION__);
+	  	break;
+	  }
+	  pcThreadParm = (SocketThreadStruct *) malloc(sizeof(SocketThreadStruct));
+	  pcThreadParm->sock = csock;
+	  if(!pcThreadParm)
+	  {
+	  	printf("Error in %s: malloc() failed\n", __FUNCTION__);
+	  	break;
+	  }
+      else
+	  {
+        printf("pcThreadParm=0x%08x\n",pcThreadParm);
+	  }
+
+	  pthread_create(&cThread, NULL, ConnectionThread, (void *)pcThreadParm);
 	}
 	close(lsock);
 	
 	return 0;
 }
 
-int CrateMsgServerStart(ServerCBFunctions *pCB, unsigned short listen_port)
+
+
+int
+CrateMsgServerStart(ServerCBFunctions *pCB, unsigned short listen_port)
 {
 	pthread_t gListenerThread;
 	
 	gListenPort = listen_port;
 
-	memcpy(&gServerCBFucntions, pCB, sizeof(ServerCBFunctions));
-	
+	memcpy(&gServerCBFunctions, pCB, sizeof(ServerCBFunctions));
+
 	pthread_create(&gListenerThread, NULL, ListenerThread, NULL);
 	
 	return 0;
 }
+
+
+
 
 #else
 

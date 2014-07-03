@@ -77,10 +77,14 @@ typedef struct data_description
                   *_encode_* NB. do not modify in encode, this information is
                   used by the EB to move pointers after *_encode_* is called.*/
 
-  int data_length;  /* the length of data only (without header) in words */
-  int head_length;  /* the length of (new) header in words */
-
   unsigned long *soe; /* (R) pointer to start of event */
+
+
+
+
+
+
+
 
   unsigned long *fragments[32]; 
                /* (W) For each fragment from a ROC there may be several banks
@@ -93,22 +97,18 @@ typedef struct data_description
                   in 'fragments' here are the corresponding bank tags (See sub
                   tags below). */
 
-  unsigned long bankSubTag[32];	
-               /* (W) Sub tag - for each bank tag (see above) this number
-                  specifies the order that this bank fragment appears in the
-                  bank. */
-
   int fragLen[32]; /* (W) length in bytes of each bank fragment. */
 
-  int bankCount; /* (W) number of bank fragments in this event fragment. */
+
+
+
+
+
+
+
 
   unsigned long *last; /* (Internal to EB only, i.e. not R or W) set to 1 if
                           this is last event in buffer. USER'S DON'T TOUCH! */
-
-  unsigned long *buf_obsolete; /* (Internal to EB only, i.e. not R or W)
-                        pointer to start of buffer which was sent from ROC.
-                        If 'last' is 1 (See above) this is used to free the 
-                        memory allocated. USER DON'T TOUCH! */
 
   unsigned long user[16];
                      /* mostly user defined variables, except user[0] which is
@@ -125,17 +125,6 @@ typedef struct data_description
   unsigned long *frag_start;
   unsigned long *head_start;
   unsigned long *desc_start;
-
-  /* former 'static' stuff from CODA_format.c - BOS stuff */
-  int EB_runnum;
-  int nRUNEVENT;
-  int nSCALERS;
-  unsigned long trigbits;
-  unsigned long eventtype;
-  unsigned long latefail;
-  unsigned long rocpattern;
-  unsigned char rocstatus[32];
-  unsigned char rocexist[32];
 
 } DATA_DESC;
 
@@ -175,16 +164,7 @@ int CODA_encode_spec(unsigned long **datap, evDesc desc); /* Generate the "speci
 
 
 
-#define NFPHEAD 10 /* temporary, must be calculated */
-#define NHEAD   2
-typedef struct Bosheaddd *BossssheadPtr;
-typedef struct Bosheaddd
-{
-  unsigned long  idnr;
-  unsigned long  nrow;
-} Bossss;
-
-
+#define NHEAD   2 /* temporary, must be calculated */
 
 
 

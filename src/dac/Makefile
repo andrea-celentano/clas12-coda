@@ -120,7 +120,8 @@ ifeq ("$(OSTYPE_MACHINE)","Linux_nios2")
   LIBNAMES += -lpthread
   LDFLAGS += -rdynamic
 else
-  LIBNAMES += /usr/lib/libssl.so # for RHEL5 ..
+##  LIBNAMES += /usr/lib/libssl.so # for RHEL5 ..
+  LIBNAMES += -lssl
   LIBNAMES += -lresolv
   LIBNAMES += $(X11LIBS)
   LIBNAMES += $(SYSLIBS)

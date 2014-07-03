@@ -1,4 +1,5 @@
 
+
 /* coda_eb.c - CODA format */
 
 
@@ -19,21 +20,6 @@ ctl_mask
 */
 
 
-
-
-
-/*
-End transition:
-.....
-[0] NEED TO TEST AND PROBABLY REDESIGN THAT PART !!!
-[0] EVENT_ENCODE_SPEC 2 ..
-[0] .. done
-[0] handle_build_cleanup
-[0] flush ET system
-polling_routine ================!!!!!!!!!!!!!!!!!!=====
-cancel building threads
-Segmentation fault
-*/
 
 
 /* deb_component.c */
@@ -65,12 +51,6 @@ coda_eb()
 #include "da.h"
 #include "circbuf.h"
 
-/* for DDL stuff - remove when swap in LINK_... is checked
-#include "bosio.h"
-#include "etbosio.h"
-*/
-
-
 #include "CODA_format.h"
 #include "libdb.h"
 
@@ -89,23 +69,61 @@ static int chunk = 400; /* 100; MUST BE LESS THEN NCHUNKMAX !!! */
 #define MAXBUF 100000
 static unsigned int hpsbuf[MAXBUF];
 
+
+#define EVIO_RECORD_HEADER(myptr, mylen) \
+  myptr[0] = mylen + 8; /* Block Size including 8 words header + mylen event size  */ \
+  myptr[1] = 1; /* block number */ \
+  myptr[2] = 8; /* Header Length = 8 (EV_HDSIZ) */ \
+  myptr[3] = 1; /* event count (1 in our case) */ \
+  myptr[4] = 0; /* Reserved */ \
+  myptr[5] = 0x204; /*evio version*/ \
+  myptr[6] = 1; /* Reserved */ \
+  myptr[7] = 0xc0da0100; /* EV_MAGIC */
+
+
 /* event already in ET system; get it back, create 'correct' record in ET, and put event into that 'correct' record */
 #define HPS_HACK \
   for(ii=0; ii<nevents2put; ii++) \
   { \
-    int status, handle1; \
+    int jjj, status, handle1; \
+    unsigned int *ptr; \
+    ptr = (unsigned int *)etevents[ii]->pdata; \
     et_event_getlength(etevents[ii], &len); /*get event length from et*/ \
+    /*printf("[%3d] len1=%d\n",ii,len);*/ \
+    memcpy((char *)hpsbuf, (char *)ptr, len); /*copy event from et to the temporary buffer*/ \
+    /*for(jjj=0; jjj<(len/4); jjj++) printf("HACK [%3d] 0x%08x\n",jjj,ptr[jjj]);*/ \
+    EVIO_RECORD_HEADER(ptr,len); \
+    memcpy((char *)(ptr+8), (char *)hpsbuf, len); \
+    len += 32;  /* add 8 words for record header we just created, and update et event length */ \
+	/*printf("len2=%d\n",len/4);*/ \
+    et_event_setlength(etevents[ii], len); /*update event length in et*/ /*170000us*/ \
+    /*printf("[%3d] len3=%d\n",ii,len);*/ \
+  }
+
+
+#define HPS_HACK_OLD \
+  for(ii=0; ii<nevents2put; ii++) \
+  { \
+    int jjj, status, handle1;					\
+    unsigned int *ptr; \
+    ptr = (unsigned int *)etevents[ii]->pdata; \
+    et_event_getlength(etevents[ii], &len); /*get event length from et*/ \
+    printf("[%3d] len1=%d\n",ii,len); 							\
     memcpy((char *)hpsbuf, (char *)etevents[ii]->pdata, len); /*copy event from et to the temporary buffer*/ \
+    for(jjj=0; jjj<(len/4); jjj++) printf("HACK [%3d] 0x%08x\n",jjj,ptr[jjj]); \
     status = evOpenBuffer(etevents[ii]->pdata, MAXBUF, "w", &handle1); /*open 'buffer' in et*/ \
     if(status!=0) printf("evOpenBuffer returns %d\n",status); \
     status = evWrite(handle1, hpsbuf); /*write event to the 'buffer'*/ \
     if(status!=0) printf("evWrite returns %d\n",status); \
     evGetBufferLength(handle1,&len); /*get 'buffer' length*/ \
-	/*printf("len2=%d\n",len/4);*/ \
+	printf("len2=%d\n",len/4); 						 \
     status = evClose(handle1); /*close 'buffer'*/ \
     if(status!=0) printf("evClose returns %d\n",status); \
     et_event_setlength(etevents[ii], len); /*update event length in et*/ \
   }
+
+
+
 
 
 /*static*/ extern objClass localobject;
@@ -113,8 +131,7 @@ extern char    *session; /* coda_component.c */
 
 static int ended_loop_exit = 0;
 
-int listSplit1(char *list, int flag,
-           int *argc, char argv[LISTARGV1][LISTARGV2]);
+int listSplit1(char *list, int flag, int *argc, char argv[LISTARGV1][LISTARGV2]);
 
 
 
@@ -141,25 +158,10 @@ static pthread_cond_t id_out_empty; /* condition for 'idout' */
 #define out_lock    pthread_mutex_lock(&id_out_lock)
 #define out_unlock  pthread_mutex_unlock(&id_out_lock)
 
-/* other shared variables */
-static int nRUNEVENT;
-static int nSCALERS;
-
-/* DDL stuff (initialized during prestart, then read-only by BOS_format)
-see LINK_support.c and BOS_format.c
-extern int nddl;
-extern DDL ddl[NDDL];
-*/
 
 
-extern int deflt = 0; /* 1 for CODA format, 0 for BOS format (see LINK_support.c) */
 
-#ifdef USE_128
-  extern WORD128 roc_linked;
-#else
-  extern unsigned int roc_linked; /* linked ROCs mask (see LINK_support.c)*/
-#endif
-
+extern WORD128 roc_linked; /* linked ROCs mask (see LINK_support.c)*/
 extern CIRCBUF *roc_queues[MAX_ROCS]; /* see LINK_support.c */
 extern int roc_queue_ix; /* cleaned up here, increment in LINK_support.c */
 extern unsigned int *bufpool[MAX_ROCS][QSIZE];  /* see LINK_support.c */
@@ -167,6 +169,8 @@ extern int roc_queue_evsize[MAX_ROCS];  /* see LINK_support.c */
 
 extern char configname[128]; /* coda_component.c */
 
+
+/* param struct for building thread */
 typedef struct thread_args *trArg;
 typedef struct thread_args
 {
@@ -175,6 +179,7 @@ typedef struct thread_args
   int *thread_exit;
   int id;
 } TRARGS;
+
 
 typedef struct EBpriv *EBp;
 typedef struct EBpriv
@@ -202,13 +207,8 @@ typedef struct EBpriv
   int nthreads;               /* the number of building threads */
   pthread_t idth[NTHREADMAX]; /* pointers to building threads */
 
-#ifdef USE_128
   WORD128 roc_mask;
   WORD128 ctl_mask;
-#else
-  unsigned long roc_mask;
-  unsigned long ctl_mask;
-#endif
 
   unsigned long cur_cntl;
 
@@ -230,21 +230,6 @@ typedef struct bank_part
 } BANKPART;
 
 typedef int (*IFUNCPTR) ();
-
-#define EVENT_RESERV_FRAG 0
-#define EVENT_RESERV_HEAD 1
-#define EVENT_RESERV_DESC 2
-#define EVENT_ENCODE_FRAG 3
-#define EVENT_ENCODE_HEAD 4
-#define EVENT_ENCODE_DESC 5
-#define EVENT_ENCODE_SPEC 6
-#define EVENT_DECODE_FRAG 7
-#define EVENT_DECODE_HEAD 8
-#define EVENT_DECODE_DESC 9
-#define EVENT_DECODE_SPEC 10
-
-static IFUNCPTR out_procs[NTHREADMAX][11];
-
 
 
 /****************************************************************************/
@@ -397,6 +382,10 @@ eb_et_initialize(void)
     printf("deb ET init: can't find event size in ET system\n");
     return(CODA_ERROR);
   }
+  else
+  {
+    printf("ET init: event size %d bytes\n",et_eventsize);
+  }
 
   et_init++;
   et_reinit = 0;
@@ -429,19 +418,8 @@ tmpUpdateStatistics()
 */
 
 
-
-
-
-
-
-
 #define data_lock(ebp_m)  pthread_mutex_lock(&(ebp_m)->data_mutex)
 #define data_unlock(ebp_m)  pthread_mutex_unlock(&(ebp_m)->data_mutex)
-
-#define CONT_EV 0
-#define PHYS_EV 1
-#define USER_EV 2
-#define SYNC_EV 3
 
 
 /********************************************************************
@@ -450,7 +428,7 @@ tmpUpdateStatistics()
 *********************************************************************/
 
 #define NPROF1 100
-#define NPROF2 40000
+#define NPROF2 100
 
 void *
 handle_build(trArg arg)
@@ -459,39 +437,34 @@ handle_build(trArg arg)
   DATA_DESC descriptors[MAX_ROCS];
   BANKPART *build_node[MAX_NODES];
   BANKPART build_nodes[MAX_NODES];
-  FILE *fdlog;
   EBp ebp;
   int ii, len, id, in_error = 0, res = 0, i, j, k, ix, node_ix, cc, roc, lenbuf, rocid;
   DATA_DESC *desc1, desc2;
-  long types[MAX_ROCS];
+  int types[MAX_ROCS];
   unsigned int *evptr[MAX_ROCS][NCHUNKMAX];
   int evsize[MAX_ROCS];
-  unsigned long fragment_mask, skip_mask, sync_mask, type_mask;
-  long current_evnb;
-  long current_evty;
-  long current_sync;
-  unsigned long current_syncerr, current_evtyerr;
+  unsigned int fragment_mask, skip_mask, sync_mask, type_mask;
+  int current_evnb;
+  int current_evty;
+  int current_sync;
+  unsigned int current_syncerr, current_evtyerr;
   int nevents2put=0, neventsfree=0, neventsnew = 0;
   int idin, idout, itmp;
   int print_rocs_report = 1;
 
-  signed long nevbuf, nevrem;
+  int nevbuf, nevrem;
   int nphys;
-  unsigned int nevbuf_was_zero;
 
   hrtime_t start1, end1, start2, end2, time1=NULL, time2=NULL, time3=NULL;
   hrtime_t nevtime1=NULL, nevtime2=NULL, nevchun=NULL;
 
+  unsigned int total_length; /* full event length in bytes */
 
-  unsigned long *total_length; /* WARNING: total_length is used in two ways:
-                                 - it is initially set to NULL and then
-                                   incremented by the number of long words in
-                                   the event, and then
-                                 - it is the event length in bytes */
-
+  int status;
   et_event *cevent = NULL;
   et_att_id	et_attach;
   et_event **etevents = NULL;
+  int *ethandles = NULL;
 
   object = arg->object;
   id = arg->id;
@@ -520,7 +493,15 @@ handle_build(trArg arg)
   if((etevents = (et_event **) calloc(NCHUNKMAX, sizeof(et_event *))) == NULL)
   {
     et_close(et_sys);
-    printf("[%1d] deb ET init: no mem left\n",id);
+    printf("[%1d] deb ET init: no mem left for etevents\n",id);
+    exit(0);
+  }
+
+  /* allocate memory for ET buffer handles*/
+  if((ethandles = (int *) calloc(NCHUNKMAX, sizeof(int))) == NULL)
+  {
+    et_close(et_sys);
+    printf("[%1d] deb ET init: no mem left for ethandles\n",id);
     exit(0);
   }
 
@@ -540,63 +521,52 @@ handle_build(trArg arg)
   current_sync =  0;
   current_syncerr = 0;
   current_evtyerr = 0;
-  total_length = NULL;
+  total_length = 0;
   node_ix = 0;
 
-  /* initialization for BOS_format.c */
+  /* desc2 initialization */
   desc2.time = time(NULL);
   desc2.runty = object->runType;
   desc2.runnb = object->runNumber;
-  desc2.nRUNEVENT = 0;
-  desc2.nSCALERS  = 0;
-  desc2.trigbits = 0;
-  desc2.eventtype = 1;
-  desc2.latefail = 0;
-  desc2.rocpattern = 0;
-  for(i=0; i<MAX_ROCS; i++)
-  {
-    desc2.rocstatus[i] = 0;
-    desc2.rocexist[i] = 0;
-  }
 
   /* start out with nothing in descriptors */
   bzero((void *)descriptors,sizeof(descriptors));
+
+
+
+
+
 
   /*******************
   * MAIN LOOP STARTS *
   *******************/
 
   nevbuf = 0;
-  nevbuf_was_zero = 0;
   do
   {
-    int bank, subBank, typ, issync;
-    unsigned long *soe, *dabufp, *data, *temp;
-#ifdef USE_128
+    int bank, typ, issync;
+    unsigned int *soe, *dabufp, *data, *temp;
     WORD128 roc_mask = ebp->roc_mask;
-#else
-    unsigned long roc_mask = ebp->roc_mask;
-#endif
-    unsigned long indx, indx2;
-    BANKPART *prev_val, *cur_val, *temp_val, **This;
+    unsigned int indx;
+    BANKPART *cur_val;
     char *ctype, *dtype;
 
     typ = -1; /* Sergey: to make debug messages happy .. */
 
-top:
 
+
+top: /* 'force_end' entry */
+
+	/*
 start2 = gethrtime();
+	*/
 
     /* check if we need to end in a hurry (force_end);
     in that case we have to check if "end event" was already written */
     if(ebp->force_end)
     {
       printf("[%1d] force_end %d end_event_done %d\n",id,ebp->force_end,ebp->end_event_done);
-#ifdef USE_128
       Print128(&ebp->roc_mask);
-#else
-      printf("[%1d] ROC mask: 0x%08x\n",id,ebp->roc_mask);
-#endif
       fflush(stdout);
 
       if(ebp->end_event_done)
@@ -615,7 +585,7 @@ start2 = gethrtime();
       {
         nevents2put = 0;
         neventsfree = 1;
-        in_error=et_event_new(et_sys,et_attach,&etevents[0],ET_SLEEP,NULL,120);
+        in_error = et_event_new(et_sys,et_attach,&etevents[0],ET_SLEEP,NULL,120);
         if(in_error != ET_OK)
         {
           /* need to reinit ET system since something's wrong */
@@ -629,7 +599,10 @@ start2 = gethrtime();
         }
       }
 
-      soe = dabufp = (unsigned long *) etevents[nevents2put]->pdata;
+
+      soe = dabufp = (unsigned int *) etevents[nevents2put]->pdata;
+
+
       nevents2put++;
       neventsfree--;
 
@@ -650,10 +623,15 @@ printf("[%1d] .. done\n",id);fflush(stdout);
       node_ix = 0;
 
       /* Fix total_length for Control Events */
-      total_length = (unsigned long *) desc2.length;
+      total_length = desc2.length;
 
       goto output_event;
     }
+
+
+
+
+
 
 
 
@@ -661,34 +639,20 @@ printf("[%1d] .. done\n",id);fflush(stdout);
        by LINK_sized_read (LINK_support.c file)) */
     /* usually have to wait in Prestart */
 
-#ifdef USE_128
     while( (EQ128(&roc_mask,&roc_linked)==0) && (ebp->ended==0) && (ebp->ending==0))
-#else
-    while((roc_mask!=roc_linked) && (ebp->ended==0) && (ebp->ending==0))
-#endif
     {
       /*roc_linked hungs sometimes ..*/
-#ifdef USE_128
       printf("NEED: ");
       Print128(&roc_mask);
       printf("HAVE: ");
       Print128(&roc_linked);
       printf("[%1d] waiting for the following ROC IDs:\n",arg->id);
-#else
-      printf("[%1d] 0x%08x != 0x%08x, waiting for the following ROC IDs:\n",
-			 arg->id,roc_mask,roc_linked);
-#endif
       itmp = 1;
-      for(i=0; i<32/*MAX_ROCS*/; i++)
+      for(i=0; i<MAX_ROCS; i++)
       {
         /*printf("[%2d] -> %d %d\n",i,roc_mask&itmp,roc_linked&itmp);
         fflush(stdout);*/
-#ifdef USE_128
         if( CheckBit128(&roc_mask,i) != 0 && CheckBit128(&roc_linked,i) == 0 ) printf(" %2d",i);
-#else
-        if( ((roc_mask&itmp)!=0) && ((roc_linked&itmp)==0) ) printf(" %2d",i);
-        itmp = itmp << 1;
-#endif
       }
       printf("\n\n");
       fflush(stdout);
@@ -704,16 +668,18 @@ printf("[%1d] .. done\n",id);fflush(stdout);
 
     if(print_rocs_report)
     {
-#ifdef USE_128
       Print128(&roc_mask); Print128(&roc_linked);
       printf("[%1d] all ROCs reported\n",arg->id);
-#else
-      printf("[%1d] 0x%08x == 0x%08x, all ROCs reported\n",
-        arg->id,roc_mask,roc_linked);
-#endif
       fflush(stdout);
       print_rocs_report = 0;
 	}
+
+
+
+
+
+
+
 
     /******************
     * ROC LOOP STARTS *
@@ -722,9 +688,12 @@ printf("[%1d] .. done\n",id);fflush(stdout);
 retry:
 
 
+    /************************************************/
     /* if buffer is empty get a new chunk of events */
     if(nevbuf == 0)
     {
+
+
 
 #ifdef DO_NOT_PUT
       printf("EB sleeps forever, all data go to trash !\n");
@@ -739,21 +708,14 @@ retry:
 
       start1 = gethrtime();
 
-      nevbuf=cb_events_get(roc_queues,id,ebp->nrocs,chunk,evptr,evsize,&nphys);
+      /* get chunk of events from roc fifos */
+      nevbuf = cb_events_get(roc_queues, id, ebp->nrocs, chunk, evptr, evsize, &nphys);
       for(i=0; i<MAX_ROCS; i++) roc_queue_evsize[i] = evsize[i];
       idin = id_in[id_in_index];
       id_in_index = (id_in_index + 1) % NIDMAX;
 
       end1 = gethrtime();
 
-      /* save counters updated by previous thread;
-      will use them in this thread */
-      desc2.nRUNEVENT = nRUNEVENT;
-      desc2.nSCALERS = nSCALERS;
-
-      /* update counters to be used by next thread */
-      nRUNEVENT += nphys;
-      nSCALERS += (nevbuf-nphys);
 /*
 printf("[%1d] .. got idin=%d, nevbuf=%d, nphys=%d, event no.=%d\n",
 id,idin,nevbuf,nphys,evptr[0][0][1]&0xff);
@@ -775,12 +737,10 @@ id,idin,nevbuf,nphys,evptr[0][0][1]&0xff);
         nevchun = 0;
       }
 
+
       if(nevbuf == -1)
       {
-#ifdef USE_128
-#else
-        ebp->roc_mask &= ~ (1<<roc); /* ERROR: 'roc' is not defined here !!! */
-#endif
+        /*ebp->roc_mask &= ~ (1<<roc); was ERROR even for 32-bit: 'roc' is not defined here !!! */
         printf("handle_build: cb_events_get() returned end of file\n");
         fflush(stdout);
         ebp->force_end = 2;
@@ -793,39 +753,32 @@ id,idin,nevbuf,nphys,evptr[0][0][1]&0xff);
         fflush(stdout);
       }
 
-/*printf("[%1d] unlocking .......\n",id,nevbuf);*/
       data_unlock(ebp);
-/*printf("[%1d] .. unlocked\n",id,nevbuf);*/
 
-      /* if we've run out of available events, get more from ET */
+
+
+
+	  /*********************************************************/
+      /* if we've run out of empty ET events, get more from ET */
       if(neventsfree < 1)
       {
         neventsnew = 0;
         nevrem = nevbuf;
-
         while(nevrem)
         {
-/*printf("[%1d] geting %d events from ET\n",id,nevrem);*/
           in_error = et_events_new(et_sys, et_attach, &etevents[neventsnew],
                                    ET_SLEEP, NULL, et_eventsize, nevrem, &cc);
           if(in_error != ET_OK)
           {
-            printf("et_events_new ERROR: length = %d bytes, status = %d\n",
-                   (int) total_length,in_error); fflush(stdout);
+            printf("et_events_new returns ERROR = %d\n",in_error); fflush(stdout);
             ebp->force_end = 4;
             et_reinit = 1;
             break;
           }
-
           neventsnew += cc;
           nevrem -= cc;
         }
-
         neventsfree = neventsnew;
-        
-/*printf("et_events_new(): neventsnew = %d, status = %d\n",
-neventsnew,in_error); fflush(stdout);*/
-        
         if(nevbuf!=neventsnew)
         {
           printf("deb_component ERROR: nevbuf=%d != neventsnew=%d\n",
@@ -833,69 +786,59 @@ neventsnew,in_error); fflush(stdout);*/
           fflush(stdout);
           exit(0);
         }
-
       }
 
-      /* */
+
+      /* store some informations into roc descriptors */
       for(roc=0; roc<ebp->nrocs; roc++)
       {
         desc1 = &descriptors[roc];
 
         desc1->rocid = roc_queues[roc]->rocid;
-        desc1->nevbuf = nevbuf;
-
-        /* some checks */
         if(desc1->rocid < 0 || desc1->rocid >= MAX_ROCS)
-          {printf("ERROR: rocid=%d\n",desc1->rocid);fflush(stdout);}
+        {
+          printf("ERROR: rocid=%d\n",desc1->rocid);
+          fflush(stdout);
+        }
 
-        desc1->soe = (unsigned long *)evptr[roc][0]; /* start of first event */
-		/*bla
-printf(" ===== soe3: 0x%08x (0x%08x) nev=%d\n",desc1->soe,*desc1->soe,nevbuf);fflush(stdout);
-		*/
-/*
-printf("[%1d] deb0 roc=%d desc=0x%08x soe=0x%08x (0x%08x 0x%08x 0x%08x) evnb=%d rocid=%d\n",
-id,roc,desc1,desc1->soe,*desc1->soe,*(desc1->soe+1),*(desc1->soe+2),
-desc1->evnb, desc1->rocid);fflush(stdout);
-*/
+        desc1->soe = (unsigned int *)evptr[roc][0]; /* start of first event */
+
+        desc1->nevbuf = nevbuf;
+        desc1->totbuf = desc1->nevbuf; /* remember total number of events */
         desc1->user[0] = 0;
-        desc1->totbuf = desc1->nevbuf; /* remember total amount of events */
         desc1->ievbuf = 0;
       }
 
-
     }
+    /* end of getting new chunk of events */
+    /**************************************/
 
 
-/*printf("[%1d] deb1\n",id);fflush(stdout);*/
+
+
+
+
+    /*******************/
+    /* for() over rocs */
     for(roc=0; roc<ebp->nrocs; roc++)
     {
       desc1 = &descriptors[roc];
 
-/*printf("[%1d] deb2 roc=%d desc=0x%08x\n",id,roc,desc1);fflush(stdout);*/
       /* Decode the event; returns with 'temp' pointing to the first data
       word AFTER the header, note also that if there is no data from this ROC
       EVENT_DECODE_FRAG should still behave itself and return a descriptor */
       temp = data = desc1->soe;
-	  /*bla
-printf("soe4: 0x%08x (0x%08x 0x%08x)\n",desc1->soe,*desc1->soe,*(desc1->soe+1));fflush(stdout);
-	  */
-/*printf("[%1d] deb21 desc1->soe=0x%08x, 1st=0x%08x, 2nd=0x%08x (before=0x%08x)\n",
-id,desc1->soe,data[0],data[1],data[-1]);fflush(stdout);*/
       typ = (data[1] >> 16) & 0xff;       /* Temp storage of type info */
-/*printf("[%1d] deb22\n",id);fflush(stdout);*/
       issync = (data[1] >> 24) & 0x01;    /* Temp storage of sync info */
-/*printf("[%1d] deb3 typ=%d\n",id,typ);fflush(stdout);*/
-      if(typ < 16)
+      if(typ < 16) /* physics event */
       {
         CODA_decode_frag(&temp,desc1);
       }
-      else if((typ > 15) && (typ < 32))
+      else if((typ >= 16) && (typ < 32)) /* special event */
       {
         CODA_decode_spec(&temp,desc1);
 
         desc1->evnb = -1;        /* to be sure */
-        desc1->bankCount = 1;    /* Control events have one Bank */
-
 
 
         /*********************************************************************/
@@ -944,29 +887,19 @@ id,desc1->soe,data[0],data[1],data[-1]);fflush(stdout);*/
         fflush(stdout);
         exit(0);
       }
-/*
-printf("[%1d] ending=%d ended=%d end_event_done=%d\n",
-id,ebp->ending,ebp->ended,ebp->end_event_done);
-printf("[%1d] deb4\n",id);fflush(stdout);
-*/
+
+
       /* sequence error check */
       if(current_evty == -1) /* event type -1 is used it to mark new event */
       {
-		/*
-printf("[%1d] deb41: rocid=%d type=%d evnb=%d\n",id,desc1->rocid,typ,desc1->evnb);fflush(stdout);
-		*/
         current_evty = typ;
         current_evnb = desc1->evnb;
       }
       else
       {
-		/*
-printf("[%1d] deb42: rocid=%d type=%d evnb=%d\n",id,desc1->rocid,typ,desc1->evnb);fflush(stdout);
-		*/
         /* we are already building so we can check some things... */
         if((current_evnb != desc1->evnb) && (in_error == 0))
         {
-/*printf("[%1d] deb43\n",id);fflush(stdout);*/
           in_error = 1;
           printf("[%1d] FATAL: Event (Num %d type %d) NUMBER mismatch",
                  id,current_evnb,current_evty);
@@ -983,136 +916,57 @@ exit(0);
         }
         else if((current_evty != desc1->type) && (in_error == 0))
         {
-/*printf("[%1d] deb44\n",id);fflush(stdout);*/
           current_evtyerr ++;   /* Count type mismatches from first fragment */
           type_mask |= (1<<desc1->rocid); /* Get mask of ROC IDs with mismatched
                                             types */
           types[desc1->rocid] = desc1->type; /* Store type for each ROC */
         }
       }
-/*printf("[%1d] deb5\n",id);fflush(stdout);*/
-      if(in_error) /* lets try to recover */
+
+
+
+
+
+
+      fragment_mask |= (1<< desc1->rocid);
+      skip_mask |= (1 << roc);
+      if(issync) sync_mask |= (1<< desc1->rocid);
+
+
+
+      /* if there was no data from this ROC we need worry no more;
+      this next "if" takes care of the situation where there was a
+      CODA header from a ROC but no actual data */
+      if(desc1->length > 0)
       {
-        if((typ > 15) && (typ < 32))
-        {
-          printf("[%1d] WARN: Found sync point %d for ROC >%s<\n",
-		          id,desc1->type,
-                  (get_cb_name(*ebp->roc_stream[ebp->roc_nb[desc1->rocid]])));
-          skip_mask |= (1 << roc);
+        BANKPART *bn;
 
-          fragment_mask |= (1<< desc1->rocid);
-          {
-            /*register*/ BANKPART *bn = build_node[node_ix];
-            bn->desc = desc1;
-          }
-          node_ix++;
+        ix=0;
+        bn = build_node[node_ix];
 
-#ifdef USE_128
-          if( EQ128(&fragment_mask,&roc_mask) )
-#else
-          if(fragment_mask == roc_mask)
-#endif
-          {
-            in_error = 0;
-            skip_mask = 0;
-            printf("[%1d] WARN: Resyncronised via control event\n",id);
-            fflush(stdout);
-            if(desc1->type == 20)
-            {
-              printf("got all end events !!!\n"); fflush(stdout);
-              ebp->force_end = 3;
-            }
-            goto top;
-          }
-          goto retry;
-        }
-        else
-        {
-          printf("[%1d] requeue event - NEED TO BE TESTED !!! (typ=%d)\n",
-                 id,typ);
-          fflush(stdout);
+        bn->data = desc1->fragments[ix];
+        bn->bank = desc1->bankTag[ix];
+        bn->length = desc1->fragLen[ix];
+        total_length += bn->length;
+        /*printf("[%3d] bn->length=%d\n",node_ix,bn->length);*/
+        bn->desc = desc1;	      
 
-          if(typ==20)
-          {
-            printf("[%1d] requeue event: it seems we have 'End' ..\n",id);
-            fflush(stdout);
-          }
-
-          /* requeue event: lets take the current event and discards it by
-          "bumping" the pointers to the start of the event to point to the next
-          event. If this event is the last one in the buffer then do nothing.*/
-
-          printf("[%1d] desc1->nevbuf=%d\n",id,desc1->nevbuf);
-          fflush(stdout);
-          if(desc1->nevbuf > 0)
-          {
-            /* note this routine returns with "temp" pointing to
-            the first data word AFTER the header, note also that if there is
-            no data from this ROC EVENT_DECODE_FRAG should still behave itself
-            and return a descriptor, DECODE_FRAG can set user[0] equal to the
-            event header length if it makes sense to do so. */
-
-            desc1->nevbuf--; /* decrement the number of events left in the buffer */
-            desc1->ievbuf++; /* increment the current event number in buffer */
-            desc1->user[0] = 0;
-            /* shift pointer to the next event */
-            desc1->soe = (unsigned long *)evptr[roc][desc1->ievbuf];
-printf("soe5: 0x%08x (0x%08x)\n",desc1->soe,*desc1->soe);fflush(stdout);
-            temp = data = desc1->soe;
-          }
-        }
+        node_ix++;
       }
-      else /* there were no errors so do ... */
-      {
-        int ix;
 
-        fragment_mask |= (1<< desc1->rocid);
-        skip_mask |= (1 << roc);
-        if(issync) sync_mask |= (1<< desc1->rocid);
 
-        /* if there was no data from this ROC we need worry no more;
-        this next "if" takes care of the situation where there was a
-        CODA header from a ROC but no actual data */
-        if(desc1->length > 0)
-        {
-          /*register*/ BANKPART *bn;
 
-          /* loop over the banks from this ROC to reserve space in
-          the buffer;  
-             Bug Bug, if the buffers were always big enough we could
-             ignore this?? */
-          /*BOY(*out_procs[id][EVENT_RESERV_FRAG])(&total_length);*/
 
-          /* convert from bytes to 32 bit long words. */
-          /* Here desc1->length is in bytes, convert to long words
-          and then increment the total_length pointer by this number. */
-		  /* must add 8 words because 'desc1->length' counts 2-word
-          headers, and later they will be expanded to 10-word headers;
-          we are not taking into account that during glueing procedure
-          some headers will be removed so 'total_length' contains bigger
-          amount of words then actualy in buffer */
 
-/*total_length += (desc1->length >> 2) + (NFPHEAD-NHEAD);*/
-/* !!! ???
-total_length += ((desc1->length >> 2) + 10);
-*/
-          for(ix=0; ix<desc1->bankCount; ix++)
-          {
-            bn = build_node[node_ix];
-            bn->bank = desc1->bankTag[ix];
-            bn->length = desc1->fragLen[ix];
-total_length += ((bn->length >> 2) + 10);   /* NADO RAZOBRAT'SYA NAKONEC !! */
-            bn->data = desc1->fragments[ix];
-            bn->desc = desc1;	      
-            node_ix++;
-          }
-        }
-      } /* End of if (in_error) */
-/*printf("[%1d] deb6\n",id);fflush(stdout);*/
 
-    } /* end of for() over rocs */
+    }
+    /* end of for() over rocs */
+    /**************************/
 
-/*printf("[%1d] deb9\n",id);fflush(stdout);*/
+
+
+
+
     /****************
     * ROC LOOP ENDS *
     ****************/
@@ -1129,6 +983,8 @@ total_length += ((bn->length >> 2) + 10);   /* NADO RAZOBRAT'SYA NAKONEC !! */
     /* if we get here we have one fragment for
        each ROC and fragment_mask == ebp->roc_mask */
 
+
+    /***********************************/
     /* check for Event Type mismatches */
     if(current_evtyerr)
     {
@@ -1149,6 +1005,8 @@ total_length += ((bn->length >> 2) + 10);   /* NADO RAZOBRAT'SYA NAKONEC !! */
 	  
     }
 
+
+    /*****************************/
     /* check for SYNC mismatches */
     if(sync_mask)
     {
@@ -1169,33 +1027,20 @@ total_length += ((bn->length >> 2) + 10);   /* NADO RAZOBRAT'SYA NAKONEC !! */
     type_mask = sync_mask = 0;
 
 
-/* ???????????????????????????????????????????????? */
-/* below reserv again ????? */
-
-    /*BOY(*out_procs[id][EVENT_RESERV_HEAD])(&total_length);*/
-    total_length += 11; /* increment total_length pointer */
-    /*BOY(*out_procs[id][EVENT_RESERV_DESC])(&total_length);*/
-    total_length += 18; /* increment total_length pointer */
-
 
     /* then set 'soe' pointer and update event counters */
-    soe = dabufp = (unsigned long *) etevents[nevents2put]->pdata;
-/*printf("soe6: 0x%08x (0x%08x)\n",soe,soe);fflush(stdout);*/
+    soe = dabufp = (unsigned int *) etevents[nevents2put]->pdata;
+
     nevents2put++;
     neventsfree--;
 
-
-
-    /* if physics event, reserve space for the event header
-    and event 'ID bank' */
+    /* if physics event, reserve space for the event header and event 'ID bank' */
     if(current_evty < 16)
     {
-/*printf("115: desc2.desc_start=0x%08x\n",desc2.desc_start);fflush(stdout);
-printf("115: desc2.head_start=0x%08x\n",desc2.head_start);fflush(stdout);*/
       CODA_reserv_head(&dabufp, &desc2);
+	  total_length += (2*4); /* increment total_length */
       CODA_reserv_desc(&dabufp, &desc2);
-/*printf("116: desc2.desc_start=0x%08x\n",desc2.desc_start);fflush(stdout);
-printf("116: desc2.head_start=0x%08x\n",desc2.head_start);fflush(stdout);*/
+	  total_length += (5*4); /* increment total_length */
 
       object->nevents++;
       desc2.evnb = object->nevents;
@@ -1204,131 +1049,57 @@ printf("116: desc2.head_start=0x%08x\n",desc2.head_start);fflush(stdout);*/
       desc2.err[1] = current_syncerr;
     }
 
-
-
     bank = -1;
 
-    /* if physics event, sort fragments (banks) */
+
+    /********************************************/
+    /* if physics event, check length and build */
     if(current_evty < 16)
     {
       /* if event too big, ignore it */
-      if((int)total_length > et_eventsize)
+      if(total_length > et_eventsize)
       {
-        printf("ERROR: event too big (%d > %d) - ignored\n",
-               (int)total_length,et_eventsize);
+        printf("ERROR: event too big (event length %d bytes > et system buffer size %d bytes) - exit\n",total_length,et_eventsize);
         fflush(stdout);
-
-        /* only FPACK header and HEAD bank will be created */
-        total_length  = NULL;
-        total_length += 11;
-        total_length += 18;
+exit(0); /* should we ignore and try to recover ??? */
       }
       else
       {
-        if(node_ix > 1)
-        {
-          This = build_node;
-          prev_val = build_node[0];
-          for(indx = 1; indx < node_ix; ++indx)
-          {
-            cur_val = This[indx];
-            if(prev_val->bank > cur_val->bank)
-            {
-              /* out of order */
-              This[indx] = prev_val;
-              for(indx2 = indx - 1; indx2 > 0; --indx2)
-              {
-                temp_val = This[indx2 - 1];
-                if(temp_val->bank > cur_val->bank) This[indx2] = temp_val;
-                else break;
-              }
-              This[indx2] = cur_val;
-            }
-            else
-            {
-              prev_val = cur_val;
-            }
-          }
-        }
-
-
-       /* Do the build */
+        /* building */
+		/*printf("\n Building, node_ix=%d\n",node_ix);*/
         for(indx=0; indx<node_ix; indx++) /* loop over sorted banks */
         {
+          /*printf("indx=%d\n",indx);*/
           cur_val = build_node[indx];/* pointer to the next bank structure */
           desc1 = cur_val->desc;     /* descriptor for that bank */
-          if(bank != cur_val->bank)  /* meet that bank for the first time */
-          {
-/*printf("1: trigbits[%d]=0x%08x\n",indx,desc1->trigbits);*/
-            /* reserv nothing, just remember fragment starting address */
-            CODA_reserv_frag(&dabufp, &desc2);
 
-		    /*printf("FIRST TIME\n");*/
-            bank = cur_val->bank;
-            /* full length (not used by BOS) */
-            desc2.length = cur_val->length;
-            /* data length: used by BOS only in _ENCODE_FRAG */
-            desc2.data_length =(cur_val->length>>2)-NHEAD;
-            if(desc2.head_length > 0) /* BOS format */
-            {
-              /* copy BOS bank header */
-              memcpy((char *)dabufp, cur_val->data, NHEAD<<2);
-              /* reserve space for FPACK header */
-              dabufp += desc2.head_length;
-              /* copy bank data */
-              memcpy((char *)dabufp, cur_val->data+NHEAD,
-                     cur_val->length-(NHEAD<<2)); 
-              /* reserve space for bank data */
-              dabufp += ( (cur_val->length>>2)-NHEAD );
-            }
-            else /* CODA format */
-            {
-              memcpy((char *)dabufp, cur_val->data, cur_val->length); 
-              dabufp += (cur_val->length >> 2);
+          CODA_reserv_frag(&dabufp, &desc2); /* remember fragment starting address and bump 'dabufp' on 2 words */
+          total_length += (2*4);
 
-/*sergey*/desc2.user[2]=desc1->user[2];/*preserve contentType as it came from ROC (was always set to 1)*/
-            }
-            desc2.rocid = bank;
-            desc2.trigbits |= desc1->trigbits;
+          bank = cur_val->bank;
+          /*printf("bank=%d\n",bank);*/
 
-            /* pick up maximum eventtype; will be used in _encode_desc() */
-            if(desc1->eventtype > desc2.eventtype)
-            {
-/*
-printf("[%1d]: eventtype=%d (%d)\n",id,desc2.eventtype,desc1->eventtype);
-*/
-              desc2.eventtype = desc1->eventtype;
-            }
-/*printf("2: trigbits[%d]=0x%08x\n",indx,desc2.trigbits);*/
-          }
-          else /* previous bank had the same 'id' -> glue them together */
-          {
-            /*printf("SECOND TIME\n");*/
-            /* remove bank header length from total length; */
-            /*  desc1->user[0] contains bank header length  */
-            /*  in words, in case of BOS it is equal to 2   */
-            cur_val->length -= (desc1->user[0]<<2);
-            /* full length (not used by BOS) */
-            desc2.length += cur_val->length;
-            /* data length: used by BOS only in _ENCODE_FRAG */
-            desc2.data_length += (cur_val->length>>2);
-            /* copy bank data */
-            memcpy((char *)dabufp, cur_val->data+desc1->user[0],
-                                                    cur_val->length);
-            /* reserve space for bank data */
-            dabufp += (cur_val->length >> 2);
-          }
-/*printf("[%1d] 1025: 0x%08x 0x%08x 0x%08x 0x%08x\n",id,&dabufp,dabufp,&desc2,desc2);fflush(stdout);*/
-          CODA_encode_frag(&dabufp, &desc2);
+          desc2.length = cur_val->length; /* full length in bytes */
+          /*printf("desc2.length=%d words\n",desc2.length/4);*/
+
+          memcpy((char *)dabufp, cur_val->data, cur_val->length); 
+          /*for(i=0; i<cur_val->length/4; i++) printf("  [%3d] 0x%08x\n",i,dabufp[i]);*/
+          dabufp += (cur_val->length >> 2);
+
+          desc2.user[2] = desc1->user[2]; /*sergey: preserve contentType as it came from ROC (was always set to 1)*/
+
+          desc2.rocid = bank;
+          /*printf("desc2.rocid=%d\n",desc2.rocid);*/
+
+          CODA_encode_frag(&dabufp, &desc2); /* fills fragment 2-word header */
         }
       }
-    }
-    else if((current_evty > 15) && (current_evty < 32))
-    {
 
-      /* Control events need no building */
-      printf("[%1d] Got control event fragments type = %d  node_ix=%d\n",
-             id,current_evty,node_ix); fflush(stdout);
+
+    }
+    else if((current_evty >= 16) && (current_evty < 32))      /* Control events - need no building */
+    {
+      printf("[%1d] Got control event fragments type = %d  node_ix=%d\n",id,current_evty,node_ix); fflush(stdout);
       for(indx=0; indx<node_ix; indx++)
       {
         cur_val = build_node[indx];
@@ -1337,29 +1108,14 @@ printf("[%1d]: eventtype=%d (%d)\n",id,desc2.eventtype,desc1->eventtype);
         {
           /* handle control event; if 'End' set appropriate flags */
 
-          /* Sergey */
-          desc1->nRUNEVENT = desc2.nRUNEVENT;
-          desc1->nSCALERS = desc2.nSCALERS;
-
           if(desc1->type > 31)       ctype = "User event";
           else if(desc1->type == 17) ctype = "prestart";
           else if(desc1->type == 18) ctype = "go";
           else if(desc1->type == 19) ctype = "pause";
           else if(desc1->type == 20) ctype = "end";  
-#ifdef USE_128
           if( IFZERO128(&ebp->ctl_mask)==1 )
-#else
-          if(ebp->ctl_mask == 0)
-#endif
           {
             ebp->cur_cntl = desc1->type;
-printf("11: %d\n",desc1->rocid);fflush(stdout);
-printf("12: %d\n",ebp->roc_nb[desc1->rocid]);fflush(stdout);
-printf("13: %x\n",(*ebp->roc_stream[ebp->roc_nb[desc1->rocid]]));fflush(stdout);
-/*
-            printf("[%1d] Build control event: %s(%s",id,ctype,
-                   (*ebp->roc_stream[ebp->roc_nb[desc1->rocid]])->name);
-*/
           }
           else
           {
@@ -1370,45 +1126,20 @@ printf("13: %x\n",(*ebp->roc_stream[ebp->roc_nb[desc1->rocid]]));fflush(stdout);
               else if(ebp->cur_cntl == 18) dtype = "go";
               else if(ebp->cur_cntl == 19) dtype = "pause";
               else if(ebp->cur_cntl == 20) dtype = "end";
-printf("21: %d\n",desc1->rocid);fflush(stdout);
-printf("22: %d\n",ebp->roc_nb[desc1->rocid]);fflush(stdout);
-printf("23: %x\n",(*ebp->roc_stream[ebp->roc_nb[desc1->rocid]]));fflush(stdout);
-              printf(", %s %s != %s ",
-               (*ebp->roc_stream[ebp->roc_nb[desc1->rocid]])->name,ctype,dtype);
-            }
-            else
-            {
-printf("31: %d\n",desc1->rocid);fflush(stdout);
-printf("32: %d\n",ebp->roc_nb[desc1->rocid]);fflush(stdout);
-printf("321: %x\n",ebp->roc_stream[1]);fflush(stdout);
-printf("33: %x\n",(*ebp->roc_stream[ebp->roc_nb[desc1->rocid]]));fflush(stdout);
-/*
-              printf(", %s",
-               (*ebp->roc_stream[ebp->roc_nb[desc1->rocid]])->name);
-*/
+              printf(", %s %s != %s ",(*ebp->roc_stream[ebp->roc_nb[desc1->rocid]])->name,ctype,dtype);
             }
           }
-#ifdef USE_128
           SetBit128(&ebp->ctl_mask,desc1->rocid);
           if( EQ128(&ebp->ctl_mask,&ebp->roc_mask) )
-#else
-          ebp->ctl_mask |= (1<<(desc1->rocid));
-          if(ebp->ctl_mask == ebp->roc_mask)
-#endif
           {
-            unsigned long *dabufp;
+            unsigned int *dabufp;
             printf(")\n-- Got all fragments of %s\n",ctype);
-#ifdef USE_128
             Clear128(&ebp->ctl_mask);
-#else
-            ebp->ctl_mask = 0;
-#endif
             /* if thread did not get control event, we still need it !!! */
             desc1->time = time(NULL);
-#ifdef USE_128
-#else
-            desc1->rocs[0] = ebp->roc_mask;
-#endif
+
+            /*desc1->rocs[0] = ebp->roc_mask; need it for 128 bit ???*/
+
             desc1->evnb = object->nevents;
             desc1->runty = object->runType;
             desc1->runnb = object->runNumber;
@@ -1423,28 +1154,27 @@ printf("33: %x\n",(*ebp->roc_stream[ebp->roc_nb[desc1->rocid]]));fflush(stdout);
               ebp->end_event_done = 1;
             }
           }
+
           /* copy into desc2 */
           memcpy(&desc2,desc1,sizeof(DATA_DESC));
-
-
         }
       }
       /* Fix total_length for Control Events */
-      total_length = (unsigned long *) desc1->length;
+      total_length = desc1->length;
     }
+
 
 
     /* resync */
     node_ix = 0;
-    if(current_evty < 16)
+    if(current_evty < 16) /* if physics event */
     {
       desc2.user[1] = 0;
 
-      CODA_encode_desc(&dabufp, &desc2);
-      CODA_encode_head(&dabufp, &desc2);
-
-      desc2.eventtype = 1; /* restore default value */
+      CODA_encode_desc(&dabufp, &desc2); /* fills event 'ID bank' reserved above by CODA_reserv_desc */
+      CODA_encode_head(&dabufp, &desc2); /* fills event header reserved above by CODA_reserv_head */
     }
+
 
     /* go to the next event */
     for(roc=0; roc<ebp->nrocs; roc++)
@@ -1461,50 +1191,35 @@ printf("33: %x\n",(*ebp->roc_stream[ebp->roc_nb[desc1->rocid]]));fflush(stdout);
 
         /* get a pointer to the start of the next event; do not need
         to do that if(desc1->nevbuf==1) but 'if' will take more time */
-        desc1->soe = (unsigned long *)evptr[roc][desc1->ievbuf];
-		/*bla
-if(desc1->soe!=NULL) {printf("next soe: 0x%08x (0x%08x)\n",desc1->soe,*desc1->soe);fflush(stdout);}
-		*/
+        desc1->soe = (unsigned int *)evptr[roc][desc1->ievbuf];
       }
     }
+
+
     if(nevbuf > 0) nevbuf--;
-    if(nevbuf == 0) nevbuf_was_zero = 1;
-    /*printf("[%1d] nevbuf=%d\n",id,nevbuf);fflush(stdout);*/
-	/*bla
-if(nevbuf == 0) {printf("pisecccccccccccccc\n");fflush(stdout);}
-	*/
+
+
+
+
+
+
 output_event:
+
 if(ebp->end_event_done) printf("[%1d] output_event 1\n",id);fflush(stdout);
 
     /* if nothing wrong with ET system, output events */
     if(et_reinit == 0 && ebp->end_event_done == 0)
     {
+      /* fill ET control words */
+      etevents[nevents2put-1]->control[0] = desc2.type;
 
-      /* check for Prestart or Go Event and
-      pup these events to ET immediately
-      if( (current_evty == EV_PRESTART)||(current_evty == EV_GO) )
-      {
-        ;
-      }
-      else*/
-      {
-        /* fill ET control words */
-        etevents[nevents2put-1]->control[0] = desc2.type;
-#ifdef USE_128
-#else
-        etevents[nevents2put-1]->control[1] = ebp->roc_mask;
-#endif
-        etevents[nevents2put-1]->control[3] = desc2.user[1];
-        /* following can be longer then actual event, but not smaller !!! */
-        etevents[nevents2put-1]->length     = (int) total_length;
-      }
+      /*etevents[nevents2put-1]->control[1] = ebp->roc_mask; 128bit will not fit !!!*/
 
+      etevents[nevents2put-1]->control[3] = desc2.user[1];
 
+      etevents[nevents2put-1]->length     = total_length;
 
-      /* put events back if no free events left or we're forced to end */
-
-/* NEED OUTPUT IF nevbuf==0 !!!!!!!!!!!!!! */
-
+      /* put events back if no free events left or we're forced to end (NEED OUTPUT IF nevbuf==0 ???!!!) */
       if((neventsfree < 1) || ebp->force_end || ebp->ended)
       {
         /* put events into ET system */
@@ -1513,12 +1228,6 @@ if(ebp->end_event_done) printf("[%1d] output_event 1\n",id);fflush(stdout);
           /* check if it is my turn */
           out_lock;
           {
-/*
-printf("[%1d]: %d ?? %d,%d,%d,%d,%d,%d,%d (nevbuf=%d)\n",
-id,idin,id_out[0],id_out[1],id_out[2],id_out[3],
-id_out[4],id_out[5],id_out[6],nevbuf);
-fflush(stdout);
-*/
             while(idin!=id_out[0])
             {
 			  /*printf("[%1d]: cond_wait 1 ..\n",id);fflush(stdout);*/
@@ -1528,7 +1237,20 @@ fflush(stdout);
 
             /*printf("[%1d]: put data idin=%d\n",id,idin);*/
 
+
+start2 = gethrtime();
+
 			HPS_HACK;
+
+end2 = gethrtime();
+time2 += ((end2-start2)/NANOMICRO);
+if(++nevtime2 == NPROF2)
+{
+  printf("<<< time2=%7lld microsec (nevents2put=%d) >>>\n",time2/nevtime2,nevents2put);
+  nevtime2 = 0;
+  time2 = 0;
+}
+
 
             in_error = et_events_put(et_sys,et_attach,etevents,nevents2put);
 
@@ -1546,6 +1268,7 @@ fflush(stdout);
           }
         }
 
+
         /* reset variables */
         nevents2put  = 0;
 
@@ -1562,25 +1285,58 @@ if(ebp->end_event_done) printf("[%1d] output_event 2\n",id);fflush(stdout);
     total_length = 0;
 
 
+/*
 end2 = gethrtime();
 time2 += ((end2-start2)/NANOMICRO);
 time3 += ((end2-start2)/NANOMICRO);
 if(++nevtime2 == NPROF2)
 {
-  /*
+  
   printf("<<< total=%7lld microsec, build=%7lld microsec >>>\n",
     time2/nevtime2,time3/nevtime2);
-  */
+  
   nevtime2 = 0;
   time2 = 0;
   time3 = 0;
 }
+*/
 
 
   } while (!(ebp->force_end || ebp->ended));
   /*****************
   * MAIN LOOP ENDS *
   *****************/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
   /* lock and clean everything up */
@@ -1626,6 +1382,8 @@ if(++nevtime2 == NPROF2)
     printf("[%1d] detached from ET\n",id);
   }
 
+
+  /******************************************************/
   /* shutdown fifos; it is enough to do it by one thread,
   but lets all threads do it, it is not harm (is it ?) */
   printf("[%1d] remove mutex locks and shutdown fifos\n",arg->id);
@@ -1653,7 +1411,7 @@ if(++nevtime2 == NPROF2)
     pthread_mutex_unlock(&f->write_lock);
 
     /* flush input streams */
-    printf("[%1d] flush input streams\n",arg->id);
+    printf("\n[%1d] flushing input streams\n",arg->id);
     do
     {
       printf("[%1d] count for %s = %d\n",
@@ -1662,6 +1420,7 @@ if(++nevtime2 == NPROF2)
       if(get_cb_count(&f) <= 0) break;
       nevbuf = get_cb_data(&f,arg->id,chunk,evptr[i],&lenbuf,&rocid);
     } while(nevbuf != -1);
+
   }
 
   printf("[%1d] ============= Build threads cleaned\n",arg->id);
@@ -2017,8 +1776,6 @@ codaDownload(char *confname)
     printf("download: do not split list >%s<\n",tmp);
   }
 
-  printf("Use linked-in CODA format\n");
-  deflt = 1/*0-sergey???????*/;
 
 /* do we still need it ??? */
 
@@ -2314,11 +2071,7 @@ static trArg args[NTHREADMAX];
   MYSQL *dbsocket;
   MYSQL_RES *result;
   MYSQL_ROW row;
-#ifdef USE_128
   WORD128 roc_mask_local;
-#else
-  unsigned int roc_mask_local;
-#endif
   int roc_id_local;
 
 #ifdef SunOS
@@ -2335,11 +2088,7 @@ static trArg args[NTHREADMAX];
   started by 'debopenlinks' and compared with 'ebp->roc_mask' in the begining
   of building thread */
 
-#ifdef USE_128
   Clear128(&roc_linked);
-#else
-  roc_linked = 0;
-#endif
 
   sleep(1);
 
@@ -2406,28 +2155,8 @@ static trArg args[NTHREADMAX];
   ebp->ended = 0;
   ebp->end_event_done = 0;
 
-
   /* Initialize queues */
   for(ix=0; ix<MAX_ROCS; ix++) roc_queues[ix]->deleting = 0;
-
-  /* cleanup event counters */
-  nRUNEVENT = 0;
-  nSCALERS = 0;
-
-  /*
-  nddl = NDDL;
-  etDDLInit(nddl, ddl);
-  printf("ddl=0x%08x size=%d\n",ddl,sizeof(DDL));
-
-  {
-    DDL *ddlptr;
-    ddlptr = (DDL *)&ddl[83];
-    printf("===> id=%d ddlptr=0x%08x\n",83,ddlptr);
-    printf("===> ncol=%d\n",ddlptr->ncol);
-  }
-  */
-
-
 
   /* connect to database */
   dbsocket = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
@@ -2491,11 +2220,7 @@ static trArg args[NTHREADMAX];
     numRows = mysql_num_rows(result);
     printf("nrow=%d\n",numRows);
 
-#ifdef USE_128
     Clear128(&roc_mask_local);
-#else
-    roc_mask_local = 0;
-#endif
 	for(ix=0; ix<numRows; ix++)
     {
       row = mysql_fetch_row(result);
@@ -2507,11 +2232,7 @@ static trArg args[NTHREADMAX];
         roc_id_local = atoi(row[2]);
         if((roc_id_local>=0) && (roc_id_local<MAX_ROCS))
         {
-#ifdef USE_128
           SetBit128(&roc_mask_local,roc_id_local);
-#else
-          roc_mask_local |= (1<<roc_id_local);
-#endif
         }
       }
     }
@@ -2520,24 +2241,15 @@ static trArg args[NTHREADMAX];
   }
 
 
-#ifdef USE_128
   Copy128(&roc_mask_local, &ebp->roc_mask);
   Print128(&roc_mask_local);
-#else
-  ebp->roc_mask = roc_mask_local;
-  printf("++++++++++++++++ roc_mask_local = 0x%08x\n",roc_mask_local);
-#endif
 
 
 
   /**********************************************/
   /* set roc mask in mysql so TS can read it out */
   /**********************************************/
-#ifdef USE_128
   strcpy(temp,String128(&ebp->roc_mask));
-#else
-  sprintf(temp,"%d",ebp->roc_mask);
-#endif
   sprintf(tmpp,"SELECT name,value FROM %s_option WHERE name='rocMask'",configname);
 printf("mysql request >%s< (temp>%s<)\n",tmpp,temp);
   if(mysql_query(dbsocket, tmpp) != 0)
@@ -2782,6 +2494,7 @@ printf("codaEnd 11\n");fflush(stdout);
 	}
 	
   } while(itmp>0);
+
   ebp->nthreads = 0;
   /*
   for(i=0; i<NTHREADMAX; i++) ebp->idth[i] = NULL;

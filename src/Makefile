@@ -12,8 +12,8 @@ all:
 	- cd et-12.0;                        $(MAKE)
 	- cd et-12.0;                        $(MAKE) ulib
 	- cd et-12.0;                        $(MAKE) install
-	- cd bosio;                          $(MAKE)
-	- cd bosio;                          $(MAKE) install
+#	- cd bosio;                          $(MAKE)
+#	- cd bosio;                          $(MAKE) install
 	- cd mysql4.1.20;                    $(MAKE)
 	- cd mysql4.1.20;                    $(MAKE) install
 	- cd creg;                           $(MAKE)
@@ -134,6 +134,7 @@ nios:
 	- cd dac;                            $(MAKE) install NIOS
 	- cd rol;                            $(MAKE) lib     NIOS
 	- cd rol;                            $(MAKE) shlib   NIOS
+	- cd rol;                            $(MAKE) install NIOS
 	- cd rol;                            $(MAKE) rols    NIOS
 	- cd rol;                            $(MAKE) install NIOS
 

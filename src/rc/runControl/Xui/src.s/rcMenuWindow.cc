@@ -313,13 +313,16 @@ rcMenuWindow::handle_tab (Widget w, XtPointer data, XtPointer calldata)
   /* get tab data, start on tab 0 */
   static int curr = 0;
 
-  if ((int) calldata == 0)
-    return;
+  if (/*(int) sergey*/calldata == 0) return;
 
   if (self->tabChildren_[curr]) {
     XtUnmanageChild(self->tabChildren_[curr]);
   }
+#ifdef Linux_x86_64
+  curr += (int64_t)calldata;
+#else
   curr += (int)calldata;
+#endif
   tab = curr;
 
   if (self->tabChildren_[curr]) {

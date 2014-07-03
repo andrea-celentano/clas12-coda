@@ -20,7 +20,7 @@ around that problem temporary patches were applied - until fixed (Sergey) */
 #define USE_V1190
 
 
-#undef DEBUG
+#define DEBUG
 
 #include <stdio.h>
 #include <string.h>
@@ -102,6 +102,7 @@ static int slotnums[NBOARDS];
 static int tdctypebyslot[NBOARDS];
 static int error_flag[NBOARDS];
 static int ntdcs;
+
 
 
 static unsigned int NBsubtract = 9; /*same for v1190 and v1290 ?*/
@@ -205,10 +206,11 @@ __download()
   printf("\n>>>>>>>>>>>>>>> ROCID=%d, CLASSID=%d <<<<<<<<<<<<<<<<\n",rol->pid,rol->classid);
   printf("CONFFILE >%s<\n\n",rol->confFile);
 
-  
+  /*
   printf("rol1: downloading DDL table ...\n");
   clonbanks_();
   printf("rol1: ... done.\n");
+  */
 
   /**/
   CTRIGINIT;
@@ -234,7 +236,7 @@ tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_P2,1);
   /* add tdc fanout as busy source (overwrite TI_BUSY_SWB set by tiInit) */
   /* if ti is busy, it will not send trigger enable over fiber, since it is the same fiber
 	 and busy has higher priority */
-  tiSetBusySource(TI_BUSY_P2,1);
+  tiSetBusySource(TI_BUSY_P2,0);
 
 #ifndef TI_SLAVE
   tiSetBusySource(TI_BUSY_LOOPBACK,0);
@@ -262,6 +264,10 @@ tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_P2,1);
   ntdcs = tdc1190Init(0x11100000,0x80000,20,0);
   tdc1190Config("");
 
+/*
+ntdcs = 0;
+*/
+
   for(ii=0; ii<ntdcs; ii++)
   {
     slot = tdc1190Slot(ii);
@@ -277,7 +283,7 @@ tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_P2,1);
 
 
 
-#ifndef TI_SLAVE
+#ifdef TI_SLAVE_NOT_IN_USE
   /*pulser*/
   v851Init(0xd000,0);
   /*v851SetDelay(1,10,1,0);*/
@@ -355,6 +361,23 @@ __prestart()
   tiSyncReset(1);
   sleep(1);
 
+  if(tiGetSyncResetRequest())
+  {
+    printf("ERROR: syncrequest still ON after tiSyncReset(); trying again\n");
+    sleep(1);
+    tiSyncReset(1);
+    sleep(1);
+  }
+
+  if(tiGetSyncResetRequest())
+  {
+    printf("ERROR: syncrequest still ON after tiSyncReset(); try 'tcpClient <rocname> tiSyncReset'\n");
+  }
+  else
+  {
+    printf("INFO: syncrequest is OFF now\n");
+  }
+
   printf("holdoff rule 1 set to %d\n",tiGetTriggerHoldoff(1));
   printf("holdoff rule 2 set to %d\n",tiGetTriggerHoldoff(2));
 
@@ -423,6 +446,10 @@ __go()
     error_flag[ii] = 0;
   }
   taskDelay(100);
+
+
+ntdcs = 0; /*HACK !!! */
+
 #endif
 
   CDOENABLE(TIPRIMARY,TIR_SOURCE,0);
@@ -509,7 +536,7 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
     /* Grab the data from the TI */
 
 
-	len = tiReadBlock(tdcbuf,900>>2,0); /* 1-DMA, 0-noDMA*/
+	len = tiReadBlock(tdcbuf,900>>2,1); /* 1-DMA, 0-noDMA*/
     if(len<=0)
     {
       printf("TIreadout : No data or error, len = %d\n",len);
@@ -517,8 +544,12 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 #ifdef DEBUG
     else
     {
-      printf("ti: len=%d\n",len);
-      for(jj=0; jj<len; jj++) printf("ti[%2d] 0x%08x %d\n",jj,LSWAP(tdcbuf[jj]),LSWAP(tdcbuf[jj]));
+      /*printf("ti: len=%d\n",len);*/
+      for(jj=0; jj<len; jj++)
+	  {
+        /*printf("ti[%2d] 0x%08x %d\n",jj,LSWAP(tdcbuf[jj]),LSWAP(tdcbuf[jj]));*/
+        *rol->dabufp++ = LSWAP(tdcbuf[jj]);
+	  }
     }
 #endif
 

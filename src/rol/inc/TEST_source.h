@@ -13,49 +13,6 @@ static int TEST_isAsync;
 static unsigned long TEST_prescale = 1;
 static unsigned long TEST_count = 0;
 
-/*
-struct vme_ts {
-    unsigned long csr;       
-    unsigned long trig;
-    unsigned long roc;
-    unsigned long sync;
-    unsigned long test;
-    unsigned long state;
-    unsigned long blank_1;           
-    unsigned long blank_2;          
-    unsigned long prescale[8];
-    unsigned long timer[5];
-    unsigned long blank_3;          
-    unsigned long blank_4;          
-    unsigned long blank_5;           
-    unsigned long sc_as;
-    unsigned long scale_0a;
-    unsigned long scale_1a;
-    unsigned long blank_6;          
-    unsigned long blank_7;          
-    unsigned long scale_0b;
-    unsigned long scale_1b;
-  };
-
-struct vme_tir {
-    unsigned short tir_csr;
-    unsigned short tir_vec;
-    unsigned short tir_dat;
-    unsigned short tir_oport;
-    unsigned short tir_iport;
-  };
-
-
-struct vme_ts  *ts;
-struct vme_tir *tir[2];
-
-long *tsmem;
-long ts_memory[4096];
-long preset_count;
-
-long *vme2_ir;
-*/
-
 
 #ifdef USE_GTP
 unsigned int gtpNFIFOEvents();

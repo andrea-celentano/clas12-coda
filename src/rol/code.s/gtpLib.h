@@ -164,6 +164,22 @@ typedef struct
 /* 0x0138-0x01FF */	unsigned int Reserved2[(0x0200-0x0138)/4];
 } GtpSd_regs;
 
+// TiGtp Peripheral
+typedef struct
+{
+/* 0x0000-0x0003 */	unsigned int LinkCtrl;
+/* 0x0004-0x0007 */	unsigned int LinkStatus;
+/* 0x0008-0x000B */	unsigned int LinkReset;
+/* 0x000C-0x000F */	unsigned int Reserved0[(0x0010-0x000C)/4];
+/* 0x0010-0x0013 */	unsigned int FifoCtrl;
+/* 0x0014-0x0017 */	unsigned int FifoDataStatus;
+/* 0x0018-0x001B */	unsigned int FifoData;
+/* 0x001C-0x001F */	unsigned int FifoLenStatus;
+/* 0x0020-0x0023 */	unsigned int FifoLen;
+/* 0x0024-0x0027 */	unsigned int BlockLength;
+/* 0x0028-0x00FF */	unsigned int Reserved2[(0x0100-0x0028)/4];
+} GtpTi_regs;
+
 // GTP memory structure
 typedef struct
 {
@@ -177,6 +193,7 @@ typedef struct
 /* 0x1000-0x1FFF */	GtpSerdes_regs			Ser[16];
 /* 0x2000-0x23FF */	GtpTrigger_regs		Trg;
 /* 0x2400-0x24FF */	GtpQsfpSerdes_regs	QsfpSer;
+/* 0x2500-0x25FF */	GtpTi_regs				TiGtp;
 /* 0x2500-0xFFFF */	unsigned int			Reserved2[(0x10000-0x2500)/4];
 } Gtp_regs;
 
@@ -199,4 +216,25 @@ void gtpSetHpsParameters(int pulseCoincidenceTicks, int pulseClusterThreshold);
 void gtpGetHpsParameters();
 int gtpInit(int flag);
 
+/* New GTP function for Multi-ROC TI interface */
+int gtpReadBlock(volatile unsigned int *data, int nwrds, int rflag);
+unsigned int gtpBReady();
+
+int gtpWaitForInt();
+void gtpEnableInt(int en);
+void gtpTiGtpFifoReset();
+void gtpClearIntData();
+
+/* Library Interrupt/Polling routine prototypes */
+/*
+int  gtpIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg);
+int  gtpIntDisconnect();
+int  gtpAckConnect(VOIDFUNCPTR routine, unsigned int arg);
+*/
+void gtpIntAck();
+/*
+int  gtpIntEnable(int iflag);
+void gtpIntDisable();
+unsigned int  gtpGetIntCount();
+*/
 #endif

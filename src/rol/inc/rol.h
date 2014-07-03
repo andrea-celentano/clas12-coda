@@ -412,6 +412,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
   } \
   else /*enable interrupts*/ \
   { \
+	/*printf("%s calls __done()\n",__FUNCTION__);*/	\
     __done(); \
     rol->doDone = 0; \
   }
@@ -577,24 +578,19 @@ cdodispatch(unsigned int theType)
 
   WRITE_EVENT_;
 
-  if(dabufp == NULL) /* remember that we have event(s) to process ??? cdopolldispatch() will check it .. */
+  /*already in WRITE_EVENT_ !!!!!!!!!!!!!???????????????????
+  if(dabufp == NULL)
   {
     poolEmpty = 1;
     rol->doDone = 1;
   }
-  else /*enable interrupts*/
+  else
   {
+	printf(">> %s calls __done()\n",__FUNCTION__);				\
     __done();
     rol->doDone = 0;
   }
-
-
-
-
-
-
-
-
+  */
 
   dispatch_busy = 0;
 }

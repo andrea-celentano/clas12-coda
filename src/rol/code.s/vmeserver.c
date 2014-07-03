@@ -2,6 +2,8 @@
 /* vmeserver.c - tcp server for trigger-like clients */
 
 
+
+
 #ifdef VXWORKS
 
 #include <vxWorks.h>
@@ -50,12 +52,39 @@
 
 
 
+#ifdef VXWORKS
+int sysBusToLocalAdrs(int, char *, char **);
+#else
+int vmeBusToLocalAdrs(int, char *, char **);
+#endif
 
 
 
 
 
-/* scaler stuff - dummy for now */
+/*
+#ifdef MOVED_TO_DIAG
+*/
+
+/********************************************************************************************************
+ scalers stuff - allows organize scalers readout by this server with defined interval and report it to
+ tcp clients such as CODA or EPICS
+********************************************************************************************************/
+
+#ifdef VXWORKS
+
+#define SCALER_LOCK   semTake(vmescalers_lock, WAIT_FOREVER)
+#define SCALER_UNLOCK semGive(vmescalers_lock)
+
+#else
+
+#define SCALER_LOCK   pthread_mutex_lock(&vmescalers_lock)
+#define SCALER_UNLOCK pthread_mutex_unlock(&vmescalers_lock)
+
+#endif
+
+
+
 #define MAXSCALERS 8
 static int vmeScalersReadInterval = 0;
 #ifdef VXWORKS
@@ -74,10 +103,462 @@ static unsigned int *vmescalers[MAXSCALERS];        /*scalers memory space addre
 
 
 
+/* parameter 'time' in seconds */
+int
+vmeSetScalersReadInterval(int time)
+{
+  if(time < 0)        vmeScalersReadInterval = 0; /* 0 means no reads */
+  else if(time > 100) vmeScalersReadInterval = 100;
+  else                vmeScalersReadInterval = time;
+
+  printf("vmeSetScalersReadInterval: vmeScalersReadInterval set to %d\n",vmeScalersReadInterval);
+
+  return(vmeScalersReadInterval);
+}
+
+int
+vmeGetScalersReadInterval()
+{
+  return(vmeScalersReadInterval);
+}
+
+/* function for forcing synch. event every 10 seconds; use command
+      taskSpawn "FORCE_SYNC",119,0,6000,ts2syncTask
+   in the boot script */
+void
+vmeReadTask()
+{
+#ifdef VXWORKS
+  extern unsigned long sysClkRateGet();
+#endif
+
+  while(1)
+  {
+    if(vmeScalersReadInterval==0) /* if interval==0, wait 1 sec and check again */
+    {
+#ifdef VXWORKS
+      taskDelay(sysClkRateGet());
+#else
+      sleep(1);
+#endif
+    }
+    else
+    {
+#ifdef VXWORKS
+      taskDelay(sysClkRateGet()*vmeScalersReadInterval);
+#else
+      sleep(vmeScalersReadInterval);
+#endif
+      vmeScalersRead();
+	  /*printf("vmeReadTask: reading scalers ...\n");*/
+    }
+  }
+
+  vmeScalersReadoutStop();
+
+  return;
+}
+
+
+/* following function called from boot script for every board */
+/* addr - first scaler address in 'switch' address space (0x08524000 for example)
+   len - the number of 32-bit scalers (the number of words)
+   enable - address of the enable/disable register
+*/
+
+int
+vmeScalersReadoutAdd(unsigned int addr, unsigned int len, unsigned int enable)
+{
+  if(vmescalersnum >= MAXSCALERS)
+  {
+    printf("vmeScalersReadoutAdd ERROR: reach max number of scalers (%d)\n",
+      vmescalersnum);
+    return(-1);
+  }
+
+#ifdef VXWORKS
+  if(sysBusToLocalAdrs(0x39,addr&0xFFFFFF,&vmescalersaddr[vmescalersnum]) < 0)
+#else
+  if(vmeBusToLocalAdrs(0x39,addr&0xFFFFFF,&vmescalersaddr[vmescalersnum]) < 0)
+#endif
+  {
+    vmescalersaddr[vmescalersnum] = 0;
+    printf("vmeScalersReadoutAdd ERROR: cannot set base address\n");
+    return(-2);
+  }
+
+  if(enable > 0)
+  {
+#ifdef VXWORKS
+    if(sysBusToLocalAdrs(0x39,enable&0xFFFFFF,&vmescalersenable[vmescalersnum]) < 0)
+#else
+    if(vmeBusToLocalAdrs(0x39,enable&0xFFFFFF,&vmescalersenable[vmescalersnum]) < 0)
+#endif
+    {
+      printf("vmeScalersReadoutAdd ERROR: cannot set enable address\n");
+      return(-3);
+    }
+  }
+  else
+  {
+    vmescalersenable[vmescalersnum] = 0;
+  }
+
+  vmescalerslen[vmescalersnum] = len;
+  vmescalersbegin[vmescalersnum] = addr;
+  vmescalersend[vmescalersnum] = addr+(len<<2)-4;
+  printf("vmeScalersReadoutAdd: Scalers Addresses: 0x%08x:0x%08x->0x%08x, len=%d words, enable=0x%08x\n",
+      vmescalersbegin[vmescalersnum],vmescalersend[vmescalersnum],
+      vmescalersaddr[vmescalersnum],vmescalerslen[vmescalersnum],
+      vmescalersenable[vmescalersnum]);
+
+  if( (vmescalers[vmescalersnum] = malloc(len<<2)) <= 0)
+  {
+    printf("ERROR vmeScalersReadoutAdd: cannot allocate memory\n");
+    return(-4);
+  }
+  printf("vmeScalersReadoutAdd: Allocated 0x%08x bytes at address 0x%08x\n",
+		 len<<2,vmescalers[vmescalersnum]);
+
+  vmescalersnum ++;
+
+  return(0);
+}
+
+
+/* following functions inserts enable/disable call into the scaler group starting
+    at 'addr', must be called after corresponding vmeScalersReadoutAdd()
+    has been called for that 'addr' !!! */
+/* addr - first scaler address in 'switch' address space (0x08524000 for example)
+   enable - address of the enable register
+*/
+
+int
+vmeScalersEnableAdd(unsigned int addr, unsigned int enable)
+{
+  int found, k;
+  unsigned int address;
+
+#ifdef VXWORKS
+  if(sysBusToLocalAdrs(0x39,addr&0xFFFFFF,&address) < 0)
+#else
+  if(vmeBusToLocalAdrs(0x39,addr&0xFFFFFF,&address) < 0)
+#endif
+  {
+    printf("vmeScalersEnableAdd ERROR: cannot set base address\n");
+    return(-2);
+  }
+
+  found = 0;
+  printf("vmeScalersEnableAdd: looking for 0x%08x among %d scalers\n",
+    address,vmescalersnum);
+  for(k=0; k<vmescalersnum; k++)
+  {
+    if(vmescalersaddr[k] == address)
+    {
+      printf("vmeScalersEnableAdd: found [%d] 0x%08x\n",k,vmescalersaddr[k]);
+      found = 1;
+#ifdef VXWORKS
+      if(sysBusToLocalAdrs(0x39,enable&0xFFFFFF,&vmescalersenable[k]) < 0)
+#else
+      if(vmeBusToLocalAdrs(0x39,enable&0xFFFFFF,&vmescalersenable[k]) < 0)
+#endif
+      {
+        printf("vmeScalersEnableAdd ERROR: cannot set enable address\n");
+        return(-3);
+      }
+      break;
+    }
+  }
+
+  if(found==0)
+  {
+    printf("vmeScalersEnableAdd ERROR: cannot found specified address\n");
+    return(-4);
+  }
+
+  return(0);
+}
+
+int
+vmeScalersDisableAdd(unsigned int addr, unsigned int disable)
+{
+  int found, k;
+  unsigned int address;
+
+#ifdef VXWORKS
+  if(sysBusToLocalAdrs(0x39,addr&0xFFFFFF,&address) < 0)
+#else
+  if(vmeBusToLocalAdrs(0x39,addr&0xFFFFFF,&address) < 0)
+#endif
+  {
+    printf("vmeScalersEnableAdd ERROR: cannot set base address\n");
+    return(-2);
+  }
+
+  found = 0;
+  for(k=0; k<vmescalersnum; k++)
+  {
+    if(vmescalersaddr[k] == address)
+    {
+      found = 1;
+#ifdef VXWORKS
+      if(sysBusToLocalAdrs(0x39,disable&0xFFFFFF,&vmescalersdisable[k]) < 0)
+#else
+      if(vmeBusToLocalAdrs(0x39,disable&0xFFFFFF,&vmescalersdisable[k]) < 0)
+#endif
+      {
+        printf("vmeScalersDisableAdd ERROR: cannot set disable address\n");
+        return(-3);
+      }
+      break;
+    }
+  }
+
+  if(found==0)
+  {
+    printf("vmeScalersDisableAdd ERROR: cannot found specified address\n");
+    return(-4);
+  }
+
+  return(0);
+}
 
 
 
 
+/* following function called from boot script for every board */
+
+int
+vmeScalersReadoutStart()
+{
+#ifndef VXWORKS
+  pthread_t id;
+#endif  
+
+#ifdef VXWORKS
+  vmescalers_lock = semBCreate(SEM_Q_FIFO, SEM_FULL);
+  if(vmescalers_lock == NULL)
+  {
+    printf("vmeScalersReadoutStart ERROR: could not allocate a semaphore\n");
+    return(-1);
+  }
+#else
+  pthread_mutex_init(&vmescalers_lock, NULL);
+#endif
+
+#ifdef VXWORKS
+  if(taskSpawn("vmeREAD", 250, 0, 100000,(FUNCPTR)vmeReadTask,
+	   0,0,0,0,0,0,0,0,0,0) == ERROR)
+  {
+    printf("ERROR vmeScalersReadoutStart: cannot start thread\n");
+    perror("taskSpawn"); 
+    return(-2);
+  }
+  else
+  {
+    printf("vmeScalersReadoutStart: 'vmeREAD' task started\n");
+  }
+#else
+  {
+    pthread_attr_t attr;
+
+    pthread_attr_init(&attr); /* initialize attr with default attributes */
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+
+    pthread_create(&id, &attr, vmeReadTask, NULL);
+  }
+#endif
+
+  return(0);
+}
+
+int
+vmeScalersReadoutStop()
+{
+  /* TODO: END TASK HERE !!!!!!!!!!!!!!!!!!!!!!!! */
+
+  free(vmescalers);
+
+#ifdef VXWORKS
+  semGive(vmescalers_lock);
+  semDelete(vmescalers_lock);
+#else
+  pthread_mutex_unlock(&vmescalers_lock);
+  pthread_mutex_destroy(&vmescalers_lock);
+#endif
+
+  return(0);
+}
+
+
+int
+vmeScalersRead()
+{
+  volatile unsigned int *ptr32;
+  volatile unsigned short *ptr16;
+  unsigned int *mem32;
+  unsigned short *mem16;
+  int i, k, nscalers;
+
+  SCALER_LOCK;
+  /*printf("vmescalersnum=%d\n",vmescalersnum);*/
+
+  /* disable scalers */
+  for(k=0; k<vmescalersnum; k++)
+  {
+    /* disable scalers (it will stop them) */
+    if(vmescalersenable[k] > 0)
+    {
+#ifdef PHOTON_RUN
+      ptr32 = (volatile unsigned int *)(vmescalersenable[k]);
+      *ptr32 = 0x0; /*disable scalers*/
+#else
+      ptr16 = (volatile unsigned short *)(vmescalersenable[k]);
+      *ptr16 = 0x0; /*disable scalers*/
+#endif
+      /*printf("disable: write 0 to 0x%08x\n",ptr16);*/
+      EIEIO;
+      SYNC;
+    }
+  }
+
+  /* read snapshot of scalers */
+  for(k=0; k<vmescalersnum; k++)
+  {
+#ifdef PHOTON_RUN
+    ptr32 = (volatile unsigned int *)(vmescalersaddr[k]);
+    mem32 = (unsigned int *)(vmescalers[k]);
+#else
+    ptr16 = (volatile unsigned short *)(vmescalersaddr[k]);
+    mem16 = (unsigned short *)(vmescalers[k]);
+#endif
+    EIEIO;
+    SYNC;
+    /*printf("vmeScalersRead: ptr16=0x%08x, mem16=0x%08x, len=%d 32-bit words\n",
+      ptr16,mem16,vmescalerslen[k]);*/
+
+
+    /* NEED REVERSE READOUT HERE FOR A24/D16 !!!!!!!!!! */
+    for(i=0; i<vmescalerslen[k]; i++)
+    {
+#ifdef PHOTON_RUN
+      mem32[0] = ptr32[0];
+#else
+      mem16[1] = ptr16[1];
+      mem16[0] = ptr16[0];
+#endif
+      EIEIO;
+      SYNC;
+#ifdef PHOTON_RUN
+      mem32++;
+      ptr32++;
+#else
+      mem16+=2;
+      ptr16+=2;
+#endif
+    }
+
+    EIEIO;
+    SYNC;
+  }
+
+  /* enable scalers (it will clear and start them) */
+  for(k=0; k<vmescalersnum; k++)
+  {
+    if(vmescalersenable[k] > 0)
+    {
+#ifdef PHOTON_RUN
+      ptr32 = (volatile unsigned int *)(vmescalersenable[k]);
+      *ptr32 = 0x1; /*enable scalers*/
+#else
+      ptr16 = (volatile unsigned short *)(vmescalersenable[k]);
+      /*printf("enable: write 1 to 0x%08x\n",ptr16);*/
+      *ptr16 = 0x1; /*enable scalers*/
+#endif
+      EIEIO;
+      SYNC;
+	}
+  }
+
+  SCALER_UNLOCK;
+
+  return(0);
+}
+
+int
+vmeScalersReadFromMemory()
+{
+  SCALER_LOCK;
+  SCALER_UNLOCK;
+
+  return(0);
+}
+
+unsigned int
+vmeGetScalerMemoryAddress(unsigned int addr)
+{
+  int i;
+  unsigned int tmp;
+
+  for(i=0; i<vmescalersnum; i++)
+  {
+    if( (addr >= vmescalersbegin[i])  && (addr <= vmescalersend[i]) )
+	{
+      tmp = addr - vmescalersbegin[i] + ((unsigned int)vmescalers[i]);
+      /*printf("tmp=0x%08x (0x%08x 0x%08x 0x%08x)\n",
+        tmp,addr,vmescalersbegin[i],((unsigned int)vmescalers[i]));*/
+      return(tmp);
+	}
+  }
+
+  printf("vmeGetScalerMemoryAddress: cannot get address for 0x%08x\n",addr);
+
+  return(-1);
+}
+
+unsigned int
+vmeGetScalerFromMemory(unsigned int addr)
+{
+  int i;
+  unsigned int value, tmp;
+
+  /*printf("vmeGetScalerFromMemory: read addr is 0x%08x\n",addr);*/
+  SCALER_LOCK;
+
+  for(i=0; i<vmescalersnum; i++)
+  {
+    if( (addr >= vmescalersbegin[i])  && (addr <= vmescalersend[i]) )
+	{
+      tmp = addr - vmescalersbegin[i] + ((unsigned int)vmescalers[i]);
+      /*printf("tmp=0x%08x (0x%08x 0x%08x 0x%08x)\n",
+        tmp,addr,vmescalersbegin[i],((unsigned int)vmescalers[i]));*/
+      value = *((unsigned int *)tmp);
+      /*printf("value=%d\n",value);*/
+      SCALER_UNLOCK;
+      return(value);
+	}
+  }
+
+  printf("vmeGetScalerFromMemory: cannot get value from 0x%08x\n",addr);
+  SCALER_UNLOCK;
+
+  return(-1);
+}
+
+
+
+
+
+
+/********************************************************************************************************
+ end of scalers stuff
+********************************************************************************************************/
+
+/*
+#endif
+*/
 
 
 #ifndef VXWORKS
@@ -114,12 +595,6 @@ typedef struct twork
 char *targetName(); /* from roc_component.c */ 
 void vmetcpServerWorkTask(TWORK *targ); 
 int vmetcpServer(void);
-
-#ifdef VXWORKS
-int sysBusToLocalAdrs(int, char *, char **);
-#else
-int vmeBusToLocalAdrs(int, char *, char **);
-#endif
 
 
 /**************************************************************************** 

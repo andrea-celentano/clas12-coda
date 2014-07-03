@@ -7,6 +7,7 @@
 #include "DCRB_Scalers.h"
 #include "DCRB_TDCPlots.h"
 #include "DCRB_Testing.h"
+#include "DCRB_NoisePlots.h"
 #include "DCRB_GTP.h"
 
 class DCRBModule	: public ModuleFrame
@@ -14,7 +15,7 @@ class DCRBModule	: public ModuleFrame
 public:
 	DCRBModule(const TGWindow *p, CrateMsgClient *pClient, unsigned int baseAddr) : ModuleFrame(p, pClient, baseAddr)
 	{
-		SetLayoutManager(new TGVerticalLayout(this));
+		SetupRegisters();
 
 		TGTab *pTabs;
 
@@ -23,6 +24,7 @@ public:
 
 		TGCompositeFrame *tFrame;
 		AddFrame(pTabs = new TGTab(this), new TGLayoutHints(kLHintsBottom | kLHintsRight | kLHintsExpandX | kLHintsExpandY));
+		tFrame = pTabs->AddTab("NoisePlots");	tFrame->AddFrame(new DCRB_NoisePlots(tFrame, this), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 		tFrame = pTabs->AddTab("TDCPlots");		tFrame->AddFrame(new DCRB_TDCPlots(tFrame, this, A32BaseAddr), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 		tFrame = pTabs->AddTab("GTP");			tFrame->AddFrame(new DCRB_GTP(tFrame, this), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 		tFrame = pTabs->AddTab("Scalers");		tFrame->AddFrame(new DCRB_Scalers(tFrame, this), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
@@ -64,6 +66,17 @@ private:
 		return kTRUE;
 	}
 
+	void SetupRegisters()
+	{
+		static RegMemDesc regs[] = {
+			{"FirmwareRev",		REGMEM_DESC_FLAGS_HEX,		{0x0000, 0, 32, 32}},
+			{"BoardID",				REGMEM_DESC_FLAGS_HEX,		{0x0004, 0, 32, 32}},
+			{"TestPulseConfig",	REGMEM_DESC_FLAGS_HEX,		{0x0034, 0, 12, 32}},
+			{"DAC",					REGMEM_DESC_FLAGS_UINT,		{0x0038, 0, 32, 32}},
+		};
+
+		pRegEditor->AddSet(regs, sizeof(regs)/sizeof(regs[0]));
+	}
 private:
 	unsigned int	A32BaseAddr;
 };
