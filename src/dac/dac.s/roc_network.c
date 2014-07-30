@@ -36,7 +36,7 @@ extern long     vxTicks;
 #include <sys/mman.h>
 
 #ifdef Linux
-#include <linux/prctl.h>
+#include <sys/prctl.h>
 #endif
 
 #define MYCLOCK NANOMICRO
@@ -219,7 +219,7 @@ unsigned long start, end, time1, time2;
 #else
 #ifndef Darwin
 hrtime_t start, end, time1, time2;
-int i, cycle = 10;
+int i, cycle = 1;
 static int nev;
 static hrtime_t sum;
 #endif
@@ -245,7 +245,6 @@ start = sysTimeBaseLGet();
 start = gethrtime();
 #endif
 
-#ifndef FIXEDBUFS
 
 retry2:
 
@@ -276,7 +275,6 @@ retry2:
 
 /*printf("3: fd=%d -> %d %d\n",fd,sizeof(netlong),cc);fflush(stdout);*/
 
-#endif
 
 #ifdef VXWORKS
 end = sysTimeBaseLGet();
@@ -341,7 +339,7 @@ netStackSysPoolShow
 
     buffer2 += cc;
     rembytes -= cc;
-    if(rembytes!=0) printf("WARN: LINK_sized_write: rembytes=%d\n",rembytes);
+    if(rembytes != 0) printf("WARN: LINK_sized_write: rembytes=%d\n",rembytes);
   }
 
 
@@ -389,10 +387,10 @@ net_thread(BIGNET *bignetptrin)
 
 /* timing */
 #ifdef VXWORKS
-  unsigned long start, end, time1, time2, icycle, cycle = 20;
+  unsigned long start, end, time1, time2, icycle, cycle=1;
 #else
 #ifndef Darwin
-  hrtime_t start, end, time1, time2, icycle, cycle = 20;
+  hrtime_t start, end, time1, time2, icycle, cycle=1;
   static int nev;
   static hrtime_t sum;
 #endif
@@ -449,39 +447,19 @@ net_thread(BIGNET *bignetptrin)
 #endif
   do
   {
-#ifdef VXWORKS
     icycle ++;
+#ifdef VXWORKS
     start = sysTimeBaseLGet();
 #else
-    icycle ++;
     start = gethrtime();
 #endif
 
-	/*
-    printf("bb_read(0x%08x)\n",&(bignetptr->gbigBuffer));
-	*/
-#ifdef VXWORKS
-
-#ifdef PMCOFFSET
-    /* if we are on host board, or we are on pmc AND proc is
-      on pmc as well - get buffer from local memory */
-    if(offset == 0)
-    {
-      bigbuf = bb_read(&(bignetptr->gbigBuffer));
-    }
-    else /* we are on pmc board AND proc on host - get buffer over pci bus */
-    {
-      bigbuf = bb_read_pci(&(bignetptr->gbigBuffer));
-    }
-#else
-    bigbuf = bb_read(&(bignetptr->gbigBuffer));
-#endif
-
-#else
+	
+    /*printf("coda_net ??? bb_read(0x%08x)\n",&(bignetptr->gbigBuffer));*/
 
     bigbuf = bb_read(&(bignetptr->gbigBuffer));
 
-#endif
+    /*printf("coda_net !!! bb_read(0x%08x)\n",&(bignetptr->gbigBuffer));*/
 
 	/*
 printf("coda_net: bb_read(0x%08x) return 0x%08x\n",bignetptr->gbigBuffer,bigbuf);fflush(stdout);
@@ -535,32 +513,6 @@ fflush(stdout);
 	*/
 }
 
-
-	/*******************************************************************/
-	/*******************************************************************/
-    /* geting event sizes from EB - NOT IN USE, JUST FOR BACKWARD COMP 
-    {
-      int itmp, buf[128];
-      itmp=recv(bigbuf[BBIFD], (void *)buf, 128, 0);
-printf("itmp=%d\n",itmp);
-      if(itmp <= 0 )
-      {
-        bignet.failure = 1;
-        printf("ERROR: net_thread failed (in recv).\n");
-        return;
-      }
-      if(!bigendian_out)
-      {
-        for(i=0; i<32; i++)
-        {
-          lwd = LSWAP(buf[i]);
-          buf[i] = lwd;
-        }
-	  }
-	}*/
-	/*******************************************************************/
-	/*******************************************************************/
-
     /* remember some values (do not need all of them ..) */
     nevent += bigbuf[BBIEVENTS];
     llenw = bigbuf[BBIWORDS];
@@ -576,15 +528,8 @@ printf("itmp=%d\n",itmp);
 
     if(bigbuf[BBIBUFNUM] == -1) /* send special events only */
 	{
-#ifdef FIXEDBUFS
-printf("LINK_sized_write 11\n");fflush(stdout);
-      if(LINK_sized_write(fd, bigbuf, SEND_BUF_SIZE) < 0)
-printf("LINK_sized_write 12\n");fflush(stdout);
-#else
-printf("LINK_sized_write 13\n");fflush(stdout);
+printf("LINK_sized_write special event\n");fflush(stdout);
       if(LINK_sized_write(fd, bigbuf, llen) < 0)
-printf("LINK_sized_write 14\n");fflush(stdout);
-#endif
       {
         bignetptr->failure = 1;
         printf("ERROR: net_thread failed (in LINK_sized_write).\n");
@@ -608,15 +553,10 @@ usrNetStackSysPoolStatus(1);
 usrNetStackDataPoolStatus(1);
 */
     /* send data */
-#ifdef FIXEDBUFS
-printf("LINK_sized_write 1\n");fflush(stdout);
-    if(LINK_sized_write(fd, bigbuf, SEND_BUF_SIZE) < 0)
-#else
 	if(llen>=SEND_BUF_SIZE) printf("ERROR: llen=%d >= SEND_BUF_SIZE=%d\n",llen,SEND_BUF_SIZE);
     /*printf("bigbuf[BBIFD]=%d\n",bigbuf[BBIFD]);*/
 /*printf("LINK_sized_write 2\n");fflush(stdout);*/
     if(LINK_sized_write(fd, bigbuf, llen) < 0)
-#endif
     {
       bignetptr->failure = 1;
       printf("ERROR: net_thread failed (in LINK_sized_write).\n");
@@ -670,26 +610,7 @@ sleep(1);
 
 
   /* force 'big' buffer read/write methods to exit */
-#ifdef VXWORKS
-
-#ifdef PMCOFFSET
-  if(offset == 0) /* we are on host board */
-  {
-    bb_cleanup(&(bignetptr->gbigBuffer));
-  }
-  else            /* we are on pmc board */
-  {
-    bb_cleanup_pci(&(bignetptr->gbigBuffer));
-  }
-#else
   bb_cleanup(&(bignetptr->gbigBuffer));
-#endif
-
-#else
-
-  bb_cleanup(&(bignetptr->gbigBuffer));
-
-#endif
 
 
 

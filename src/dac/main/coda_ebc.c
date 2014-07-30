@@ -1,28 +1,5 @@
 
-
-/* coda_eb.c - CODA format */
-
-
-
-/* to have more then 32 rocs have to modify:
-
-roc_mask
-roc_mask_local
-
-roc_linked
-fragment_mask
-desc1->rocs[0]
-etevents[nevents2put-1]->control[1]
-sync_mask
-type_mask
-ctl_mask
-
-*/
-
-
-
-
-/* deb_component.c */
+/* coda_ebc.c */
 
 #if defined(VXWORKS) || defined(Linux_armv7l)
 
@@ -76,7 +53,7 @@ static unsigned int hpsbuf[MAXBUF];
   myptr[2] = 8; /* Header Length = 8 (EV_HDSIZ) */ \
   myptr[3] = 1; /* event count (1 in our case) */ \
   myptr[4] = 0; /* Reserved */ \
-  myptr[5] = 0x204; /*evio version*/ \
+  myptr[5] = 0x204; /*evio version (10th bit indicates last block ?)*/ \
   myptr[6] = 1; /* Reserved */ \
   myptr[7] = 0xc0da0100; /* EV_MAGIC */
 
@@ -165,7 +142,7 @@ extern WORD128 roc_linked; /* linked ROCs mask (see LINK_support.c)*/
 extern CIRCBUF *roc_queues[MAX_ROCS]; /* see LINK_support.c */
 extern int roc_queue_ix; /* cleaned up here, increment in LINK_support.c */
 extern unsigned int *bufpool[MAX_ROCS][QSIZE];  /* see LINK_support.c */
-extern int roc_queue_evsize[MAX_ROCS];  /* see LINK_support.c */
+
 
 extern char configname[128]; /* coda_component.c */
 
@@ -442,7 +419,6 @@ handle_build(trArg arg)
   DATA_DESC *desc1, desc2;
   int types[MAX_ROCS];
   unsigned int *evptr[MAX_ROCS][NCHUNKMAX];
-  int evsize[MAX_ROCS];
   unsigned int fragment_mask, skip_mask, sync_mask, type_mask;
   int current_evnb;
   int current_evty;
@@ -700,17 +676,25 @@ retry:
       while(1) sleep(10); /* sleep forever */
 #endif
 
-/*printf("[%1d] locking .......\n",id,nevbuf);*/
-      data_lock(ebp);
-/*printf("[%1d] .. locked\n",id,nevbuf);*/
 
-/*printf("[%1d] geting data ..\n",id);*/
+data_lock(ebp);
 
       start1 = gethrtime();
 
+
       /* get chunk of events from roc fifos */
-      nevbuf = cb_events_get(roc_queues, id, ebp->nrocs, chunk, evptr, evsize, &nphys);
-      for(i=0; i<MAX_ROCS; i++) roc_queue_evsize[i] = evsize[i];
+#ifdef DO_NOT_BUILD
+      while(1)
+	  {
+#endif
+        nevbuf = cb_events_get(roc_queues, id, ebp->nrocs, chunk, evptr, &nphys);
+#ifdef DO_NOT_BUILD
+	    /*printf("================> got %d events\n",nevbuf);*/
+	  }
+#endif
+
+
+
       idin = id_in[id_in_index];
       id_in_index = (id_in_index + 1) % NIDMAX;
 
@@ -753,7 +737,13 @@ id,idin,nevbuf,nphys,evptr[0][0][1]&0xff);
         fflush(stdout);
       }
 
-      data_unlock(ebp);
+
+data_unlock(ebp);
+
+
+
+
+
 
 
 
@@ -879,7 +869,7 @@ id,idin,nevbuf,nphys,evptr[0][0][1]&0xff);
 
 
 
-        printf(" .. done.\n"); fflush(stdout);
+        printf("handle_build: roc %d .. done.\n",roc); fflush(stdout);
       }
       else
       {
@@ -1418,7 +1408,15 @@ if(++nevtime2 == NPROF2)
         arg->id,get_cb_name(f),get_cb_count(&f));
       fflush(stdout);
       if(get_cb_count(&f) <= 0) break;
-      nevbuf = get_cb_data(&f,arg->id,chunk,evptr[i],&lenbuf,&rocid);
+
+
+
+
+      nevbuf = get_cb_data(&f,arg->id,chunk, evptr[i],   &lenbuf,&rocid);
+
+
+
+
     } while(nevbuf != -1);
 
   }
@@ -1630,7 +1628,7 @@ deb_constructor()
 	  }
     }
   }
-  printf(".. done.\n"); fflush(stdout);
+  printf("... done.\n"); fflush(stdout);
 #endif
 
 
@@ -1781,7 +1779,7 @@ codaDownload(char *confname)
 
 #ifdef SunOS
   printf("thread concurrency level is %d\n",thr_getconcurrency());
-  thr_setconcurrency(40);
+  thr_setconcurrency(100);
   printf("thread concurrency level set to %d\n",thr_getconcurrency());
 #endif
 

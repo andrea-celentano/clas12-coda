@@ -123,7 +123,7 @@ gotControlEvent(et_event **pe, int size)
 
 
 
-#define CRATE1 1 /*first crate ID: sec1-1, sec2-7, sec3-13, sec4-19, sec5-25, sec6-31*/
+#define CRATE1 7 /*first crate ID: sec1-1, sec2-7, sec3-13, sec4-19, sec5-25, sec6-31*/
 
 #undef DEBUG_SEARCH
 

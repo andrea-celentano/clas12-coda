@@ -24,12 +24,13 @@ set ET_t  = "-T ET_hps"
 set EB_t  = "-T EB_hps"
 set ER_t  = "-T ER_hps"
 set RC_t  = "-T runcontrol_hps"
-set XT1_t = "-T CRATE_hps1"
-set XT2_t = "-T CRATE_hps2"
-set XT3_t = "-T CRATE_hps1gtp"
-set XT4_t = "-T CRATE_hps2gtp"
-set XT5_t = "-T CRATE_hps1server"
-set XT6_t = "-T CRATE_hps2server"
+set XT1_t = "-T CRATE_hps11"
+set XT2_t = "-T CRATE_hps1"
+set XT3_t = "-T CRATE_hps2"
+set XT4_t = "-T CRATE_hps1gtp"
+set XT5_t = "-T CRATE_hps2gtp"
+set XT6_t = "-T CRATE_hps1server"
+set XT7_t = "-T CRATE_hps2server"
 
 
 set ET   = daq_comp.tcl
@@ -42,12 +43,13 @@ set ET_comp  = 'et_start -n 2000 -s 500000 -f /tmp/et_sys_clashps'
 set EB_comp  = 'coda_ebc -s clashps -o "EB19 CDEB" '
 set ER_comp  = 'coda_erc -s clashps -o "ER19 ER" '
 set RC_comp  = 'runcontrol -s clashps -cedit -dbedit'
-set XT1_comp  = 'coda_roc_gef -s clashps -o "hps1 TS" '
-set XT2_comp  = 'coda_roc_gef -s clashps -o "hps2 ROC" '
-set XT3_comp  = 'coda_roc -s clashps -o "hps1gtp ROC" '
-set XT4_comp  = 'coda_roc -s clashps -o "hps2gtp ROC" '
-set XT5_comp  = 'DiagGuiServer "hps1" '
-set XT6_comp  = 'DiagGuiServer "hps2" '
+set XT1_comp  = 'coda_roc_gef -s clashps -o "hps11 TS" '
+set XT2_comp  = 'coda_roc_gef -s clashps -o "hps1 ROC" '
+set XT3_comp  = 'coda_roc_gef -s clashps -o "hps2 ROC" '
+set XT4_comp  = 'coda_roc -s clashps -o "hps1gtp ROC" '
+set XT5_comp  = 'coda_roc -s clashps -o "hps2gtp ROC" '
+set XT6_comp  = 'DiagGuiServer "hps1" '
+set XT7_comp  = 'DiagGuiServer "hps2" '
 
 
 echo ""
@@ -67,41 +69,47 @@ set ypos  = `expr $ypos + $yinc`
 set color = "-bg yellow -fg black -sb -sl 5000"
 set tmp   = `xterm $RC_t $color $geom$ypos -e $RC $RC_comp >& /dev/null &`
 
-echo " Start connection to CRATE_hps1"
+echo " Start connection to CRATE_hps11"
 set ypos  = `expr $ypos + $yinc`
 set geom  = "-geometry 70x12+$xpos+"
 set color = "-sb -sl 5000 -bg lightgreen -fg black"
 set tmp   = `xterm $XT1_t $color $geom$ypos -e $XT $XT1_comp >& /dev/null &`
 
-echo " Start connection to CRATE_hps2"
-set ypos  = `expr $ypos + $yinc + 60`
+echo " Start connection to CRATE_hps1"
+set ypos  = `expr $ypos + $yinc`
 set geom  = "-geometry 70x12+$xpos+"
 set color = "-sb -sl 5000 -bg lightgreen -fg black"
 set tmp   = `xterm $XT2_t $color $geom$ypos -e $XT $XT2_comp >& /dev/null &`
 
-echo " Start connection to CRATE_hps1gtp"
+echo " Start connection to CRATE_hps2"
 set ypos  = `expr $ypos + $yinc + 60`
 set geom  = "-geometry 70x12+$xpos+"
 set color = "-sb -sl 5000 -bg lightgreen -fg black"
 set tmp   = `xterm $XT3_t $color $geom$ypos -e $XT $XT3_comp >& /dev/null &`
 
-echo " Start connection to CRATE_hps2gtp"
+echo " Start connection to CRATE_hps1gtp"
 set ypos  = `expr $ypos + $yinc + 60`
 set geom  = "-geometry 70x12+$xpos+"
 set color = "-sb -sl 5000 -bg lightgreen -fg black"
 set tmp   = `xterm $XT4_t $color $geom$ypos -e $XT $XT4_comp >& /dev/null &`
 
-echo " Start connection to CRATE_hps1server"
+echo " Start connection to CRATE_hps2gtp"
 set ypos  = `expr $ypos + $yinc + 60`
 set geom  = "-geometry 70x12+$xpos+"
 set color = "-sb -sl 5000 -bg lightgreen -fg black"
 set tmp   = `xterm $XT5_t $color $geom$ypos -e $XT $XT5_comp >& /dev/null &`
 
-echo " Start connection to CRATE_hps2server"
+echo " Start connection to CRATE_hps1server"
 set ypos  = `expr $ypos + $yinc + 60`
 set geom  = "-geometry 70x12+$xpos+"
 set color = "-sb -sl 5000 -bg lightgreen -fg black"
 set tmp   = `xterm $XT6_t $color $geom$ypos -e $XT $XT6_comp >& /dev/null &`
+
+echo " Start connection to CRATE_hps2server"
+set ypos  = `expr $ypos + $yinc + 60`
+set geom  = "-geometry 70x12+$xpos+"
+set color = "-sb -sl 5000 -bg lightgreen -fg black"
+set tmp   = `xterm $XT7_t $color $geom$ypos -e $XT $XT7_comp >& /dev/null &`
 
 
 echo ""

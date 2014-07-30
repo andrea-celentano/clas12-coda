@@ -77,11 +77,32 @@ NOTE: second file will print: "Will update firmware for LX110 (Processing FPGA)"
 make sure you are doing right FPGA !!!!!!!!!!!!
 
 
-HPS:
+
+
+
+
+
+HPS UNIX:
 
  cd $CLON_PARMS/firmwares
- fadc250firmware 1 FADC_CTRL_HPS_test.mcs
+ fadc250firmware 1 FADC_CTRL_HPS.mcs
  fadc250firmware 2 FADC_ADC_HPS.mcs
+
+HPS VXWORKS:
+
+ cd "$CLON_PARMS/firmwares"
+ faInit((3<<19),(1<<19),20,0x40005)
+
+ fadcFirmwareReadMcsFile("FADC_CTRL_HPS.mcs")
+ fadcFirmwareGLoad(1,0)
+
+ fadcFirmwareReadMcsFile("FADC_ADC_HPS.mcs")
+ fadcFirmwareGLoad(0,0)
+
+
+
+
+
 
 
 UNIX:

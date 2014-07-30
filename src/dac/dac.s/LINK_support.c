@@ -41,8 +41,8 @@ int deflt; /* 1 for CODA format, 0 for BOS format (see coda_eb_inc.c) */
 #endif
 CIRCBUF *roc_queues[MAX_ROCS]; /* see deb_component.c */
 int      roc_queue_ix; /* see deb_component.c */
-unsigned int *bufpool[MAX_ROCS][QSIZE]; /* see deb_component.c */
-int roc_queue_evsize[MAX_ROCS]; /* see deb_component.c */
+unsigned int *bufpool[MAX_ROCS][QSIZE]; /* allocated in coda_ebc.c */
+
 
 typedef struct thread_args *trArg;
 typedef struct thread_args
@@ -300,6 +300,7 @@ printf("after: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x
 
 #define NPROFMAX 10
 #define NPROF1 10
+#define USLEEP 10000 /* usleep parameter: 1000000 is 1 sec*/
 
 
 /* called from 'handle_link'; reads one 'big' buffer from 'fd' */
@@ -337,13 +338,9 @@ hrtime_t start1, end1, start2, end2, start3, end3;
 
 start1 = start3 = gethrtime();
 
-#ifdef FIXEDBUFS
-  while(0)
-#else
-  while(rembytes)
-#endif
-  {
 
+  while(rembytes)
+  {
 
 goto skiipp;
     {
@@ -390,7 +387,7 @@ skiipp:
         }
 
         /* retry */
-		sleep(1); /* is 1 sec too big ??? */
+		usleep(USLEEP);
         /* we do not know if ROC still alive and will send more data later,
         or ROC is dead ... */
 		
@@ -452,14 +449,8 @@ skiipp:
 
 end1 = gethrtime();
 
-#ifdef FIXEDBUFS
-  size = TOTAL_RECEIVE_BUF_SIZE;
-#else
   size = (int) ntohl(netlong); /* ntohl() return the argument value
                                   converted from network to host byte order */
-#endif
-
-
 
   /* read data */
   if(size == 0)
@@ -708,7 +699,8 @@ if(time3 > 3000000)
 
 
 
-/* main thread function */
+/* main thread function; it calls 'put_cb_data()' to place data
+   on the circular buffer to the building thread */
 
 void *
 handle_link(trArg arg)
@@ -740,7 +732,7 @@ handle_link(trArg arg)
     bufptr[i] = bufpool[theLink->roc_queue->roc][i];
     bufptr[i][0] = 0; /* mark buffer as free */
   }
-  printf(".. done.\n");
+  printf("handle_link .. done.\n");
   fflush(stdout);
 #endif
 
@@ -784,7 +776,7 @@ fflush(stdout);
   while((theLink->fd = accept(theLink->sock, (struct sockaddr *)&from, &len)) == -1)
   {
     printf("accept: wait for connection\n");
-    sleep(1);
+    usleep(USLEEP);
   }
 
 
@@ -850,40 +842,60 @@ fflush(stdout);
 start1 = gethrtime();
 
 
+
+
+
 #ifdef NOALLOC
+
+
+
+
     /* get free buffer from pool; will wait if nothing is available */
-tryagain1:
     buf = NULL;
+    while(buf == NULL)
+    {
 #ifdef DO_NOT_PUT
-    bufptr[0][0] = 0;
+      bufptr[0][0] = 0;
 #endif
-    for(i=0; i<QSIZE; i++)
-    {
-      if(bufptr[i][0] == 0)
+      for(i=0; i<QSIZE; i++)
       {
-        buf = (char *) bufptr[i];
+        if(bufptr[i][0] == 0) /* means 'free buffer'; it is marked as 'free' in cb_events_get() */
+        {
+          buf = (char *) bufptr[i];
 #ifdef DEBUG
-        printf("handle_link(): rocid=%d: got free buffer %d at 0x%08x\n",theLink->roc_queue->rocid,i,buf);
-        fflush(stdout);
+          printf("handle_link(): rocid=%d: got free buffer %d at 0x%08x\n",theLink->roc_queue->rocid,i,buf);
+          fflush(stdout);
 #endif
-        break;
+          break;
+        }
       }
-    }
-    if(buf == NULL)
-    {
-      printf("handle_link(): rocid=%d: all buffers are full - wait ..\n",
-             theLink->roc_queue->rocid);
-      fflush(stdout);
-      sleep(1);
-      goto tryagain1;
-    }
+      if(buf == NULL)
+      {
+        printf("handle_link(): rocid=%d: all buffers are full - wait ..\n",theLink->roc_queue->rocid);
+        fflush(stdout);
+        usleep(USLEEP);
+
+
+		/* wait here instead of sleep ??????????? */
+
+
+      }
+	}
+
+
+
+
 #endif
+
+
+
+
 
 
     /* reading data from roc */
 start4 = gethrtime();
 /*printf("901 %d\n",fd);fflush(stdout);*/
-    numRead = LINK_sized_read(fd,&buf,tprof);
+    numRead = LINK_sized_read(fd, &buf, tprof);
 /*printf("902 %d\n",fd);fflush(stdout);*/
 end4 = gethrtime();
 
@@ -895,7 +907,7 @@ end4 = gethrtime();
     {
       printf("handle_link(): LINK_sized_read() returns %d\n",numRead);fflush(stdout);
       printf("handle_link(): put_cb_data calling ...\n");fflush(stdout);
-	  sleep(1);
+	  usleep(USLEEP);
       put_cb_data(&theLink->roc_queue, (void *) -1);
       printf("handle_link(): put_cb_data called\n");fflush(stdout);
       break;
@@ -925,12 +937,13 @@ end4 = gethrtime();
     if(buf_long_p[BBIEVENTS] < 0)
     {
       printf("WARNING - handle_link discarding buffer. count = %d.\n",
-        buf_long_p[BBIEVENTS]);
+        buf_long_p[BBIEVENTS]);fflush(stdout);
 #ifndef NOALLOC
       free(buf);
 #endif
       continue;
     }
+
 
 #define NSLEP (QSIZE/2)
 
@@ -1049,10 +1062,6 @@ printf("++++++1+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
   theLink->name = (char *) calloc(strlen(fromname)+1,1);
   strcpy(theLink->name, fromname); /* croctest1 etc */
 
-
-
-
-
   /* ROCs will use DB host name to send data to */
   /* 'inhost' will be set to 'links' table to let ROCs know where to send data */
   strncpy(inhost,tohost,99);
@@ -1071,9 +1080,6 @@ printf("++++++1+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
 
   /* set connection type to TCP */
   strcpy(type,"TCP");
-
-
-
 
 printf("++++++2+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[2]);
   /* ... */
@@ -1207,8 +1213,6 @@ printf("++++++3+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
 printf("++++++4+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[2]);
 
 
-
-
   /* create 'links' table if it does not exist (database must be opened in calling function) */
   sprintf(tmpp,"SELECT * FROM links");
   if(mysql_query(dbsock, tmpp) != 0)
@@ -1306,22 +1310,14 @@ printf("++++++4+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
 
   /* ================ end of database update =================== */
 
-
-
-
-
-
-
-
 printf("++++++5+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[2]);
-
 
 /* cleanup .. */
 ending_for_recv = 0;
 
 
   /* allocate and fill thread parameter structure */
- args = (trArg) calloc(sizeof(TRARGS),1);
+  args = (trArg) calloc(sizeof(TRARGS),1);
   args->link = theLink;
   theLink->roc_queue = roc_queues[roc_queue_ix++];
   /*theLink->roc_queue->parent = theLink->name;donotneedit???*/
@@ -1330,9 +1326,8 @@ ending_for_recv = 0;
 
 printf("++++++6+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[2]);
 
-
- {
-   /*Sergey: better be detached !!??*/
+  {
+    /*Sergey: better be detached !!??*/
     pthread_attr_t detached_attr;
 
     pthread_attr_init(&detached_attr);
@@ -1341,7 +1336,7 @@ printf("++++++6+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
 
 
     /* start thread */
-    if(pthread_create( &theLink->thread, /*NULL*/&detached_attr,
+    if(pthread_create( &theLink->thread, &detached_attr,
                  (void *(*)(void *)) handle_link, (void *) args) != 0)
     {
       printf("LINK_thread_init(): ERROR in thread creating\n"); fflush(stdout);
@@ -1349,7 +1344,7 @@ printf("++++++6+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
       return(CODA_ERROR);
     }
     printf("LINK_thread_init(): thread is created\n"); fflush(stdout);
- }
+  }
 
   return(theLink);
 }
@@ -1370,13 +1365,6 @@ debCloseLink(DATA_LINK theLink, MYSQL *dbsock)
   else
   {
     printf("debCloseLink: theLink=0x%08x -> closing\n",theLink);
-
-
-
-
-
-
-
 
 
 /* PIECE MOVED FROM handle_link() */
@@ -1431,30 +1419,13 @@ printf("905-1 %d\n",theLink->fd); fflush(stdout);
 
 printf("906\n"); fflush(stdout);
 
-
-
-
-
-
-
-
-
-
-
   }
-
-
-
-
-
 
   /* !!!!!?????
     if { "$direction" == "in" } {
 	database query "DELETE FROM links WHERE name='$name'"
     }
   */
-
-
 
   /* shut down a connection by telling the other end to shutdown (database must be opened in calling function) */
   /* set state 'down' */
@@ -1472,8 +1443,6 @@ printf("906\n"); fflush(stdout);
   /* database must be closed in calling function */
 
   /* ================ end of database update =================== */
-
-
 
   /* cancel thread if exist */
   if(theLink->thread)
@@ -1506,14 +1475,3 @@ LINK_support_vxworks_dummy()
 }
 
 #endif
-
-
-
-
-
-
-
-
-
-
-

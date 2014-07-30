@@ -73,6 +73,7 @@ static int lateFail;
 /* Event type source */
 static int EVENT_type;
 static int *StartOfEvent;
+static int *StartOfBank;
 
 
 /* Macros */
@@ -92,6 +93,8 @@ static int *StartOfEvent;
 #ifdef EVENT_MODE
 
 /* ROL2 macros: call CPINIT first, then CPOPEN/CPCLOSE for every bank, and CPEXIT in the end */
+
+#define MAXBANKS 100
 
 #define CPINIT \
   unsigned int *dataout_save1; \
@@ -131,7 +134,55 @@ static int *StartOfEvent;
   rol->dabufp[1] = rol->dabufpi[1]
 
 
+
+/* following macros loops over input bank of banks, set pointers to internal banks data areas,
+and extract info about banks found; to be used in ROL2 */ \
+
+#define BANKINIT \
+  int nbanks; \
+  unsigned int banktag[MAXBANKS]; \
+  unsigned int banknr[MAXBANKS]; \
+  unsigned int banknw[MAXBANKS]; \
+  unsigned int banktyp[MAXBANKS]; \
+  unsigned int bankpad[MAXBANKS]; \
+  unsigned int *bankdata[MAXBANKS]
+
+#define BANKSCAN \
+  { \
+    int nw, jj;	\
+    unsigned int *ptr, *ptrend; \
+    nbanks = 0; \
+    ptr = (unsigned int *)((rol->dabufpi));	\
+	ptrend = ptr + *(rol->dabufpi); \
+    ptr +=2; /*skip bank-of-banks header*/ \
+	while(ptr < ptrend) \
+    { \
+      /*printf("BANKSCAN[%d]: while begin: ptr=0x%08x ptrenv=0x%08x (%d)\n",nbanks,ptr,ptrend,(ptrend-ptr));fflush(stdout);*/ \
+      banknw[nbanks] = (*ptr) - 1; /*data length only*/ \
+      /*printf("nw=%d\n",banknw[nbanks]);fflush(stdout);*/ \
+      ptr ++; \
+      banktag[nbanks] = ((*ptr)>>16)&0xffff; \
+      /*printf("tag=0x%08x\n",banktag[nbanks]);fflush(stdout);*/ \
+      bankpad[nbanks] = ((*ptr)>>14)&0x3; \
+      /*printf("pad=%d\n",bankpad[nbanks]);fflush(stdout);*/ \
+      banktyp[nbanks] = ((*ptr)>>8)&0x3f; \
+      /*printf("typ=0x%08x\n",banktyp[nbanks]);fflush(stdout);*/ \
+      banknr[nbanks] = (*ptr)&0xff; \
+      /*printf("nr=%d\n",banknr[nbanks]);fflush(stdout);*/ \
+      ptr ++; \
+      bankdata[nbanks] = ptr; \
+      /*printf("data(ptr)=0x%08x\n",bankdata[nbanks]);fflush(stdout);*/ \
+      ptr += banknw[nbanks]; \
+      nbanks ++; \
+      if(nbanks >= MAXBANKS) {printf("rol.h ERROR: nbanks=%d - exit\n");fflush(stdout);break;}; \
+      /*printf("BANKSCAN[%d]: while end: ptr=0x%08x ptrenv=0x%08x (%d)\n",nbanks,ptr,ptrend,(ptrend-ptr));fflush(stdout);*/ \
+    } \
+    /*for(jj=0; jj<nbanks; jj++) printf("bankscan[%d]: tag 0x%08x typ=%d nr=%d nw=%d dataptr=0x%08x\n", \
+      jj,banktag[jj],banktyp[jj],banknr[jj],banknw[jj],bankdata[jj]);*/ \
+  }
+
 #else
+
 
 
 /********************************************************/
@@ -215,18 +266,23 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 /*printf("11: %d 0x%08x\n",StartOfEvent[0],StartOfEvent[1]);*/\
   /* writes bank length (in words) into the first word of the event (CODA header [0]) */ \
   *StartOfEvent = (int) (((char *) (rol->dabufp)) - ((char *) StartOfEvent)); \
+  /*if(this_roc_id==39&&dabufp[0]!=8536) printf("CECLOSE: 1: dabufp[0]=%d\n",dabufp[0]);*/					\
   /* align pointer to the 64/128 bits - do we need it now ??? */ \
   if((*StartOfEvent & 1) != 0) \
   { \
     (rol->dabufp) = ((int *)((char *) (rol->dabufp))+1); \
     *StartOfEvent += 1; \
+  /*printf("CECLOSE: 2: dabufp[0]=%d\n",dabufp[0]);*/					\
   } \
   if((*StartOfEvent & 2) !=0) \
   { \
     *StartOfEvent = *StartOfEvent + 2; \
+  /*printf("CECLOSE: 3: dabufp[0]=%d\n",dabufp[0]);*/					\
     (rol->dabufp) = ((int *)((short *) (rol->dabufp))+1); \
   } \
+  /*if(this_roc_id==39&&dabufp[0]!=8536) printf("CECLOSE: 4: dabufp[0]=%d\n",dabufp[0]);*/					\
   *StartOfEvent = ( (*StartOfEvent) >> 2) - 1; \
+  /*if(this_roc_id==39&&dabufp[0]!=2133) printf("CECLOSE: 5: dabufp[0]=%d\n",dabufp[0]);*/					\
   /*****fromcoda_roc****/ \
   /*********************/ \
   /* let see now what we've got from ROL1 */ \
@@ -308,6 +364,51 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 }
 
 
+/* rol1: following 2 macros called from rol1 to create banks inside bank-of-banks created by CEOPEN */
+
+#define BANKOPEN(btag,btyp,bnum) \
+{ \
+  /*printf("BANKOPEN: StartOfBank=0x%08x\n",StartOfBank);fflush(stdout);*/ \
+  /*printf("BANKOPEN: rol->dabufp=0x%08x\n",rol->dabufp);fflush(stdout);*/ \
+  StartOfBank = rol->dabufp; \
+  *(++(rol->dabufp)) = (btag<<16) + (btyp<<8) + bnum;	\
+  ((rol->dabufp))++; \
+  /*printf("BANKOPEN: rol->dabufp=0x%08x\n",rol->dabufp);fflush(stdout);*/ \
+}
+
+#define BANKCLOSE \
+{ \
+  /* writes bank length (in words) into the first word of the bank */ \
+  *StartOfBank = rol->dabufp - StartOfBank - 1; \
+  /*printf("BANKCLOSE: StartOfBank=0x%08x (0x%08x %d)\n",StartOfBank,*StartOfBank,*StartOfBank);fflush(stdout);*/ \
+  /*printf("BANKCLOSE: rol->dabufp=0x%08x (0x%08x %d)\n",rol->dabufp,*rol->dabufp,*rol->dabufp);fflush(stdout);*/ \
+  /*printf("BANKCLOSE: header: 0x%08x (%d), 0x%08x\n",*StartOfBank,*StartOfBank,*(StartOfBank+1));fflush(stdout);*/ \
+}
+
+#define CPOPEN(btag,btyp,bnum) \
+{ \
+  dataout_save1 = dataout ++; /*remember beginning of the bank address, exclusive bank length will be here*/ \
+  *dataout++ = (btag<<16) + (btyp<<8) + bnum; /*bank header*/ \
+  b08 = (unsigned char *)dataout; \
+}
+
+#define CPCLOSE \
+{ \
+  unsigned int padding; \
+  /*printf("CPCLOSE: dataout before = 0x%x\n",dataout);*/		 \
+  dataout = (unsigned int *) ( ( ((unsigned int)b08+3)/4 ) * 4); \
+  padding = (unsigned int)dataout - (unsigned int)b08; \
+  dataout_save1[1] |= (padding&0x3)<<14; /*update bank header (2nd word) with padding info*/ \
+  /*printf("CPCLOSE: 0x%x %d --- 0x%x %d --> padding %d\n",dataout,dataout,b08,b08,((dataout_save1[1])>>14)&0x3); */ \
+  *dataout_save1 = (dataout-dataout_save1-1); /*write bank length*/ \
+  /*printf("CPCLOSE: *dataout_save1 = %d\n",*dataout_save1);*/		\
+  lenout += (*dataout_save1+1); \
+  b08 = NULL; \
+}
+
+
+
+
 
 #ifdef VXWORKS
 
@@ -325,15 +426,28 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 
 #else
 
+
 #define SET_TIMEOUT \
     if(*(rol->nevents) < 10)						\
     { \
-      timeout = /*time(0)*/gethrtime() + 1*100000;	\
+      timeout = gethrtime() + 1*100000;	\
     } \
     else \
     { \
-      timeout = /*time(0)*/gethrtime() + (token_interval/60)*100000;	\
+      timeout = gethrtime() + (token_interval/60)*200000;	\
     }
+
+/*
+#define SET_TIMEOUT \
+    if(*(rol->nevents) < 10)						\
+    { \
+      timeout = time(0) + 1;	\
+    } \
+    else \
+    { \
+      timeout = time(0) + token_interval/60;	\
+    }
+*/
 
 #endif
 
@@ -363,16 +477,17 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     dabufp[BBIEVENTS] = g_events_in_buffer; /* the number of events */ \
     dabufp[BBIFD]     = rocp_primefd; \
     dabufp[BBIEND]    = 0; \
+    /*printf("==== ROL: %d %d %d %d 0x%08x\n",dabufp[0],dabufp[1],dabufp[2],dabufp[3],dabufp[4]);*/ \
 	/* main send */ \
-    if(dabufp[BBIWORDS] > BBHEAD) \
+    if(dabufp[BBIWORDS] > BBHEAD) /*check if buffer is not empty ?*/ \
     { \
       /*trying to get next buffer; if not available - do nothing, rols_loop will take care*/ \
-	  printf("rol.h: bb_write_nodelay 1\n"); \
+	  /*printf("rol.h: bb_write_nodelay 1\n");*/ \
       dabufp = bb_write_nodelay(&big0.gbigBuffer); \
       if(dabufp == NULL) \
       { \
         rocp_recNb --; /* decrement it back */ \
-        logMsg("INFO from bb_write: NO BUFS1\n",1,2,3,4,5,6);	\
+/*logMsg("INFO from bb_write: NO BUFS1\n",1,2,3,4,5,6);*/	\
         /*setHeartBeat(HB_ROL,0,-1);*/ \
       } \
       else \
@@ -407,7 +522,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
   SEND_BUFFER_; \
   if(dabufp == NULL) /* remember that we have event(s) to process ??? cdopolldispatch() will check it .. */ \
   { \
-    poolEmpty = 1; \
+    poolEmpty = 1; /* must be cleared in __done() */ 							\
     rol->doDone = 1; \
   } \
   else /*enable interrupts*/ \
@@ -577,20 +692,6 @@ cdodispatch(unsigned int theType)
   /*LOCKINTS;?????*/
 
   WRITE_EVENT_;
-
-  /*already in WRITE_EVENT_ !!!!!!!!!!!!!???????????????????
-  if(dabufp == NULL)
-  {
-    poolEmpty = 1;
-    rol->doDone = 1;
-  }
-  else
-  {
-	printf(">> %s calls __done()\n",__FUNCTION__);				\
-    __done();
-    rol->doDone = 0;
-  }
-  */
 
   dispatch_busy = 0;
 }

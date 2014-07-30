@@ -154,6 +154,9 @@ __go()
   b08 = NULL; \
 }
 
+
+
+
 #undef HAVE_SSP_DATA
 #define NSSP 8
 #define DO_PEDS
@@ -193,7 +196,7 @@ rol2trig(int a, int b)
   int a_slot_old;
   int a_channel_old;
   int npedsamples;
-
+  int error;
   unsigned int *StartOfBank;
   char *ch;
   unsigned int *Nchan, *Npuls, *Nsamp;
@@ -256,6 +259,8 @@ rol2trig(int a, int b)
 #endif
 
 
+  error = 0; /* reset error flag */
+
 /*******************************************************/
 /* FIRST PASS: check data; fill nB, iB[22], nE and iE[22][256] */
 
@@ -306,6 +311,7 @@ rol2trig(int a, int b)
 
       if(a_slot2 != a_slot)
 	  {
+        error ++;
         if(printing)
         {
           printf("[%3d] ERROR1 in FADC data: blockheader slot %d != blocktrailer slot %d\n",
@@ -315,6 +321,7 @@ rol2trig(int a, int b)
 	  }
       if(a_nwords != (ii-iB[nB-1]+1))
       {
+        error ++;
         if(printing)
         {
           printf("[%3d] ERROR2 in FADC data: trailer #words %d != actual #words %d\n",
@@ -398,6 +405,7 @@ rol2trig(int a, int b)
 
 if(a_windowwidth != samplecount)
 {
+  error ++;
   printf("ERROR1: a_windowwidth=%d != samplecount=%d (slot %d, channel %d)\n",a_windowwidth,samplecount,a_slot,a_channel);
   fflush(stdout);
 }
@@ -519,6 +527,7 @@ exit(0);
     }
     else
     {
+      error ++;
       if(printing) /* printing only once at every event */
       {
         printf("[%3d] pass1 ERROR: in FADC data format 0x%08x (bits31-27=0x%02x), slot=%d\n",
@@ -538,6 +547,7 @@ exit(0);
   {
     if(nE[k]!=nnE)
 	{
+      error ++;
       if(printing)
       {
         printf("SEVERE ERROR: different event number in difefrent blocks\n");
@@ -562,6 +572,13 @@ exit(0);
 #endif
 
 
+
+
+  /* in case of error, pass data in original format as it arrived from rol1 */
+  if(error)
+  {
+    ;
+  }
 
 
 
@@ -1004,6 +1021,7 @@ exit(0);
       }
       else
       {
+        error ++;
         if(printing) /* printing only once at every event */
         {
           printf("[%3d] pass2 ERROR: in FADC data format 0x%08x (bits31-27=0x%02x)\n",

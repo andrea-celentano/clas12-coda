@@ -3,6 +3,7 @@
 
 #if defined(VXWORKS) || defined(Linux_vme)
 
+#define NEW
 
 
 /* HPS firmware:
@@ -15,7 +16,7 @@ coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 
 
 #ifndef VXWORKS
-#define DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
+#undef DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
 #endif
 
 /* fadc1.c - first readout list for VXS crates with FADC250 and new TI */
@@ -350,7 +351,7 @@ __download()
   int id, isl, ichan;
   unsigned short iflag;
   int fadc_mode = 1, iFlag = 0;
-  int ich;
+  int ich, NSA, NSB;
 
   /*ctp params*/
   unsigned int cluster_threshold = 0; /* 8 bits: (MeV) cluster energy sum threshold */
@@ -416,14 +417,30 @@ __download()
 
 
 
+
+/*tiAddRocSWA();*/
+tiRemoveRocSWA();
+
+
+
+printf("***4***\n");
+tiStatus(1); /* Ben & William Testing */
+
+
   /* for timing measurements in FADC250s */
-
-
-#ifdef BLA_BLA_NO
   tiSetTriggerHoldoff(1,5,0);   /* No more than 1 trigger within 80 ns */
+printf("***5***\n");
+tiStatus(1); /* Ben & William Testing */
   tiSetTriggerHoldoff(4,41,0);  /* No more than 4 triggers within 656 ns */
-tiSetBlockBufferLevel(1);
-#endif
+printf("***6***\n");
+tiStatus(1); /* Ben & William Testing */
+
+  /* Allow set/clear control of sync reset - for s/w pulse control */
+  tiSetUserSyncResetReceive(1);
+printf("***7***\n");
+tiStatus(1); /* Ben & William Testing */
+
+
 
 
 
@@ -581,6 +598,10 @@ v1190: 0x11xx0000, where xx follows the same scheme as FADCs
     {
       /* Set the threshold for data readout */
       faSetThreshold(FA_SLOT,FADC_THRESHOLD,0);
+
+	  /* do this for zero-suppressed runs using raw mode 
+      faSetThresholdAll(FA_SLOT,ic_adc_thres[FA_SLOT]);
+*/
     }
     else
     {
@@ -591,41 +612,35 @@ v1190: 0x11xx0000, where xx follows the same scheme as FADCs
     /* Bus errors to terminate block transfers (preferred) */
     faEnableBusError(FA_SLOT);
 
-    /*set threshold for pulse integration in trigger
-    faWriteHPSConfig(FA_SLOT, 1000, 0x4 | (0x6<<4));
-	*/
-
     /* Set the Block level */
     faSetBlockLevel(FA_SLOT, block_level);
 
 
 
-
-
+#ifdef NEW
     /*****************/
     /*trigger-related*/
+    faResetMGT(FA_SLOT,1);
 
-    /* Set the individual channel pedestals for the data that is sent to the CTP */
+    /*faSetThreshold(FA_SLOT,400,0xFFFF);*/
+
+    NSA = faGetNSA(FA_SLOT);
+    NSB = faGetNSB(FA_SLOT);
+    printf("slot %d -> nsa=%d nsb=%d\n",FA_SLOT,NSA,NSB);
+
     for(ichan=0; ichan<16; ichan++)
     {
-      faSetChannelPedestal(FA_SLOT,ichan,ic_adc_ped[FA_SLOT][ichan]);
+
+      /* Set the individual channel pedestals for the data that is sent to the CTP */
+      /* pedestal is for trigger chain only, must be integral, so we'll multiply
+		 value from the file by (NSA+NSB) */
+	  faSetChannelPedestal(FA_SLOT,ichan, ic_adc_ped[FA_SLOT][ichan]*(NSA+NSB) );
+      printf("  slot=%2d chan=%2d ped=%5d\n",FA_SLOT,ichan,faGetChannelPedestal(FA_SLOT, ichan));
+
+      faSetChannelGain(FA_SLOT,ichan,0.5); /* MUST BE IN CONFIG FILE */
     }
+#endif
 
-
-    {
-      /* trigger thresholds: was 80; 50 from May 8 11:30am*/
-      unsigned int fa_tot = 80; /* 1V / 4096chan = 0.25mV/chan -> 20 means 5mV: Time Over Threshold value for integration window Value (<4095)*/
-
-
-      unsigned int fa_maxIntTime = 7; /*The Maximum Integration time (in 16 ns steps) (<8) */
-
-	  /*
-      faSetHPSParameters(FA_SLOT, fa_tot, fa_maxIntTime, fa_sumScaleFactor);
-	  */
-    }
-	
-	/*****************/
-	/*****************/
 
   }
 
@@ -685,8 +700,6 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
 
 
 
-
-
   /***************************************
    *   SD SETUP
    ***************************************/
@@ -694,93 +707,6 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
   sdSetActiveVmeSlots(fadcSlotMask); /* Use the fadcSlotMask to configure the SD */
   sdStatus();
 
-
-  /*****************
-   *   CTP SETUP
-   *****************/
-
-
-  /*HPS stuff
-  ctpInit();
-  ctpSetVmeSlotEnableMask(fadcSlotMask);
-  */
-
-
-  /*debugging
-#ifdef TI_MASTER
-  ctpSetVmeSlotEnableMask(0x20); slot 5 only
-#else
-  ctpSetVmeSlotEnableMask(0x2000); slot 13 only
-#endif
-  debugging */
-
-  /*HPS stuff
-  ctpSetClusterMinimumThreshold(cluster_threshold);
-  ctpSetClusterWindow(cluster_window);
-  ctpStatus();
-  int iwait=0;
-  int allchanup=0;
-  while(allchanup  != (0x7) )
-  {
-    iwait++;
-    allchanup = ctpGetAllChanUp();
-    if(iwait>1000)
-	{
-	  printf("iwait timeout   allchup - 0x%x\n",allchanup);
-	  break;
-	}
-  }
-  */
-
-
-#ifndef TI_SLAVE
-
-  /*****************
-   *   SSP SETUP
-   *****************/
-
-  /*HPS stuff
-  sspInit_HPS(ssp_addr_a24);
-  sspSetCoincidence(coincidence_window);
-  sspSetEnergySumMaximum(energy_sum_max);
-  sspSetPairEnergyDifferenceMaximum(pair_energy_difference_max);
-  sspSetPairEnergyDistanceThreshold(pair_energy_difference_threshold);
-  sspSetEnergyMaximum(energy_max);
-  sspSetEnergyMinimum(energy_min);
-  sspSetClusterDelay(cluster_delay);
-  sspSetTriggerLatency(trigger_latency);
-  sspSetTriggerCutEnableMask(trigger_cut_enable_mask);
-  */
-
-#endif
-
-
-#endif
-
-
-  /*
-  vmeServer("hps1");
-  */
-/*!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-#ifdef TI_MASTER
-
-  /*
-  printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
-  printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
-  printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
-  printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
-  printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
-  printf("rocMask = 0x%08x\n",rocMask);fflush(stdout);
-
-
-    printf("enable fiber 1\n");fflush(stdout);
-    printf("enable fiber 1\n");fflush(stdout);
-    printf("enable fiber 1\n");fflush(stdout);
-    printf("enable fiber 1\n");fflush(stdout);
-    printf("enable fiber 1\n");fflush(stdout);
-    printf("enable fiber 1\n");fflush(stdout);
-    tiAddSlave(1);
-  */
 
 #endif
 
@@ -832,6 +758,15 @@ __prestart()
   {
     FA_SLOT = faSlot(id);
     faSoftReset(FA_SLOT,0); /*0-soft reset, 1-soft clear*/
+
+#ifdef NEW
+    if(!faGetMGTChannelStatus(FA_SLOT))
+    {
+      faResetMGT(FA_SLOT,1);
+      faResetMGT(FA_SLOT,0);
+    }
+#endif
+
     faResetToken(FA_SLOT);
     faResetTriggerCount(FA_SLOT);
     faStatus(FA_SLOT,0);
@@ -853,24 +788,46 @@ __prestart()
 
   sleep(2);
 
-  /* do following after the FADC clocks have been set to P0 */
-  /*HPS stuff
-  ctpFiberLinkReset();
-  ctpStatus();
-  */
-
 #endif
 
   /* USER code here */
   /******************/
 
+printf("\n\n***111***\n");
+tiStatus(1);
+sleep(1);
+printf("\n\n***112***\n");
+tiStatus(1);
+
   tiIntDisable();
+
+printf("\n\n***113***\n");
+tiStatus(1);
+sleep(1);
+printf("\n\n***114***\n");
+tiStatus(1);
 
   /* master and standalone crates, NOT slave */
 #ifndef TI_SLAVE
-  sleep(1);
+
+printf("\n\n***11***\n");
+tiStatus(1);
+  sleep(5);
+printf("\n\n***12***\n");
+tiStatus(1);
   tiSyncReset(1);
+  sleep(5);
+printf("\n\n***13***\n");
+tiStatus(1);
   sleep(1);
+printf("\n\n***14***\n");
+tiStatus(1);
+  tiSyncReset(1);
+printf("\n\n***15***\n");
+tiStatus(1);
+  sleep(1);
+printf("\n\n***16***\n");
+tiStatus(1);
 
   if(tiGetSyncResetRequest())
   {
@@ -880,6 +837,9 @@ __prestart()
     sleep(1);
   }
 
+printf("\n\n***17***\n");
+tiStatus(1);
+
   if(tiGetSyncResetRequest())
   {
     printf("ERROR: syncrequest still ON after tiSyncReset(); try 'tcpClient <rocname> tiSyncReset'\n");
@@ -888,23 +848,16 @@ __prestart()
   {
     printf("INFO: syncrequest is OFF now\n");
   }
+printf("\n\n***18***\n");
+tiStatus(1);
 
   printf("holdoff rule 1 set to %d\n",tiGetTriggerHoldoff(1));
   printf("holdoff rule 2 set to %d\n",tiGetTriggerHoldoff(2));
+printf("\n\n***19***\n");
+tiStatus(1);
 
 #endif
 
-
-goto a678;
-#ifdef TI_MASTER
-  sspSetTriggerWidth(8000); /*7000-28us, 8000-32us, 10000-40us, 12000-48us, 16000-64us*/
-  /*6250=25us svt runs, 6000=24us brakes SVT completely, need power recycle; 7000-chash on high rate (10kHz)*/ 
-
-  sspClearEventFifo();
-  sspSetEventPatternDelay(210); /*to place ssp trigger info into readout window*/
-  sspPrintEventPatternDelay();
-#endif
-a678:
 
   printf("INFO: Prestart1 Executed\n");fflush(stdout);
 

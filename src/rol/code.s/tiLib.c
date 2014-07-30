@@ -819,9 +819,9 @@ tiStatus(int pflag)
 	{
 	  printf(" HFBR enabled (0x%x)= \n",fibermask);
 	  for(ifiber=0; ifiber<8; ifiber++)
-	    {
-	      if( fibermask & (1<<ifiber) ) 
-		printf("   %d: -%s-   -%s-\n",ifiber+1,
+	  {
+	    if( fibermask & (1<<ifiber) ) 
+		  printf("   %d: -%s-   -%s-\n",ifiber+1,
 		       (fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"    CONNECTED":"NOT CONNECTED",
 		       (fiber & TI_FIBER_TRIGSRC_ENABLED_TI(ifiber+1))?"TRIGSRC ENABLED":"TRIGSRC DISABLED");
 	    }
@@ -1031,6 +1031,10 @@ tiStatus(int pflag)
 
     }
   printf(" Input counter %d\n",inputCounter);
+
+  printf("GTPStatusA=0x%08x\n",vmeRead32(&TIp->GTPStatusA));
+  printf("GTPStatusB=0x%08x\n",vmeRead32(&TIp->GTPStatusB));
+  printf("GTPtriggerBufferLength=0x%08x\n",vmeRead32(&TIp->GTPtriggerBufferLength));
 
   printf("--------------------------------------------------------------------------------\n");
   printf("\n\n");

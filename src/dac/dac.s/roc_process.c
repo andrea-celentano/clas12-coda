@@ -32,7 +32,7 @@ extern long     vxTicks;
 #define MYCLOCK NANOMICRO
 
 #ifdef Linux
-#include <linux/prctl.h>
+#include <sys/prctl.h>
 #endif
 
 #endif
@@ -42,7 +42,7 @@ extern long     vxTicks;
 
 
 
-#undef DEBUGPMC
+#undef DEBUG
 
 
 
@@ -100,7 +100,7 @@ proc_tt(int *bufin, int *bufout, int pid)
   rolP->dabufp = (long *) bufout;
   bufout[0] = 0;
 
-#ifdef DEBUGPMC
+#ifdef DEBUG
   printf("proc_tt reached\n");fflush(stdout);
 #endif
 
@@ -122,7 +122,7 @@ proc_tt(int *bufin, int *bufout, int pid)
     return(0);
   }
 
-#ifdef DEBUGPMC
+#ifdef DEBUG
   printf("proc_tt: return len+1=%d (2nd word is 0x%08x)\n",len+1,bufout[1]);fflush(stdout);
 #endif
 
@@ -271,9 +271,9 @@ proc_thread(BIGNET *bigprocptrin)
 
 /* timing */
 #ifdef VXWORKS
-  unsigned long start, end, time1, time2, icycle, cycle = 20;
+  unsigned long start, end, time1, time2, icycle, cycle = 1;
 #else
-  hrtime_t start, end, time1, time2, icycle, cycle = 20;
+  hrtime_t start, end, time1, time2, icycle, cycle = 1;
   static int nev;
   static hrtime_t sum;
 #endif
@@ -335,23 +335,12 @@ proc_thread(BIGNET *bigprocptrin)
 #else
     start = gethrtime();
 #endif
-#ifdef DEBUGPMC
+#ifdef DEBUG
     printf("proc: next itteration, icycle=%d\n",icycle);fflush(stdout);
 #endif
 
     /* wait for input buffer */
-#ifdef PMCOFFSET
-    if(offset == 0) /* we are on host board - get buffer from local memory */
-    {
-      bigbufin = bb_read(&(bigprocptr->gbigBuffer));
-    }
-    else            /* we are on pmc board - get buffer over pci bus */
-    {
-      bigbufin = bb_read_pci(&(bigprocptr->gbigBuffer));
-    }
-#else
     bigbufin = bb_read(&(bigprocptr->gbigBuffer));
-#endif
     if(bigbufin == NULL)
     {
       printf("proc_thread: ERROR: bigbufin==NULL\n");fflush(stdout);
@@ -386,7 +375,7 @@ proc_thread(BIGNET *bigprocptrin)
 
     bufin = bigbufin + BBHEAD;
 
-#ifdef DEBUGPMC
+#ifdef DEBUG
     printf("proc: got input buffer 0x%08x: num=%d nev=%d lenw=%d ifend=%d pid=%d\n",
       bigbufin,bigbufin[BBIBUFNUM],bigbufin[BBIEVENTS],llenw,ifend,pid);
 #endif
@@ -398,7 +387,7 @@ proc_thread(BIGNET *bigprocptrin)
       /* if input buffer contains special event, release output buffer if it exist */
       if((bigbufin[BBIBUFNUM] == -1) && (bigbufout != NULL))
       {
-#ifdef DEBUGPMC
+#ifdef DEBUG
     printf("proc: releasing output buffer - 0 0x%08x: num=%d nev=%d lenw=%d ifend=%d pid=%d\n",
       bigbufout,bigbufout[BBIBUFNUM],bigbufout[BBIEVENTS],bigbufout[BBIWORDS],
       bigbufout[BBIEND],bigbufout[BBIROCID]);
@@ -447,7 +436,7 @@ printf("<--- 0x%08x 0x%08x - fd=%d\n",bigprocptr->gbigBuffer1,bigbufout,bigbufin
           bigbufout[BBIEND]    = bigbufin[BBIEND];
           bufout = bigbufout + BBHEAD;
           PROC_TIMER_START;
-#ifdef DEBUGPMC
+#ifdef DEBUG
     printf("proc: got output buffer 0x%08x: num=%d nev=%d lenw=%d ifend=%d pid=%d\n",
       bigbufout,bigbufout[BBIBUFNUM],bigbufout[BBIEVENTS],bigbufout[BBIWORDS],
       bigbufout[BBIEND],bigbufout[BBIROCID]);
@@ -467,7 +456,7 @@ printf("<--- 0x%08x 0x%08x - fd=%d\n",bigprocptr->gbigBuffer1,bigbufout,bigbufin
 	  }
       else
       {
-#ifdef DEBUGPMC
+#ifdef DEBUG
         printf(">>>>>>>>>>>>>>>> use pid=%d <<<<<<<<<<<<<<<<<\n",pid);fflush(stdout);
 #endif
         lenout = proc_poll(bufin, bufout, pid);
@@ -478,45 +467,27 @@ printf("<--- 0x%08x 0x%08x - fd=%d\n",bigprocptr->gbigBuffer1,bigbufout,bigbufin
       bigbufout[BBIEVENTS] ++;
       bigbufout[BBIWORDS] += lenout;
 
-#ifdef DEBUGPMC
+#ifdef DEBUG
       printf("proc: after proc_poll lenout=%d\n",lenout);fflush(stdout);
       printf("proc: time(0)=%u timeout=%u\n",time(0),timeout);fflush(stdout);
       printf("proc: bufout=%u bigbufout=%u BBHEAD_BYTES=%d\n",bufout,bigbufout,BBHEAD_BYTES);fflush(stdout);
 #endif
 
-      /* release output buffer on full condition (use actual big buffer size, not SEND_BUF_SIZE !!!) or on timer */
-      if( ((bigbufout[BBIWORDS]<<2) > (maxoutbuflen/*SEND_BUF_SIZE*/ - SEND_BUF_MARGIN)) ||
+
+      /* release output buffer on full condition (use actual big buffer size, not SEND_BUF_SIZE !!!)
+         or on timer (Sergey: not on timer, will release on input buffer processed below) */
+      if( ((bigbufout[BBIWORDS]<<2) > (maxoutbuflen - SEND_BUF_MARGIN))  ||
 #ifdef VXWORKS
-          ((vxTicks > timeout) && ((bufout - bigbufout) > BBHEAD_BYTES)) )
+          ((vxTicks > timeout) && ((bufout - bigbufout) > BBHEAD_BYTES))
 #else
-          ((time(0) > timeout) && ((bufout - bigbufout) > BBHEAD_BYTES)) )
+          ((time(0) > timeout) && ((bufout - bigbufout) > BBHEAD_BYTES))
 #endif
+      )
       {
+		/*		
+printf("=== PROC1: %d %d %d %d 0x%08x\n",bigbufout[0],bigbufout[1],bigbufout[2],bigbufout[3],bigbufout[4]);
+		*/		
 
-#ifdef DEBUGPMC
-        if( ((bufout - bigbufout) > (maxoutbuflen/*SEND_BUF_SIZE*/ - SEND_BUF_MARGIN)) )
-        {
-          printf("proc: releasing output buffer - 1 on 'buffer full' condition: %d %d %d %d\n",
-				 bufout,bigbufout,maxoutbuflen/*SEND_BUF_SIZE*/,SEND_BUF_MARGIN);
-        }
-
-#ifdef VXWORKS
-        if( ((vxTicks > timeout) && ((bufout - bigbufout) > BBHEAD_BYTES)) )
-#else
-        if( ((time(0) > timeout) && ((bufout - bigbufout) > BBHEAD_BYTES)) )
-#endif
-        {
-          printf("proc: releasing output buffer - 1 on 'timeout' condition\n");
-        }
-
-        printf("proc: releasing output buffer - 1 0x%08x: num=%d nev=%d lenw=%d ifend=%d pid=%d\n",
-          bigbufout,bigbufout[BBIBUFNUM],bigbufout[BBIEVENTS],bigbufout[BBIWORDS],
-          bigbufout[BBIEND],bigbufout[BBIROCID]);
-#endif
-/*
-printf("=1=> %d\n",bigbufout[BBIFD]);
-*/
-/*printf("!!!!!!!!!!!! maxoutbuflen=%u datalength=%u\n",maxoutbuflen,(bigbufout[BBIWORDS]<<2));*/
         bigbufout = bb_write(&(bigprocptr->gbigBuffer1));
         if(bigbufout == NULL)
         {
@@ -529,6 +500,9 @@ printf("=1=> %d\n",bigbufout[BBIFD]);
         }
       }
 
+
+
+
       bufin += lenin;
 
     } /* finish processing input buffer*/
@@ -537,17 +511,18 @@ printf("=1=> %d\n",bigbufout[BBIFD]);
 
 
     /* always release output buffer if input buffer number equal to -1 (special events) */
-  /* SERGEY: ALWAYS release output buffer after it processed ??? */
-    if((bigbufin[BBIBUFNUM] == -1) && (bigbufout != NULL))
+
+    /* SERGEY: ALWAYS release output buffer after it processed !!!??? */
+    if(/*(bigbufin[BBIBUFNUM] == -1) &&*/ (bigbufout != NULL))
     {
-#ifdef DEBUGPMC
+#ifdef DEBUG
     printf("proc: releasing output buffer - 2 0x%08x: num=%d nev=%d lenw=%d ifend=%d pid=%d\n",
       bigbufout,bigbufout[BBIBUFNUM],bigbufout[BBIEVENTS],bigbufout[BBIWORDS],
       bigbufout[BBIEND],bigbufout[BBIROCID]);
 #endif
-/*
-printf("=2=> %d\n",bigbufout[BBIFD]);
-*/
+	/*
+printf("=== PROC2: %d %d %d %d 0x%08x\n",bigbufout[0],bigbufout[1],bigbufout[2],bigbufout[3],bigbufout[4]);
+	*/
       bigbufout = bb_write(&(bigprocptr->gbigBuffer1));
       if(bigbufout == NULL)
       {
@@ -607,18 +582,7 @@ printf("roc_process cleanup +++++++++++++++++++++++++++++++++++++ 1\n");fflush(s
 sleep(1);
 
   /* force input 'big' buffer read/write methods to exit */
-#ifdef PMCOFFSET
-  if(offset == 0) /* we are on host board */
-  {
-    bb_cleanup(&(bigprocptr->gbigBuffer));
-  }
-  else            /* we are on pmc board */
-  {
-    bb_cleanup_pci(&(bigprocptr->gbigBuffer));
-  }
-#else
   bb_cleanup(&(bigprocptr->gbigBuffer));
-#endif
 
   printf("PROC THREAD EXIT\n");
 }

@@ -20,7 +20,7 @@ around that problem temporary patches were applied - until fixed (Sergey) */
 #define USE_V1190
 
 
-#define DEBUG
+#undef DEBUG
 
 #include <stdio.h>
 #include <string.h>
@@ -233,14 +233,38 @@ tiSetBlockBufferLevel(1);
 tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_P2,1);
 */
 
+#ifdef USE_V1190
   /* add tdc fanout as busy source (overwrite TI_BUSY_SWB set by tiInit) */
   /* if ti is busy, it will not send trigger enable over fiber, since it is the same fiber
 	 and busy has higher priority */
   tiSetBusySource(TI_BUSY_P2,0);
+#endif
 
 #ifndef TI_SLAVE
   tiSetBusySource(TI_BUSY_LOOPBACK,0);
 #endif
+
+
+/*tiAddRocSWA();*/
+tiRemoveRocSWA();
+
+
+printf("***4***\n");
+tiStatus(1); /* Ben & William Testing */
+
+
+  /* for timing measurements in FADC250s */
+  tiSetTriggerHoldoff(1,5,0);   /* No more than 1 trigger within 80 ns */
+printf("***5***\n");
+tiStatus(1); /* Ben & William Testing */
+  tiSetTriggerHoldoff(4,41,0);  /* No more than 4 triggers within 656 ns */
+printf("***6***\n");
+tiStatus(1); /* Ben & William Testing */
+
+  /* Allow set/clear control of sync reset - for s/w pulse control */
+  tiSetUserSyncResetReceive(1);
+printf("***7***\n");
+tiStatus(1); /* Ben & William Testing */
 
   /*usrVmeDmaSetConfig(2,5,1);*/ /*A32,2eSST,267MB/s*/
   /*usrVmeDmaSetConfig(2,5,0);*/ /*A32,2eSST,160MB/s*/
@@ -251,6 +275,10 @@ tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_P2,1);
   /*bad for ti !!! */
   /*usrVmeDmaSetConfig(1,2,0);*/ /*A24,BLT*/
 
+  /*
+  usrVmeDmaSetChannel(1);
+  printf("===== Use DMA Channel %d\n\n\n",usrVmeDmaGetChannel());
+  */
 
 
   tdcbuf = (unsigned int *)i2_from_rol1;
@@ -276,19 +304,6 @@ ntdcs = 0;
   }
 
 
-#endif
-
-
-
-
-
-
-#ifdef TI_SLAVE_NOT_IN_USE
-  /*pulser*/
-  v851Init(0xd000,0);
-  /*v851SetDelay(1,10,1,0);*/
-  v851_start(100);
-  /*pulser*/
 #endif
 
 
@@ -324,14 +339,19 @@ __prestart()
   sprintf(rcname,"RC%02d",rol->pid);
   printf("rcname >%4.4s<\n",rcname);
 
-
-
-  sleep(1);
-  tiStatus(1);
-  sleep(2);
+printf("\n\n***111***\n");
+tiStatus(1);
+sleep(1);
+printf("\n\n***112***\n");
+tiStatus(1);
 
   tiIntDisable();
 
+printf("\n\n***113***\n");
+tiStatus(1);
+sleep(1);
+printf("\n\n***114***\n");
+tiStatus(1);
 
 #ifdef USE_V1190
 
@@ -355,11 +375,38 @@ __prestart()
 #endif
 
 
+
   /* master and standalone crates, NOT slave */
 #ifndef TI_SLAVE
+
+printf("\n\n***11***\n");
+tiStatus(1);
   sleep(1);
+printf("\n\n***12***\n");
+tiStatus(1);
   tiSyncReset(1);
+printf("\n\n***13***\n");
+tiStatus(1);
+  sleep(2);
+printf("\n\n***14***\n");
+tiStatus(1);
+  tiSyncReset(1);
+printf("\n\n***15***\n");
+tiStatus(1);
   sleep(1);
+printf("\n\n***16***\n");
+tiStatus(1);
+
+
+/* long sync pulse to ensure trigger pipelines are clear. only needs to be ~trigger latency long. 
+#ifdef NEW
+  sleep(1);
+  tiUserSyncReset(1);
+  sleep(1);
+  tiUserSyncReset(0);
+  sleep(1);
+#endif
+*/
 
   if(tiGetSyncResetRequest())
   {
@@ -369,6 +416,9 @@ __prestart()
     sleep(1);
   }
 
+printf("\n\n***17***\n");
+tiStatus(1);
+
   if(tiGetSyncResetRequest())
   {
     printf("ERROR: syncrequest still ON after tiSyncReset(); try 'tcpClient <rocname> tiSyncReset'\n");
@@ -377,11 +427,32 @@ __prestart()
   {
     printf("INFO: syncrequest is OFF now\n");
   }
+printf("\n\n***18***\n");
+tiStatus(1);
 
   printf("holdoff rule 1 set to %d\n",tiGetTriggerHoldoff(1));
   printf("holdoff rule 2 set to %d\n",tiGetTriggerHoldoff(2));
+printf("\n\n***19***\n");
+tiStatus(1);
 
 #endif
+
+
+
+
+
+
+
+  /* activate v851 pulser */
+  v851Init(0xd000,0);
+
+  /*v851SetDelay(1,10,1,0);*/
+
+  v851_start(100000);
+
+
+
+
 
 
   printf("INFO: Prestart1 Executed\n");fflush(stdout);
@@ -391,6 +462,7 @@ __prestart()
 
   return;
 }       
+
 
 static void
 __end()
@@ -446,9 +518,6 @@ __go()
     error_flag[ii] = 0;
   }
   taskDelay(100);
-
-
-ntdcs = 0; /*HACK !!! */
 
 #endif
 
@@ -535,8 +604,13 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 
     /* Grab the data from the TI */
 
-
+#ifndef VXWORKS 
+vmeBusLock();
+#endif
 	len = tiReadBlock(tdcbuf,900>>2,1); /* 1-DMA, 0-noDMA*/
+#ifndef VXWORKS 
+vmeBusUnlock();
+#endif
     if(len<=0)
     {
       printf("TIreadout : No data or error, len = %d\n",len);
@@ -548,7 +622,7 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
       for(jj=0; jj<len; jj++)
 	  {
         /*printf("ti[%2d] 0x%08x %d\n",jj,LSWAP(tdcbuf[jj]),LSWAP(tdcbuf[jj]));*/
-        *rol->dabufp++ = LSWAP(tdcbuf[jj]);
+		/* *rol->dabufp++ = LSWAP(tdcbuf[jj])*/;
 	  }
     }
 #endif
@@ -569,7 +643,13 @@ TIMERL_START;
 	if(ntdcs>0)
 	{
 	  
+#ifndef VXWORKS 
+vmeBusLock();
+#endif
       tdc1190ReadStart(tdcbuf, rlenbuf);
+#ifndef VXWORKS 
+vmeBusUnlock();
+#endif
 	  /*
 	  rlenbuf[0] = tdc1190ReadBoard(0, tdcbuf);
 	  rlenbuf[1] = tdc1190ReadBoard(1, &tdcbuf[rlenbuf[0]]);
@@ -710,12 +790,15 @@ for(i=0; i<200; i++) tmpgood[i] = tdcbuf[i];
 #ifdef SLOTWORKAROUND
           tdcslot_h = tdcslot;
 	      remember_h = tdc[ii];
-          if(slotnums[nheaders] != tdcslot) /* correct slot number */
+
+          /* correct slot number - cannot do it that was for multi-event readout
+          if(slotnums[nheaders] != tdcslot)
 		  {
-            if( !((*(rol->nevents))%1000) ) logMsg("WARN: [%2d] slotnums=%d, tdcslot=%d -> use slotnums\n",
+            if( !((*(rol->nevents))%10000) ) logMsg("WARN: [%2d] slotnums=%d, tdcslot=%d -> use slotnums\n",
 				   nheaders,slotnums[nheaders],tdcslot,4,5,6);
             tdcslot = slotnums[nheaders];
 		  }
+		  */
 #endif
           *rol->dabufp ++ = tdcslot;
           nheaders++;
@@ -734,6 +817,17 @@ for(i=0; i<200; i++) tmpgood[i] = tdcbuf[i];
 #ifdef SLOTWORKAROUND
           /* double check for slot number */
           tdcslot_t = tdc[ii]&0x1F;
+
+		  /*
+          if(slotnums[ntrailers] != tdcslot_t)
+		  {
+            if( !((*(rol->nevents))%10000) ) logMsg("WARN: [%2d] slotnums=%d, tdcslot=%d\n",
+				   ntrailers,slotnums[ntrailers],tdcslot_t,4,5,6);
+		  }
+		  */
+
+
+
           if(tdcslot_h>21||tdcslot_t>21||tdcslot_h!=tdcslot_t)
           {
             /*logMsg("WARN: slot from header=%d (0x%08x), from trailer=%d (0x%08x), must be %d\n",

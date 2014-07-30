@@ -174,25 +174,24 @@ jlabgefDmaSend
 
   /* Make sure nbytes is realistic */
   if(nbytes<0)
-    {
-      printf("%s: ERROR: Space left in buffer is less than zero (%d). Quitting\n",
+  {
+    printf("%s: ERROR: Space left in buffer is less than zero (%d). Quitting\n",
 	     __FUNCTION__,nbytes);
-      return ERROR;
-
-    }
+    return ERROR;
+  }
 
   /* Check the specified "size" vs. size left in buffer */
   /* ... if size==0, just use the space left in the buffer */
   if(size>nbytes) 
-    {
-      printf("jlabgefDmaSend: WARN: Specified number of DMA bytes (%d) is greater than \n",
+  {
+    printf("jlabgefDmaSend: WARN: Specified number of DMA bytes (%d) is greater than \n",
 	     size);
-      printf("\tthe space left in the buffer (%d).  Using %d\n",nbytes,nbytes);
-    }
+    printf("\tthe space left in the buffer (%d).  Using %d\n",nbytes,nbytes);
+  }
   else if( (size !=0) && (size<=nbytes) )
-    {
-      nbytes = size;
-    }
+  {
+    nbytes = size;
+  }
 
   dmaDescSample.dcnt = nbytes;
 

@@ -37,7 +37,7 @@ coda_er()
 #include <pthread.h>
 #include <fcntl.h>
 #ifdef Linux
-#include <linux/prctl.h>
+#include <sys/prctl.h>
 #endif
 #if defined __sun||LINUX
 #include <dlfcn.h>

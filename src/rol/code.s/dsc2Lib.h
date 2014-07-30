@@ -22,7 +22,7 @@
 #ifndef __DSC2__
 #define __DSC2__
 
-#define DSC_BOARD_ID       0x44534332
+#define DSC_BOARD_ID       0x44534332 /*DSC2*/
 #define DSC_MAX_BOARDS             20
 #define DSC_MAX_SLOTS              21
 #define DSC_MAX_A32_MEM      0x800000   /* 8 Meg */

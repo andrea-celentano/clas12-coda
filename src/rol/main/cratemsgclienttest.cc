@@ -12,12 +12,18 @@
 
 CrateMsgClient *tcp;
 
+#define LSWAP(x)        ((((x) & 0x000000ff) << 24) | \
+                         (((x) & 0x0000ff00) <<  8) | \
+                         (((x) & 0x00ff0000) >>  8) | \
+                         (((x) & 0xff000000) >> 24))
+
+
 int
 main(int argc, char *argv[])
 {
   char hostname[256];
-  int hostport, len, ii, ret, slot;
-  unsigned int **buf;
+  int hostport, len, ii, ret, slot, chan, partype;
+  unsigned int **buf, buffer[100];
 
   if(argc==3)
   {
@@ -42,16 +48,48 @@ main(int argc, char *argv[])
     exit(0);
   }
 
+  ret = tcp->GetCrateMap(buf, &len);
+  printf("len=%d\n",len);
+  for(ii=0; ii<len; ii++) printf("slot %2d, boardID 0x%08x\n",ii,(*buf)[ii]);
+
 
   slot = 2;
+  partype = SCALER_PARTYPE_THRESHOLD;
+  ret = tcp->GetBoardParams(slot, partype, buf, &len);
+
+  partype = SCALER_PARTYPE_THRESHOLD2;
+  ret = tcp->GetBoardParams(slot, partype, buf, &len);
+
+  chan = 5;
+  ret = tcp->GetChannelParams(slot, chan, partype, buf, &len);
+
+  len = 1;
+  buffer[0] = 12;
+  ret = tcp->SetChannelParams(slot, chan, partype, buffer, len);
+
+  ret = tcp->GetChannelParams(slot, chan, partype, buf, &len);
+
+  sleep(3);
+
+
+  printf("-------------------------\n");
   while(1)
   {
+    slot=2;
     ret = tcp->ReadScalers(slot, buf, &len);
-    printf("ret=%d, len=%d\n",ret,len);
-    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x\n",ii,(*buf)[ii]);fflush(stdout);
+    printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
+    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,(*buf)[ii],LSWAP((*buf)[ii]));fflush(stdout);
+    delete (*buf);
+
+    slot=3;
+    ret = tcp->ReadScalers(slot, buf, &len);
+    printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
+    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,(*buf)[ii],LSWAP((*buf)[ii]));fflush(stdout);
+    delete (*buf);
+
     sleep(1);
   }
-
+  
 
   exit(0);
 }

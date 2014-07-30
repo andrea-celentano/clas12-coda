@@ -68,7 +68,7 @@ typedef void 		(*VOIDFUNCPTR) (); /* ptr to function returning void */
 #include <sys/time.h>
 #include <unistd.h>
 #include <stdarg.h>
-#include <linux/prctl.h>
+#include <sys/prctl.h>
 #endif
 
 

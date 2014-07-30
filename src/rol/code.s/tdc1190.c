@@ -2001,7 +2001,7 @@ tdc1190ReadBoard(int itdc, UINT32 *tdata)
   volatile UINT32 *data;
   volatile UINT32 *fifo;
   UINT32 *output = tdata - 1;
-  int fifodata, ndata;
+  int fifodata, ndata, nev, ii;
 
   UINT32 addr = (unsigned int) c1190p[itdc];
   data = (UINT32 *) addr;
@@ -2012,12 +2012,18 @@ tdc1190ReadBoard(int itdc, UINT32 *tdata)
     /* get event length in words */
     /* do not need it here but must read fifo as soon as it is enabled,
        otherwise 'full' condition will happens */
-    fifodata = /* *fifo*/(vmeRead32(&(c1190p[itdc]->fifo))&0xffff);
+
+    nev = tdc1190Dready(itdc);
+    if(nev > blt_Events) nev = blt_Events;
+    for(ii=0; ii<nev; ii++)
+	{
+      fifodata = (vmeRead32(&(c1190p[itdc]->fifo))&0xffff);
+	}
   }
 
   do
   {
-    *(++output) = /* *data*/vmeRead32(&(c1190p[itdc]->data[0]));
+    *(++output) = vmeRead32(&(c1190p[itdc]->data[0]));
   } while( ((*output)&V1190_DATA_TYPE_MASK) != V1190_GLOBAL_EOB_DATA );
 
   return(((int)(output-tdata))+1);
@@ -2030,7 +2036,7 @@ tdc1190ReadBoardDmaStart(int ib, UINT32 *tdata)
   volatile UINT32 *vmeAdr;
   volatile UINT32 *fifo;
   int mdata, fifodata, res;
-  int i, nbytes;
+  int i, ii, nbytes, nev;
   int ndata_save, extra_save;
 
   UINT32 addr = (unsigned int) c1190p[ib];
@@ -2039,8 +2045,14 @@ tdc1190ReadBoardDmaStart(int ib, UINT32 *tdata)
   if(berr_fifo == 0x01)
   {
     /* get event length in words */
-    fifodata = (vmeRead32(&(c1190p[ib]->fifo))&0xffff);
-    ndata_save = fifodata&0xffff;
+    nev = tdc1190Dready(ib);
+    if(nev > blt_Events) nev = blt_Events;
+    ndata_save = 0;
+    for(ii=0; ii<nev; ii++)
+	{
+      fifodata = (vmeRead32(&(c1190p[ib]->fifo))&0xffff);
+      ndata_save += fifodata&0xffff;
+	}
     /*
     logMsg("tdc1190ReadBoardDmaStart: INFO: event fifo reports %d words\n",
            ndata_save,0,0,0,0,0);
@@ -2170,8 +2182,8 @@ tdc1190ReadStart(INT32 *tdcbuf, INT32 *rlenbuf)
     /* check the number of events */
     nn[jj] = nev = tdc1190Dready(jj);
 
-    /* if trigger matching window 'straddling' trigger, tdc1190Dready returns 0 (V1190_STATUS_DATA_READY bit is zero),
-    but next call returns 1 - do not know why ..*/
+    /* if trigger matching window 'straddling' trigger, tdc1190Dready returns 0
+      (V1190_STATUS_DATA_READY bit is zero),but next call returns 1 - do not know why ..*/
     if(nev == 0) nn[jj] = nev = tdc1190Dready(jj);
 
     if(nev == 0)
@@ -2180,11 +2192,10 @@ tdc1190ReadStart(INT32 *tdcbuf, INT32 *rlenbuf)
       notready = 1;
     }
 
-    /* Trigger Supervisor has 6 event buffer, but we can get 7
-	   if 'parallel' readout is in use */
-    if(nev > 7)      
+    /* should never have more then 100 events in one block */
+    if(nev > 100)      
     {
-	  logMsg("tdc1190readStart: ERROR: [%2d] nev=%d\n",jj,nev,3,4,5,6);
+	  logMsg("tdc1190ReadStart: ERROR: [%2d] nev=%d\n",jj,nev,3,4,5,6);
 	}
   }
 
@@ -2294,9 +2305,16 @@ TIMER_VAR;
     itdcbuf = 0;
     for(jj=0; jj<Nc1190; jj++)
     {
+
       /* get event length in words */
-      fifodata = (vmeRead32(&(c1190p[jj]->fifo))&0xffff);
-      ndata_save = fifodata & 0xffff;
+      nev = tdc1190Dready(jj);
+      if(nev > blt_Events) nev = blt_Events;
+      ndata_save = 0;
+      for(ii=0; ii<nev; ii++)
+	  {
+        fifodata = (vmeRead32(&(c1190p[jj]->fifo))&0xffff);
+        ndata_save += (fifodata & 0xffff);
+	  }
 
       if(sngl_blt_mblt >= 0x04) /* 128 bit alignment */
 	  {
@@ -2410,7 +2428,7 @@ tdc1190ReadEvent(int id, UINT32 *tdata)
 /*   int ii, nWords, evID; */
   UINT32 header, trailer, dCnt, tmpData;
   UINT16 contReg, statReg;
-  int fifodata;
+  int fifodata, nev, ii;
 
   CHECKID(id);
 
@@ -2429,10 +2447,17 @@ tdc1190ReadEvent(int id, UINT32 *tdata)
     {
       dCnt = 0;
 
-      /* Check to see if the Event FIFO is enabled, 
-	 If so, read its register */
-      if(contReg & V1190_EVENT_FIFO_ENABLE)
-	fifodata = vmeRead32(&(c1190p[id]->fifo));
+    /* Check to see if the Event FIFO is enabled, 
+	 if so, read its register */
+    if(contReg & V1190_EVENT_FIFO_ENABLE)
+	{
+      nev = tdc1190Dready(id);
+      if(nev > blt_Events) nev = blt_Events;
+      for(ii=0; ii<nev; ii++)
+	  {
+	    fifodata = vmeRead32(&(c1190p[id]->fifo));
+	  }
+	}
 
 	/* Read Header  */
 	header = vmeRead32(&(c1190p[id]->data[dCnt]));
@@ -3790,6 +3815,7 @@ tdc1190SetBLTEventNumber(int id, UINT16 nevents)
   LOCK_1190;
   vmeWrite16(&(c1190p[id]->bltEventNumber), nevents & 0xFF);
   UNLOCK_1190;
+  printf("tdc1190SetBLTEventNumber: set blt event number to %d\n",nevents);
   return OK;
 }
 

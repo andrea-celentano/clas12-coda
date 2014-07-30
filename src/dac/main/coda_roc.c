@@ -32,7 +32,7 @@ extern long vxTicks;
 
 #ifdef Linux
 #include <unistd.h>
-#include <linux/prctl.h>
+#include <sys/prctl.h>
 #endif
 
 #define MYCLOCK NANOMICRO
@@ -1127,7 +1127,7 @@ printf("3123: tmpp>%s<\n",tmpp);fflush(stdout);
   /* get the token Interval (ROC record size) from the configuration */
   /* options table of the database                                   */
   /*******************************************************************/
-  token_interval = 64;
+  token_interval = 60;
   sprintf(tmpp,"SELECT value FROM %s_option WHERE name='tokenInterval'",
     confname);
   if(dbGetInt(dbsock, tmpp, &token_interval)==CODA_ERROR)
@@ -1137,7 +1137,7 @@ printf("3123: tmpp>%s<\n",tmpp);fflush(stdout);
   }
 
 
-  if(token_interval <= 0) token_interval = 64;
+  if(token_interval < 60) token_interval = 60;
   big0.token_interval = token_interval;
   big1.token_interval = token_interval;
   printf("token_interval=%d\n",token_interval);
@@ -2538,15 +2538,28 @@ static int intLockKey;
 
 #else
 
+
 #define SET_TIMEOUT(cba) \
     if(object->nevents < 10) \
     { \
-      timeout = /*time(0)*/gethrtime() + 1*100000; \
+      timeout = gethrtime() + 1*100000; \
     } \
     else \
     { \
-      timeout = /*time(0)*/gethrtime() + (token_interval/60)*100000;	\
+      timeout = gethrtime() + (token_interval/60)*100000;	\
     }
+
+/*
+#define SET_TIMEOUT \
+    if(object->nevents < 10)			\
+    { \
+      timeout = time(0) + 1;	\
+    } \
+    else \
+    { \
+      timeout = time(0) + token_interval/60;	\
+    }
+*/
 
 #endif
 
@@ -2604,8 +2617,9 @@ rols_loop()
     /* send current output buffer */ \
     /* set now 'dabufp' to the beginning of */ \
     /* 'big' buffer just to fill a header   */ \
+    /*printf("1 SEND_BUFFER_ROC %d (0x%08x)\n",abc,dabufp);*/ \
     dabufp = bb_write_current(&big0.gbigBuffer); \
-    /*printf("SEND_BUFFER_ROC %d (0x%08x %d) (conditions %d %d)\n",abc,dabufp,dabufp[0],clear_to_send,rocp_primefd);*/ \
+    /*printf("2 SEND_BUFFER_ROC %d (0x%08x %d) (conditions %d %d)\n",abc,dabufp,dabufp[0],clear_to_send,rocp_primefd);*/ \
     /*setHeartBeat(HB_ROL,15,5);*/ \
     if(dabufp == NULL) \
     { \
@@ -2623,6 +2637,7 @@ rols_loop()
     dabufp[BBIEVENTS] = g_events_in_buffer; /* the number of events */ \
     dabufp[BBIFD]     = rocp_primefd; \
     dabufp[BBIEND]    = 0; \
+    /*printf("ROC: %d %d %d %d 0x%08x\n",dabufp[0],dabufp[1],dabufp[2],dabufp[3],dabufp[4]);*/ \
 	/*bb_check(dabufp);*/  \
 	/* main send */ \
     /*printf("SSS2 %d (0x%08x %d)\n",abc,dabufp,dabufp[0]);*/ \
@@ -2781,14 +2796,17 @@ bb_cleanup(&big0.gbigBuffer);
         /* 'delayed' done */
         if(rolP->doDone)
         {
-          printf("ROLS_LOOP calls __done() (no space in buffer for the next event ?)\n");fflush(stdout);
+          /*printf("ROLS_LOOP calls __done() (no space in buffer for the next event ?)\n");fflush(stdout);*/
           /* "__done()" routine have to be called to enable next trigger;
           we are here if it was not called by 'WRITE_EVENT_'; it happened
           because it was no space in buffer for the next event */
           /* here we wait for buffer become available, and call "__done()" ourself */
           SENDBUFFER_LOCK;
+          /*printf("ROLS_LOOP LOCKed, waiting to send buffer ...\n");fflush(stdout);*/
           SEND_BUFFER_(3);
+          /*printf("ROLS_LOOP LOCKed, buffer sent\n");fflush(stdout);*/
           SENDBUFFER_UNLOCK;
+          /*printf("ROLS_LOOP UNLOCKed\n");fflush(stdout);*/
 #ifdef VXWORKS
           LOCKINTS;
 #endif

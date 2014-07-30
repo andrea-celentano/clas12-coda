@@ -112,6 +112,13 @@ CrateMsg_Delay(CrateMsgStruct *msg, int swap)
 	return 0;
 }
 
+
+
+
+
+/* ERROR: ADD SWAP IN FUNCTIONS BELOW !!!!!!!!!!!!!!!!!!!!! */
+
+
 int
 CrateMsg_ReadScalers(CrateMsgStruct *msg, int swap)
 {
@@ -121,6 +128,52 @@ CrateMsg_ReadScalers(CrateMsgStruct *msg, int swap)
   }
   return(0);
 }
+
+
+int
+CrateMsg_GetCrateMap(CrateMsgStruct *msg, int swap)
+{
+  if(gServerCBFunctions.GetCrateMap)
+  {
+	return (*gServerCBFunctions.GetCrateMap)(&msg->msg.m_Cmd_GetCrateMap, &msg->msg.m_Cmd_GetCrateMap_Rsp);
+  }
+  return(0);
+}
+
+int
+CrateMsg_GetBoardParams(CrateMsgStruct *msg, int swap)
+{
+  if(gServerCBFunctions.GetBoardParams)
+  {
+	return (*gServerCBFunctions.GetBoardParams)(&msg->msg.m_Cmd_GetBoardParams, &msg->msg.m_Cmd_GetBoardParams_Rsp);
+  }
+  return(0);
+}
+
+int
+CrateMsg_GetChannelParams(CrateMsgStruct *msg, int swap)
+{
+  if(gServerCBFunctions.GetChannelParams)
+  {
+	return (*gServerCBFunctions.GetChannelParams)(&msg->msg.m_Cmd_GetChannelParams, &msg->msg.m_Cmd_GetChannelParams_Rsp);
+  }
+  return(0);
+}
+
+
+int
+CrateMsg_SetChannelParams(CrateMsgStruct *msg, int swap)
+{
+  if(gServerCBFunctions.SetChannelParams)
+  {
+	return (*gServerCBFunctions.SetChannelParams)(&msg->msg.m_Cmd_SetChannelParams);
+  }
+  return(0);
+}
+
+
+
+
 
 void *
 ConnectionThread(void *parm)
@@ -206,11 +259,29 @@ ConnectionThread(void *parm)
 	else if(pParm->msg.type == CRATEMSG_TYPE_DELAY)
 	  result = CrateMsg_Delay(&pParm->msg, swap);
 
+
 	/* scaler commands */
 	else if(pParm->msg.type == SCALER_SERVER_READ_BOARD)
 	{
 	  result = CrateMsg_ReadScalers(&pParm->msg, swap);
 	}
+	else if(pParm->msg.type == SCALER_SERVER_GET_CRATE_MAP)
+	{
+	  result = CrateMsg_GetCrateMap(&pParm->msg, swap);
+	}
+	else if(pParm->msg.type == SCALER_SERVER_GET_BOARD_PARAMS)
+	{
+	  result = CrateMsg_GetBoardParams(&pParm->msg, swap);
+	}
+	else if(pParm->msg.type == SCALER_SERVER_GET_CHANNEL_PARAMS)
+	{
+	  result = CrateMsg_GetChannelParams(&pParm->msg, swap);
+	}
+	else if(pParm->msg.type == SCALER_SERVER_SET_CHANNEL_PARAMS)
+	{
+	  result = CrateMsg_SetChannelParams(&pParm->msg, swap);
+	}
+
 
 	else
 	{

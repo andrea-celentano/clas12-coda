@@ -42,6 +42,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+/*for fchmod*/
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include <Xm/Form.h>
 #include <Xm/PushBG.h>
 /*
@@ -431,6 +435,12 @@ rcRunTypeDialog::parseConfigFile(char *fname)
   } /* end of while */
 
   fclose(fin);
+
+  if(chmod(fnameout,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH) != 0) /*open file for everybody*/
+  {
+    printf("ERROR: cannot change mode on output run config file\n");
+  }
+
   fclose(fout);
 
 }

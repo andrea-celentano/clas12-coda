@@ -13,9 +13,8 @@ tcpClient adcecal1 'tiInit(0xa80000,3,0)'
 coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 */
 
-#ifndef VXWORKS
-#define DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
-#endif
+
+#undef DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
 
 /* hps1.c - first readout list for VXS crates with FADC250 and new TI */
 
@@ -218,7 +217,7 @@ static int NFADC;                   /* The Maximum number of tries the library w
 static int FA_SLOT;                 /* We'll use this over and over again to provide
 				                     * us access to the current FADC slot number */ 
 
-static int FADC_ROFLAG           = 2;  /* 0-noDMA, 1-board-by-board DMA, 2-chainedDMA */
+static int FADC_ROFLAG           = 1;  /* 0-noDMA, 1-board-by-board DMA, 2-chainedDMA */
 
 /* for the calculation of maximum data words in the block transfer */
 static unsigned int MAXFADCWORDS = 0;
@@ -296,7 +295,7 @@ abcReadPeds(int rocid)
         ic_adc_ped[slot][chan] = ped + offset;
 
         /* set readout threshold as pedestal + some offset */
-        ic_adc_thres[slot][chan] = ped + 100/*6*/; /* MUST BE TET FROM CONFIG FILE */
+        ic_adc_thres[slot][chan] = ped + /*100*/ /*6*/ 0; /* MUST BE TET FROM CONFIG FILE */
       }
       else printf("bad slot=%d or chan=%d\n",slot,chan);
     }
@@ -395,7 +394,14 @@ tiStatus(1); /* Ben & William Testing */
 
 printf("***3***\n");
 tiStatus(1); /* Ben & William Testing */
-tiAddRocSWA();
+
+
+
+/*tiAddRocSWA();*/
+tiRemoveRocSWA();
+
+
+
 printf("***4***\n");
 tiStatus(1); /* Ben & William Testing */
 
@@ -424,6 +430,11 @@ tiSetSyncDelayWidth(1,127,1);
   usrVmeDmaSetConfig(2,5,1); /*A32,2eSST,267MB/s*/
   /*usrVmeDmaSetConfig(2,5,0);*/ /*A32,2eSST,160MB/s*/
   /*usrVmeDmaSetConfig(2,3,0);*/ /*A32,MBLT*/
+
+  /*
+  usrVmeDmaSetChannel(1);
+  printf("===== Use DMA Channel %d\n\n\n",usrVmeDmaGetChannel());
+  */
 
   tdcbuf = (unsigned int *)i2_from_rol1;
 
@@ -621,6 +632,18 @@ v1190: 0x11xx0000, where xx follows the same scheme as FADCs
   }
 
 
+  /* read back and print trigger pedestals */
+  printf("\n\nTrigger pedestals readback\n");
+  for(id=0; id<nfadc; id++) 
+  {
+    FA_SLOT = faSlot(id);
+    for(ichan=0; ichan<16; ichan++)
+	{
+      printf("  slot=%2d chan=%2d ped=%5d\n",FA_SLOT,ichan,faGetChannelPedestal(FA_SLOT, ichan));
+    }
+  }
+  printf("\n\n");
+
 
 /*
 STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
@@ -767,6 +790,7 @@ __prestart()
   iFlag |= SSP_INIT_FIBER1_ENABLE;         /* Enable hps1gtp fiber ports */
   iFlag |= SSP_INIT_GTP_FIBER_ENABLE_MASK; /* Enable all fiber port data to GTP */
   /*iFlag|= SSP_INIT_NO_INIT;*/ /* does not configure SSPs, just set pointers */
+  nssp=0;
   nssp = sspInit(0, 0, 0, iFlag); /* Scan for, and initialize all SSPs in crate */
   printf("hps1: found %d SSPs\n",nssp);
 
@@ -810,11 +834,14 @@ __prestart()
 
 		/* Setup 10Hz pulser on fp trig 0, or comment out to use single cluster trigger from fadc->gtp->ssp */
       /* note currently for test LVDSOUT1 is going to TS input 1 */
-	  sspPulserSetup(sspSlot(id), 0.0, 0.5, 0);
+	  sspPulserSetup(sspSlot(id), 100000.0, 0.5, 0xFFFFFFFF);
       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT0, SD_SRC_SEL_PULSER);
 
     }
   }
+
+
+
 
   /* USER code here */
   /******************/
@@ -824,9 +851,23 @@ __prestart()
   /* master and standalone crates, NOT slave */
 #ifndef TI_SLAVE
 
+printf("***11***\n");
+tiStatus(1);
   sleep(1);
+printf("***12***\n");
+tiStatus(1);
   tiSyncReset(1);
+printf("***13***\n");
+tiStatus(1);
   sleep(1);
+printf("***14***\n");
+tiStatus(1);
+  tiSyncReset(1);
+printf("***15***\n");
+tiStatus(1);
+  sleep(1);
+printf("***16***\n");
+tiStatus(1);
 
 
 /* long sync pulse to ensure trigger pipelines are clear. only needs to be ~trigger latency long. 
@@ -847,6 +888,9 @@ __prestart()
     sleep(1);
   }
 
+printf("***17***\n");
+tiStatus(1);
+
   if(tiGetSyncResetRequest())
   {
     printf("ERROR: syncrequest still ON after tiSyncReset(); try 'tcpClient <rocname> tiSyncReset'\n");
@@ -855,9 +899,13 @@ __prestart()
   {
     printf("INFO: syncrequest is OFF now\n");
   }
+printf("***18***\n");
+tiStatus(1);
 
   printf("holdoff rule 1 set to %d\n",tiGetTriggerHoldoff(1));
   printf("holdoff rule 2 set to %d\n",tiGetTriggerHoldoff(2));
+printf("***19***\n");
+tiStatus(1);
 
 #endif
 
@@ -1016,7 +1064,9 @@ usleep(100);
     tiSetOutputPort(1,0,0,0);
 
     /* Grab the data from the TI */
+vmeBusLock();
     len = tiReadBlock(tdcbuf,900>>2,1);
+vmeBusUnlock();
     if(len<=0)
     {
       /*printf("TIreadout : No data or error, len = %d\n",len)*/;
@@ -1028,8 +1078,10 @@ usleep(100);
       printf("ti: len=%d\n",len);
       for(jj=0; jj<len; jj++) printf("ti[%2d] 0x%08x\n",jj,LSWAP(tdcbuf[jj]));
 	  */
-      /* *rol->dabufp++ = LSWAP(tdcbuf[jj]);*/
 
+      BANKOPEN(0xe10A,1,rol->pid);
+      for(jj=0; jj<len; jj++) *rol->dabufp++ = /*LSWAP*/(tdcbuf[jj]);
+      BANKCLOSE;
     }
 
     /* Turn off all output ports */
@@ -1077,10 +1129,13 @@ TIMERL_START;
 
 
 
+
 goto a234;
   if(nssp>0)
   {
+vmeBusLock();
     nwords = sspReadFifo(sspbuf);	
+vmeBusUnlock();
     sspbuf[7] = time(0);
 	/*
     printf("sspbuf[%2d]: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
@@ -1093,6 +1148,8 @@ a234:
 
       if(stat>0)
 	  {
+        BANKOPEN(0xe109,1,rol->pid);
+
         FA_SLOT = faSlot(0);
         if(FADC_ROFLAG==2)
         {
@@ -1118,7 +1175,9 @@ goto a345;
 a345:
  
  /*25us->*/
+vmeBusLock();
  	      dCnt = faReadBlock(FA_SLOT,rol->dabufp,0x100000/*MAXFADCWORDS*/,FADC_ROFLAG);
+vmeBusUnlock();
  /*->25us*/
 #ifdef DEBUG
   		  printf("dCnt=%d\n",dCnt);
@@ -1135,7 +1194,9 @@ a345:
           printf("fadc1: Starting DMA\n");fflush(stdout);
 #endif
 
+vmeBusLock();
 	      dCnt = faReadBlock(FA_SLOT,tdcbuf,500000/*MAXFADCWORDS*/,FADC_ROFLAG);
+vmeBusUnlock();
 
 #ifdef DEBUG
           printf("fadc1: Finished DMA, dCnt=%d\n",dCnt);fflush(stdout);
@@ -1162,13 +1223,13 @@ goto a3456;
             if(jj==0) for(jjj=0; jjj<nssp; jjj++) *rol->dabufp++ = sspbuf[jjj];
 a3456:
 
-	        len = faReadBlock(faSlot(jj),rol->dabufp,10000/*MAXFADCWORDS*/,FADC_ROFLAG);
+	        len = faReadBlock(faSlot(jj),rol->dabufp,500000/*MAXFADCWORDS*/,FADC_ROFLAG);
             rol->dabufp += len;
             dCnt += len;
 
             usrRestoreVmeDmaMemory();
 #else
-	        len = faReadBlock(faSlot(jj),&tdcbuf[dCnt],10000/*MAXFADCWORDS*/,FADC_ROFLAG);
+	        len = faReadBlock(faSlot(jj),&tdcbuf[dCnt],500000/*MAXFADCWORDS*/,FADC_ROFLAG);
             dCnt += len;
 #endif
 
@@ -1194,7 +1255,10 @@ a4321:
 
           for(jj=0; jj<dCnt; jj++) *rol->dabufp++ = tdcbuf[jj];
 #endif
-	    }
+        }
+
+        BANKCLOSE;
+
 	  }
       else 
 	  {
@@ -1251,6 +1315,7 @@ TIMERL_STOP(100000/block_level,1000+rol->pid);
 
   /* close event */
   CECLOSE;
+
 
   return;
 }

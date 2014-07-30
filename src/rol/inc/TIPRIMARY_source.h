@@ -19,6 +19,7 @@
 #endif
 
 #include "../code.s/tiLib.h"
+
 #ifdef VXWORKS
 extern unsigned int tsIntCount;
 extern struct TI_A24RegStruct *TIp;
@@ -106,20 +107,6 @@ tiprimarytinit(int code)
   usrVmeDmaMemory(&i1, &i2, &i3);
 #endif
   i2_from_rol1 = i2;
-  /*
-  if( (i2_from_rol1&7) == 0xc )
-  {
-    i2_from_rol1 += 1;
-  }
-  else if( (i2_from_rol1&7) == 0x8 )
-  {
-    i2_from_rol1 += 2;
-  }
-  else if( (i2_from_rol1&7) == 0x4 )
-  {
-    i2_from_rol1 += 3;
-  }
-  */
   printf("tiprimarytinit: i2_from_rol1 = 0x%08x\n",i2_from_rol1);
 
   i2_from_rol1 = (i2_from_rol1 & 0xFFFFFFF0);
@@ -181,13 +168,18 @@ tiprimarytinit(int code)
   printf("tiClockReset/tiTrigLinkReset\n");
   taskDelay(200);
   tiClockReset();
+  printf("tiClockReset done\n");
+  tiStatus(1);
   taskDelay(200);
   tiTrigLinkReset();
+  printf("tiTrigLinkReset done\n");
+  tiStatus(1);
   taskDelay(200);
+#else
+  tiStatus(1);
 #endif
 
 
-  tiStatus(1);
 
 }
 
@@ -203,9 +195,13 @@ tiprimarytriglink(int code, VOIDFUNCPTR isr)
       tirClearIntCount();
       */
       /* Connect User Trigger Routine */
+
+/*
 #ifdef VXWORKS	  
       tiIntConnect(TI_INT_VEC, isr, 0);
 #endif
+*/
+
       break;
 	  /*
     case TS_SOURCE:
@@ -254,9 +250,13 @@ tiprimarytenable(int val, unsigned int intMask)
 
 
 /*sergeytiIntEnable(val);*/
-  tiEnableTriggerSource();
-  tiIntEnable(0); /*sergey*/
 
+
+  tiEnableTriggerSource();
+
+  /*
+  tiIntEnable(0);
+  */
 
 #else
   tiEnableTriggerSource();
@@ -269,8 +269,9 @@ tiprimarytdisable(int val, unsigned int intMask)
 {
 
 #ifndef TI_SLAVE
-    tiDisableTriggerSource(1);
-    tiBlockStatus(0,1);
+  tiDisableTriggerSource(1);
+  /*tiLoadTriggerTable(0);???*/
+  tiBlockStatus(0,1);
 #endif
 
   tiStatus(1);
@@ -280,10 +281,11 @@ tiprimarytdisable(int val, unsigned int intMask)
 
 
   tiIntDisable();
+  /*
 #ifdef VXWORKS
   tiIntDisconnect();
 #endif
-
+  */
   TIPRIMARYflag = 0;
 }
 

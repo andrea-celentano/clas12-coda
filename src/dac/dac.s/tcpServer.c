@@ -36,7 +36,7 @@
 #include <limits.h>
 
 #ifdef Linux
-#include <linux/prctl.h>
+#include <sys/prctl.h>
 #endif
 
 #endif

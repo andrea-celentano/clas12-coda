@@ -11,12 +11,36 @@ static UINT32 physMemBaseSave;
 static UINT32 userMemBaseSave;
 static UINT32 memSizeSave;
 
+static int channel = 0; /* there are 2 DMA engines, channel can be 0 or 1 */
+
 void
 usrVmeDmaSetMemSize(int size)
 {
   memSize = size;
   printf("usrVmeDmaSetMemSize: set memSize to 0x%08x (%d MB)\n",memSize,memSize/1024/1024);
   return;
+}
+
+int
+usrVmeDmaSetChannel(int chan)
+{
+  if(chan<0 || chan>1)
+  {
+    printf("ERROR: illegal chan=%d, can be 0 or 1\n",chan);
+    return(-1);
+  }
+
+  channel = chan;
+  printf("INFO: set channel=%d\n",channel);
+
+  return(0);
+}
+
+int
+usrVmeDmaGetChannel()
+{
+  printf("INFO: channel=%d\n",channel);
+  return(channel);
 }
 
 void
@@ -142,7 +166,6 @@ usrVme2MemDmaStart(unsigned int vmeAdrs, unsigned int locAdrs, int nbytes)
 {
   int offset;
   int tmp_dctl=0;
-  int channel=0; /* hard-coded for now */
 
 #ifdef TIMERS
   dma_timer[0] = rdtsc();
@@ -154,6 +177,7 @@ usrVme2MemDmaStart(unsigned int vmeAdrs, unsigned int locAdrs, int nbytes)
 	  physMemBase);
     return(ERROR);
   }
+
 
   /* Clear any previous exception */
   jlabgefClearException(1);
@@ -238,8 +262,7 @@ printf("usrVme2MemDmaStart: nbytes = %d\n",nbytes);
 int
 usrVme2MemDmaDone()
 {
-  unsigned int val=0,ii=0;
-  int channel=0; 
+  unsigned int val=0,ii=0; 
   unsigned int timeout=10000;
   unsigned int excStatus=0;
   unsigned int excAddrL;
@@ -262,7 +285,7 @@ usrVme2MemDmaDone()
 
   if(ii>=timeout) 
   {
-    printf("jlabgefDmaDone: DMA timed-out. DMA Status Register = 0x%08x\n",val);
+    printf("usrVme2MemDmaDone: DMA timed-out. DMA Status Register = 0x%08x\n",val);
     UNLOCK_TSI;
     jlabgefReadDMARegs();
     LOCK_TSI;
@@ -292,7 +315,7 @@ usrVme2MemDmaDone()
 #endif
 	  if(status<0)
 	  {
-	    printf("jlabgefDmaDone: ERROR: VME Exception Address < DMA Source Address (0x%08x < 0x%08x)\n",
+	    printf("usrVme2MemDmaDone: ERROR: VME Exception Address < DMA Source Address (0x%08x < 0x%08x)\n",
 	       excAddrL,dmaDescSample.dsal);
 	    status = ERROR; /*Sergey: a la vxWorks: (dmaDescSample.dsal - excAddrL) + jlabgefReadRegister(TEMPE_DCNT(channel)); */
 	  }
@@ -300,7 +323,7 @@ usrVme2MemDmaDone()
       else
 	  {
         status = 0; /*sergey: a la vxWorks*/
-        /*printf("jlabgefDmaDone1 returns %d bytes\n",status)*/;
+        /*printf("usrVme2MemDmaDone1 returns %d bytes\n",status)*/;
 	  }
 #endif
 	}
@@ -321,7 +344,7 @@ usrVme2MemDmaDone()
 	  }
       else
 	  {
-        /*printf("jlabgefDmaDone2 returns %d bytes\n",status)*/;
+        /*printf("usrVme2MemDmaDone2 returns %d bytes\n",status)*/;
 	  }
 #else
       /*sergey: return the number of bytes LEFT*/
@@ -347,7 +370,7 @@ usrVme2MemDmaDone()
   dma_timer[5] = rdtsc();
 #endif /* TIMERS */
 
-  /*printf("jlabgefDmaDone3 returns %d bytes\n",status);*/
+  /*printf("usrVme2MemDmaDone3 returns %d bytes\n",status);*/
 
   return(status);
 }
@@ -431,8 +454,7 @@ usrVme2MemDmaListSet(unsigned int *vmeAddr, unsigned int *locAddr, unsigned int 
 /* from jlabgefDmaSendLL */
 void
 usrVmeDmaListStart()
-{
-  int channel=0; 
+{ 
   unsigned int dctl = 0x0; 
 
   LOCK_TSI;
@@ -459,9 +481,7 @@ usrVmeDmaListStart()
 void
 usrVmeDmaShow()
 {
-  int channel=0; 
-
-  printf("\n");
+  printf("\n    usrVmeDmaShow (channel %d):\n",channel);
 
   LOCK_TSI;
 

@@ -22,13 +22,15 @@
 /*sergey: 
 
   VXWORKS:
+#if ppc_vme.boot was not loaded     ld < $CODA/src/rol/VXWORKS_ppc/lib/librol.so
+#if ppc_vme.boot was not loaded     ld < $CODA/src/rol/VXWORKS_ppc/obj/all_rocs.o
      ld < $CODA/src/rol/VXWORKS_ppc/bin/tiFirmwareUpdate
      cd "$CLON_PARMS/firmwares"
-     tiFirmwareUpdate(0x00A80000,"ti193.svf")
+     tiFirmwareUpdate(0x00A80000,"mti24.svf")
 
   UNIX:
      cd $CLON_PARMS/firmwares
-     tiFirmwareUpdate 0x00A80000 ti193.svf
+#####     tiFirmwareUpdate 0x00A80000 ti193.svf
      tiFirmwareUpdate 0x00A80000 mti24.svf
      tiFirmwareUpdate 0x00A80000 fpgareload.svf
 */

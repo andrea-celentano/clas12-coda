@@ -6,7 +6,7 @@
 
 #define NBIGBUFFERS 16
 
-#define SEND_BUF_MARGIN  (MAX_EVENT_LENGTH + 128)
+#define SEND_BUF_MARGIN  (SEND_BUF_SIZE/4) /*(MAX_EVENT_LENGTH + 128)*/
 
 typedef struct bigbuf
 {

@@ -1,6 +1,9 @@
 #ifndef CRATEMSGTYPES_H
 #define CRATEMSGTYPES_H
 
+
+
+
 #define CRATEMSG_LISTEN_PORT			6102
 #define MAX_MSG_SIZE					10000
 
@@ -13,16 +16,22 @@
 #define CRATEMSG_TYPE_DELAY			    0x05
 
 
-#define SCALER_SERVER_READ_BOARD	    0x100
-#define SCALER_SERVER_READ_CHANNEL	    0x101
-#define SCALER_SERVER_START             0x111
-#define SCALER_SERVER_STOP              0x112
-#define SCALER_SERVER_INTERVAL          0x113
-#define SCALER_SERVER_MAP               0x114
+#define SCALER_SERVER_READ_BOARD	      0x100
+#define SCALER_SERVER_GET_CRATE_MAP       0x101
+#define SCALER_SERVER_GET_BOARD_PARAMS	  0x102
+#define SCALER_SERVER_GET_CHANNEL_PARAMS  0x103
+#define SCALER_SERVER_SET_CHANNEL_PARAMS  0x104
+
 
 
 #define SCALER_TYPE_DSC2        0
 #define SCALER_TYPE_FADC250     1
+#define SCALER_TYPE_MAX         2   /* the maximum number of different board types */
+
+
+#define SCALER_PARTYPE_THRESHOLD    0
+#define SCALER_PARTYPE_THRESHOLD2   1
+#define SCALER_PARTYPE_NCHANNELS    2
 
 
 
@@ -35,6 +44,14 @@
 
 #define HW_SWAP(v)						( ((v>>8) & 0x00FF) |\
 										  ((v<<8) & 0xFF00) )
+
+#define LSWAP(v)						( ((v>>24) & 0x000000FF) |\
+                					      ((v<<24) & 0xFF000000) |\
+                					      ((v>>8)  & 0x0000FF00) |\
+                					      ((v<<8)  & 0x00FF0000) )
+
+#define HSWAP(v)						( ((v>>8) & 0x00FF) |\
+                					      ((v<<8) & 0xFF00) )
                 					  
 /*****************************************************/
 /*********** Some Board Generic Commands *************/
@@ -96,6 +113,9 @@ typedef struct
 
 
 
+/*******************/
+/* scaler commands */
+
 typedef struct
 {
   int cnt;
@@ -107,6 +127,61 @@ typedef struct
   int cnt;
   unsigned int vals[1];
 } Cmd_ReadScalers_Rsp;
+
+
+typedef struct
+{
+  int cnt;
+} Cmd_GetCrateMap;
+
+typedef struct
+{
+  int cnt;
+  int nslots;
+  unsigned int vals[1];
+} Cmd_GetCrateMap_Rsp;
+
+
+
+
+
+typedef struct
+{
+  int slot;
+  int partype;
+} Cmd_GetBoardParams;
+
+typedef struct
+{
+  int cnt;
+  unsigned int vals[1];
+} Cmd_GetBoardParams_Rsp;
+
+
+
+typedef struct
+{
+  int slot;
+  int channel;
+  int partype;
+} Cmd_GetChannelParams;
+
+typedef struct
+{
+  int cnt;
+  unsigned int vals[1];
+} Cmd_GetChannelParams_Rsp;
+
+
+
+typedef struct
+{
+  int slot;
+  int channel;
+  int partype;
+  int cnt;
+  unsigned int vals[1];
+} Cmd_SetChannelParams;
 
 
 
@@ -122,16 +197,25 @@ typedef struct
   
 	union
 	{
-		Cmd_Read16				m_Cmd_Read16;
-		Cmd_Read16_Rsp			m_Cmd_Read16_Rsp;
-		Cmd_Write16				m_Cmd_Write16;
-		Cmd_Read32				m_Cmd_Read32;
-		Cmd_Read32_Rsp			m_Cmd_Read32_Rsp;
-		Cmd_Write32				m_Cmd_Write32;
-		Cmd_Delay				m_Cmd_Delay;
-		Cmd_ReadScalers	        m_Cmd_ReadScalers;
-		Cmd_ReadScalers_Rsp	    m_Cmd_ReadScalers_Rsp;
-		unsigned char			m_raw[MAX_MSG_SIZE];
+		Cmd_Read16				  m_Cmd_Read16;
+		Cmd_Read16_Rsp			  m_Cmd_Read16_Rsp;
+		Cmd_Write16				  m_Cmd_Write16;
+		Cmd_Read32				  m_Cmd_Read32;
+		Cmd_Read32_Rsp			  m_Cmd_Read32_Rsp;
+		Cmd_Write32				  m_Cmd_Write32;
+		Cmd_Delay				  m_Cmd_Delay;
+
+		Cmd_ReadScalers	          m_Cmd_ReadScalers;
+		Cmd_ReadScalers_Rsp	      m_Cmd_ReadScalers_Rsp;
+		Cmd_GetCrateMap	          m_Cmd_GetCrateMap;
+		Cmd_GetCrateMap_Rsp	      m_Cmd_GetCrateMap_Rsp;
+		Cmd_GetBoardParams	      m_Cmd_GetBoardParams;
+		Cmd_GetBoardParams_Rsp	  m_Cmd_GetBoardParams_Rsp;
+		Cmd_GetChannelParams	  m_Cmd_GetChannelParams;
+		Cmd_GetChannelParams_Rsp  m_Cmd_GetChannelParams_Rsp;
+		Cmd_SetChannelParams	  m_Cmd_SetChannelParams;
+
+		unsigned char			  m_raw[MAX_MSG_SIZE];
 	} msg;
 } CrateMsgStruct;
 
@@ -145,7 +229,11 @@ typedef struct
 	int (*Read32)(Cmd_Read32 *pCmd_Read32, Cmd_Read32_Rsp *pCmd_Read32_Rsp);
 	int (*Write32)(Cmd_Write32 *pCmd_Write32);
 	int (*Delay)(Cmd_Delay *pCmd_Delay);
-    int (*ReadScalers)(Cmd_ReadScalers *pCmd_ReadScalers, Cmd_ReadScalers_Rsp *pCmd_ReadScalers_Rsp);
+    int (*ReadScalers)(Cmd_ReadScalers *pCmd, Cmd_ReadScalers_Rsp *pCmd_Rsp);
+    int (*GetCrateMap)(Cmd_GetCrateMap *pCmd, Cmd_GetCrateMap_Rsp *pCmd_Rsp);
+    int (*GetBoardParams)(Cmd_GetBoardParams *pCmd, Cmd_GetBoardParams_Rsp *pCmd_Rsp);
+    int (*GetChannelParams)(Cmd_GetChannelParams *pCmd, Cmd_GetChannelParams_Rsp *pCmd_Rsp);
+    int (*SetChannelParams)(Cmd_SetChannelParams *pCmd);
 } ServerCBFunctions;
 
 int CrateMsgServerStart(ServerCBFunctions *pCB, unsigned short listen_port);

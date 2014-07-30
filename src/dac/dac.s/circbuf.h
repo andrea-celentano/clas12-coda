@@ -3,28 +3,32 @@
 /*trying to use big buffers directly*/
 #define NEW_READOUT
 
-
+/*
 #include "ttbosio.h"
+*/
 
 /* circbuf.h */
 
-/* uncomment following line if do NOT want to send data from ROC to EB */
-/*#define ROC_DOES_NOT_SEND 1*/
+/* uncomment following line if do NOT want to send data from ROC to EB 
+#define ROC_DOES_NOT_SEND
+*/
 
 /* uncomment following line if do NOT want to send data to Building Thread 
-#define DO_NOT_PUT 1
+#define DO_NOT_PUT
+*/
+
+/* uncomment following line if do NOT want to actually build 
+#define DO_NOT_BUILD 1
 */
 
 /* uncomment following line if do not want to malloc for every buffer */
 #define NOALLOC 1
 
-/* uncomment following line if want fixed (=SEND_BUF_SIZE)
-   buffer size over network */
-/*#define FIXEDBUFS 1*/
 
-/* uncommect following line if want to use one PMC coprocessor */
-#ifndef Linux
-#define PMCOFFSET 0xc0000000 /* as seen from PMC board */
+
+
+#ifdef DO_NOT_PUT
+#define NOALLOC
 #endif
 
 
@@ -32,11 +36,17 @@
 /* allocate smaller buffers until bigger memory will be avail */
 
 #ifdef Linux
+#define NWBOS 524288
+#else
+#define NWBOS (524288/4) /*(MAX_EVENT_LENGTH/4)*/
+#endif
+
+#ifdef Linux
 
 #define MAX_EVENT_LENGTH (NWBOS*4)
 #define MAX_EVENT_POOL   400
 
-#define SEND_BUF_SIZE  (3/*10*/ * 1024 * 1024) /*sergey: use 3 for CLAS !!!!!*/
+#define SEND_BUF_SIZE  (3 * 1024 * 1024) /*sergey: use 3 for CLAS !!!!!*/
 #define TOTAL_RECEIVE_BUF_SIZE  SEND_BUF_SIZE
 
 #else
@@ -136,7 +146,7 @@ int     get_cb_count(CIRCBUF **cbp);
 
 int cb_events_init(CIRCBUF *cba[32]);
 int cb_events_get(CIRCBUF *cba[32], int id, int nrocs, int chunk,
-                 unsigned int *buf[32][NCHUNKMAX], int evsize[32], int *nphys);
+                 unsigned int *buf[32][NCHUNKMAX], int *nphys);
 
 #ifdef  __cplusplus
 }

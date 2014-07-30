@@ -283,74 +283,68 @@ bool CrateMsgClient::InitConnection()
 
 
 
-	bool  CrateMsgClient::Write32(unsigned int addr, unsigned int *val, int cnt, int flags)
+bool  CrateMsgClient::Write32(unsigned int addr, unsigned int *val, int cnt, int flags)
+{
+  if(!CheckConnection(__FUNCTION__)) return kFALSE;
+
+  Msg.len = 12+4*cnt;
+  Msg.type = CRATEMSG_TYPE_WRITE32;
+  Msg.msg.m_Cmd_Write32.cnt = cnt;
+  Msg.msg.m_Cmd_Write32.addr = addr;
+  Msg.msg.m_Cmd_Write32.flags = flags;
+  for(int i = 0; i < cnt; i++) Msg.msg.m_Cmd_Write32.vals[i] = val[i];
+  SendRaw(&Msg, Msg.len+8);
+
+#if DEBUG_PRINT
+  printf("Write32 @ 0x%08X, Count = %d, Flag = %d, Vals = ", addr, cnt, flags);
+  for(int i = 0; i < cnt; i++) printf("0x%08X ", val[i]);
+  printf("\n");
+#endif
+
+  return kTRUE;
+}
+
+
+
+bool  CrateMsgClient::Read32(unsigned int addr, unsigned int *val, int cnt, int flags)
+{
+  if(!CheckConnection(__FUNCTION__)) return kFALSE;
+
+  Msg.len = 12;
+  Msg.type = CRATEMSG_TYPE_READ32;
+  Msg.msg.m_Cmd_Read16.cnt = cnt;
+  Msg.msg.m_Cmd_Read16.addr = addr;
+  Msg.msg.m_Cmd_Read16.flags = flags;
+  SendRaw(&Msg, Msg.len+8);
+
+#if DEBUG_PRINT
+  printf("Read32 @ 0x%08X, Count = %d, Flag = %d, Vals = ", addr, cnt, flags);
+#endif
+
+  if(RcvRsp(Msg.type))
+  {
+	if(swap)
 	{
-		if(!CheckConnection(__FUNCTION__))
-			return kFALSE;
-
-		Msg.len = 12+4*cnt;
-		Msg.type = CRATEMSG_TYPE_WRITE32;
-		Msg.msg.m_Cmd_Write32.cnt = cnt;
-		Msg.msg.m_Cmd_Write32.addr = addr;
-		Msg.msg.m_Cmd_Write32.flags = flags;
-		for(int i = 0; i < cnt; i++)
-			Msg.msg.m_Cmd_Write32.vals[i] = val[i];
-		SendRaw(&Msg, Msg.len+8);
-
-#if DEBUG_PRINT
-		printf("Write32 @ 0x%08X, Count = %d, Flag = %d, Vals = ", addr, cnt, flags);
-		for(int i = 0; i < cnt; i++)
-			printf("0x%08X ", val[i]);
-		printf("\n");
-#endif
-
-		return kTRUE;
+	  Msg.msg.m_Cmd_Read32_Rsp.cnt = LSWAP(Msg.msg.m_Cmd_Read32_Rsp.cnt);
+	  for(int i = 0; i < Msg.msg.m_Cmd_Read32_Rsp.cnt; i++)
+		val[i] = LSWAP(Msg.msg.m_Cmd_Read32_Rsp.vals[i]);
 	}
-
-
-
-	bool  CrateMsgClient::Read32(unsigned int addr, unsigned int *val, int cnt, int flags)
+	else
 	{
-		if(!CheckConnection(__FUNCTION__))
-			return kFALSE;
-
-		Msg.len = 12;
-		Msg.type = CRATEMSG_TYPE_READ32;
-		Msg.msg.m_Cmd_Read16.cnt = cnt;
-		Msg.msg.m_Cmd_Read16.addr = addr;
-		Msg.msg.m_Cmd_Read16.flags = flags;
-		SendRaw(&Msg, Msg.len+8);
-
-#if DEBUG_PRINT
-		printf("Read32 @ 0x%08X, Count = %d, Flag = %d, Vals = ", addr, cnt, flags);
-#endif
-
-		if(RcvRsp(Msg.type))
-		{
-			if(swap)
-			{
-				Msg.msg.m_Cmd_Read32_Rsp.cnt = LSWAP(Msg.msg.m_Cmd_Read32_Rsp.cnt);
-				for(int i = 0; i < Msg.msg.m_Cmd_Read32_Rsp.cnt; i++)
-					val[i] = LSWAP(Msg.msg.m_Cmd_Read32_Rsp.vals[i]);
-			}
-			else
-			{
-				for(int i = 0; i < Msg.msg.m_Cmd_Read32_Rsp.cnt; i++)
-					val[i] = Msg.msg.m_Cmd_Read32_Rsp.vals[i];
-			}
-#if DEBUG_PRINT
-		for(int i = 0; i < cnt; i++)
-			printf("0x%08X ", val[i]);
-		printf("\n");
-#endif
-			return kTRUE;
-		}
-#if DEBUG_PRINT
-		printf("failed...\n");
-#endif
-		return kFALSE;
+	  for(int i = 0; i < Msg.msg.m_Cmd_Read32_Rsp.cnt; i++)
+		val[i] = Msg.msg.m_Cmd_Read32_Rsp.vals[i];
 	}
-
+#if DEBUG_PRINT
+	for(int i = 0; i < cnt; i++) printf("0x%08X ", val[i]);
+	printf("\n");
+#endif
+	return kTRUE;
+  }
+#if DEBUG_PRINT
+  printf("failed...\n");
+#endif
+  return kFALSE;
+}
 
 
 
@@ -362,8 +356,8 @@ bool CrateMsgClient::ReadScalers(int slot, unsigned int **val, int *len)
 
   Msg.type = SCALER_SERVER_READ_BOARD;
   Msg.len = 8;
-  Msg.msg.m_Cmd_ReadScalers.cnt = 70; 
-  Msg.msg.m_Cmd_ReadScalers.slot = 2; 
+  Msg.msg.m_Cmd_ReadScalers.cnt = 70;
+  Msg.msg.m_Cmd_ReadScalers.slot = slot; 
   SendRaw(&Msg, Msg.len+8);
 
   if(RcvRsp(Msg.type))
@@ -372,14 +366,12 @@ bool CrateMsgClient::ReadScalers(int slot, unsigned int **val, int *len)
 	{
 	  Msg.msg.m_Cmd_ReadScalers_Rsp.cnt = LSWAP(Msg.msg.m_Cmd_ReadScalers_Rsp.cnt);
 	}
-
 	*val = new unsigned int[Msg.msg.m_Cmd_ReadScalers_Rsp.cnt];
 	if(!(*val))
 	{
       printf("CrateMsgClient::ReadScalers ERROR: cannot allocate memory - return\n");
       return kFALSE;
 	}
-
     *len = Msg.msg.m_Cmd_ReadScalers_Rsp.cnt;
 	if(swap)
 	{
@@ -402,18 +394,175 @@ bool CrateMsgClient::ReadScalers(int slot, unsigned int **val, int *len)
 }
 
 
-	bool  CrateMsgClient::Delay(unsigned int ms)
+bool CrateMsgClient::GetCrateMap(unsigned int **val, int *len)
+{
+  if(!CheckConnection(__FUNCTION__)) return kFALSE;
+
+  Msg.type = SCALER_SERVER_GET_CRATE_MAP;
+  Msg.len = 8; /* always have 'cnt' and 'vals[1]' */
+  Msg.msg.m_Cmd_GetCrateMap.cnt = 0; /* not used in current command */
+  SendRaw(&Msg, Msg.len+8); /* count 'len' and 'type' from union */
+
+  if(RcvRsp(Msg.type))
+  {
+	if(swap)
 	{
-		if(!CheckConnection(__FUNCTION__))
-			return kFALSE;
-
-		Msg.len = 4;
-		Msg.type = CRATEMSG_TYPE_DELAY;
-		Msg.msg.m_Cmd_Delay.ms = ms;
-		SendRaw(&Msg, Msg.len+8);
-
-		return kTRUE;
+	  Msg.msg.m_Cmd_GetCrateMap_Rsp.cnt = LSWAP(Msg.msg.m_Cmd_GetCrateMap_Rsp.cnt);
 	}
+	*val = new unsigned int[Msg.msg.m_Cmd_GetCrateMap_Rsp.cnt];
+	if(!(*val))
+	{
+      printf("CrateMsgClient::GetCrateMap ERROR: cannot allocate memory - return\n");
+      return kFALSE;
+	}
+    *len = Msg.msg.m_Cmd_GetCrateMap_Rsp.cnt;
+	if(swap)
+	{
+	  for(int i = 0; i < Msg.msg.m_Cmd_GetCrateMap_Rsp.cnt; i++)
+	  {
+		(*val)[i] = LSWAP(Msg.msg.m_Cmd_GetCrateMap_Rsp.vals[i]);
+	  }
+	}
+	else
+	{
+	  for(int i = 0; i < Msg.msg.m_Cmd_GetCrateMap_Rsp.cnt; i++)
+	  {
+		(*val)[i] = Msg.msg.m_Cmd_GetCrateMap_Rsp.vals[i];
+		/*printf("GetCrateMap: [%2d] 0x%08x\n",i,(*val)[i]);fflush(stdout);*/
+	  }
+	}
+	return kTRUE;
+  }
+  return kFALSE;
+}
+
+
+bool CrateMsgClient::GetBoardParams(int slot, int partype, unsigned int **val, int *len)
+{
+  if(!CheckConnection(__FUNCTION__)) return kFALSE;
+
+  Msg.type = SCALER_SERVER_GET_BOARD_PARAMS;
+  Msg.msg.m_Cmd_GetBoardParams.slot = slot;
+  Msg.msg.m_Cmd_GetBoardParams.partype = partype;
+  Msg.len = 8; /* count 'slot' and 'partype' */
+ // printf("CrateMsgClient::GetBoardParams: slot=%d partype=%d\n",slot,partype);
+  SendRaw(&Msg, Msg.len+8); /* count 'len' and 'type' from union */
+
+  if(RcvRsp(Msg.type))
+  {
+	if(swap)
+	{
+	  Msg.msg.m_Cmd_GetBoardParams_Rsp.cnt = LSWAP(Msg.msg.m_Cmd_GetBoardParams_Rsp.cnt);
+	}
+	*val = new unsigned int[Msg.msg.m_Cmd_GetBoardParams_Rsp.cnt];
+	if(!(*val))
+	{
+      printf("CrateMsgClient::GetBoardParams ERROR: cannot allocate memory - return\n");
+      return kFALSE;
+	}
+    *len = Msg.msg.m_Cmd_GetBoardParams_Rsp.cnt;
+   // printf("GetBoardParams: len=%d\n",*len);fflush(stdout);
+	if(swap)
+	{
+	  for(int i = 0; i < Msg.msg.m_Cmd_GetBoardParams_Rsp.cnt; i++)
+	  {
+		(*val)[i] = LSWAP(Msg.msg.m_Cmd_GetBoardParams_Rsp.vals[i]);
+	  }
+	}
+	else
+	{
+	  for(int i = 0; i < Msg.msg.m_Cmd_GetBoardParams_Rsp.cnt; i++)
+	  {
+		(*val)[i] = Msg.msg.m_Cmd_GetBoardParams_Rsp.vals[i];
+		//printf("GetBoardParams: [%2d] 0x%08x (%d)\n",i,(*val)[i],(*val)[i]);fflush(stdout);
+	  }
+	}
+	return kTRUE;
+  }
+  return kFALSE;
+}
+
+
+
+bool CrateMsgClient::GetChannelParams(int slot, int channel, int partype, unsigned int **val, int *len)
+{
+  if(!CheckConnection(__FUNCTION__)) return kFALSE;
+
+  Msg.type = SCALER_SERVER_GET_CHANNEL_PARAMS;
+  Msg.msg.m_Cmd_GetChannelParams.slot = slot;
+  Msg.msg.m_Cmd_GetChannelParams.channel = channel;
+  Msg.msg.m_Cmd_GetChannelParams.partype = partype;
+  Msg.len = 12; /* count 'slot', 'channel' and 'partype' */
+  printf("CrateMsgClient::GetChannelParams: slot=%d partype=%d\n",slot,partype);
+  SendRaw(&Msg, Msg.len+8); /* count 'len' and 'type' from union */
+
+  if(RcvRsp(Msg.type))
+  {
+	if(swap)
+	{
+	  Msg.msg.m_Cmd_GetChannelParams_Rsp.cnt = LSWAP(Msg.msg.m_Cmd_GetChannelParams_Rsp.cnt);
+	}
+	*val = new unsigned int[Msg.msg.m_Cmd_GetChannelParams_Rsp.cnt];
+	if(!(*val))
+	{
+      printf("CrateMsgClient::GetChannelParams ERROR: cannot allocate memory - return\n");
+      return kFALSE;
+	}
+    *len = Msg.msg.m_Cmd_GetChannelParams_Rsp.cnt;
+    printf("GetChannelParams: len=%d\n",*len);fflush(stdout);
+	if(swap)
+	{
+	  for(int i = 0; i < Msg.msg.m_Cmd_GetChannelParams_Rsp.cnt; i++)
+	  {
+		(*val)[i] = LSWAP(Msg.msg.m_Cmd_GetChannelParams_Rsp.vals[i]);
+	  }
+	}
+	else
+	{
+	  for(int i = 0; i < Msg.msg.m_Cmd_GetChannelParams_Rsp.cnt; i++)
+	  {
+		(*val)[i] = Msg.msg.m_Cmd_GetChannelParams_Rsp.vals[i];
+		printf("GetChannelParams: [%2d] 0x%08x (%d)\n",i,(*val)[i],(*val)[i]);fflush(stdout);
+	  }
+	}
+	return kTRUE;
+  }
+  return kFALSE;
+}
+
+
+bool  CrateMsgClient::SetChannelParams(int slot, int channel, int partype, unsigned int *val, int cnt)
+{
+  if(!CheckConnection(__FUNCTION__)) return kFALSE;
+
+  Msg.type = SCALER_SERVER_SET_CHANNEL_PARAMS;
+  Msg.msg.m_Cmd_SetChannelParams.slot = slot;
+  Msg.msg.m_Cmd_SetChannelParams.channel = channel;
+  Msg.msg.m_Cmd_SetChannelParams.partype = partype;
+  Msg.msg.m_Cmd_SetChannelParams.cnt = cnt;
+  Msg.len = 16+4*cnt;
+  for(int i = 0; i < cnt; i++) Msg.msg.m_Cmd_SetChannelParams.vals[i] = val[i];
+  SendRaw(&Msg, Msg.len+8);
+
+  return kTRUE;
+}
+
+
+
+
+
+
+bool  CrateMsgClient::Delay(unsigned int ms)
+{
+  if(!CheckConnection(__FUNCTION__)) return kFALSE;
+
+  Msg.len = 4;
+  Msg.type = CRATEMSG_TYPE_DELAY;
+  Msg.msg.m_Cmd_Delay.ms = ms;
+  SendRaw(&Msg, Msg.len+8);
+
+  return kTRUE;
+}
 
 
 
