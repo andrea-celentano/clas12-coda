@@ -12,7 +12,7 @@ CROSS_COMPILE		=
 CC			= $(CROSS_COMPILE)g++
 AR                      = ar
 RANLIB                  = ranlib
-CFLAGS			= -O2 -fno-exceptions -fPIC -I/usr/include\
+CFLAGS			= -O2 -fno-exceptions -fPIC -I/usr/include \
 			-I${LINUXVME_INC} -I. \
                         -I./src \
                         -I./src/CTP \

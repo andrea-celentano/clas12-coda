@@ -81,6 +81,7 @@ install: install_lib
 	cp $(localbin)/et_2_et_10_01 $(CODA)/$(OSTYPE_MACHINE)/bin/
 	cp $(localbin)/et_2_et_10_02 $(CODA)/$(OSTYPE_MACHINE)/bin/
 	cp $(localbin)/et_2_et $(CODA)/$(OSTYPE_MACHINE)/bin/
+	cp $(localbin)/et_2_et_multi $(CODA)/$(OSTYPE_MACHINE)/bin/
 	cp $(localbin)/evio2et $(CODA)/$(OSTYPE_MACHINE)/bin/
 	cp $(localbin)/et2print $(CODA)/$(OSTYPE_MACHINE)/bin/
 

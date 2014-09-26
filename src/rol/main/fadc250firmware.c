@@ -113,6 +113,8 @@ UNIX:
 
 VXWORKS:
 
+#if ppc_vme.boot was not loaded     ld < $CODA/src/rol/VXWORKS_ppc/lib/librol.so
+#if ppc_vme.boot was not loaded     ld < $CODA/src/rol/VXWORKS_ppc/obj/all_rocs.o
  cd "$CLON_PARMS/firmwares"
  faInit((3<<19),(1<<19),20,0x40005)
 

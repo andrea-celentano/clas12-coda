@@ -219,7 +219,7 @@ if(cbp <100000)
 
   /*****************************************************************/
   /* if data pointer is valid, get some info and set write pointer */
-  if((int)data > 0) /* can be -1 which means no buffer !!! */
+  if((int)data > 0 || (int)data < -120000000 /*> 0x7FFFFFFF*/) /* can be -1 which means no buffer !!! */
   {
     int lll;
     buf = (unsigned int *)data;
@@ -469,7 +469,7 @@ cb_events_get(CIRCBUF *cba[MAX_ROCS], int id, int nrocs, int chunk,
     }
 
 
-    if((int)cbp->data[icb] > 0)
+    if((int)cbp->data[icb] > 0 || (int)cbp->data[icb] < -120000000 )
     {
       if(icb_next_available)
       {
@@ -488,7 +488,7 @@ cb_events_get(CIRCBUF *cba[MAX_ROCS], int id, int nrocs, int chunk,
     }
     else
 	{
-      printf("ERROR: cbp->data[icb]=%d\n",cbp->data[icb]);
+      printf("ERROR: cbp->data[icb]=%d (0x%08x)\n",cbp->data[icb],cbp->data[icb]);
 	}
     nev = MIN(nev,nevtot);
 
@@ -569,7 +569,7 @@ cb_events_get(CIRCBUF *cba[MAX_ROCS], int id, int nrocs, int chunk,
 
     /* if buffer pointer is greater then zero then process the buffer */ 
     /* -1 means no buffer !!! */ 
-    if((int)cbp->data[icb] > 0) 
+    if((int)cbp->data[icb] > 0 || (int)cbp->data[icb] < -120000000 ) 
     {
       nevbuf = nev; 
 

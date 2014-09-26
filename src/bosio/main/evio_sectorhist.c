@@ -123,7 +123,8 @@ gotControlEvent(et_event **pe, int size)
 
 
 
-#define CRATE1 7 /*first crate ID: sec1-1, sec2-7, sec3-13, sec4-19, sec5-25, sec6-31*/
+
+#define CRATE1 25 /*first crate ID: sec1-1, sec2-7, sec3-13, sec4-19, sec5-25, sec6-31*/
 
 #undef DEBUG_SEARCH
 
@@ -1713,7 +1714,7 @@ a123:
 
 
 		  /* fill raw adc pulse hist only if there was a pulse */
-          if(/*1*/sum>0)
+          if(sum>0)
 		  {
             for(mm=0; mm<nsamples; mm++)
 	        {
@@ -1722,7 +1723,7 @@ a123:
                 tmpx = (float)mm+0.5;
                 ww = (float)datasaved[mm];
                 idn = 10000000 + fragment*100000 + 1000*slot + chan;
-				/*printf("idn1=%d\n",idn);*/
+				printf("idn1=%d bin=%f ww=%f\n",idn,tmpx,ww);
                 hf1_(&idn,&tmpx,&ww);
               }
 		    }

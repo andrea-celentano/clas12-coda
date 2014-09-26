@@ -71,10 +71,11 @@ int nvscm = 0;                                          /* Number of VSCMs in Cr
 volatile struct VSCM_regs *VSCMpr[VSCM_MAX_BOARDS + 1]; /* pointers to VSCM memory map */
 volatile uintptr_t *VSCMpf[VSCM_MAX_BOARDS + 1];        /* pointers to VSCM FIFO memory */
 volatile uintptr_t *VSCMpmb;                            /* pointer to Multiblock Window */
+int vscmID[VSCM_MAX_BOARDS];                            /* array of slot numbers for VSCMs */
+
+int vscmA32Base = 0x09000000;
 int vscmA32Offset = 0x0;                                /* Difference in CPU A32 Base - VME A32 Base */
 int vscmA24Offset = 0x0;                                /* Difference in CPU A24 Base - VME A24 Base */
-int vscmID[VSCM_MAX_BOARDS];                            /* array of slot numbers for VSCMs */
-const int vscmA32Base = 0x09000000;
 
 int vscmInited = 0;
 int minSlot = 21;
@@ -1937,7 +1938,8 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
     logMsg("ERROR: %s: A32 addressing not allowed\n", __func__);
     return 0;
   }
-  else {
+  else
+  {
     /* Make sure to try and init at least 1 board */
     if ((addr_inc == 0) || (numvscm == 0))
       numvscm = 1;
@@ -1950,7 +1952,8 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
 #else
     res = vmeBusToLocalAdrs(0x39, (char *)addr, (char **)&laddr);
 #endif
-    if (res != 0) {
+    if (res != 0)
+    {
 #ifdef VXWORKS
       logMsg("ERROR: %s: sysBusToLocalAdrs(0x39, 0x%x, &laddr)\n", \
               __func__, addr);
@@ -1965,12 +1968,14 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
     vscmInited = nvscm = 0;
     bzero((char *)vscmID, sizeof(vscmID));
 
-    for (i = 0; i < numvscm; i++) {
+    for (i = 0; i < numvscm; i++)
+    {
       vmeaddr = (addr + (i * addr_inc));
       /* skip slots that can't be a VSCM */
       /* 1=SBC 11,12=VXS switch slots */
       /* 2=Reserved for VXS SBC */
-      switch(vmeaddr) {
+      switch(vmeaddr)
+      {
         case (1 << 19):
         case (2 << 19):
         case (11 << 19):
@@ -1988,7 +1993,8 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
 #else
       res = vmeMemProbe((char *)&(vreg->BoardID), 4, (char *)&rdata);
 #endif
-      if (res < 0) {
+      if (res < 0)
+      {
 #ifdef DEBUG
 #ifdef VXWORKS
         logMsg("ERROR: %s: No addressable board at addr=0x%x\n", \
@@ -1999,14 +2005,17 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
 #endif
 #endif
       }
-      else {
-        if (rdata != VSCM_BOARD_ID) {
+      else
+      {
+        if (rdata != VSCM_BOARD_ID)
+        {
           logMsg("ERROR: %s: For board at %p, Invalid Board ID: %p\n",
                   __func__, (void *)vreg, (void *)rdata);
           break;
         }
         boardID = vmeRead32(&vreg->Geo) & 0x1F;
-        if ((boardID <= 0) || (boardID > 21)) {
+        if ((boardID <= 0) || (boardID > 21))
+        {
           logMsg("ERROR: %s: Board Slot ID %d is not in range.\n", \
                   __func__, boardID);
           return 0;
@@ -2025,7 +2034,8 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
     }
 
     /* Setup FIFO pointers */
-    for (i = 0; i < nvscm; i++) {
+    for (i = 0; i < nvscm; i++)
+    {
       a32addr = vscmA32Base + (i * VSCM_MAX_FIFO);
 
       /* Event readout setup */
@@ -2034,15 +2044,17 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
 
 #ifdef VXWORKS
       res = sysBusToLocalAdrs(0x09, (char *)a32addr, (char **)&laddr2);
-      if (res != 0) {
+      if (res != 0)
+      {
         logMsg("ERROR: %s: sysBusToLocalAdrs(0x09, 0x%x, &laddr2)\n", \
                 __func__, a32addr);
         return 0;
       }
 #else
       res = vmeBusToLocalAdrs(0x09, (char *)a32addr, (char **)&laddr2);
-      if (res != 0) {
-        logMsg("ERROR: %s: vmeBusToLocalAdrs(0x09, %p, &laddr2)\n", \
+      if (res != 0)
+      {
+        logMsg("ERROR: %s: vmeBusToLocalAdrs(0x09, %p, &laddr2)\n",
                 __func__, (void *)a32addr);
         return 0;
       }
@@ -2055,41 +2067,47 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
       * If more than 1 VSCM in crate then setup the Muliblock Address
       * window. This must be the same on each board in the crate
       */
-    if (nvscm > 1) {
+    if (nvscm > 1)
+    {
       /* set MB base above individual board base */
       a32addr = vscmA32Base + (nvscm * VSCM_MAX_FIFO);
 #ifdef VXWORKS
       res = sysBusToLocalAdrs(0x09, (char *)a32addr, (char **)&laddr);
-      if (res != 0) {
-        printf("ERROR: %s: in sysBusToLocalAdrs(0x09,0x%x,&laddr) \n", \
+      if (res != 0)
+      {
+        printf("ERROR: %s: in sysBusToLocalAdrs(0x09,0x%x,&laddr) \n",
                 __func__, a32addr);
         return EXIT_FAILURE;
       }
 #else
       res = vmeBusToLocalAdrs(0x09, (char *)a32addr, (char **)&laddr);
-      if (res != 0) {
-	      printf("ERROR: %s: in vmeBusToLocalAdrs(0x09,0x%x,&laddr) \n", \
+      if (res != 0)
+      {
+	      printf("ERROR: %s: in vmeBusToLocalAdrs(0x09,0x%x,&laddr) \n",
                 __func__, a32addr);
 	      return EXIT_FAILURE;
       }
 #endif
       VSCMpmb = (uintptr_t *)laddr;  /* Set a pointer to the FIFO */
-	    for (i = 0; i < nvscm; i++) {
-  	      /* Write the register and enable */
-          vmeWrite32((volatile unsigned int *)&(VSCMpr[vscmID[i]]->Adr32M), \
-                    ((a32addr + VSCM_MAX_A32MB_SIZE) >> 7) | \
+	  for (i = 0; i < nvscm; i++)
+      {
+  	    /* Write the register and enable */
+        vmeWrite32((volatile unsigned int *)&(VSCMpr[vscmID[i]]->Adr32M),
+                    ((a32addr + VSCM_MAX_A32MB_SIZE) >> 7) |
                     (a32addr >> 23) | (1 << 25));
-	    }
-      vmeWrite32((volatile unsigned int *)&(VSCMpr[minSlot]->Adr32M), \
-                vmeRead32((volatile unsigned int *)&(VSCMpr[minSlot]->Adr32M)) \
+	  }
+      vmeWrite32((volatile unsigned int *)&(VSCMpr[minSlot]->Adr32M),
+                vmeRead32((volatile unsigned int *)&(VSCMpr[minSlot]->Adr32M))
                             | (1 << 26));
-      vmeWrite32((volatile unsigned int *)&(VSCMpr[maxSlot]->Adr32M), \
-                vmeRead32((volatile unsigned int *)&(VSCMpr[maxSlot]->Adr32M)) \
+      vmeWrite32((volatile unsigned int *)&(VSCMpr[maxSlot]->Adr32M),
+                vmeRead32((volatile unsigned int *)&(VSCMpr[maxSlot]->Adr32M))
                             | (1 << 27));
     }
 
+
     /* Setup VSCM */
-    for (i = 0; i < nvscm; i++) {
+    for (i = 0; i < nvscm; i++)
+    {
       boardID = vscmID[i]; /* slot number */
 
 

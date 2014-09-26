@@ -49,7 +49,8 @@ static int etr_system_getstuff(et_id *id, int cmd, int *stuff, const char *routi
 /*****************************************************/
 /*                      ET SYSTEM                    */
 /*****************************************************/
-int etr_open(et_sys_id *id, const char *et_filename, et_openconfig openconfig)
+int
+etr_open(et_sys_id *id, const char *et_filename, et_openconfig openconfig)
 {
     et_open_config *config = (et_open_config *) openconfig;
     int sockfd=-1, length, bufsize, version, nselects;
@@ -67,6 +68,9 @@ int etr_open(et_sys_id *id, const char *et_filename, et_openconfig openconfig)
 #else
     struct timespec start, now;
 #endif
+
+    printf("etr_open: rBufSize=%d, sBufSize=%d, noDelay=%d\n",
+      config->tcpSendBufSize,config->tcpRecvBufSize,config->tcpNoDelay);
 
     /* system id */
     etid = (et_id *) *id;
@@ -101,8 +105,10 @@ int etr_open(et_sys_id *id, const char *et_filename, et_openconfig openconfig)
         port = config->serverport;
     }
 
-    while(1) {
-        if (port > 0) {
+    while(1)
+    {
+        if (port > 0)
+        {
             /* make the network connection */
             if (inetaddr == 0) {
 et_logmsg("INFO","etr_open: etNetTcpConnect to host %s on port %d\n",ethost,port);
@@ -111,17 +117,30 @@ et_logmsg("INFO","etr_open: etNetTcpConnect to host %s on port %d\n",ethost,port
                   &sockfd, NULL) == ET_OK) {
                   break;
               }
+
             }
-            else {
-et_logmsg("INFO","etr_open: etNetTcpConnect2 to address %u (host %s) on port %d\n",inetaddr,ethost,port);
+            else
+            {
+
+			  /*
+			  config->tcpSendBufSize=65000;
+              config->tcpRecvBufSize=65000;
+              config->tcpNoDelay=1;
+			  */
+
+et_logmsg("INFO","etr_open: etNetTcpConnect2 to address %u (host %s) on port %d, sdnbuf=%d, rcvbuf=%d, nodelay=%d\n",
+		  inetaddr,ethost,port,config->tcpSendBufSize, config->tcpRecvBufSize, config->tcpNoDelay);
               if (etNetTcpConnect2(inetaddr, config->interface, (unsigned short)port,
                   config->tcpSendBufSize, config->tcpRecvBufSize, config->tcpNoDelay,
                   &sockfd, NULL) == ET_OK) {
                   break;
               }
             }
+
         }
-        else {
+        else
+        {
+
             /* else find port# & name of ET server by broad/multicasting */
 et_logmsg("INFO","etr_open: calling et_findserver(file=%s, host=%s)\n",et_filename,ethost);
 printf("\nCALLING et_findserver FROM etr_open\n\n");

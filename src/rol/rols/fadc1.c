@@ -711,6 +711,7 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
 #endif
 
 
+
   logMsg("INFO: User Download Executed\n",1,2,3,4,5,6);
 }
 
@@ -817,6 +818,8 @@ printf("\n\n***12***\n");
 tiStatus(1);
   tiSyncReset(1);
   sleep(5);
+
+
 printf("\n\n***13***\n");
 tiStatus(1);
   sleep(1);
@@ -828,6 +831,7 @@ tiStatus(1);
   sleep(1);
 printf("\n\n***16***\n");
 tiStatus(1);
+
 
   if(tiGetSyncResetRequest())
   {

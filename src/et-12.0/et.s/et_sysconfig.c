@@ -360,7 +360,9 @@ int et_system_config_settcp(et_sysconfig sconfig, int rBufSize, int sBufSize, in
     sc->tcpRecvBufSize = rBufSize;
     sc->tcpSendBufSize = sBufSize;
     sc->tcpNoDelay = noDelay;
-
+	/*
+    printf("et_system_config_settcp: set rBufSize=%d, sBufSize=%d, noDelay=%d\n", rBufSize, sBufSize, noDelay);
+	*/
     return ET_OK;
 }
 

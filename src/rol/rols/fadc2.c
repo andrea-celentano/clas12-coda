@@ -717,12 +717,25 @@ if(mynev>MYNEV)
             printf("ERROR: environment variable CLAS is not defined - exit\n");
             exit(0);
 		  }
+          else
+		  {
+            printf("CLAS env. var. is >%s<\n",dir);
+		  }
+
           if((expid=getenv("EXPID")) == NULL)
 	      {
             printf("ERROR: environment variable EXPID is not defined - exit\n");
             exit(0);
 		  }
+          else
+		  {
+            printf("EXPID env. var. is >%s<\n",expid);
+		  }
+          printf("rol->pid is %d\n",rol->pid);
+
           sprintf(fname,"%s/parms/peds/%s/roc%02d.ped",dir,expid,rol->pid);
+          printf("Will try to open file >%s<\n",fname);
+
           fd = fopen(fname,"w");
           if(fd==NULL)
           {

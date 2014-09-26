@@ -94,7 +94,7 @@ static int *StartOfBank;
 
 /* ROL2 macros: call CPINIT first, then CPOPEN/CPCLOSE for every bank, and CPEXIT in the end */
 
-#define MAXBANKS 100
+#define MAXBANKS 10
 
 #define CPINIT \
   unsigned int *dataout_save1; \
@@ -105,8 +105,10 @@ static int *StartOfBank;
   unsigned long long *b64; \
   int lenin = *(rol->dabufpi) - 1;	\
   int lenout = 2;  /* start from 3rd word, leaving first two for bank-of-banks header */ \
+  int lenev; \
   unsigned int *datain = (unsigned int *)((rol->dabufpi)+2); \
-  unsigned int *dataout = (unsigned int *)((rol->dabufp)+2)
+  unsigned int *dataout = (unsigned int *)((rol->dabufp)+2); \
+  unsigned int *header = (unsigned int *)(rol->dabufp); \
 
 #define CPOPEN(btag,btyp,bnum) \
 { \
@@ -126,12 +128,14 @@ static int *StartOfBank;
   *dataout_save1 = (dataout-dataout_save1-1); /*write bank length*/ \
   /*printf("CPCLOSE: *dataout_save1 = %d\n",*dataout_save1);*/		\
   lenout += (*dataout_save1+1); \
+  lenev += (*dataout_save1+1); \
   b08 = NULL; \
 }
 
 #define CPEXIT \
-  rol->dabufp[0] = lenout - 1; \
-  rol->dabufp[1] = rol->dabufpi[1]
+  header[0] = lenout - 1; \
+  header[1] = rol->dabufpi[1]; \
+  rol->dabufp[lenout] = 1 /*for compatibility with new ROC2; will be redefined to the actual number events in block*/
 
 
 

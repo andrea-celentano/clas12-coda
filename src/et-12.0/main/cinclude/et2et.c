@@ -135,7 +135,7 @@ ssipc_thread (void *arg)
 #endif
 
 
-#define NUMEVENTS 600
+#define NUMEVENTS 400
 #define CHUNK 100
 #define STRLEN 256
 
@@ -151,7 +151,7 @@ main(int argc,char **argv)
   pthread_t       tid;
 
   int             i, j, status, numread, chunk, totalread=0, loops=0;
-  int		  con[ET_STATION_SELECT_INTS], ntransferred=0;
+  int		      con[ET_STATION_SELECT_INTS], ntransferred=0;
   et_statconfig   sconfig;
   et_openconfig   openconfig;
   et_bridgeconfig bconfig;
@@ -294,6 +294,37 @@ main(int argc,char **argv)
   et_open_config_gethost(openconfig, ch);
   printf("local host >%s<\n",ch);
   /*et_open_config_setport(openconfig, 12345);*/
+
+
+
+
+
+
+  /*sergey: increase tcp buffersize */
+  {
+	int rBufSize;
+    int sBufSize;
+    int noDelay;
+
+	et_open_config_gettcp(openconfig, &rBufSize, &sBufSize, &noDelay);
+    printf("default rBufSize=%d, sBufSize=%d, noDelay=%d\n", rBufSize, sBufSize, noDelay);
+
+	rBufSize = 65000;
+    sBufSize = 65000;
+    noDelay = 0;
+	et_open_config_settcp(openconfig, rBufSize, sBufSize, noDelay);
+
+	et_open_config_gettcp(openconfig, &rBufSize, &sBufSize, &noDelay);
+    printf("et2et: set rBufSize=%d, sBufSize=%d, noDelay=%d\n", rBufSize, sBufSize, noDelay);
+  }
+
+
+
+
+
+
+
+
   if(et_open(&id_from, from_et, openconfig) != ET_OK)
   {
     printf("%s: et_open 'from' problems\n",argv[0]);
@@ -321,6 +352,37 @@ main(int argc,char **argv)
     printf("but only one ET system allowed on remote machine\n");
     et_open_config_setcast(openconfig, ET_DIRECT);
   }
+
+
+
+
+
+  /*sergey: increase tcp buffersize */
+  {
+	int rBufSize;
+    int sBufSize;
+    int noDelay;
+
+	et_open_config_gettcp(openconfig, &rBufSize, &sBufSize, &noDelay);
+    printf("default rBufSize=%d, sBufSize=%d, noDelay=%d\n", rBufSize, sBufSize, noDelay);
+
+	rBufSize = 65000;
+    sBufSize = 65000;
+    noDelay = 0;
+	et_open_config_settcp(openconfig, rBufSize, sBufSize, noDelay);
+
+	et_open_config_gettcp(openconfig, &rBufSize, &sBufSize, &noDelay);
+    printf("et2et: set rBufSize=%d, sBufSize=%d, noDelay=%d\n", rBufSize, sBufSize, noDelay);
+  }
+
+
+
+  {
+    et_open_config *config = (et_open_config *) openconfig;
+    printf("befor et_open: rBufSize=%d, sBufSize=%d, noDelay=%d\n",
+      config->tcpSendBufSize,config->tcpRecvBufSize,config->tcpNoDelay);
+  }
+
 
   if(et_open(&id_to, to_et, openconfig) != ET_OK)
   {
@@ -435,6 +497,11 @@ printf("15\n");fflush(stdout);
   et_bridge_config_init(&bconfig);
 
 
+
+  /*et_bridge_config_setfunc(bconfig, et_bridge_CODAswap);*/
+
+
+/*
 printf("=====================================\n");
 printf("=====================================\n");
 printf("=====================================\n");
@@ -442,10 +509,8 @@ printf("setting swap function 'et_bridge_BOS'\n");
 printf("=====================================\n");
 printf("=====================================\n");
 printf("=====================================\n");
-
-  /*et_bridge_config_setfunc(bconfig, et_bridge_CODAswap);*/
   et_bridge_config_setfunc(bconfig, et_bridge_BOS);
-
+*/
 
 
 

@@ -19,8 +19,10 @@ bigbufcheck_dummy()
 
 int deflt; /* 1 for CODA format, 0 for BOS format (see deb_component.c) */
 
-int nddl; /* see deb_component.c and BOS_format.c */
-DDL ddl[NDDL]; /* see deb_component.c and BOS_format.c */
+/*
+int nddl;
+DDL ddl[NDDL];
+*/
 
 int
 bufferCheck(unsigned int *cbuf, int nlongs)
@@ -142,8 +144,10 @@ bufferCheck(unsigned int *cbuf, int nlongs)
               bankid  = ((*(lp-2))>>16)&0xFFFF;
               banknum = (*(lp-2))&0xFFFF;
               nrow    = *(lp-1);
+			  /*
               ncol = ddl[bankid].ncol;
               lfmt = ddl[bankid].lfmt;
+			  */
               printf("bankid=%d banknum=%d nrow=%d ncol=%d lfmt=%d\n",bankid,banknum,nrow,ncol,lfmt);
 
 
@@ -263,9 +267,11 @@ main()
 
   cbuf = (unsigned int *) malloc(10000000);
 
+  /*
   nddl = NDDL;
   etDDLInit(nddl, ddl);
   printf("ddl=0x%08x size=%d\n",ddl,sizeof(DDL));
+  */
 
   fd = fopen("abc6.txt","r");
   fgets(str,128,fd);

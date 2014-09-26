@@ -64,7 +64,7 @@
 #ifdef SunOS_sun4u
 #define MAX_ROCS 19 /* must accomodate biggest roc id, not the number of rocs !!! */
 #else
-#define MAX_ROCS 50
+#define MAX_ROCS 60
 #endif
 
 #define QSIZE 8

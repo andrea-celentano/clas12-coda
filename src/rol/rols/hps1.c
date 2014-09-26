@@ -19,7 +19,14 @@ coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 /* hps1.c - first readout list for VXS crates with FADC250 and new TI */
 
 #define USE_FADC250
+#define USE_V1190
+#define USE_SSP
 
+
+/* if event rate goes higher then 10kHz, with random triggers we have wrong
+slot number reported in GLOBAL HEADER and/or GLOBAL TRAILER words; to work
+around that problem temporary patches were applied - until fixed (Sergey) */
+#define SLOTWORKAROUND
 
 #undef DEBUG
 
@@ -86,8 +93,10 @@ void usrtrig_done();
 #include "adc792.h"
 #include "tdc1190.h"
 
+#ifdef USE_SSP
 #include "sspLib.h"
 static int nssp;   /* Number of SSPs found with sspInit(..) */
+#endif
 
 static char rcname[5];
 
@@ -178,6 +187,35 @@ titest1()
 }
 
 
+#ifdef USE_V1190
+
+static int tdctypebyslot[NBOARDS];
+static int error_flag[NBOARDS];
+static int ntdcs;
+
+static unsigned int NBsubtract = 9; /*same for v1190 and v1290 ?*/
+
+int
+getTdcTypes(int *typebyslot)
+{
+  int jj;
+  for(jj=0; jj<NBOARDS; jj++) typebyslot[jj] = tdctypebyslot[jj];
+  return(ntdcs);
+}
+
+#ifdef SLOTWORKAROUND
+static int slotnums[NBOARDS];
+int
+getTdcSlotNumbers(int *slotnumbers)
+{
+  int jj;
+  for(jj=0; jj<NBOARDS; jj++) slotnumbers[jj] = slotnums[jj];
+  return(ntdcs);
+}
+#endif
+
+#endif
+
 
 #ifdef USE_FADC250
 
@@ -217,7 +255,7 @@ static int NFADC;                   /* The Maximum number of tries the library w
 static int FA_SLOT;                 /* We'll use this over and over again to provide
 				                     * us access to the current FADC slot number */ 
 
-static int FADC_ROFLAG           = 1;  /* 0-noDMA, 1-board-by-board DMA, 2-chainedDMA */
+static int FADC_ROFLAG           = 2;  /* 0-noDMA, 1-board-by-board DMA, 2-chainedDMA */
 
 /* for the calculation of maximum data words in the block transfer */
 static unsigned int MAXFADCWORDS = 0;
@@ -318,7 +356,7 @@ __download()
   int i1, i2, i3;
 #ifdef USE_FADC250
 
-  int id, isl, ichan;
+  int ii, id, isl, ichan, slot;
   unsigned short iflag;
   int fadc_mode = 1, iFlag = 0;
   int ich, NSA, NSB;
@@ -379,26 +417,40 @@ tiStatus(1); /* Ben & William Testing */
   /*************************************/
   /* redefine TI settings if neseccary */
 
-  /* tiInit() does nothing for busy, tiConfig() sets fiber, we set the rest */
-#ifndef TI_SLAVE
-  tiSetBusySource(TI_BUSY_LOOPBACK,0);
-#endif
-  tiSetBusySource(TI_BUSY_SWB,0);
+
+
+
+
+
+
+
+
+
+
+
 
 printf("***2***\n");
 tiStatus(1); /* Ben & William Testing */
 
-  /* hps only, busy from trigger board and ack mask for it */
-  tiSetBusySource(TI_BUSY_SWA,0);
-
-
-printf("***3***\n");
-tiStatus(1); /* Ben & William Testing */
 
 
 
-/*tiAddRocSWA();*/
-tiRemoveRocSWA();
+
+
+
+
+
+
+
+
+
+  /*********************************************************/
+  /*********************************************************/
+
+
+
+
+
 
 
 
@@ -427,9 +479,25 @@ tiSetSyncDelayWidth(1,127,1);
 #endif
 
 
+
+
+
+
+
+
+
+
+
+
   usrVmeDmaSetConfig(2,5,1); /*A32,2eSST,267MB/s*/
   /*usrVmeDmaSetConfig(2,5,0);*/ /*A32,2eSST,160MB/s*/
   /*usrVmeDmaSetConfig(2,3,0);*/ /*A32,MBLT*/
+
+  /*for 1190 */
+if(rol->pid==46)
+{
+  usrVmeDmaSetConfig(2,3,0);
+}
 
   /*
   usrVmeDmaSetChannel(1);
@@ -442,6 +510,37 @@ tiSetSyncDelayWidth(1,127,1);
 
   /******************/
   /* USER code here */
+
+
+#ifdef USE_V1190
+  
+  dsc2Init(0x100000,0x80000,16,0);
+  dsc2Config("");
+
+  ntdcs = tdc1190Init(0x11100000,0x80000,20,0);
+  tdc1190Config("");
+
+  for(ii=0; ii<ntdcs; ii++)
+  {
+    slot = tdc1190Slot(ii);
+    tdctypebyslot[slot] = tdc1190Type(ii);
+    printf(">>> id=%d slot=%d type=%d\n",ii,slot,tdctypebyslot[slot]);
+  }
+
+
+#ifdef SLOTWORKAROUND
+  for(ii=0; ii<ntdcs; ii++)
+  {
+    slot = tdc1190GetGeoAddress(ii);
+	slotnums[ii] = slot;
+    printf("[%d] slot %d\n",ii,slotnums[ii]);
+  }
+#endif
+
+
+
+#endif
+
 
 #ifdef USE_FADC250
 
@@ -533,6 +632,9 @@ v1190: 0x11xx0000, where xx follows the same scheme as FADCs
   vmeSetQuietFlag(1); /* skip the errors associated with BUS Errors */
 #endif
   faInit((unsigned int)(3<<19),(1<<19),NFADC,iFlag); /* start from 0x00180000, increment 0x00080000 */
+
+  faGetMinA32MB(0);
+  faGetMaxA32MB(0);
 
   nfadc = faGetNfadc(); /* acual number of FADC boards found  */
 #ifndef VXWORKS
@@ -708,8 +810,9 @@ static void
 __prestart()
 {
   int ii, i1, i2, i3;
+  int ret;
 #ifdef USE_FADC250
-  int id, isl, ichan;
+  int id, isl, ichan, slot;
   unsigned short iflag;
   int iFlag = 0;
   int ich;
@@ -731,6 +834,60 @@ __prestart()
 
   sprintf(rcname,"RC%02d",rol->pid);
   printf("rcname >%4.4s<\n",rcname);
+
+
+
+
+
+  /**************************************************************************/
+  /* setting TI busy conditions, based on boards found in Download          */
+  /* tiInit() does nothing for busy, tiConfig() sets fiber, we set the rest */
+  /* NOTE: if ti is busy, it will not send trigger enable over fiber, since */
+  /*       it is the same fiber and busy has higher priority                */
+
+#ifndef TI_SLAVE
+  tiSetBusySource(TI_BUSY_LOOPBACK,0);
+#endif
+
+
+#ifdef USE_FADC250
+  /* if FADCs are present, set busy from SD board */
+  if(nfadc>0)
+  {
+    printf("Set BUSY from SWB for FADCs\n");
+    tiSetBusySource(TI_BUSY_SWB,0);
+  }
+#endif
+
+#ifdef USE_V1190
+  /* if TDCs are present, set busy from P2 */
+  if(ntdcs>0)
+  {
+    printf("Set BUSY from P2 for TDCs\n");
+    tiSetBusySource(TI_BUSY_P2,0);
+  }
+#endif
+
+  /*********************************************************/
+  /* hps only, busy from trigger board and ack mask for it */
+/*
+  tiSetBusySource(TI_BUSY_SWA,0);
+*/
+
+
+printf("***3***\n");
+tiStatus(1); /* Ben & William Testing */
+
+
+/*tiAddRocSWA();*/
+tiRemoveRocSWA();
+
+
+  /*****************************************************************/
+  /*****************************************************************/
+
+
+
 
 
 #ifdef USE_FADC250
@@ -763,6 +920,7 @@ __prestart()
     faPrintThreshold(FA_SLOT);
   }
 
+
   tiStatus(1);
 
   /*  Enable FADC */
@@ -780,6 +938,11 @@ __prestart()
 #endif
 
 
+
+
+
+#ifdef USE_SSP
+
  /*****************
   *   SSP SETUP - must do sspInit() after master TI clock is stable, so do it in Prestart
   *****************/
@@ -792,12 +955,18 @@ __prestart()
   /*iFlag|= SSP_INIT_NO_INIT;*/ /* does not configure SSPs, just set pointers */
   nssp=0;
   nssp = sspInit(0, 0, 0, iFlag); /* Scan for, and initialize all SSPs in crate */
-  printf("hps1: found %d SSPs\n",nssp);
+  printf("hps1: found %d SSPs (using iFlag=0x%08x)\n",nssp,iFlag);
+
+  sspConfig("");
+
+
 
   if(nssp>0)
   {
     for(id=0; id<nssp; id++)
     {
+      printf("Setting SSP %d, slot %d\n",id,sspSlot(id));
+
       /* Direct SSP Internal "Trigger 0" to LVDS0 Output on Front Panel */
       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT0, SD_SRC_SEL_TRIGGER0); /* HPS Trigger = */
       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT1, SD_SRC_SEL_TRIGGER1); /* HPS Trigger = */
@@ -805,6 +974,8 @@ __prestart()
       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT3, SD_SRC_SEL_TRIGGER3); /* HPS Trigger = */
       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT4, SD_SRC_SEL_TRIGGER4); /* HPS Trigger = */
 
+
+#ifdef HPS_BLA
       /* SSP Trigger Configuration - NEEDS TO BE MOVED/LOADED BY CONFIG FILE */
       sspHps_SetLatency(sspSlot(id), 500);	/* 500 = 2us L1 trigger decision latency */
       sspHps_SetSinglesEnableTop(sspSlot(id), 1);
@@ -812,6 +983,7 @@ __prestart()
       sspHps_SetSinglesEmin(sspSlot(id), 1000);
       sspHps_SetSinglesEmax(sspSlot(id), 8191);
       sspHps_SetSinglesNHitsmin(sspSlot(id), 1);
+
 /*
       sspHps_SetPairsEnableSum(sspSlot(id), int en);
       sspHps_SetPairsEnableDiff(sspSlot(id), int en);
@@ -830,16 +1002,24 @@ __prestart()
       /* SSP Status */
       /*sspPrintHpsScalers(sspSlot(id));*/
       sspPrintHpsConfig(sspSlot(id));
+#endif
+
+
+      /* Set the Block level (always use TI block level !) */
+      sspSetBlockLevel(sspSlot(id), block_level);
+      sspGetBlockLevel(sspSlot(id));
 
 
 		/* Setup 10Hz pulser on fp trig 0, or comment out to use single cluster trigger from fadc->gtp->ssp */
       /* note currently for test LVDSOUT1 is going to TS input 1 */
-	  sspPulserSetup(sspSlot(id), 100000.0, 0.5, 0xFFFFFFFF);
+	  /*sspPulserSetup(sspSlot(id), 1.0, 0.5, 0xFFFFFFFF);*/
+	  sspPulserSetup(sspSlot(id), 200000.0, 0.5, 0xFFFFFFFF);
       sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT0, SD_SRC_SEL_PULSER);
 
     }
   }
 
+#endif /* USE_SSP */
 
 
 
@@ -847,6 +1027,19 @@ __prestart()
   /******************/
 
   tiIntDisable();
+
+
+#ifdef USE_V1190
+
+  /* dsc2 configuration */
+  dsc2Config("");
+
+  for(ii=0; ii<ntdcs; ii++)
+  {
+    tdc1190Clear(ii);
+    error_flag[ii] = 0;
+  }
+#endif
 
   /* master and standalone crates, NOT slave */
 #ifndef TI_SLAVE
@@ -908,6 +1101,26 @@ printf("***19***\n");
 tiStatus(1);
 
 #endif
+
+
+
+if(rol->pid==46)
+{
+  /* activate v851 pulser */
+  ret = v851Init(0xd000,0);
+  if(ret < 0)
+  {
+    printf("WARN: cannot find v851 generator\n");
+  }
+  else
+  {
+    /*v851SetDelay(1,10,1,0);*/
+    v851_start(200000);
+  }
+}
+
+
+
 
   printf("INFO: Prestart1 Executed\n");fflush(stdout);
 
@@ -992,29 +1205,49 @@ __go()
   /*faSDC_Sync();*/
 #endif
 
+#ifdef USE_V1190
+  for(jj=0; jj<ntdcs; jj++)
+  {
+    tdc1190Clear(jj);
+    error_flag[jj] = 0;
+  }
+  taskDelay(100);
+
+#endif
+
   CDOENABLE(TIPRIMARY,TIR_SOURCE,0); /* bryan has (,1,1) ... */
 
   logMsg("INFO: Go 1 Executed\n",1,2,3,4,5,6);
 }
 
-#define NSSP 8
+
 
 void
 usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 {
   int *jw, ind, ind2, i, ii, jj, jjj, blen, len, rlen, itdcbuf, nbytes;
   unsigned int *tdcbuf_save, *tdc;
-  unsigned int *dabufp1, *dabufp2, sspbuf[NSSP];
+  unsigned int *dabufp1, *dabufp2;
+  int njjloops;
 #ifndef VXWORKS
   TIMERL_VAR;
 #endif
 #ifdef USE_FADC250
   unsigned int datascan, mask;
-  int nwords, njjloops;
+  int nwords;
   unsigned short *dabufp16, *dabufp16_save;
   int id;
   int dCnt, idata;
   int stat, itime, gbready;
+#endif
+#ifdef USE_V1190
+  int nev, rlenbuf[22];
+  unsigned long tdcslot, tdcchan, tdcval, tdc14, tdcedge, tdceventcount;
+  unsigned long tdceventid, tdcbunchid, tdcwordcount, tdcerrorflags;
+  unsigned int *tdchead, nbsubtract;
+#ifdef SLOTWORKAROUND
+  unsigned long tdcslot_h, tdcslot_t, remember_h;
+#endif
 #endif
 #ifdef DMA_TO_BIGBUF
     unsigned int pMemBase, uMemBase, mSize;
@@ -1054,6 +1287,7 @@ usleep(100);
   }
   else           /* physics and physics_sync events */
   {
+
     /* for EVIO format, will dump raw data */
     tdcbuf_save = tdcbuf;
 
@@ -1079,9 +1313,11 @@ vmeBusUnlock();
       for(jj=0; jj<len; jj++) printf("ti[%2d] 0x%08x\n",jj,LSWAP(tdcbuf[jj]));
 	  */
 
+	  
       BANKOPEN(0xe10A,1,rol->pid);
-      for(jj=0; jj<len; jj++) *rol->dabufp++ = /*LSWAP*/(tdcbuf[jj]);
+      for(jj=0; jj<len; jj++) *rol->dabufp++ = tdcbuf[jj];
       BANKCLOSE;
+	  
     }
 
     /* Turn off all output ports */
@@ -1096,6 +1332,102 @@ vmeBusUnlock();
 #ifdef DEBUG
     printf("fadc1: start fadc processing\n");fflush(stdout);
 #endif
+
+
+
+#ifndef VXWORKS
+TIMERL_START;
+#endif
+
+
+
+
+#ifdef USE_V1190
+	if(ntdcs>0)
+	{
+vmeBusLock();
+      tdc1190ReadStart(tdcbuf, rlenbuf);
+vmeBusUnlock();
+	  /*
+	  rlenbuf[0] = tdc1190ReadBoard(0, tdcbuf);
+	  rlenbuf[1] = tdc1190ReadBoard(1, &tdcbuf[rlenbuf[0]]);
+	  */
+
+      /*check if anything left in event buffer; if yes, print warning message and clear event buffer
+      for(jj=0; jj<ntdcs; jj++)
+      {
+        nev = tdc1190Dready(jj);
+        if(nev > 0)
+		{
+          printf("WARN: v1290[%2d] has %d events - clear it\n",jj,nev);
+          tdc1190Clear(jj);
+		}
+	  }
+      for(ii=0; ii<rlenbuf[0]; ii++) tdcbuf[ii] = LSWAP(tdcbuf[ii]);
+	  */
+
+      itdcbuf = 0;
+      njjloops = ntdcs;
+
+      BANKOPEN(0xe10B,1,rol->pid);
+      for(jj=0; jj<njjloops; jj++)
+      {
+        rlen = rlenbuf[jj];
+#ifdef DEBUG
+        logMsg("jj=%d, rlen=%d\n",jj,rlen,3,4,5,6);
+#endif
+
+	  /*	  
+#ifdef DEBUG
+        level = tdc1190GetAlmostFullLevel(jj);
+        ii = tdc1190StatusAlmostFull(jj);
+        logMsg("jj=%d, rlen=%d, almostfull=%d level=%d\n",jj,rlen,ii,level,5,6);
+#endif
+	  */	  
+
+        if(rlen <= 0) continue;
+
+        tdc = &tdcbuf[itdcbuf];
+        itdcbuf += rlen;
+
+        for(jj=0; jj<rlen; jj++) *rol->dabufp ++ = tdc[jj];
+      }
+      BANKCLOSE;
+
+	}
+
+
+#endif /* USE_V1190 */
+
+
+
+
+
+
+
+#ifdef USE_SSP
+    if(nssp>0)
+    {
+vmeBusLock();
+      len = sspReadBlock(0,tdcbuf,0x10000,1);
+vmeBusUnlock();
+	  
+/*
+      printf("ssp tdcbuf[%2d]: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+          len,tdcbuf[0],tdcbuf[1],tdcbuf[2],tdcbuf[3],tdcbuf[4],tdcbuf[5],tdcbuf[6]);
+*/  
+
+	  
+      if(len>0)
+      {
+        BANKOPEN(0xe10C,1,rol->pid);
+        for(jj=0; jj<len; jj++) *rol->dabufp++ = tdcbuf[jj];
+        BANKCLOSE;
+      }
+	  
+    }
+#endif /* USE_SSP */
+
 
 
 #ifdef USE_FADC250
@@ -1117,34 +1449,6 @@ vmeBusUnlock();
 	      break;
 	    }
 	  }
-
-
-
-
-
-#ifndef VXWORKS
-TIMERL_START;
-#endif
-
-
-
-
-
-goto a234;
-  if(nssp>0)
-  {
-vmeBusLock();
-    nwords = sspReadFifo(sspbuf);	
-vmeBusUnlock();
-    sspbuf[7] = time(0);
-	/*
-    printf("sspbuf[%2d]: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-      nwords,sspbuf[0],sspbuf[1],sspbuf[2],sspbuf[3],sspbuf[4],sspbuf[5],sspbuf[6]);
-	*/
-  }
-a234:
-
-
 
       if(stat>0)
 	  {
@@ -1169,10 +1473,6 @@ a234:
  	      /*printf("actual: 0x%08x 0x%08x 0x%08x\n",pMemBase,uMemBase,mSize);*/
  /*->1us*/
  
-
-goto a345;
-          for(jjj=0; jjj<nssp; jjj++) *rol->dabufp++ = sspbuf[jjj];
-a345:
  
  /*25us->*/
 vmeBusLock();
@@ -1218,10 +1518,6 @@ vmeBusUnlock();
             mSize = 0x100000;
             usrChangeVmeDmaMemory(pMemBase, uMemBase, mSize);
 
-goto a3456;
-            /* report ssp data before first fadc board */
-            if(jj==0) for(jjj=0; jjj<nssp; jjj++) *rol->dabufp++ = sspbuf[jjj];
-a3456:
 
 	        len = faReadBlock(faSlot(jj),rol->dabufp,500000/*MAXFADCWORDS*/,FADC_ROFLAG);
             rol->dabufp += len;
@@ -1248,10 +1544,6 @@ a3456:
 	    else
 	    {
 #ifndef DMA_TO_BIGBUF
-
-goto a4321;
-          for(jjj=0; jjj<nssp; jjj++) *rol->dabufp++ = sspbuf[jjj];
-a4321:
 
           for(jj=0; jj<dCnt; jj++) *rol->dabufp++ = tdcbuf[jj];
 #endif
@@ -1285,12 +1577,14 @@ a4321:
 /*->2us*/
 	  }
 
-#ifndef VXWORKS
-TIMERL_STOP(100000/block_level,1000+rol->pid);
-#endif
 
     }
 
+#endif /* USE_FADC250 */
+
+
+#ifndef VXWORKS
+TIMERL_STOP(100000/block_level,1000+rol->pid);
 #endif
 
 

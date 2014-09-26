@@ -1417,24 +1417,30 @@ if(dbsock==NULL)
   sprintf(tmpp,"SELECT outputs FROM %s WHERE name='%s'",
     confname,object->name);
 
+  printf("query >%s<\n",tmpp);
   if(dbGetStr(dbsock, tmpp, tmp)==CODA_ERROR)
   {
+    printf("error !!!\n");
     TRANSITION_UNLOCK;
     return(CODA_ERROR);
   }
 
+
   if(strlen(tmp)==0)
   {
+    printf("outputs tmp=0\n");
     rocp->output_switch = 3;
     rocp->async_roc_flag = 1;
   }
   else if(strncmp(tmp,"none",4)==0)
   {
+    printf("outputs 1 >%s<\n",tmp);
     rocp->output_switch = 3;
     rocp->async_roc_flag = 1;
   }
   else
   {
+    printf("outputs 2 >%s<\n",tmp);
     rocp->output_switch = 0;
     rocp->async_roc_flag = 0;
   }
@@ -1446,10 +1452,13 @@ if(dbsock==NULL)
   /*sergey temporary*/
 rocp->output_switch = 0;
 
-/* let NIOS to be async */
+
+
+/* let NIOS to be async 
 #ifndef Linux_nios2
 rocp->async_roc_flag = 0;
 #endif
+*/
 
 
   /**************************************************************/

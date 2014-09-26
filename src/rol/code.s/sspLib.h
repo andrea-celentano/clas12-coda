@@ -1,15 +1,18 @@
-#ifndef __SSPLIB_H
-#define __SSPLIB_H
-/******************************************************************************
- *
- *  sspLib.h    -  Header for Driver library for JLAB config of JLAB Subsystem 
- *                 Processor (SSP).
- *
- */
-
-#ifndef MAX_VME_SLOTS
-#define MAX_VME_SLOTS    21
+#ifndef __SSPLIB_H 
+#define __SSPLIB_H 
+/****************************************************************************** 
+ * 
+ *  sspLib.h    -  Header for Driver library for JLAB config of JLAB Subsystem  
+ *                 Processor (SSP). 
+ * 
+ */ 
+ 
+#ifndef MAX_VME_SLOTS 
+#define MAX_VME_SLOTS    21 
 #endif
+
+#define SSP_MAX_FIFO        0x800000   /* 8 Meg */
+#define SSP_MAX_A32MB_SIZE 0x800000
 
 #define SSP_SUPPORTED_FIRMWARE 0x0103
 
@@ -23,8 +26,9 @@ typedef struct
   /* 0x0010-0x0013 */ volatile unsigned int ICapCtrl;
   /* 0x0014-0x0017 */ volatile unsigned int ICapDataWr;
   /* 0x0018-0x001B */ volatile unsigned int ICapDataRd;
-  /* 0x001C-0x001E */ volatile unsigned int ICapStatus;
-  /* 0x0020-0x00FF */          unsigned int Reserved0[(0x0100-0x0020)/4];
+  /* 0x001C-0x001F */ volatile unsigned int ICapStatus;
+  /* 0x0020-0x0023 */ volatile unsigned int Reset;
+  /* 0x0024-0x00FF */          unsigned int Reserved0[(0x0100-0x0024)/4];
 } SspCfg_regs;
 
 /* Clock Peripheral: Clock configuration interface */
@@ -141,6 +145,71 @@ typedef struct
   /* 0x0098-0x00FF */          unsigned int Reserved1[(0x0100-0x0098)/4];
 } HpsPair_regs;
 
+/* REGISTER BITS FOR EB_regs
+-- Register bits
+
+	-- FIFO_BLOCK_CNT_REG
+	FIFO_BLOCK_CNT_REG <= USER_FIFO_BLOCK_CNT;
+
+	-- FIFO_WORD_CNT_REG
+	FIFO_WORD_CNT_REG <= USER_FIFO_WORD_CNT;
+
+	-- FIFO_EVENT_CNT_REG
+	FIFO_EVENT_CNT_REG <= USER_FIFO_EVENT_CNT;
+
+	--LOOKBACK_REG
+	LOOKBACK <= LOOKBACK_REG(9 downto 0);
+
+	--WINDOW_WIDTH_REG
+	WINDOW_WIDTH <= WINDOW_WIDTH_REG(9 downto 0);
+
+	--BLOCK_CFG_REG
+	BLOCK_SIZE <= BLOCK_CFG_REG(7 downto 0);
+
+	--ADR32_REG
+	A32_BASE_ADDR <= ADR32_REG(15 downto 7);
+	A32_BASE_ADDR_EN <= ADR32_REG(0);
+
+	--USER_INT_REG
+	USER_INT_ID <= USER_INT_REG(7 downto 0);
+	USER_INT_LEVEL <= USER_INT_REG(10 downto 8);
+	USER_INT_ENABLED <= USER_INT_REG(11);
+	USER_INT_ACKED <= USER_INT_REG(31);
+
+	--READOUT_CFG_REG
+	USER_BERR_EN <= READOUT_CFG_REG(0);
+	EVT_WORD_INT_LEVEL <= READOUT_CFG_REG(31 downto 16);
+	EVT_NUM_INT_LEVEL <= READOUT_CFG_REG(15 downto 1);
+
+	--ADR32M_REG
+	A32M_ADDR_MIN <= ADR32M_REG(8 downto 0);
+	A32M_ADDR_MAX <= ADR32M_REG(24 downto 16);
+	A32M_ADDR_EN <= ADR32M_REG(25);
+	TOKEN_FIRST <= ADR32M_REG(26);
+	TOKEN_LAST <= ADR32M_REG(27);
+	TOKEN_TAKE <= ADR32M_REG(28);
+
+	--READOUT_STATUS_REG
+	READOUT_STATUS_REG(0) <= TOKEN_STATUS;
+*/
+
+/* HPS Event Builder */
+typedef struct
+{
+  /* 0x0000-0x0003 */ volatile unsigned int Lookback;
+  /* 0x0004-0x0007 */ volatile unsigned int WindowWidth;
+  /* 0x0008-0x000B */ volatile unsigned int BlockCfg;
+  /* 0x000C-0x000F */ volatile unsigned int AD32;
+  /* 0x0010-0x0013 */ volatile unsigned int Adr32M;
+  /* 0x0014-0x0017 */ volatile unsigned int Interrupt;
+  /* 0x0018-0x001B */ volatile unsigned int ReadoutCfg;
+  /* 0x001C-0x001F */ volatile unsigned int ReadoutStatus;
+  /* 0x0020-0x0023 */ volatile unsigned int FifoBlockCnt;
+  /* 0x0024-0x0027 */ volatile unsigned int FifoWordCnt;
+  /* 0x0028-0x002B */ volatile unsigned int FifoEventCnt;
+  /* 0x002C-0x00FF */          unsigned int Reserved1[(0x0100-0x002C)/4];
+} EB_regs;
+
 /* SSP memory structure */
 typedef struct
 {
@@ -154,7 +223,9 @@ typedef struct
   /* 0x0800-0x08FF */ HpsPair_regs    HpsPairs;
   /* 0x0900-0x0FFF */ unsigned int    Reserved0[(0x1000-0x0900)/4];
   /* 0x1000-0x19FF */ Serdes_regs     Ser[10];
-  /* 0x1A00-0xFFFF */ unsigned int    Reserved1[(0x10000-0x1A00)/4];
+  /* 0x1a00-0x1FFF */ unsigned int    Reserved1[(0x2000-0x1a00)/4];
+  /* 0x2000-0x20FF */ EB_regs         EB;
+  /* 0x2100-0xFFFF */ unsigned int    Reserved2[(0x10000-0x2100)/4];
 } SSP_regs;
 
 
@@ -335,7 +406,7 @@ typedef struct
 #define SSP_SER_VXS0		8
 #define SSP_SER_VXSGTP		9
 
-#define SSP_SER_NUM		10
+#define SSP_SER_NUM		2 /*10 (temporary to use 2 fiber only), also change ssp_serdes_names[SSP_SER_NUM] in sspLib.c*/
 
 #define SER_CRATEID_MASK        0x0000FFFF
 
@@ -424,6 +495,26 @@ typedef struct
 /* sspStatus rflag options */
 #define SSP_STATUS_SHOWREGS   (1<<0)
 
+
+
+#define FNLEN     128       /* length of config. file name */
+#define STRLEN    250       /* length of str_tmp */
+#define ROCLEN     80       /* length of ROC_name */
+#define NBOARD     22
+
+
+/** SSP configuration parameters **/
+typedef struct {
+  int  group;
+  int  f_rev;
+  char SerNum[80];
+
+  unsigned short mask[8];
+
+} SSP_CONF;
+
+
+
 /* Global arrays of strings of names of ports/signals */
 extern const char *ssp_ioport_names[SD_SRC_NUM];
 extern const char *ssp_signal_names[SD_SRC_SEL_NUM];
@@ -434,7 +525,9 @@ extern const char *ssp_serdes_names[SSP_SER_NUM];
 
 /* SSP configuration */
 int  sspInit(unsigned int addr, unsigned int addr_inc, int nfind, int iFlag);
-int  sspSlot(unsigned int i);
+int sspGetGeoAddress(int id);
+int  sspSlot(unsigned int id);
+int  sspId(unsigned int slot);
 int  sspSetMode(int id, int iFlag, int pflag);
 int  sspStatus(int id, int rflag);
 void sspGStatus(int rflag);
@@ -497,5 +590,20 @@ int  sspFirmwareVerify(int id, const char *filename);
 /* Firmware update utility routines */
 int  sspGetSerialNumber(int id, char *mfg, int *sn);
 unsigned int sspGetFirmwareVersion(int id);
+
+int sspReadBlock(int id, unsigned int *data, int nwrds, int rflag);
+
+
+
+int sspSetBlockLevel(int id, int block_level);
+int sspGetBlockLevel(int id);
+int sspEnableBusError(int id);
+int sspDisableBusError(int id);
+int sspGetBusError(int id);
+int sspSetWindowWidth(int id, int window_width);
+int sspGetWindowWidth(int id);
+int sspSetWindowOffset(int id, int window_offset);
+int sspGetWindowOffset(int id);
+
 
 #endif

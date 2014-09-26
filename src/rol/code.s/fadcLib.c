@@ -15,6 +15,15 @@
  *
  */
 
+/*
+ Sergey:
+
+ fadcID() returns SLOT NUMBER, NOT ID !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+ FAp[slot#]
+
+*/
+
 #if defined(VXWORKS) || defined(Linux_vme)
 
 
@@ -582,18 +591,18 @@ faInit (UINT32 addr, UINT32 addr_inc, int nadc, int iFlag)
 #endif
 
 	}
-      taskDelay(5);
-    }
+    taskDelay(5);
+  }
 
   /* Write configuration registers with default/defined Sources */
   for(ii=0;ii<nfadc;ii++) 
-    {
+  {
     
-      /* Program an A32 access address for this FADC's FIFO */
-      a32addr = fadcA32Base + ii*FA_MAX_A32_MEM;
+    /* Program an A32 access address for this FADC's FIFO */
+    a32addr = fadcA32Base + ii*FA_MAX_A32_MEM;
 #ifdef VXWORKS
-      res = sysBusToLocalAdrs(0x09,(char *)a32addr,(char **)&laddr);
-      if (res != 0) 
+    res = sysBusToLocalAdrs(0x09,(char *)a32addr,(char **)&laddr);
+    if (res != 0) 
 	{
 	  printf("faInit: ERROR in sysBusToLocalAdrs(0x09,0x%x,&laddr) \n",a32addr);
 	  return(ERROR);
@@ -614,71 +623,71 @@ faInit (UINT32 addr, UINT32 addr_inc, int nadc, int iFlag)
 	  /* Set Default Block Level to 1 */
 	  vmeWrite32(&(FAp[fadcID[ii]]->blk_level),1);
 	}
-      fadcBlockLevel=1;
+    fadcBlockLevel=1;
 
       /* Setup Trigger and Sync Reset sources */
-      if(!noBoardInit)
+    if(!noBoardInit)
 	{
 	  vmeWrite32(&(FAp[fadcID[ii]]->ctrl1),
 		    vmeRead32(&(FAp[fadcID[ii]]->ctrl1)) | 
 		    (srSrc | trigSrc) );
 	}
-    }
+  }
 
   /* If there are more than 1 FADC in the crate then setup the Muliblock Address
      window. This must be the same on each board in the crate */
   if(nfadc > 1) 
-    {
-      a32addr = fadcA32Base + (nfadc+1)*FA_MAX_A32_MEM; /* set MB base above individual board base */
+  {
+    a32addr = fadcA32Base + (nfadc+1)*FA_MAX_A32_MEM; /* set MB base above individual board base */
 #ifdef VXWORKS
-      res = sysBusToLocalAdrs(0x09,(char *)a32addr,(char **)&laddr);
-      if (res != 0) 
+    res = sysBusToLocalAdrs(0x09,(char *)a32addr,(char **)&laddr);
+    if (res != 0) 
 	{
 	  printf("faInit: ERROR in sysBusToLocalAdrs(0x09,0x%x,&laddr) \n",a32addr);
 	  return(ERROR);
 	}
 #else
-      res = vmeBusToLocalAdrs(0x09,(char *)a32addr,(char **)&laddr);
-      if (res != 0) 
+    res = vmeBusToLocalAdrs(0x09,(char *)a32addr,(char **)&laddr);
+    if (res != 0) 
 	{
 	  printf("faInit: ERROR in vmeBusToLocalAdrs(0x09,0x%x,&laddr) \n",a32addr);
 	  return(ERROR);
 	}
 #endif
-      FApmb = (unsigned int *)(laddr);  /* Set a pointer to the FIFO */
-      if(!noBoardInit)
+    FApmb = (unsigned int *)(laddr);  /* Set a pointer to the FIFO */
+    if(!noBoardInit)
 	{
 	  for (ii=0;ii<nfadc;ii++) 
-	    {
-	      /* Write the register and enable */
-	      vmeWrite32(&(FAp[fadcID[ii]]->adr_mb),
+	  {
+	    /* Write the register and enable */
+	    vmeWrite32(&(FAp[fadcID[ii]]->adr_mb),
 			(a32addr+FA_MAX_A32MB_SIZE) + (a32addr>>16) + FA_A32_ENABLE);
-	    }
+	  }
 	}    
-      /* Set First Board and Last Board */
-      fadcMaxSlot = maxSlot;
-      fadcMinSlot = minSlot;
-      if(!noBoardInit)
+    /* Set First Board and Last Board */
+    fadcMaxSlot = maxSlot;
+    fadcMinSlot = minSlot;
+    if(!noBoardInit)
 	{
 	  vmeWrite32(&(FAp[minSlot]->ctrl1),
 		    vmeRead32(&(FAp[minSlot]->ctrl1)) | FA_FIRST_BOARD);
 	  vmeWrite32(&(FAp[maxSlot]->ctrl1),
 		    vmeRead32(&(FAp[maxSlot]->ctrl1)) | FA_LAST_BOARD);
 	}    
-    }
+  }
 
   fadcInited = nfadc;
   if(errFlag > 0) 
-    {
-      printf("faInit: ERROR: Unable to initialize all FADC Modules\n");
-      if(nfadc > 0)
-	printf("faInit: %d FADC(s) successfully initialized\n",nfadc );
-      return(ERROR);
-    } 
+  {
+    printf("faInit: ERROR: Unable to initialize all FADC Modules\n");
+    if(nfadc > 0)
+	  printf("faInit: %d FADC(s) successfully initialized\n",nfadc );
+    return(ERROR);
+  } 
   else 
-    {
-      return(OK);
-    }
+  {
+    return(OK);
+  }
 }
 
 /*******************************************************************************
@@ -3740,6 +3749,93 @@ faDisableScalers(int id)
 
   return OK;
 }
+
+
+
+
+
+/**
+ *  @ingroup Status
+ *  @brief Get the minimum address used for multiblock
+ *  @param id Slot number
+ *  @return multiblock min address if successful, otherwise ERROR.
+*/
+unsigned int
+faGetMinA32MB(int id)
+{
+  unsigned int rval=0, a32addr, addrMB;
+  if(id==0) id=fadcID[0];
+
+  if((id<=0) || (id>21) || (FAp[id] == NULL)) 
+    {
+      printf("%s: ERROR : ADC in slot %d is not initialized \n",
+	     __FUNCTION__,id);
+      return ERROR;
+    }
+
+  FALOCK;
+
+  a32addr = vmeRead32(&(FAp[id]->adr32));
+  addrMB  = vmeRead32(&(FAp[id]->adr_mb));
+
+  a32addr = (a32addr & FA_A32_ADDR_MASK)<<16;
+  addrMB  = (addrMB & FA_AMB_MIN_MASK)<<16;
+
+  printf("faGetMinA32MB: a32addr=0x%08x addrMB=0x%08x for slot %d\n",a32addr,addrMB,id);
+ 
+  id = fadcID[0];
+  a32addr = vmeRead32(&(FAp[id]->adr32));
+  a32addr = (a32addr & FA_A32_ADDR_MASK)<<16;
+
+  rval = a32addr;
+  printf("faGetMinA32MB: rval=0x%08x\n",rval);
+
+  FAUNLOCK;
+
+
+  return rval;
+}
+
+/**
+ *  @ingroup Status
+ *  @brief Get the maximum address used for multiblock
+ *  @param id Slot number
+ *  @return multiblock max address if successful, otherwise ERROR.
+*/
+unsigned int
+faGetMaxA32MB(int id)
+{
+  unsigned int rval=0, a32addr, addrMB;
+
+  if(id==0) id=fadcID[0];
+  if((id<=0) || (id>21) || (FAp[id] == NULL)) 
+  {
+    printf("%s: ERROR : ADC in slot %d is not initialized \n",
+	     __FUNCTION__,id);
+    return ERROR;
+  }
+
+  FALOCK;
+
+  a32addr = vmeRead32(&(FAp[id]->adr32));
+  addrMB  = vmeRead32(&(FAp[id]->adr_mb));
+
+  a32addr = (a32addr & FA_A32_ADDR_MASK)<<16;
+  addrMB  = addrMB & FA_AMB_MAX_MASK;
+
+  printf("faGetMaxA32MB: a32addr=0x%08x addrMB=0x%08x for slot %d\n",a32addr,addrMB,id);
+
+  rval = addrMB;
+  printf("faGetMaxA32MB: rval=0x%08x\n",rval);
+
+  FAUNLOCK;
+
+  return rval;
+}
+
+
+
+
 
 
 /*********************************************

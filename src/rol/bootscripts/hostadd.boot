@@ -87,3 +87,9 @@ hostAdd "adcecal5.jlab.org",       "129.57.167.95"
 
 hostAdd "adcecal6",                "129.57.167.96"
 hostAdd "adcecal6.jlab.org",       "129.57.167.96"
+
+#
+
+hostAdd "highbtest2",              "129.57.86.30"
+hostAdd "highbtest2.jlab.org",     "129.57.86.30"
+

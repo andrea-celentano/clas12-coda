@@ -35,7 +35,7 @@ void *handle_build();
 
 /* NOTE: nthreads*chunk MUST BE LESS then total number of events in ET */
 static int nthreads = 1;
-static int chunk = 400; /* 100; MUST BE LESS THEN NCHUNKMAX !!! */
+static int chunk = 100; /* 100; MUST BE LESS THEN NCHUNKMAX !!! */
 
 
 #define CODA_ERROR 1
@@ -134,6 +134,26 @@ static pthread_cond_t id_out_empty; /* condition for 'idout' */
 
 #define out_lock    pthread_mutex_lock(&id_out_lock)
 #define out_unlock  pthread_mutex_unlock(&id_out_lock)
+
+
+
+
+
+
+
+
+
+
+/* ??? need to lock getting data from ET if nthreads>1 */
+
+/*
+#define data_lock(ebp_m)  pthread_mutex_lock(&(ebp_m)->data_mutex)
+#define data_unlock(ebp_m)  pthread_mutex_unlock(&(ebp_m)->data_mutex)
+*/
+#define data_lock(ebp_m) ;
+#define data_unlock(ebp_m) ;
+
+
 
 
 
@@ -395,8 +415,13 @@ tmpUpdateStatistics()
 */
 
 
-#define data_lock(ebp_m)  pthread_mutex_lock(&(ebp_m)->data_mutex)
-#define data_unlock(ebp_m)  pthread_mutex_unlock(&(ebp_m)->data_mutex)
+
+
+
+
+
+
+
 
 
 /********************************************************************
@@ -2326,7 +2351,7 @@ printf("mysql request >%s< (temp>%s<)\n",tmpp,temp);
                    (void *(*)(void *)) handle_build, (void *) args[id]);
   }
 
-  /*sergey: we are telling rcServer that EB is ready, so rcServer can go with rocs prestarting;
+  /*ERROR: sergey: we are telling rcServer that EB is ready, so rcServer can go with rocs prestarting;
   'handle_build' will wait for all connections from all rocs; it may happens that some connection(s)
   will not be established, but all rocs will report to rcServer, in that case 'Go' button will
   appeares while EB still complaining 'waiting for the following ROC IDs'; need to do something

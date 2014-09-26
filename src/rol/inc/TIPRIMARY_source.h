@@ -127,6 +127,12 @@ tiprimarytinit(int code)
 
   /* Initialize VME Interrupt interface - use defaults */
   tiInit(TI_ADDR,TI_READOUT,0); /*tiInit((21<<19),2,0)*/
+
+
+  printf("\n\n1111111111111111111111111111111\n1111111111111111111111111111111\n\n\n");
+  tiStatus(1);
+
+
   tiSetBusySource(0,1); /* remove all busy conditions */
 
   tiIntDisable();
@@ -136,6 +142,9 @@ tiprimarytinit(int code)
   
   /*sergey*/
   tiConfig("");
+
+  printf("after tiConfig()\n");
+  tiStatus(1);
 
   /*
   block_level = tiGetCurrentBlockLevel();
@@ -157,26 +166,40 @@ tiprimarytinit(int code)
   /* only 1 trigger type for physics trigger */
   tiSetTriggerSource(TI_TRIGGER_TSINPUTS);  
   tiDisableTSInput(TI_TSINPUT_ALL);
-  tiEnableTSInput( TI_TSINPUT_1 | TI_TSINPUT_2 | TI_TSINPUT_3 | TI_TSINPUT_4 | TI_TSINPUT_5);
+  tiEnableTSInput( TI_TSINPUT_1 | TI_TSINPUT_2 | TI_TSINPUT_3 | TI_TSINPUT_4 | TI_TSINPUT_5 | TI_TSINPUT_6);
   tiLoadTriggerTable(0);
 
 #endif
 
 
+
+
+
   /* master and standalone crates, NOT slave */
 #ifndef TI_SLAVE
+
+  printf("befor tiSyncReset\n");
+  tiStatus(1);
+tiSyncReset(0);
+  printf("after tiSyncReset\n");
+  tiStatus(1);
   printf("tiClockReset/tiTrigLinkReset\n");
   taskDelay(200);
-  tiClockReset();
+tiSetSyncSource(0); /* we do not want to issue 'tiClockReset' to the master, so we set sync source to 0, and restore it after */
+tiClockReset();
+tiSetSyncSource(TI_SYNC_LOOPBACK);
   printf("tiClockReset done\n");
   tiStatus(1);
   taskDelay(200);
-  tiTrigLinkReset();
+tiTrigLinkReset();
   printf("tiTrigLinkReset done\n");
   tiStatus(1);
   taskDelay(200);
+
 #else
+
   tiStatus(1);
+
 #endif
 
 
@@ -340,7 +363,7 @@ tiprimaryttest(unsigned int code)
 #define TIPRIMARY_TEST  tiprimaryttest
 
 #ifdef VXWORKS
-#define TIPRIMARY_INIT {TIPRIMARY_handlers=0;TIPRIMARY_isAsync=0; TIPRIMARYflag=0; tiprimarytinit(0);}
+#define TIPRIMARY_INIT       {TIPRIMARY_handlers=0;TIPRIMARY_isAsync=0; TIPRIMARYflag=0; tiprimarytinit(0);}
 #else
 #define TIPRIMARY_INIT(code) {TIPRIMARY_handlers=0;TIPRIMARY_isAsync=0; TIPRIMARYflag=0; tiprimarytinit(code);}
 #endif

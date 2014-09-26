@@ -27,6 +27,7 @@
      ld < $CODA/src/rol/VXWORKS_ppc/bin/tiFirmwareUpdate
      cd "$CLON_PARMS/firmwares"
      tiFirmwareUpdate(0x00A80000,"mti24.svf")
+     tiFirmwareUpdate(0x00A80000,"fpgareload.svf")
 
   UNIX:
      cd $CLON_PARMS/firmwares

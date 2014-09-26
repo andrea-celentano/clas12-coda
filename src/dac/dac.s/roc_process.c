@@ -89,7 +89,7 @@ proc_copy(int *bufin, int *bufout, int pid)
 
 
 int
-proc_tt(int *bufin, int *bufout, int pid)
+proc_tt(int *bufin, int *bufout, int pid, int *nev)
 {
   ROLPARAMS *rolP = &rolP2;
   int len, ii;
@@ -110,7 +110,9 @@ proc_tt(int *bufin, int *bufout, int pid)
   (*rolP->rol_code) (rolP);
 
   /* let see now what we've got from ROL2 */
-  len = bufout[0];
+  len = rolP->user_storage[0];
+  *nev = rolP->user_storage[1];
+
   if(len > NWBOS)
   {
     printf("proc_tt ERROR: on output event length=%d (longwords) is too big\n",len);
@@ -123,10 +125,10 @@ proc_tt(int *bufin, int *bufout, int pid)
   }
 
 #ifdef DEBUG
-  printf("proc_tt: return len+1=%d (2nd word is 0x%08x)\n",len+1,bufout[1]);fflush(stdout);
+  printf("proc_tt: return len=%d, nev=%d\n",len,*nev);fflush(stdout);
 #endif
 
-  return(len+1);
+  return(len);
 }
 
 
@@ -208,17 +210,18 @@ proc_end()
 }
 
 int
-proc_poll(int *bufin, int *bufout, int pid)
+proc_poll(int *bufin, int *bufout, int pid, int *nev)
 {
   int len;
 
   if(pid == -1)
   {
     len = proc_copy(bufin, bufout, pid);
+    *nev = 1;
   }
   else
   {
-    len = proc_tt(bufin, bufout, pid);
+    len = proc_tt(bufin, bufout, pid, nev);
   }
 
   return(len);
@@ -265,6 +268,7 @@ proc_thread(BIGNET *bigprocptrin)
   unsigned int maxoutbuflen;
   unsigned int *bigbufin, *bigbufout, *bufin, *bufout;
   unsigned int timeout;
+  int nev_per_block;
   static BIGNET *bigprocptr;
   static unsigned int offset;
   static int token_interval;
@@ -274,7 +278,6 @@ proc_thread(BIGNET *bigprocptrin)
   unsigned long start, end, time1, time2, icycle, cycle = 1;
 #else
   hrtime_t start, end, time1, time2, icycle, cycle = 1;
-  static int nev;
   static hrtime_t sum;
 #endif
 
@@ -388,9 +391,9 @@ proc_thread(BIGNET *bigprocptrin)
       if((bigbufin[BBIBUFNUM] == -1) && (bigbufout != NULL))
       {
 #ifdef DEBUG
-    printf("proc: releasing output buffer - 0 0x%08x: num=%d nev=%d lenw=%d ifend=%d pid=%d\n",
-      bigbufout,bigbufout[BBIBUFNUM],bigbufout[BBIEVENTS],bigbufout[BBIWORDS],
-      bigbufout[BBIEND],bigbufout[BBIROCID]);
+        printf("proc: releasing output buffer - 0 0x%08x: num=%d nev=%d lenw=%d ifend=%d pid=%d\n",
+          bigbufout,bigbufout[BBIBUFNUM],bigbufout[BBIEVENTS],bigbufout[BBIWORDS],
+          bigbufout[BBIEND],bigbufout[BBIROCID]);
 #endif
 /*
 printf("=0=> %d\n",bigbufout[BBIFD]);
@@ -437,9 +440,9 @@ printf("<--- 0x%08x 0x%08x - fd=%d\n",bigprocptr->gbigBuffer1,bigbufout,bigbufin
           bufout = bigbufout + BBHEAD;
           PROC_TIMER_START;
 #ifdef DEBUG
-    printf("proc: got output buffer 0x%08x: num=%d nev=%d lenw=%d ifend=%d pid=%d\n",
-      bigbufout,bigbufout[BBIBUFNUM],bigbufout[BBIEVENTS],bigbufout[BBIWORDS],
-      bigbufout[BBIEND],bigbufout[BBIROCID]);
+          printf("proc: got output buffer 0x%08x: num=%d nev=%d lenw=%d ifend=%d pid=%d\n",
+            bigbufout,bigbufout[BBIBUFNUM],bigbufout[BBIEVENTS],bigbufout[BBIWORDS],
+            bigbufout[BBIEND],bigbufout[BBIROCID]);
 #endif
         }
       }
@@ -452,19 +455,22 @@ printf("<--- 0x%08x 0x%08x - fd=%d\n",bigprocptr->gbigBuffer1,bigbufout,bigbufin
       if(bigbufin[BBIBUFNUM] == -1)
       {
         printf(">>>>>>>>>>>>>>>> use pid=-1 <<<<<<<<<<<<<<<<<\n");
-        lenout = proc_poll(bufin, bufout, -1);
+        lenout = proc_poll(bufin, bufout, -1, &nev_per_block);
+/*printf("111 nev_per_block=%d\n",nev_per_block);*/
 	  }
       else
       {
 #ifdef DEBUG
         printf(">>>>>>>>>>>>>>>> use pid=%d <<<<<<<<<<<<<<<<<\n",pid);fflush(stdout);
 #endif
-        lenout = proc_poll(bufin, bufout, pid);
+        lenout = proc_poll(bufin, bufout, pid, &nev_per_block);
+/*printf("222 nev_per_block=%d\n",nev_per_block);*/
       }
       bufout += lenout;
 
       /* update output buffer header */
-      bigbufout[BBIEVENTS] ++;
+/*printf("333 nev_per_block=%d\n",nev_per_block);*/
+      bigbufout[BBIEVENTS] += nev_per_block;
       bigbufout[BBIWORDS] += lenout;
 
 #ifdef DEBUG

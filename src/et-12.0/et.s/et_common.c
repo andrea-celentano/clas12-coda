@@ -154,14 +154,17 @@ int et_findlocality(const char *filename, et_openconfig openconfig)
 }
  
 /******************************************************/
-int et_open(et_sys_id *id, const char *filename, et_openconfig openconfig)
+int
+et_open(et_sys_id *id, const char *filename, et_openconfig openconfig)
 {     
   int             status, auto_open=0, err, locality;
   et_open_config *config;
   et_openconfig   auto_config = NULL;
   int             def_debug;
 
-  if (openconfig == NULL) {
+
+  if (openconfig == NULL)
+  {
     auto_open = 1;
     if (et_open_config_init(&auto_config) == ET_ERROR) {
       et_logmsg("ERROR", "et_open, null arg for openconfig, cannot use default\n");
@@ -171,6 +174,11 @@ int et_open(et_sys_id *id, const char *filename, et_openconfig openconfig)
   }
 
   config = (et_open_config *) openconfig;
+
+
+  printf("et_open: rBufSize=%d, sBufSize=%d, noDelay=%d\n",
+      config->tcpSendBufSize,config->tcpRecvBufSize,config->tcpNoDelay);
+
 
   err = ET_OK;
   /* argument checking */

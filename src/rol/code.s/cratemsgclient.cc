@@ -96,12 +96,14 @@ int  CrateMsgClient::SendRaw(const void* buffer, int length/*, ESendRecvOptions 
 	/*
     return pSocket->SendRaw(buffer,length,opt);
 	*/
+ 
   if(write(sFd,(void *)buffer, length) == -1)
   {
     printf("ERROR: SendRaw() failed");
     DisconnectOnError();
     return(0);
   }
+ 
 
 }
 
@@ -127,7 +129,7 @@ int CrateMsgClient::RecvRaw(void* buffer, int length/*, ESendRecvOptions opt = k
     //printf("ReadFromSocket INFO: ... received %d (expected %d)\n",lll,length-len);
     len += lll;
   }
-
+ 
   return(len);
 }
 

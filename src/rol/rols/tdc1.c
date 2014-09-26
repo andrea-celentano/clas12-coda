@@ -20,7 +20,7 @@ around that problem temporary patches were applied - until fixed (Sergey) */
 #define USE_V1190
 
 
-#undef DEBUG
+#define DEBUG
 
 #include <stdio.h>
 #include <string.h>
@@ -292,9 +292,9 @@ tiStatus(1); /* Ben & William Testing */
   ntdcs = tdc1190Init(0x11100000,0x80000,20,0);
   tdc1190Config("");
 
-/*
+  /*
 ntdcs = 0;
-*/
+  */
 
   for(ii=0; ii<ntdcs; ii++)
   {
@@ -448,7 +448,7 @@ tiStatus(1);
 
   /*v851SetDelay(1,10,1,0);*/
 
-  v851_start(100000);
+  v851_start(1);
 
 
 

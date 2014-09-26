@@ -56,9 +56,9 @@ Carl
 #endif
 #include "et.h"
 
-#define CHUNK_SIZE    100
+#define CHUNK_SIZE    200
 #define BUFFER_SIZE    10
-#define INPUT_STREAMS   3
+#define INPUT_STREAMS   5
 /* #define NUM_EVENTS    500000 */
 
 
@@ -158,8 +158,8 @@ main(int argc,char **argv)
     /* ET connections */
     et_openconfig openConfig;
     et_statconfig stationConfig;
-    char *etIn  = "/tmp/et_sys_clastest";
-    char *etOut = "/tmp/et_sys_clastest";
+    char *etIn  = "/tmp/et_sys_clashps";
+    char *etOut = "/tmp/et_sys_clashps";
     char *stationName = "ET2ET1";
     et_sys_id   inId[INPUT_STREAMS], outId;
     et_stat_id  inStation;
@@ -210,7 +210,7 @@ main(int argc,char **argv)
     /* open event-consuming (output) ET system */
 
 	/*sergey*/
-    et_open_config_sethost(openConfig, "clondaq2");
+    et_open_config_sethost(openConfig, "clondaq5");
 
     if (et_open(&outId, etOut, openConfig) != ET_OK) {
         fprintf(stdout, "%s: cannot open output ET system\n", argv[0]);
@@ -253,7 +253,7 @@ main(int argc,char **argv)
         /*sergey: replace following
         et_open_config_sethost(openConfig, ET_HOST_ANYWHERE);
 		*/
-        et_open_config_sethost(openConfig, "clondaq1");
+        et_open_config_sethost(openConfig, "clondaq3");
 
         if (et_open(&inId[i], etIn, openConfig) != ET_OK) {
             fprintf(stdout, "%s: cannot open input ET system\n", argv[0]);

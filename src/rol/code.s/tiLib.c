@@ -443,7 +443,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 
   /* Setup some Other Library Defaults */
   if(tiMaster!=1)
-    {
+  {
       FiberMeas();
 
       vmeWrite32(&TIp->syncWidth, 0x24);
@@ -453,9 +453,9 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 
       /* TI Sync auto alignment */
       if(tiSlaveFiberIn==1)
-	vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);
+	    vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);
       else
-	vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR5_SYNC);
+	    vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR5_SYNC);
       taskDelay(1);
 
       /* TI auto fiber delay measurement */
@@ -465,9 +465,9 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       /* TI auto alignement fiber delay */
       vmeWrite32(&TIp->reset,TI_RESET_FIBER_AUTO_ALIGN);
       taskDelay(1);
-    }
+  }
   else
-    {
+  {
       /* TI IODELAY reset */
       vmeWrite32(&TIp->reset,TI_RESET_IODELAY);
       taskDelay(1);
@@ -479,7 +479,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       /* Perform a trigger link reset */
       tiTrigLinkReset();
       taskDelay(1);
-    }
+  }
 
   /* Reset I2C engine */
   vmeWrite32(&TIp->reset,TI_RESET_I2C);
@@ -1035,6 +1035,10 @@ tiStatus(int pflag)
   printf("GTPStatusA=0x%08x\n",vmeRead32(&TIp->GTPStatusA));
   printf("GTPStatusB=0x%08x\n",vmeRead32(&TIp->GTPStatusB));
   printf("GTPtriggerBufferLength=0x%08x\n",vmeRead32(&TIp->GTPtriggerBufferLength));
+
+  printf("blockStatus[4]= 0x%08x 0x%08x 0x%08x 0x%08x\n",
+		 vmeRead32(&TIp->blockStatus[0]),vmeRead32(&TIp->blockStatus[1]),
+         vmeRead32(&TIp->blockStatus[2]),vmeRead32(&TIp->blockStatus[3]));
 
   printf("--------------------------------------------------------------------------------\n");
   printf("\n\n");
@@ -2288,8 +2292,8 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 
   TILOCK;
   if(rflag >= 1)
-    { /* Block transfer */
-      if(tiBusError==0)
+  { /* Block transfer */
+    if(tiBusError==0)
 	{
 	  printf("%s: WARN: Bus Error Block Termination was disabled.  Re-enabling\n",
 		 __FUNCTION__);
@@ -2301,8 +2305,8 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 	 Don't Bother checking if there is valid data - that should be done prior
 	 to calling the read routine */
       
-      /* Check for 8 byte boundary for address - insert dummy word (Slot 0 FADC Dummy DATA)*/
-      if((unsigned long) (data)&0x7) 
+    /* Check for 8 byte boundary for address - insert dummy word (Slot 0 FADC Dummy DATA)*/
+    if((unsigned long) (data)&0x7) 
 	{
 #ifdef VXWORKS
 	  *data = (TI_DATA_TYPE_DEFINE_MASK) | (TI_FILLER_WORD_TYPE) | (tiSlotNumber<<22);
@@ -2312,13 +2316,16 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 	  dummy = 1;
 	  laddr = (data + 1);
 	} 
-      else 
+    else 
 	{
 	  dummy = 0;
 	  laddr = data;
 	}
       
       vmeAdr = ((unsigned int)(TIpd) - tiA32Offset);
+	  /*
+	  printf("tiReadBlock: vmeAdr=0x%08x (0x%08x - 0x%08x)\n",vmeAdr,(unsigned int)(TIpd) - tiA32Offset);
+	  */
 /*sergey
 #ifdef VXWORKS
       retVal = sysVmeDmaSend((UINT32)laddr, vmeAdr, (nwrds<<2), 0);
@@ -2327,7 +2334,7 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 #endif
 */
     retVal = usrVme2MemDmaStart(vmeAdr, (UINT32)laddr, (nwrds<<2));
-      if(retVal != 0) 
+    if(retVal != 0) 
 	{
 	  logMsg("\ntiReadBlock: ERROR in DMA transfer Initialization 0x%x\n",retVal,0,0,0,0,0);
 	  TIUNLOCK;
@@ -2343,7 +2350,7 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 #endif
 */
     retVal = usrVme2MemDmaDone();
-      if(retVal > 0)
+    if(retVal > 0)
 	{
 #ifdef VXWORKS
 	  xferCount = (/*sergey nwrds - */(retVal>>2) + dummy); /* Number of longwords transfered */
@@ -3094,16 +3101,17 @@ tiSyncReset(int blflag)
   
   TILOCK;
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_SYNCRESET); 
+  taskDelay(1);
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_RESET_EVNUM); 
   taskDelay(1);
   TIUNLOCK;
   
   if(blflag) /* Set the block level from "Next" to Current */
-    {
-      printf("%s: INFO: Setting Block Level to %d\n",
+  {
+    printf("%s: INFO: Setting Block Level to %d\n",
 	     __FUNCTION__,tiNextBlockLevel);
-      tiBroadcastNextBlockLevel(tiNextBlockLevel);
-    }
+    tiBroadcastNextBlockLevel(tiNextBlockLevel);
+  }
 
 }
 
@@ -3190,51 +3198,51 @@ tiSetAdr32(unsigned int a32base)
   int res=0,a32Enabled=0;
 
   if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
+  {
+    printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+    return ERROR;
+  }
 
   if(a32base<0x00800000)
-    {
-      printf("%s: ERROR: a32base out of range (0x%08x)\n",
+  {
+    printf("%s: ERROR: a32base out of range (0x%08x)\n",
 	     __FUNCTION__,a32base);
-      return ERROR;
-    }
+    return ERROR;
+  }
 
   TILOCK;
-  vmeWrite32(&TIp->adr32, 
-	     (a32base & TI_ADR32_BASE_MASK) );
 
-  vmeWrite32(&TIp->vmeControl, 
-	     vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_A32);
+
+  vmeWrite32(&TIp->adr32, (a32base & TI_ADR32_BASE_MASK) );
+
+  vmeWrite32(&TIp->vmeControl, vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_A32);
 
   a32Enabled = vmeRead32(&TIp->vmeControl)&(TI_VMECONTROL_A32);
   if(!a32Enabled)
-    {
-      printf("%s: ERROR: Failed to enable A32 Address\n",__FUNCTION__);
-      TIUNLOCK;
-      return ERROR;
-    }
+  {
+    printf("%s: ERROR: Failed to enable A32 Address\n",__FUNCTION__);
+    TIUNLOCK;
+    return ERROR;
+  }
 
 #ifdef VXWORKS
   res = sysBusToLocalAdrs(0x09,(char *)a32base,(char **)&laddr);
   if (res != 0) 
-    {
-      printf("%s: ERROR in sysBusToLocalAdrs(0x09,0x%x,&laddr) \n",
+  {
+    printf("%s: ERROR in sysBusToLocalAdrs(0x09,0x%x,&laddr) \n",
 	     __FUNCTION__,a32base);
-      TIUNLOCK;
-      return(ERROR);
-    }
+    TIUNLOCK;
+    return(ERROR);
+  }
 #else
   res = vmeBusToLocalAdrs(0x09,(char *)a32base,(char **)&laddr);
   if (res != 0) 
-    {
-      printf("%s: ERROR in vmeBusToLocalAdrs(0x09,0x%x,&laddr) \n",
+  {
+    printf("%s: ERROR in vmeBusToLocalAdrs(0x09,0x%x,&laddr) \n",
 	     __FUNCTION__,a32base);
-      TIUNLOCK;
-      return(ERROR);
-    }
+    TIUNLOCK;
+    return(ERROR);
+  }
 #endif
 
   tiA32Base = a32base;

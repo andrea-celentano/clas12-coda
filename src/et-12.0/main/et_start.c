@@ -239,6 +239,26 @@ main(int argc, char **argv)
 
 
 
+
+  /*sergey: increase tcp buffersize */
+  {
+	int rBufSize;
+    int sBufSize;
+    int noDelay;
+
+	et_system_config_gettcp(config, &rBufSize, &sBufSize, &noDelay);
+    printf("default rBufSize=%d, sBufSize=%d, noDelay=%d\n", rBufSize, sBufSize, noDelay);
+
+	rBufSize = 65000;
+    sBufSize = 65000;
+    noDelay = 1;
+	et_system_config_settcp(config, rBufSize, sBufSize, noDelay);
+
+	et_system_config_gettcp(config, &rBufSize, &sBufSize, &noDelay);
+    printf("set rBufSize=%d, sBufSize=%d, noDelay=%d\n", rBufSize, sBufSize, noDelay);
+  }
+
+
   /* set TCP server port 
   et_system_config_setserverport(config, 11223);
 */

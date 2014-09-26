@@ -143,6 +143,8 @@ static unsigned int i2_from_rol1;
 
 static unsigned int *tdcbuf;
 
+static int init_boards;
+
 
 /* parameter 'time' in seconds */
 static int
@@ -441,8 +443,14 @@ vmeReadTask()
 
   tdcbuf = (unsigned int *)i2_from_rol1;
 
+  iFlag = 0;
+  if(init_boards==0)
+  {
+    /* skip initialization* */
+    iFlag |= (1<<16);
+  }
 
-  dsc2Init(0x100000,0x80000,16,0);
+  dsc2Init(0x100000,0x80000,16,iFlag);
   dsc2Config("");
   ndsc2 = dsc2GetNdsc();
   printf("vmeReadTask: found %d dsc2 boards\n",ndsc2);
@@ -461,8 +469,22 @@ vmeReadTask()
   iFlag |= (1<<2);    /* Trigger Source: VXS */
   /*iFlag |= (1<<5);*/    /* Clock Source: VXS */
   iFlag |= (0<<5);  /* Internal Clock Source */
+
+  if(init_boards==0)
+  {
+    /* skip initialization* */
+    iFlag |= (1<<16);
+  }
+
   faInit((unsigned int)(3<<19),(1<<19),16,iFlag);
   nfadc = faGetNfadc();
+
+
+
+  /* always clean up init blag ! */
+  init_boards = 0;
+
+
 
   /* fill map array with FADC's found */
   for(ii=0; ii<nfadc; ii++) if( (slot=faSlot(ii)) > 0) vmescalersmap[slot] = SCALER_TYPE_FADC250;
@@ -733,9 +755,9 @@ Vme_SetChannelParams(Cmd_SetChannelParams *pCmd)
 int
 Vme_Delay(Cmd_Delay *pCmd_Delay)
 {
-	usleep(1000*pCmd_Delay->ms);
+  usleep(1000*pCmd_Delay->ms);
 	
-	return 0;
+  return(0);
 }
 
 
@@ -748,7 +770,18 @@ main(int argc, char *argv[])
 #ifdef SCALER_THREAD
   pthread_t gScalerThread;
 #endif
-	
+
+  init_boards = 0;
+  if(argc==2)
+  {
+    if(!strncmp(argv[1],"init",4))
+	{
+      init_boards = 1;
+      printf("NOTE: boards initialization will be performed, it will break DAQ if running !!!\n");
+	}
+  }
+
+
   if(signal(SIGINT, sig_handler) == SIG_ERR)
   {
 	perror("signal");

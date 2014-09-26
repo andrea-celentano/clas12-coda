@@ -23,7 +23,7 @@ typedef struct rolParameters
   int            classid;          /* object class id (0-slave, 1-master, 2-single) */
   char           confFile[256];    /* contains config file name selected by runcontrol */
   char           usrString[32];    /* string passed in download */
-  void          *private_storage;  /* private storage */
+  int            user_storage[2];  /* user storage */
   int            pid;              /* ROC ID */
   int            poll;             /* to poll or not to poll */
 
