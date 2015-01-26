@@ -1,8 +1,6 @@
 
 /* blastee.c */
 
-#ifndef VXWORKS
-
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -20,18 +18,6 @@
 #include <sys/ioctl.h>
 #include <sys/errno.h>
 
-#else
-
-#include <stdio.h>
-#include <errno.h>
-#include <socket.h>
-#include <in.h>
-#include <vxWorks.h>
-#include <wdLib.h>
-#include <ioLib.h>	
-
-#endif
-
 #include "blaster.h"
 
 unsigned long long blastNum, messages, totalMessages;
@@ -39,34 +25,19 @@ unsigned long long nreads, mess_num, mess_size;
 int errno;
 
 int	blasteeStop;
-#ifdef VXWORKS
-WDOG_ID	blastWd = NULL;
-#else
 #define	FALSE	0
 #define TRUE	1
-#endif
 
-#ifdef VXWORKS
-FUNCPTR blastRate();
-#else
 void blastRate(int);
-#endif
 
-#ifndef VXWORKS
 main(int argc, char *argv[])
-#else
-blastee(int port, int sockbufsize)
-#endif
 {
   struct sockaddr_in sin, from;
   char *buffer;
   int f, s, len, on=1;
   int sendsize;
-#ifndef VXWORKS
   int sockbufsize;
-#endif
 
-#ifndef VXWORKS
   if(argc != 3)
   {
 	printf("usage: %s port sockbufsize\n", argv[0]);
@@ -74,7 +45,6 @@ blastee(int port, int sockbufsize)
   }
 
   sockbufsize = atoi(argv[2]);
-#endif    
 
   sendsize = SENDSIZE;
   printf("sendsize=%d\n",sendsize);
@@ -86,19 +56,8 @@ blastee(int port, int sockbufsize)
 	exit(1);
   }
 
-#ifndef VXWORKS
   signal (SIGALRM, blastRate);
   alarm (10);
-#else
-  if(blastWd == NULL && (blastWd = wdCreate ()) == NULL)
-  {
-	printf ("cannot create blast watchdog\n");
-	free(buffer);
-	exit(1);
-  }
-
-  wdStart(blastWd, sysClkRateGet () * 10, (FUNCPTR)blastRate, 0);
-#endif
 
   bzero((char *)&sin, sizeof(sin));
   bzero((char *)&from, sizeof(from));
@@ -114,11 +73,7 @@ blastee(int port, int sockbufsize)
 
   sin.sin_family = AF_INET;
 
-#ifndef VXWORKS
   sin.sin_port = htons (atoi (argv [1]));
-#else
-  sin.sin_port = htons (port);
-#endif
 
   if (bind (f, (const struct sockaddr *)&sin, sizeof(sin)) < 0)
   {
@@ -222,10 +177,6 @@ blastee(int port, int sockbufsize)
     if(rembytes!=0) printf("ERROR: read() is done, but rembytes=%d\n",rembytes);
   }
 
-#ifdef VXWORKS
-  wdCancel(blastWd);
-#endif
-
   close(f);
   close(s);
     
@@ -236,18 +187,12 @@ blastee(int port, int sockbufsize)
 
 /* */
 
-#ifdef VXWORKS
-FUNCPTR
-blastRate()
-#else
 void
 blastRate(int dummy)
-#endif
 {
   if(blastNum > 0)
   {
 	totalMessages +=messages;
-#ifndef VXWORKS
     if(nreads>0 && mess_num>0)
     {
 	  printf ("%llu bytes/sec tot %llu, %llu mess/sec tot %llu (<num>=%llu size=%llu)\n",
@@ -258,26 +203,14 @@ blastRate(int dummy)
     {
       printf("0 nreads=%d mess_num=%d\n",nreads,mess_num);
     }
-#else	
-	logMsg ("%u bytes/sec\n", blastNum / 10);
-#endif
 	blastNum = messages = 0;
     mess_size = mess_num = nreads = 0;
   }
   else
   {
-#ifndef VXWORKS
 	printf ("No bytes read in the last 10 seconds.\n");
-#else
-	logMsg ("No bytes read in the last 10 seconds.\n");
-#endif	
   }
 
-#ifndef VXWORKS
   signal (SIGALRM, blastRate);
   alarm (10);
-#else    
-  wdStart (blastWd, sysClkRateGet () * 10, (FUNCPTR)blastRate, 0);
-#endif
 }
-

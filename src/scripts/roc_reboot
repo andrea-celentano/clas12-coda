@@ -80,7 +80,7 @@ set roc_name_snmp = ( dc1        dc2        dc3        dc4        \
                       ioctest1   pcal0      pretrig3   pretrig4   \
                       croctest1  croctest2  hps2       croctest10 \
                       roc1       halldtrg3  jlab12vme  pcalvme    \
-                      adcecal1   svt2       wolfram1   trig1      \
+                      adcecal1   svt2       wolfram1   hps12      \
                       hps1       hps2       dcrb1      tdcecal1   \
                       tdcpcal1   tdcftof1   adcpcal1   adcftof1   \
                       adcecal1   adcftof6   tdcftof6   adcpcal6   \

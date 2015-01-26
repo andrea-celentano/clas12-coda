@@ -238,11 +238,15 @@ vscmConfigDownload(int id, char *fname)
         printf("Window: %d %d %d for slot %d\n",val[0],val[1],val[2],id);
         vscmSetTriggerWindow(id, val[0],val[1],val[2]);
       }
-      else {
+      else
+      {
+        ; /* unknown key - do nothing */
+		/*
         logMsg("ERROR: %s: unknown keyword >%s< (%u 0x%02x)\n", \
                 __func__, keyword, ch[0], ch[0]);
         fclose(fd);
         return -3;
+		*/
       }
     }
   }
@@ -838,6 +842,9 @@ fssrSetActiveLines(int id, int chip, unsigned int lines)
   val &= ~(3 << (16 + (chip * 2))); /* Clear Chip ID field prior to setting it*/
   val |= (mode << (16 + (chip * 2)));
   vmeWrite32(&VSCMpr[id]->FssrClkCfg, val);
+
+  // Allow time for state machines to reset
+  taskDelay(1);
 }
 
 /*

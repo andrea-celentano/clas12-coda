@@ -93,7 +93,6 @@ system will recycle buffers (it takes 1 minute) */
 #define MINNETBUFS 100
 
 
-#ifndef VXWORKS
 
 typedef struct circbuf
 {
@@ -172,18 +171,3 @@ typedef struct data_link
   int bufCnt;
   CIRCBUF *roc_queue;
 } DATA_LINK_S;
-
-
-#endif
-
-
-
-
-
-
-
-
-
-
-
-

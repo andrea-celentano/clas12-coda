@@ -4,26 +4,6 @@
 
 #undef ROC_DOES_NOT_SEND
 
-#include "da.h"
-
-#ifdef VXWORKS
-
-#include <stdio.h>
-#include <sockLib.h>
-#include <errno.h>
-#include <errnoLib.h>
-
-/*needheaderfiles
-#include <sys/socket.h>
-#include <netinet/tcp.h>
-*/
-
-extern long     vxTicks;
-
-#define MYCLOCK 25
-
-#else
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -41,13 +21,15 @@ extern long     vxTicks;
 
 #define MYCLOCK NANOMICRO
 
-#endif
+#include "da.h"
 
 #include "circbuf.h"
 #include "bigbuf.h"
 
 #define CODA_ERROR 1
 #define CODA_OK 0
+
+#undef DEBUG
 
 /****************************************************************************/
 /*************************** roc_network functions **************************/
@@ -91,7 +73,6 @@ LINK_establish(char *host, int port)
   /* */
   bzero((char *)&sin, sizeof(sin));
 
-  /* for vxworks - in libtklite.a; should we move it somewhere ??? */
   hp = gethostbyname(host);
   if(hp == 0 && (sin.sin_addr.s_addr = inet_addr(host)) == -1)
   {
@@ -214,15 +195,11 @@ LINK_sized_write(int fd, unsigned int *buffer, unsigned long nbytes)
   unsigned long netlong;	/* network byte ordered length */
 
 /* timing */
-#ifdef VXWORKS
-unsigned long start, end, time1, time2;
-#else
 #ifndef Darwin
 hrtime_t start, end, time1, time2;
 int i, cycle = 1;
 static int nev;
 static hrtime_t sum;
-#endif
 #endif
 
   if(nbytes <= 0)
@@ -239,11 +216,7 @@ bb_check(buffer);
   netlong = htonl(nbytes);
   rembytes = nbytes;
 
-#ifdef VXWORKS
-start = sysTimeBaseLGet();
-#else
 start = gethrtime();
-#endif
 
 
 retry2:
@@ -276,13 +249,8 @@ retry2:
 /*printf("3: fd=%d -> %d %d\n",fd,sizeof(netlong),cc);fflush(stdout);*/
 
 
-#ifdef VXWORKS
-end = sysTimeBaseLGet();
-time1 = (end-start)/MYCLOCK;
-#else
 end = gethrtime();
 time1 = (end-start)/MYCLOCK;
-#endif
 
   /* write data */
   if(nbytes == 0)
@@ -291,11 +259,7 @@ time1 = (end-start)/MYCLOCK;
     return(0);
   }
 
-#ifdef VXWORKS
-start = sysTimeBaseLGet();
-#else
 start = gethrtime();
-#endif
 
 /*
 printf("SEND3: %d %d %d %d 0x%08x %d - 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
@@ -344,19 +308,11 @@ netStackSysPoolShow
 
 
 /*timing */
-#ifdef VXWORKS
-end = sysTimeBaseLGet();
-time2 = (end-start)/MYCLOCK;
-/*
-printf("sized_write: %7lu  %7lu microsec (buf %d)\n",time1,time2,buffer[0]);
-*/
-#else
 end = gethrtime();
 time2 = (end-start)/MYCLOCK;
 /*
 printf("sized_write: %7llu  %7llu microsec (buf %d)\n",time1,time2,buffer[0]);
 */
-#endif
 
   return(nbytes);
 }
@@ -368,16 +324,10 @@ printf("sized_write: %7llu  %7llu microsec (buf %d)\n",time1,time2,buffer[0]);
 /****************************************************************************/
 /******************************* net_thread *******************************/
 
-#ifdef VXWORKS
-void 
-net_thread(BIGNET *bignetptrin, unsigned int offsetin)
-{
-#else
 void 
 net_thread(BIGNET *bignetptrin)
 {
   unsigned int offsetin = 0;
-#endif
   static int length, status, fd, ifend;
   int i, jj, llen, llenw, evsz, res, nevent;
   unsigned long lwd;
@@ -386,14 +336,10 @@ net_thread(BIGNET *bignetptrin)
   static unsigned int offset;
 
 /* timing */
-#ifdef VXWORKS
-  unsigned long start, end, time1, time2, icycle, cycle=1;
-#else
 #ifndef Darwin
   hrtime_t start, end, time1, time2, icycle, cycle=1;
   static int nev;
   static hrtime_t sum;
-#endif
 #endif
 
 #ifdef Linux
@@ -408,37 +354,17 @@ net_thread(BIGNET *bignetptrin)
   offset = offsetin;
 
   printf("bignetptr=0x%08x offset=0x%08x\n",bignetptr,offset);
-#ifdef VXWORKS
-  taskDelay(100);
-#else
   sleep(1);
-#endif
   printf("bignetptr=0x%08x offset=0x%08x\n",bignetptr,offset);
-#ifdef VXWORKS
-  taskDelay(100);
-#else
   sleep(1);
-#endif
   printf("bignetptr=0x%08x offset=0x%08x\n",bignetptr,offset);
-#ifdef VXWORKS
-  taskDelay(100);
-#else
   sleep(1);
-#endif
   printf("bignetptr=0x%08x offset=0x%08x\n",bignetptr,offset);fflush(stdout);
-#ifdef VXWORKS
-  taskDelay(100);
-#else
   sleep(1);
-#endif
-  printf("bignet at 0x%08x, bignet.gbigBuffer at 0x%08x -> 0x%08x\n",
-          bignetptr, &(bignetptr->gbigBuffer),
-          (&(bignetptr->gbigBuffer))+offset);fflush(stdout);
-#ifdef VXWORKS
-  taskDelay(100);
-#else
+  printf("bignet at 0x%08x, bignet.gbigin at 0x%08x -> 0x%08x\n",
+          bignetptr, &(bignetptr->gbigin),
+          (&(bignetptr->gbigin))+offset);fflush(stdout);
   sleep(1);
-#endif
 
   /*printf("net_thread reached\n");fflush(stdout);*/
   nevent = 0;
@@ -448,21 +374,16 @@ net_thread(BIGNET *bignetptrin)
   do
   {
     icycle ++;
-#ifdef VXWORKS
-    start = sysTimeBaseLGet();
-#else
     start = gethrtime();
+#ifdef DEBUG
+    printf("coda_net ??? bb_read(0x%08x)\n",&(bignetptr->gbigin));
 #endif
-
-	
-    /*printf("coda_net ??? bb_read(0x%08x)\n",&(bignetptr->gbigBuffer));*/
-
-    bigbuf = bb_read(&(bignetptr->gbigBuffer));
-
-    /*printf("coda_net !!! bb_read(0x%08x)\n",&(bignetptr->gbigBuffer));*/
-
+    bigbuf = bb_read(&(bignetptr->gbigin));
+#ifdef DEBUG
+    printf("coda_net !!! bb_read(0x%08x)\n",&(bignetptr->gbigin));
+#endif
 	/*
-printf("coda_net: bb_read(0x%08x) return 0x%08x\n",bignetptr->gbigBuffer,bigbuf);fflush(stdout);
+printf("coda_net: bb_read(0x%08x) return 0x%08x\n",bignetptr->gbigin,bigbuf);fflush(stdout);
 printf("coda_net: bb_read: %d %d %d %d %d %d\n",
   bigbuf[0],bigbuf[1],bigbuf[2],bigbuf[3],bigbuf[4],bigbuf[5]);
 printf("coda_net: bb_read: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
@@ -476,42 +397,32 @@ fflush(stdout);
       break;
     }
 
-#ifdef VXWORKS
-    end = sysTimeBaseLGet();
-    time1 += (end-start)/MYCLOCK;
-#else
     end = gethrtime();
     time1 += (end-start)/MYCLOCK;
-#endif
 
     /*********************/
     /* Output to Network */
     /*********************/
 
-#ifdef VXWORKS
-    start = sysTimeBaseLGet();
-#else
     start = gethrtime();
-#endif
 
     bignetptr->failure = 0;
 
+    {
+      int nbytes, lbytes;
 
-{
-    int nbytes, lbytes;
-
-    nbytes = 65536;
-    lbytes=4;
-	/*
-    setsockopt(bigbuf[BBIFD], SOL_SOCKET, SO_SNDBUF, 
-               (int *) &nbytes, lbytes); 
-	*/
-    getsockopt(bigbuf[BBIFD], SOL_SOCKET, SO_SNDBUF, 
-               (int *) &nbytes, &lbytes); 
-	/*
-    printf("socket buffer size is %d(0x%08x) bytes\n",nbytes,nbytes);
-	*/
-}
+      nbytes = 65536;
+      lbytes=4;
+	  /*
+      setsockopt(bigbuf[BBIFD], SOL_SOCKET, SO_SNDBUF, 
+                 (int *) &nbytes, lbytes); 
+	  */
+      getsockopt(bigbuf[BBIFD], SOL_SOCKET, SO_SNDBUF, 
+                 (int *) &nbytes, &lbytes); 
+	  /*
+      printf("socket buffer size is %d(0x%08x) bytes\n",nbytes,nbytes);
+	  */
+    }
 
     /* remember some values (do not need all of them ..) */
     nevent += bigbuf[BBIEVENTS];
@@ -543,15 +454,6 @@ printf("LINK_sized_write special event\n");fflush(stdout);
 
 #else /* ROC does send */
 
-#ifdef VXWORKS
-    /* check for free net buffers */
-    usrNetStackSysPoolStatus("net_thread",0);
-    usrNetStackDataPoolStatus("net_thread",0);
-#endif
-/*
-usrNetStackSysPoolStatus(1);
-usrNetStackDataPoolStatus(1);
-*/
     /* send data */
 	if(llen>=SEND_BUF_SIZE) printf("ERROR: llen=%d >= SEND_BUF_SIZE=%d\n",llen,SEND_BUF_SIZE);
     /*printf("bigbuf[BBIFD]=%d\n",bigbuf[BBIFD]);*/
@@ -563,10 +465,6 @@ usrNetStackDataPoolStatus(1);
       return;
     }
 /*printf("LINK_sized_write 3\n");fflush(stdout);*/
-/*
-usrNetStackSysPoolStatus(2);
-usrNetStackDataPoolStatus(2);
-*/
 
 #endif /*ROC_DOES_NOT_SEND*/
 
@@ -574,23 +472,13 @@ usrNetStackDataPoolStatus(2);
 
 
 /*timing */
-#ifdef VXWORKS
-    end = sysTimeBaseLGet();
-    time2 += (end-start)/MYCLOCK;
-#else
     end = gethrtime();
     time2 += (end-start)/MYCLOCK;
-#endif
 
     if(nevent != 0 && icycle >= cycle)
     {
-#ifdef VXWORKS
-      printf("net_thread:  waiting=%7lu    sending=%7lu microsec per event (nev=%d)\n",
-        time1/nevent,time2/nevent,nevent/icycle);
-#else
       printf("net_thread:  waiting=%7llu    sending=%7llu microsec per event (nev=%d)\n",
         time1/nevent,time2/nevent,nevent/icycle);
-#endif
       nevent = icycle = time1 = time2 = 0;
     }
 
@@ -610,7 +498,7 @@ sleep(1);
 
 
   /* force 'big' buffer read/write methods to exit */
-  bb_cleanup(&(bignetptr->gbigBuffer));
+  bb_cleanup(&(bignetptr->gbigin));
 
 
 
@@ -737,11 +625,7 @@ waiting1:
   if( strncmp(state,"waiting",7) )
   {
     printf(">>> In database link state is >%s< - we need 'waiting'\n",state);
-#ifdef VXWORKS
-    taskDelay(sysClkRateGet());
-#else
     sleep(1);
-#endif
 
     if(nwaits++ > 10)   /* after N attempts, disconnect from database and return */
 	{

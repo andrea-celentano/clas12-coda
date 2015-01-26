@@ -91,6 +91,7 @@ $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
 
 CLON_FLAGS += -I./inc -I./code.s -I../codatt/codatt.s/ -I$(CODA)/common/include
 
+
 ifeq ("$(OSTYPE)","Linux")
   CLON_FLAGS += -I/usr/local/src/tirpci/tirpci_installation/include
   CLON_FLAGS += -I/usr/local/src/tirpci
@@ -109,6 +110,8 @@ else
   LIBNAMES += $(CODA)/src/codatt/$(OSTYPE_MACHINE)/lib/libcodatt.a
   LIBNAMES += $(CODA)/src/bosio/$(OSTYPE_MACHINE)/lib/libbosio.a
   LIBNAMES += $(CODA)/src/mysql4.1.20/$(OSTYPE_MACHINE)/lib/libmysql4.1.20.a
+
+  LIBNAMES += -lpthread
 
 ifeq ("$(OSTYPE_MACHINE)","Linux_i686_vme")
   LIBNAMES += $(CODA)/src/rol/jvme/libjvme.so

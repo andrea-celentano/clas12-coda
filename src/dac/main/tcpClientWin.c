@@ -1,8 +1,6 @@
 
 /* tcpClient.c - TCP client for Windows */ 
 
-#ifndef VXWORKS
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,11 +21,6 @@
 #define OK 0
 #define ERROR -1
 #define STD_IN stdin
-
-
-
-
-
 
 /* defines */ 
 #define SERVER_PORT_NUM 6001      /* server's port number for bind() */ 
@@ -205,16 +198,3 @@ main(int argc, char *argv[])
  
   return(OK);
  }
-
-
-#else
-
-/* dummy VXWORKS version */
-
-void
-tcpClientWin()
-{
-  printf("tcpClientWin is dummy for VXWORKS\n");
-}
-
-#endif

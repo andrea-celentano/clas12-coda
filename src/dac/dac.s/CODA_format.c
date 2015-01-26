@@ -42,7 +42,7 @@ CODA_decode_frag(unsigned long **datap, evDesc desc)
   desc->fragments[0] = &(*datap)[2];
   desc->bankTag[0] = desc->rocid;
   desc->fragLen[0] = desc->length;
-  desc->soe = *datap;
+  desc->soe = *datap; /* remember start of event */
 
   desc->user[2] = ((*datap)[1] >> 8) & 0x3f; /*sergey: store contentType*/
 
@@ -62,6 +62,19 @@ CODA_decode_frag(unsigned long **datap, evDesc desc)
   }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* decode special event header */
 int 
 CODA_decode_spec(unsigned long **datap, evDesc desc)
@@ -72,6 +85,12 @@ CODA_decode_spec(unsigned long **datap, evDesc desc)
   desc->type  = ((*datap)[1] >> 16) & 0x00ff;
   marker = (*datap)[1] & 0xffff;
   desc->time = (*datap)[2];
+
+
+desc->soe = *datap;
+
+
+  printf("CODA_decode_spec: len=%d type=%d\n",desc->length,desc->type);
 
   switch(desc->type)
   {
@@ -107,6 +126,17 @@ CODA_decode_spec(unsigned long **datap, evDesc desc)
     return(ERROR);
   }  
 }
+
+
+
+
+
+
+
+
+
+
+
 
 
 /*NOT IN USE, MAY NEED LATER*/
@@ -213,14 +243,97 @@ CODA_reserv_frag(unsigned long **datap, evDesc desc)
 
 
 
+
+
+
+
+
+
+#define NEWNEW
+
+
 /*****************************************************************/
 /* _encode_ functions ... */
 
 int 
 CODA_encode_spec(unsigned long **datap, evDesc desc)
 {
+  int ii, nw;
+
+#ifdef NEWNEW
+
+  (*datap)[1] = 0x10CC | ((desc->type & 0x00ff) << 16);
+
+  (*datap)[3] = 0x01CC | (desc->type << 16);
+  (*datap)[4] = desc->time;
+
+
+  switch(desc->type)
+  {
+    case 16:
+    {
+      (*datap)[2] = 5;
+      (*datap)[5] = desc->syncev;
+      (*datap)[6] = desc->evnb;
+      (*datap)[7] = desc->err[1];
+
+      (*datap)[0] = (*datap)[2] + 2;
+
+      break;
+    }
+ 
+    case 17: 
+    {
+
+      (*datap)[2] = 4;
+      (*datap)[5] = desc->runnb;
+      (*datap)[6] = desc->runty;
+
+      (*datap)[0] = (*datap)[2] + 2;
+
+
+	  /* extra data in prestart bank (usually run config file contents */
+	  if(desc->length > 12)
+	  {
+        nw = ((desc->length-12)>>2);
+
+        (*datap)[7] = nw + 1;
+        (*datap)[8] = 0x0300; /* bank type is 'char', bank number is '0' */
+        for(ii=0; ii<nw; ii++) (*datap)[9+ii] = desc->soe[5+ii];
+
+        (*datap)[0] += nw+2;
+
+	  }
+
+
+
+
+      break;
+    }
+
+    default: 
+    {
+      (*datap)[2] = 4;
+      (*datap)[5] = 0;
+      (*datap)[6] = desc->evnb;
+
+      (*datap)[0] = (*datap)[2] + 2;
+
+      break;
+    }
+  }
+
+
+
+  desc->length = ((*datap)[0] + 1)<<2;
+  *datap += ((*datap)[0] + 1);
+
+
+#else
+
   (*datap)[1] = 0x01CC | (desc->type << 16);
   (*datap)[2] = desc->time;
+
 
   switch(desc->type)
   {
@@ -252,6 +365,9 @@ CODA_encode_spec(unsigned long **datap, evDesc desc)
 
   desc->length = ((*datap)[0] + 1)<<2;
   *datap += ((*datap)[0] + 1);
+
+#endif
+
 }
 
 int 

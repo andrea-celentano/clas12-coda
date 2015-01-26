@@ -121,7 +121,10 @@ rol2trig(int a, int b)
   CPCLOSE;
   */
 
+
+  rol->user_storage[0] = lenout;
   CPEXIT;
+  rol->user_storage[1] = 1;
 
   return;
 }

@@ -295,10 +295,14 @@ void ECALMainFrame::CloseWindow()
    gApplication->Terminate(0);
 }
 
-Bool_t ECALMainFrame::ProcessMessage(Long_t msg, Long_t parm1, Long_t)
+Bool_t ECALMainFrame::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
 {
    // Handle messages send to the ECALMainFrame object. E.g. all menu button
    // messages.
+
+
+printf("1\n");fflush(stdout);
+
 
    UInt_t board_addr[2];
    board_addr[0] = ECAL_BOARD_ADDRESS_1;
@@ -499,15 +503,21 @@ ScalersDlg::ScalersDlg(const TGWindow *p, ECALMainFrame *main,
 					   UInt_t w, UInt_t h, UInt_t options) : TGTransientFrame(p, main, w, h, options)
 {
 
+printf("11\n");fflush(stdout);
+
   fMain = main; // remember mainframe
 
    // Create a dialog window. A dialog window pops up with respect to its
    // "main" window.
 
+printf("12\n");fflush(stdout);
+
    // use hierarchical cleani
    SetCleanup(kDeepCleanup);
+printf("13\n");fflush(stdout);
 
    fFrame1 = new TGHorizontalFrame(this, 60, 20, kFixedWidth);
+printf("14\n");fflush(stdout);
 
    fOkButton = new TGTextButton(fFrame1, "&Ok", 1);
    fOkButton->Associate(this);
@@ -531,6 +541,7 @@ ScalersDlg::ScalersDlg(const TGWindow *p, ECALMainFrame *main,
 
    TGCompositeFrame *tf;
 
+printf("19\n");fflush(stdout);
 
    /* scalers */
    tf = fTab->AddTab("Scalers");
@@ -586,6 +597,7 @@ ScalersDlg::ScalersDlg(const TGWindow *p, ECALMainFrame *main,
    
    fF6->Resize(); // resize to default size
 
+printf("59\n");fflush(stdout);
 
 
    /* histos */
@@ -594,6 +606,7 @@ ScalersDlg::ScalersDlg(const TGWindow *p, ECALMainFrame *main,
    fHpxV1 = 0;
    fHpxW1 = 0;
 
+printf("61\n");fflush(stdout);
    tf = fTab->AddTab("Histos");
    fF3 = new TGCompositeFrame(tf, 60, 20, kHorizontalFrame);
    fStartB = new TGTextButton(fF3, "Start &Filling Hists", 40);
@@ -602,6 +615,7 @@ ScalersDlg::ScalersDlg(const TGWindow *p, ECALMainFrame *main,
    fStopB->Associate(this);
    fF3->AddFrame(fStartB, fL3);
    fF3->AddFrame(fStopB, fL3);
+printf("62\n");fflush(stdout);
 
    fF3->AddFrame(fChk1 = new TGCheckButton(fF3, "A&ccumulate", 71), fL3);
    fChk1->Associate(this);
@@ -616,6 +630,7 @@ ScalersDlg::ScalersDlg(const TGWindow *p, ECALMainFrame *main,
    fF5->AddFrame(fEc2, fL4);
    fEc3 = new TRootEmbeddedCanvas("ec3", fF5, 100, 100);
    fF5->AddFrame(fEc3, fL4);
+printf("63\n");fflush(stdout);
 
    tf->AddFrame(fF3, fL3);
    tf->AddFrame(fF5, fL4);
@@ -623,14 +638,18 @@ ScalersDlg::ScalersDlg(const TGWindow *p, ECALMainFrame *main,
    fEc1->GetCanvas()->SetBorderMode(0);
    fEc2->GetCanvas()->SetBorderMode(0);
    fEc3->GetCanvas()->SetBorderMode(0);
+printf("64\n");fflush(stdout);
 
    // make tab yellow
    Pixel_t yellow;
+printf("65\n");fflush(stdout);
    fClient->GetColorByName("yellow", yellow);
+printf("66\n");fflush(stdout);
    TGTabElement *tabel = fTab->GetTabTab("Tab 3");;
-   tabel->ChangeBackground(yellow);
+printf("67\n");fflush(stdout);
+/*tabel->ChangeBackground(yellow);*//*crash here*/
 
-
+printf("89\n");fflush(stdout);
 
 
    TGLayoutHints *fL5 = new TGLayoutHints(kLHintsBottom | kLHintsExpandX |
@@ -648,6 +667,10 @@ ScalersDlg::ScalersDlg(const TGWindow *p, ECALMainFrame *main,
    MapWindow();
    HistAccumulate = 0;
    //fClient->WaitFor(this);    // otherwise canvas contextmenu does not work
+
+printf("98\n");fflush(stdout);
+sleep(1);
+printf("99\n");fflush(stdout);
 
    if(tcpvme->m_bConnected)
    {
@@ -751,7 +774,7 @@ void ScalersDlg::CloseWindow()
 }
 
 
-Bool_t ScalersDlg::ProcessMessage(Long_t msg, Long_t parm1, Long_t)
+Bool_t ScalersDlg::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
 {
    // Process messages coming from widgets associated with the dialog.
 
@@ -1128,7 +1151,7 @@ Dsc2Dlg::Dsc2Dlg(const TGWindow *p, ECALMainFrame *main,
    Pixel_t yellow;
    fClient->GetColorByName("yellow", yellow);
    TGTabElement *tabel = fTab->GetTabTab("Tab 3");;
-   tabel->ChangeBackground(yellow);
+   /*tabel->ChangeBackground(yellow);*/
 
 
 
@@ -1295,7 +1318,7 @@ void Dsc2Dlg::CloseWindow()
 }
 
 
-Bool_t Dsc2Dlg::ProcessMessage(Long_t msg, Long_t parm1, Long_t)
+Bool_t Dsc2Dlg::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
 {
   //Int_t status;
 
@@ -1725,7 +1748,7 @@ Bool_t DelaysDlg::UpdateGUI()
 }
 
 
-Bool_t DelaysDlg::ProcessMessage(Long_t msg, Long_t parm1, Long_t)
+Bool_t DelaysDlg::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
 {
    // Process messages coming from widgets associated with the dialog.
 
@@ -1937,7 +1960,7 @@ void RegistersDlg::SetLimits()
    }
 }
 
-Bool_t RegistersDlg::ProcessMessage(Long_t msg, Long_t parm1, Long_t /*parm2*/)
+Bool_t RegistersDlg::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
 {
    switch (GET_MSG(msg)) {
    case kC_COMMAND:

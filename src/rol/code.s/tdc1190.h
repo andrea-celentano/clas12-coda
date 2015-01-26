@@ -261,8 +261,10 @@ int    tdc1190StatusAlmostFull(int id);
 
 int    tdc1190Dready(int id);
 int    tdc1190EventFifo(int id, UINT32 flag);
+int    tdc1190GetEventFifo(int id);
 int    tdc1190ResetMCST(int id);
 int    tdc1190BusError(int id, UINT32 flag);
+int    tdc1190GetBusError(int id);
 int    tdc1190Align64(int id, UINT32 flag);
 
 int    tdc1190ReadBlock(int id, volatile UINT32 *data, int nwrds, int rflag);
@@ -405,4 +407,6 @@ void tdc1190Mon(int slot);
 void tdc1290Mon(int slot);
 void tdc1290PrintDMAdataType(int dataType);
 void tdc1290PrintDMABerrFifo(int method);
+int tdc1290UploadAll(char *string, int length);
+
 /*S.P.end*/

@@ -106,9 +106,16 @@ struct fadc_struct
 #ifdef CLAS12
   /* 0x0198 */ volatile unsigned int adc_gain[16];
   /* 0x0198 */ volatile unsigned int spare_adc[(0x200-0x1d8)>>2];
+
+  /* 0x0200 */ volatile unsigned int la_ctrl[8];
+  /* 0x0220 */ volatile unsigned int la_cmp_mode0[8];
+  /* 0x0240 */ volatile unsigned int la_cmp_thr0[8];
+  /* 0x0260 */ volatile unsigned int la_cmp_en0[8];
+  /* 0x0280 */ volatile unsigned int la_cmp_val0[8];
+  /* 0x02A0 */ volatile unsigned int la_status[8];
+  /* 0x02C0 */ volatile unsigned int la_data[16];
 #else
   /* 0x0198 */ volatile unsigned int spare_adc[(0x200-0x198)>>2];
-#endif
 
   /* 0x0200 */ volatile unsigned int hitsum_status;
   /* 0x0204 */ volatile unsigned int hitsum_cfg;
@@ -122,6 +129,8 @@ struct fadc_struct
   /* 0x0224 */ volatile unsigned int hitsum_fifo;
   /* 0x0228 */ volatile unsigned int hitsum_sum_thresh;
   /* 0x022C */ volatile unsigned int spare_hitsum[(0x300-0x22C)>>2];
+#endif
+
 
   /* 0x0300 */ volatile unsigned int scaler[16];
   /* 0x0340 */ volatile unsigned int time_count;
@@ -588,6 +597,7 @@ int  faTokenStatus(int id);
 int  faGTokenStatus();
 void faSetCalib(int id, unsigned short sdelay, unsigned short tdelay);
 void faChanDisable(int id, unsigned short cmask);
+unsigned int faGetChanMask(int id);
 void faEnable(int id, int eflag, int bank);
 void faDisable(int id, int eflag);
 void faTrig(int id);
@@ -626,6 +636,7 @@ int faSetThreshold(int id, unsigned short tvalue, unsigned short chmask);
 int faPrintThreshold(int id);
 int faSetDAC(int id, unsigned short dvalue, unsigned short chmask);
 void faPrintDAC(int id);
+unsigned int faGetChannelDAC(int id, unsigned int chan);
 int faSetChannelPedestal(int id, unsigned int chan, unsigned int ped);
 int faGetChannelPedestal(int id, unsigned int chan);
 int faLive(int id, int sflag);
@@ -699,7 +710,8 @@ int faSDC_Busy();
 
 
 /*sergey*/
-int faGetProcMode(unsigned int slot);
+int faGetProcMode(int id, int *pmode, unsigned int *PL, unsigned int *PTW, 
+				  unsigned int *NSB, unsigned int *NSA, unsigned int *NP);
 int faGetNfadc();
 int faId(unsigned int slot);
 int faSetThresholdAll(int id, unsigned short tvalue[16]);
@@ -710,6 +722,19 @@ int faResetMGT(int id, int reset);
 int faGetMGTChannelStatus(int id);
 int faSetChannelGain(int id, unsigned int chan, float gain);
 float faGetChannelGain(int id, unsigned int chan);
+
+int faGLoadChannelPedestals(char *fname, int updateThresholds);
+
+typedef struct
+{
+  double avg;
+  double rms;
+  double min;
+  double max;
+} fa250Ped;
+
+int faMeasureChannelPedestal(int id, unsigned int chan, fa250Ped *ped);
+
 #endif
 
 

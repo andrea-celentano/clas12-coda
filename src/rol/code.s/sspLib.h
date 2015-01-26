@@ -55,18 +55,6 @@ typedef struct
   /* 0x0190-0x01FF */          unsigned int Reserved2[(0x0200-0x0190)/4];
 } Sd_regs;
 
-/* Trigger Peripheral: Trigger configuration, status */
-typedef struct
-{
-  /* 0x0000-0x0003 */ volatile unsigned int Ctrl;
-  /* 0x0004-0x0010 */          unsigned int Reserved0[(0x0014-0x0004)/4];
-  /* 0x0014-0x0017 */ volatile unsigned int SumHistThr;
-  /* 0x0018-0x001B */ volatile unsigned int SumHistWindow;
-  /* 0x001C-0x0023 */ volatile unsigned int Reserved1[(0x0024-0x001C)/4];
-  /* 0x0024-0x0027 */ volatile unsigned int SumHistData;
-  /* 0x0028-0x00FF */          unsigned int Reserved2[(0x0100-0x0028)/4];
-} Trg_regs;
-
 /* Serdes Peripheral: Fiber & VXS serdes controls and monitors */
 typedef struct
 {
@@ -93,12 +81,31 @@ typedef struct
   /* 0x009C-0x00FF */          unsigned int Reserved5[(0x0100-0x009C)/4];
 } Serdes_regs;
 
+/* HPS Trigger Peripheral */
+typedef struct
+{
+  /* 0x0000-0x0003 */ volatile unsigned int Latency;
+  /* 0x0004-0x00FF */          unsigned int Reserved0[(0x0100-0x0004)/4];
+} Trigger_regs;
+
+/* HPS Cosmic Peripheral */
+typedef struct
+{
+  /* 0x0000-0x0003 */ volatile unsigned int TimeCoincidence;
+  /* 0x0004-0x0007 */ volatile unsigned int TriggerPattern;
+  /* 0x0008-0x000F */          unsigned int Reserved0[(0x0010-0x0008)/4];
+  /* 0x0010-0x001B */ volatile unsigned int ScalerScintillatorTop[3];
+  /* 0x001C-0x001F */ volatile unsigned int ScalerCosmicTop;
+  /* 0x0020-0x002B */ volatile unsigned int ScalerScintillatorBot[3];
+  /* 0x002C-0x002F */ volatile unsigned int ScalerCosmicBot;
+  /* 0x0030-0x00FF */          unsigned int Reserved1[(0x0100-0x0030)/4];
+} HpsCosmic_regs;
+
 /* HPS Singles Peripheral */
 typedef struct
 {
   /* 0x0000-0x0003 */ volatile unsigned int Ctrl;
-  /* 0x0004-0x0007 */ volatile unsigned int Latency;
-  /* 0x0008-0x0017 */ volatile unsigned int Reserved0[(0x0018-0x0008)/4];
+  /* 0x0004-0x0017 */ volatile unsigned int Reserved0[(0x0018-0x0004)/4];
   /* 0x0018-0x001B */ volatile unsigned int ClusterEmin;
   /* 0x001C-0x001F */ volatile unsigned int ClusterEmax;
   /* 0x0020-0x0023 */ volatile unsigned int ClusterNHitsmin;
@@ -118,13 +125,13 @@ typedef struct
   /* 0x0018-0x001B */ volatile unsigned int HistEnergy;
   /* 0x001C-0x001F */ volatile unsigned int HistNHits;
   /* 0x0020-0x00FF */          unsigned int Reserved1[(0x0100-0x0020)/4];
-} HpsCluster_regs;
+} Fiber_regs;
 
 /* HPS Pairs Peripheral */
 typedef struct
 {
   /* 0x0000-0x0003 */ volatile unsigned int Ctrl;
-  /* 0x0004-0x0007 */ volatile unsigned int Latency;
+  /* 0x0004-0x0007 */          unsigned int Reserved0[(0x0008-0x0004)/4];
   /* 0x0008-0x000B */ volatile unsigned int ClusterDelay;
   /* 0x000C-0x000F */ volatile unsigned int ClusterTimeCoincidence;
   /* 0x0010-0x0013 */ volatile unsigned int ClusterSummax;
@@ -135,63 +142,16 @@ typedef struct
   /* 0x0024-0x0027 */ volatile unsigned int ClusterCoplanarTol;
   /* 0x0028-0x0028 */ volatile unsigned int ClusterEDFactor;
   /* 0x002C-0x002F */ volatile unsigned int ClusterEDmin;
-  /* 0x0030-0x007F */          unsigned int Reserved0[(0x0080-0x0030)/4];
+  /* 0x0030-0x0033 */ volatile unsigned int ClusterSummin;
+  /* 0x0034-0x007F */          unsigned int Reserved1[(0x0080-0x0034)/4];
   /* 0x0080-0x0083 */ volatile unsigned int ScalerPairsPass;
   /* 0x0084-0x0087 */ volatile unsigned int ScalerSumPass;
   /* 0x0088-0x008B */ volatile unsigned int ScalerDiffPass;
   /* 0x008C-0x008F */ volatile unsigned int ScalerEDPass;
   /* 0x0090-0x0093 */ volatile unsigned int ScalerCoplanarPass;
   /* 0x0094-0x0097 */ volatile unsigned int ScalerTriggerPass;
-  /* 0x0098-0x00FF */          unsigned int Reserved1[(0x0100-0x0098)/4];
+  /* 0x0098-0x00FF */          unsigned int Reserved2[(0x0100-0x0098)/4];
 } HpsPair_regs;
-
-/* REGISTER BITS FOR EB_regs
--- Register bits
-
-	-- FIFO_BLOCK_CNT_REG
-	FIFO_BLOCK_CNT_REG <= USER_FIFO_BLOCK_CNT;
-
-	-- FIFO_WORD_CNT_REG
-	FIFO_WORD_CNT_REG <= USER_FIFO_WORD_CNT;
-
-	-- FIFO_EVENT_CNT_REG
-	FIFO_EVENT_CNT_REG <= USER_FIFO_EVENT_CNT;
-
-	--LOOKBACK_REG
-	LOOKBACK <= LOOKBACK_REG(9 downto 0);
-
-	--WINDOW_WIDTH_REG
-	WINDOW_WIDTH <= WINDOW_WIDTH_REG(9 downto 0);
-
-	--BLOCK_CFG_REG
-	BLOCK_SIZE <= BLOCK_CFG_REG(7 downto 0);
-
-	--ADR32_REG
-	A32_BASE_ADDR <= ADR32_REG(15 downto 7);
-	A32_BASE_ADDR_EN <= ADR32_REG(0);
-
-	--USER_INT_REG
-	USER_INT_ID <= USER_INT_REG(7 downto 0);
-	USER_INT_LEVEL <= USER_INT_REG(10 downto 8);
-	USER_INT_ENABLED <= USER_INT_REG(11);
-	USER_INT_ACKED <= USER_INT_REG(31);
-
-	--READOUT_CFG_REG
-	USER_BERR_EN <= READOUT_CFG_REG(0);
-	EVT_WORD_INT_LEVEL <= READOUT_CFG_REG(31 downto 16);
-	EVT_NUM_INT_LEVEL <= READOUT_CFG_REG(15 downto 1);
-
-	--ADR32M_REG
-	A32M_ADDR_MIN <= ADR32M_REG(8 downto 0);
-	A32M_ADDR_MAX <= ADR32M_REG(24 downto 16);
-	A32M_ADDR_EN <= ADR32M_REG(25);
-	TOKEN_FIRST <= ADR32M_REG(26);
-	TOKEN_LAST <= ADR32M_REG(27);
-	TOKEN_TAKE <= ADR32M_REG(28);
-
-	--READOUT_STATUS_REG
-	READOUT_STATUS_REG(0) <= TOKEN_STATUS;
-*/
 
 /* HPS Event Builder */
 typedef struct
@@ -216,16 +176,18 @@ typedef struct
   /* 0x0000-0x00FF */ SspCfg_regs     Cfg;
   /* 0x0100-0x01FF */ Clk_regs        Clk;
   /* 0x0200-0x03FF */ Sd_regs         Sd;
-  /* 0x0400-0x04FF */ Trg_regs        Trg;
-  /* 0x0500-0x05FF */ Hps_regs        HpsSingles;
-  /* 0x0600-0x06FF */ HpsCluster_regs HpsClusterTop;
-  /* 0x0700-0x07FF */ HpsCluster_regs HpsClusterBot;
-  /* 0x0800-0x08FF */ HpsPair_regs    HpsPairs;
-  /* 0x0900-0x0FFF */ unsigned int    Reserved0[(0x1000-0x0900)/4];
+  /* 0x0400-0x04FF */ unsigned int    Reserved0[(0x0500-0x0400)/4];
+  /* 0x0500-0x05FF */ Fiber_regs      FiberTop;
+  /* 0x0600-0x06FF */ Fiber_regs      FiberBot;
+  /* 0x0700-0x08FF */ Hps_regs        HpsSingles[2];
+  /* 0x0900-0x0AFF */ HpsPair_regs    HpsPairs[2];
+  /* 0x0B00-0x0BFF */ HpsCosmic_regs  HpsCosmic;
+  /* 0x0C00-0x0FFF */ unsigned int    Reserved1[(0x1000-0x0C00)/4];
   /* 0x1000-0x19FF */ Serdes_regs     Ser[10];
-  /* 0x1a00-0x1FFF */ unsigned int    Reserved1[(0x2000-0x1a00)/4];
+  /* 0x1a00-0x1FFF */ unsigned int    Reserved2[(0x2000-0x1a00)/4];
   /* 0x2000-0x20FF */ EB_regs         EB;
-  /* 0x2100-0xFFFF */ unsigned int    Reserved2[(0x10000-0x2100)/4];
+  /* 0x2100-0x21FF */ Trigger_regs    Trigger;
+  /* 0x2200-0xFFFF */ unsigned int    Reserved3[(0x10000-0x2200)/4];
 } SSP_regs;
 
 
@@ -329,12 +291,6 @@ typedef struct
 
 #define CLK_CTRL_DRPDWE				0x00200000
 #define CLK_CTRL_DRPDEN				0x00400000
-/* #define CLK_CTRL_CLKSOUT0			0x01000000 */
-/* #define CLK_CTRL_CLKSOUT1			0x02000000 */
-/* #define CLK_CTRL_CLKSIN0			0x04000000 */
-/* #define CLK_CTRL_CLKSIN1			0x08000000 */
-/* #define CLK_CTRL_CLKLOAD			0x10000000 */
-/* #define CLK_CTRL_CLKCONF			0x20000000 */
 #define CLK_CTRL_SERDES_MASK                    0x03000000
 #define CLK_CTRL_SERDES_DISABLED                (0<<24)
 #define CLK_CTRL_SERDES_VXS                     (1<<24)
@@ -363,18 +319,6 @@ typedef struct
 #define TRG_CTRL_FIBER_EN5			0x00000020
 #define TRG_CTRL_FIBER_EN6			0x00000040
 #define TRG_CTRL_FIBER_EN7			0x00000080
-
-#if 0
-#define TRG_CTRL_GTPSRC_FIBER0	0
-#define TRG_CTRL_GTPSRC_FIBER1	1
-#define TRG_CTRL_GTPSRC_FIBER2	2
-#define TRG_CTRL_GTPSRC_FIBER3	3
-#define TRG_CTRL_GTPSRC_FIBER4	4
-#define TRG_CTRL_GTPSRC_FIBER5	5
-#define TRG_CTRL_GTPSRC_FIBER6	6
-#define TRG_CTRL_GTPSRC_FIBER7	7
-#define TRG_CTRL_GTPSRC_SUM	8
-#endif
 
 #define TRG_CTRL_GTPSRC_FIBER0	(0 << 24)
 #define TRG_CTRL_GTPSRC_FIBER1	(1 << 24)
@@ -480,17 +424,6 @@ typedef struct
 #define SSP_INIT_GTP_FIBER7_ENABLE     (7<<24)
 #define SSP_INIT_GTP_FIBER_ENABLE_MASK 0xFF000000
 
-#if 0
-#define SSP_INIT_GTP_FIBER0_ENABLE     (1<<24)
-#define SSP_INIT_GTP_FIBER1_ENABLE     (1<<25)
-#define SSP_INIT_GTP_FIBER2_ENABLE     (1<<26)
-#define SSP_INIT_GTP_FIBER3_ENABLE     (1<<27)
-#define SSP_INIT_GTP_FIBER4_ENABLE     (1<<28)
-#define SSP_INIT_GTP_FIBER5_ENABLE     (1<<29)
-#define SSP_INIT_GTP_FIBER6_ENABLE     (1<<30)
-#define SSP_INIT_GTP_FIBER7_ENABLE     (1<<31)
-#endif
-
 
 /* sspStatus rflag options */
 #define SSP_STATUS_SHOWREGS   (1<<0)
@@ -540,24 +473,30 @@ int  sspTriggerSetup(int id, int fiber_mask, int gtp_src, int pflag);
 
 /* HPS routines */
 int  sspHps_SetLatency(int id, int latency);
-int  sspHps_SetSinglesEnableTop(int id, int en);
-int  sspHps_SetSinglesEnableBot(int id, int en);
-int  sspHps_SetSinglesEmin(int id, int min);
-int  sspHps_SetSinglesEmax(int id, int max);
-int  sspHps_SetSinglesNHitsmin(int id, int min);
-int  sspHps_SetPairsTimeCoincidence(int id, int ticks);
-int  sspHps_SetPairsEnableSum(int id, int en);
-int  sspHps_SetPairsEnableDiff(int id, int en);
-int  sspHps_SetPairsEnableCoplanar(int id, int en);
-int  sspHps_SetPairsEnableED(int id, int en);
-int  sspHps_SetPairsSummax(int id, int max);
-int  sspHps_SetPairsDiffmax(int id, int max);
-int  sspHps_SetPairsEmin(int id, int min);
-int  sspHps_SetPairsEmax(int id, int max);
-int  sspHps_SetPairsNHitsmin(int id, int min);
-int  sspHps_SetPairsCoplanarTolerance(int id, int tol);
-int  sspHps_SetPairsEDFactor(int id, int f);
-int  sspHps_SetPairsEDmin(int id, int min);
+int  sspHps_SetSinglesEmin(int id, int n, int min);
+int  sspHps_SetSinglesEmax(int id, int n, int max);
+int  sspHps_SetSinglesNHitsmin(int id, int n, int min);
+int  sspHps_SetSinglesEnableEmin(int id, int n, int en);
+int  sspHps_SetSinglesEnableEmax(int id, int n, int en);
+int  sspHps_SetSinglesEnableNmin(int id, int n, int en);
+int  sspHps_SetCosmicTimeCoincidence(int id, int ticks);
+int  sspHps_SetCosmicCoincidencePattern(int id, int pattern);
+int  sspHps_SetPairsEnableSum(int id, int n, int en);
+int  sspHps_SetPairsEnableDiff(int id, int n, int en);
+int  sspHps_SetPairsEnableCoplanar(int id, int n, int en);
+int  sspHps_SetPairsEnableED(int id, int n, int en);
+int  sspHps_SetPairsClusterDelay(int id, int n, int delay);
+int  sspHps_SetPairsTimeCoincidence(int id, int n, int ticks);
+int  sspHps_SetPairsSummax(int id, int n, int max);
+int  sspHps_SetPairsSummin(int id, int n, int min);
+int  sspHps_SetPairsDiffmax(int id, int n, int max);
+int  sspHps_SetPairsEmin(int id, int n, int min);
+int  sspHps_SetPairsEmax(int id, int n, int max);
+int  sspHps_SetPairsNHitsmin(int id, int n, int min);
+int  sspHps_SetPairsCoplanarTolerance(int id, int n, int tol);
+int sspHps_SetPairsEDFactor(int id, int n, float f);
+int  sspHps_SetPairsEDmin(int id, int n, int min);
+
 void sspPrintHpsScalers(int id);
 void sspPrintHpsConfig(int id);
 
@@ -604,6 +543,7 @@ int sspSetWindowWidth(int id, int window_width);
 int sspGetWindowWidth(int id);
 int sspSetWindowOffset(int id, int window_offset);
 int sspGetWindowOffset(int id);
-
+int sspBReady(int id);
+unsigned int sspGBReady();
 
 #endif

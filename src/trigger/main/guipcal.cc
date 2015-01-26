@@ -623,7 +623,7 @@ ScalersDlg::ScalersDlg(const TGWindow *p, PCALMainFrame *main,
    Pixel_t yellow;
    fClient->GetColorByName("yellow", yellow);
    TGTabElement *tabel = fTab->GetTabTab("Tab 3");;
-   tabel->ChangeBackground(yellow);
+   /*tabel->ChangeBackground(yellow);*/
 
 
 
@@ -1049,7 +1049,7 @@ Dsc2Dlg::Dsc2Dlg(const TGWindow *p, PCALMainFrame *main,
    Pixel_t yellow;
    fClient->GetColorByName("yellow", yellow);
    TGTabElement *tabel = fTab->GetTabTab("Tab 3");;
-   tabel->ChangeBackground(yellow);
+   /*tabel->ChangeBackground(yellow);*/
 
 
 

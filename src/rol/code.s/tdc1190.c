@@ -124,6 +124,9 @@ int               c1190IntCount   = 0; /* Count of interrupts from TDC */
 
 
 /*Sergey*/
+
+static int active;
+
 /* window parameters */
 static int window_width  = 4600;
 static int window_offset = -4000;
@@ -710,7 +713,7 @@ tdc1190Type(int id)
 {
   if(id>=0 && id<Nc1190) return(use1190[id]);
 
-  printf("%s: ERROR: FADC with id %d does not exist.\n",__FUNCTION__,id);
+  printf("%s: ERROR: TDC with id %d does not exist.\n",__FUNCTION__,id);
   return(ERROR);
 }
 
@@ -724,7 +727,7 @@ tdc1190Slot(int id)
   if(id>=0 && id<Nc1190)
     return(tdc1190GetGeoAddress(id));
 
-  printf("%s: ERROR: FADC with id %d does not exist.\n",__FUNCTION__,id);
+  printf("%s: ERROR: TDC with id %d does not exist.\n",__FUNCTION__,id);
   return(ERROR);
 }
 
@@ -737,7 +740,7 @@ tdc1190Id(int slot)
     if(tdc1190GetGeoAddress(id)==slot)
       return(id);
 
-  printf("%s: ERROR: FADC in slot %d does not exist or not initialized.\n",__FUNCTION__,slot);
+  printf("%s: ERROR: TDC in slot %d does not exist or not initialized.\n",__FUNCTION__,slot);
   return(ERROR);
 }
 
@@ -951,6 +954,7 @@ tdc1290ReadConfigFile(char *filename)
   printf("\nReadConfigFile: Using configuration file >%s<\n",fname);
 
   /* Parsing of config file */
+  active = 0;
   while ((ch = getc(fd)) != EOF)
   {
     if ( ch == '#' || ch == ' ' || ch == '\t' )
@@ -966,23 +970,33 @@ tdc1290ReadConfigFile(char *filename)
 
 
       /* Start parsing real config inputs */
-      if(strcmp(keyword,"CRATE") == 0)
+      if((strcmp(keyword,"TDC1190_CRATE")==0)||(strcmp(keyword,"TDC1290_CRATE")==0))
       {
-	    if(strcmp(ROC_name,host) != 0)
+	    if(strcmp(ROC_name,host) == 0)
         {
-	      printf("\nReadConfigFile: Wrong crate name in config file, %s\n",str_tmp);
-          return(-3);
+	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+          active = 1;
         }
-	    printf("\nReadConfigFile: conf_CRATE_name = %s  host = %s\n",ROC_name,host);
+	    else if(strcmp(ROC_name,"all") == 0)
+		{
+	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+          active = 1;
+		}
+        else
+		{
+	      printf("\nReadConfigFile: crate = %s  host = %s - disactivated\n",ROC_name,host);
+          active = 0;
+		}
       }
 
-      else if((strcmp(keyword,"TDC1190_ALLSLOTS")==0)||(strcmp(keyword,"TDC1290_ALLSLOTS")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_ALLSLOTS")==0)||(strcmp(keyword,"TDC1290_ALLSLOTS")==0)))
       {
 	    gr++;
 	    for(ii=0; ii<NBOARD; ii++)  tdc[ii].group = gr;
       }
 
-      else if((strcmp(keyword,"TDC1190_SLOTS")==0)||(strcmp(keyword,"TDC1290_SLOTS")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_SLOT")==0)||(strcmp(keyword,"TDC1290_SLOT")==0)||
+			   (strcmp(keyword,"TDC1190_SLOTS")==0)||(strcmp(keyword,"TDC1290_SLOTS")==0)))
       {
 	    gr++;
 	    SCAN_MSK;
@@ -1000,7 +1014,7 @@ tdc1290ReadConfigFile(char *filename)
 	    }
       }
 
-      else if((strcmp(keyword,"TDC1190_A24_A32")==0)||(strcmp(keyword,"TDC1290_A24_A32")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_A24_A32")==0)||(strcmp(keyword,"TDC1290_A24_A32")==0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    if(i1!=1 && i1!=2)
@@ -1011,7 +1025,7 @@ tdc1290ReadConfigFile(char *filename)
 	    a24_a32 = i1;
       }
 
-      else if((strcmp(keyword,"TDC1190_SNGL_BLT")==0)||(strcmp(keyword,"TDC1290_SNGL_BLT")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_SNGL_BLT")==0)||(strcmp(keyword,"TDC1290_SNGL_BLT")==0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    if(i1<1 && i1>5)
@@ -1022,7 +1036,7 @@ tdc1290ReadConfigFile(char *filename)
 	    sngl_blt_mblt = i1;
       }
 
-      else if((strcmp(keyword,"TDC1190_SST_RATE")==0)||(strcmp(keyword,"TDC1290_SST_RATE")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_SST_RATE")==0)||(strcmp(keyword,"TDC1290_SST_RATE")==0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    if(i1!=0 && i1!=1)
@@ -1033,7 +1047,7 @@ tdc1290ReadConfigFile(char *filename)
 	    sst_rate = i1;
       }
 
-      else if((strcmp(keyword,"TDC1190_BERR_FIFO")==0)||(strcmp(keyword,"TDC1290_BERR_FIFO")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_BERR_FIFO")==0)||(strcmp(keyword,"TDC1290_BERR_FIFO")==0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    if(i1!=0 && i1!=1)
@@ -1044,61 +1058,61 @@ tdc1290ReadConfigFile(char *filename)
 	    berr_fifo = i1;
       }
 
-      else if((strcmp(keyword,"TDC1190_BLT_EVENTS")==0)||(strcmp(keyword,"TDC1290_BLT_EVENTS")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_BLT_EVENTS")==0)||(strcmp(keyword,"TDC1290_BLT_EVENTS")==0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    blt_Events= i1;
       }
 
-      else if((strcmp(keyword,"TDC1190_N_HITS")==0)||(strcmp(keyword,"TDC1290_N_HITS")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_N_HITS")==0)||(strcmp(keyword,"TDC1290_N_HITS")==0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    n_Hits= i1;
       }
 
-      else if((strcmp(keyword,"TDC1190_ALMOSTFULL")==0)||(strcmp(keyword,"TDC1290_ALMOSTFULL")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_ALMOSTFULL")==0)||(strcmp(keyword,"TDC1290_ALMOSTFULL")==0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    almostFullLevel= i1;
       }
 
-      else if((strcmp(keyword,"TDC1190_OUT_PROG")==0)||(strcmp(keyword,"TDC1290_OUT_PROG")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_OUT_PROG")==0)||(strcmp(keyword,"TDC1290_OUT_PROG")==0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    outProgControl= i1;
       }
 
-      else if((strcmp(keyword,"TDC1190_W_WIDTH")==0)||(strcmp(keyword,"TDC1290_W_WIDTH")==0))
+	  else if(active && ((strcmp(keyword,"TDC1190_W_WIDTH")==0)||(strcmp(keyword,"TDC1290_W_WIDTH")==0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    window_width= i1;
       }
 
-      else if((strcmp(keyword,"TDC1190_W_OFFSET")==0)||(strcmp(keyword,"TDC1290_W_OFFSET")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_W_OFFSET")==0)||(strcmp(keyword,"TDC1290_W_OFFSET")==0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    window_offset= i1;
       }
 
-      else if((strcmp(keyword,"TDC1190_W_EXTRA")==0)||(strcmp(keyword,"TDC1290_W_EXTRA")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_W_EXTRA")==0)||(strcmp(keyword,"TDC1290_W_EXTRA")==0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    window_extra= i1;
       }
 
-      else if((strcmp(keyword,"TDC1190_W_REJECT")==0)||(strcmp(keyword,"TDC1290_W_REJECT")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_W_REJECT")==0)||(strcmp(keyword,"TDC1290_W_REJECT")==0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    window_reject= i1;
       }
 
-      else if((strcmp(keyword,"TDC1190_EDGE")==0)||(strcmp(keyword,"TDC1290_EDGE")==0))
+      else if(active && ((strcmp(keyword,"TDC1190_EDGE")==0)||(strcmp(keyword,"TDC1290_EDGE")==0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    for(ii=0; ii<NBOARD; ii++)  if(tdc[ii].group == gr)  tdc[ii].edge = i1 & 0x3;
       }
 
-      else if((strncmp(keyword,"TDC1190_MASK",12) == 0)||(strncmp(keyword,"TDC1290_MASK",12) == 0))
+      else if(active && ((strncmp(keyword,"TDC1190_MASK",12) == 0)||(strncmp(keyword,"TDC1290_MASK",12) == 0)))
       {
 	    SCAN_MSK;
 	    ui1 = 0;
@@ -1126,12 +1140,16 @@ tdc1290ReadConfigFile(char *filename)
 	  }
       else
       {
+        ; /* unknown key - do nothing */
+		/*
         printf("ReadConfigFile: Unknown Field or Missed Field in\n");
         printf("   %s \n", fname);
         printf("   str_tmp=%s", str_tmp);
         printf("   keyword=%s \n\n", keyword);
         return(-10);
+		*/
       }
+
     }
   } /* end of while */
 
@@ -1316,6 +1334,116 @@ tdc1290Mon(int slot)
     tdc1190GetAlmostFullLevel(ii);
   }
 }
+
+
+
+
+
+
+
+
+#define ADD_TO_STRING \
+  len1 = strlen(str); \
+  len2 = strlen(sss); \
+  if((len1+len2) < length) strcat(str,sss); \
+  else \
+  { \
+    str[len1+1] = ' '; \
+    str[len1+2] = ' '; \
+    str[len1+3] = ' '; \
+    len1 = ((len1+3)/4)*4; \
+    return(len1); \
+  }
+
+/* upload setting from all found DSC2s */
+int
+tdc1290UploadAll(char *string, int length)
+{
+  int slot, i, ii, jj, kk, nnn, len1, len2;
+  char *str, sss[1024];
+  unsigned int tmp, val[NCHAN], val1[NCHAN];
+  unsigned short sval[NCHAN];
+  unsigned short bypMask;
+  unsigned short channels[8];
+
+  str = string;
+  str[0] = '\0';
+  for(kk=0; kk<Nc1190; kk++)
+  {
+    slot = tdc1190Slot(kk);
+
+    sprintf(sss,"TDC1190_SLOT %d\n",slot);
+    ADD_TO_STRING;
+
+    sprintf(sss,"TDC1190_BERR_FIFO %d\n",tdc1190GetEventFifo(kk));
+    ADD_TO_STRING;
+	
+    sprintf(sss,"TDC1190_BLT_EVENTS %d\n",tdc1190GetBLTEventNumber(kk));
+    ADD_TO_STRING;
+
+    sprintf(sss,"TDC1190_N_HITS %d\n",tdc1190GetMaxNumberOfHitsPerEvent(kk));
+    ADD_TO_STRING;
+
+    sprintf(sss,"TDC1190_ALMOSTFULL %d\n",tdc1190GetAlmostFullLevel(kk));
+    ADD_TO_STRING;
+
+    sprintf(sss,"TDC1190_OUT_PROG %d\n",tdc1190GetOutProg(kk));
+    ADD_TO_STRING;
+
+    sprintf(sss,"TDC1190_W_WIDTH %d # not fron hardware\n",window_width);
+    ADD_TO_STRING;
+
+    sprintf(sss,"TDC1190_W_OFFSET %d # not fron hardware\n",window_offset);
+    ADD_TO_STRING;
+
+    sprintf(sss,"TDC1190_W_EXTRA %d # not fron hardware\n",window_extra);
+    ADD_TO_STRING;
+
+    sprintf(sss,"TDC1190_W_REJECT %d # not fron hardware\n",window_reject);
+    ADD_TO_STRING;
+
+    sprintf(sss,"TDC1190_EDGE %d\n",tdc1190ReadEdgeDetectionConfig(kk));
+    ADD_TO_STRING;
+
+    tdc1190GetChannels(kk, channels);
+    if(use1190[kk] == 1) nnn = 8;
+    else                 nnn = 2;
+    for(ii=0; ii<nnn; ii++)
+	{
+      sprintf(sss,"TDC1190_MASK%1d",ii+1);
+      ADD_TO_STRING;
+      for(jj=0; jj<16; jj++)
+	  {
+        sprintf(sss," %d",(channels[ii]>>jj)&0x1);
+        ADD_TO_STRING;
+	  }
+      sprintf(sss,"\n");
+      ADD_TO_STRING;
+	}
+  }
+
+  len1 = strlen(str);
+  str[len1+1] = ' ';
+  str[len1+2] = ' ';
+  str[len1+3] = ' ';
+  len1 = ((len1+3)/4)*4;
+
+  return(len1);
+}
+
+
+
+
+
+
+int
+tdc1190UploadAll(char *string, int length)
+{
+  return(tdc1290UploadAll(string, length));
+}
+
+
+
 
 
 void
@@ -1876,6 +2004,25 @@ tdc1190EventFifo(int id, UINT32 flag)
   return(0);
 }
 
+int
+tdc1190GetEventFifo(int id)
+{
+  unsigned short reg;
+
+  CHECKID(id);
+
+  if(use1190[id]==0) 
+    return ERROR; 
+
+  LOCK_1190;
+  reg = vmeRead16(&(c1190p[id]->control));
+  UNLOCK_1190;
+
+  return(reg & V1190_EVENT_FIFO_ENABLE);
+}
+
+
+
 /******************************************************************************
  *
  * tdc1190ResetMSCT - Reset the MSCT/CBLT register
@@ -1940,6 +2087,23 @@ tdc1190BusError(int id, UINT32 flag)
   UNLOCK_1190;
 
   return(0);
+}
+
+int
+tdc1190GetBusError(int id)
+{
+  int reg;
+
+  CHECKID(id);
+
+  if(use1190[id]==0) 
+    return ERROR; 
+
+  LOCK_1190;
+  reg = vmeRead16(&(c1190p[id]->control));
+  UNLOCK_1190;
+
+  return(reg & V1190_BUSERROR_ENABLE);
 }
 
 /******************************************************************************
@@ -2192,11 +2356,12 @@ tdc1190ReadStart(INT32 *tdcbuf, INT32 *rlenbuf)
       notready = 1;
     }
 
-    /* should never have more then 100 events in one block */
+    /* should never have more then 100 events in one block 
     if(nev > 100)      
     {
 	  logMsg("tdc1190ReadStart: ERROR: [%2d] nev=%d\n",jj,nev,3,4,5,6);
 	}
+	*/
   }
 
   if(notready) return(ERROR);
@@ -2282,11 +2447,12 @@ TIMER_VAR;
     }
 
     /* Trigger Supervisor has 6 event buffer, but we can get 7
-	   if 'parallel' readout is in use */
+	   if 'parallel' readout is in use 
     if(nev > 7)
     {
 	  logMsg("tdc1190ReadListStart: ERROR: [%2d] nev=%d\n",jj,nev,3,4,5,6);
 	}
+*/
   }
 
 
@@ -3812,10 +3978,11 @@ STATUS
 tdc1190SetBLTEventNumber(int id, UINT16 nevents)
 {
   CHECKID(id);
+  blt_Events = nevents & 0xFF;
   LOCK_1190;
-  vmeWrite16(&(c1190p[id]->bltEventNumber), nevents & 0xFF);
+  vmeWrite16(&(c1190p[id]->bltEventNumber), blt_Events);
   UNLOCK_1190;
-  printf("tdc1190SetBLTEventNumber: set blt event number to %d\n",nevents);
+  printf("tdc1190SetBLTEventNumber: set blt event number to %d\n",blt_Events);
   return OK;
 }
 

@@ -48,6 +48,8 @@ main(int argc, char *argv[])
   vmeOpenDefaultWindows();
   printf("\n");
 
+  sspInit(slot<<19, 0, 1, SSP_INIT_NO_INIT | SSP_INIT_SKIP_FIRMWARE_CHECK);
+
   /* update firmware */
   sspFirmwareUpdateVerify(slot, myname);
 

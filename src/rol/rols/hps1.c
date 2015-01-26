@@ -1,4 +1,3 @@
-
 /* hps1.c */
 
 #if defined(VXWORKS) || defined(Linux_vme)
@@ -21,6 +20,7 @@ coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 #define USE_FADC250
 #define USE_V1190
 #define USE_SSP
+#define USE_VSCM
 
 
 /* if event rate goes higher then 10kHz, with random triggers we have wrong
@@ -29,6 +29,7 @@ around that problem temporary patches were applied - until fixed (Sergey) */
 #define SLOTWORKAROUND
 
 #undef DEBUG
+
 
 
 #include <stdio.h>
@@ -92,6 +93,7 @@ void usrtrig_done();
 #include "scaler7201.h"
 #include "adc792.h"
 #include "tdc1190.h"
+#include "vscmLib.h"
 
 #ifdef USE_SSP
 #include "sspLib.h"
@@ -187,10 +189,13 @@ titest1()
 }
 
 
-#ifdef USE_V1190
 
+/*
+#ifdef USE_V1190
+*/
 static int tdctypebyslot[NBOARDS];
 static int error_flag[NBOARDS];
+static int ndsc2;
 static int ntdcs;
 
 static unsigned int NBsubtract = 9; /*same for v1190 and v1290 ?*/
@@ -203,6 +208,8 @@ getTdcTypes(int *typebyslot)
   return(ntdcs);
 }
 
+
+
 #ifdef SLOTWORKAROUND
 static int slotnums[NBOARDS];
 int
@@ -214,38 +221,30 @@ getTdcSlotNumbers(int *slotnumbers)
 }
 #endif
 
+/*
+#endif
+*/
+
+
+
+
+
+#ifdef USE_SSP
+static unsigned int sspSlotMask = 0; /* bit=slot (starting from 0) */
+static int SSP_SLOT;
 #endif
 
+#ifdef USE_VSCM
+static unsigned int vscmSlotMask = 0; /* bit=slot (starting from 0) */
+static int nvscm1 = 0;
+static int VSCM_ROFLAG = 1;
+#endif
 
 #ifdef USE_FADC250
-
-/*ctp cluster coincidence window*/
-static unsigned int cluster_window = 1; /*0: 4 ns, 1: 8ns, ..., max 32ns - coincidence window on FADC hits */
-
-/*FADC trigger reporting sum scale factor*/
-static unsigned int fa_sumScaleFactor = 7; /*lsb will be: 0-20fC, 1-40fC, 2-80, 3-160, ...: range is 5 bits (0-31); Scale Factor for the total sum reported to the CTP i.e. Sum/(2^sumScaleFactor) (<15)*/
-
-
-void
-changeClusterWindow()
-{
-  cluster_window += 1;
-  if(cluster_window>7) cluster_window=0;
-  printf("set CTP cluster_window to %d (%d ns)\n",cluster_window,(cluster_window+1)*4);
-}
-
-void
-changeScaleFactor()
-{
-  fa_sumScaleFactor += 1;
-  if(fa_sumScaleFactor>15) fa_sumScaleFactor=0;
-  printf("set FADC trigger reporting sum scale factor to %d (%d fC)\n",fa_sumScaleFactor,(fa_sumScaleFactor+1)*20);
-}
 
 #include "fadcLib.h"
 
 #define DIST_ADDR  0xEA00	  /*  base address of FADC signal distribution board  (A16)  */
-#define FADC_THRESHOLD       10  /* Threshold for data readout */
 
 
 unsigned int fadcSlotMask   = 0;    /* bit=slot (starting from 0) */
@@ -277,75 +276,26 @@ int ic_tdc_low[2][128] = {
 
 /*adc's in slots 3-10 and 13-18*/
 
-unsigned int ic_adc_ped[21][16];
-unsigned short ic_adc_thres[21][16];
-unsigned int offset;
-
-
-int
-abcReadPeds(int rocid)
+char *
+getFadcPedsFilename(int rocid)
 {
-  FILE *fd = NULL;
   char *dir = NULL;
   char *expid = NULL;
-  char fname[1024];
-  int slot, chan, ped, status;
-  float sigma;
+  static char fname[1024];
 
-
-  printf("Opening pedestal file\n");
   if((dir=getenv("CLAS")) == NULL)
   {
     printf("ERROR: environment variable CLAS is not defined - exit\n");
-    return(-1);
+    return(NULL);
   }
   if((expid=getenv("EXPID")) == NULL)
   {
     printf("ERROR: environment variable EXPID is not defined - exit\n");
-    return(-1);
+    return(NULL);
   }
   sprintf(fname,"%s/parms/peds/%s/fadc%02d.ped",dir,expid,rocid);
-  fd = fopen(fname,"r");
-  if(fd==NULL)
-  {
-    printf("ttfa: ERROR: cannot open pedestal file >%s<\n",fname);
-  }
-  else
-  {
-    printf("ttfa: pedestal file >%s< is opened for writing\n",fname);
 
-
-    for(slot=0; slot<19; slot++)
-    {
-      for(chan=0; chan<16; chan++)
-      {
-        ic_adc_ped[slot][chan] = 0;
-        ic_adc_thres[slot][chan] = 0;
-      }
-    }
-
-    while( (status=fscanf(fd,"%d %d %d %f %d\n",&slot,&chan,&ped,&sigma,&offset)) > 0 )
-    {
-      printf("status=%d -> slot=%2d chan=%2d ped=%5d sigma=%6.3f\n",status,slot,chan,ped,sigma);
-      if(slot>=2&&slot<21&&chan>=0&&chan<16)
-      {
-        /* set trigger threshold */
-        ic_adc_ped[slot][chan] = ped + offset;
-
-        /* set readout threshold as pedestal + some offset */
-        ic_adc_thres[slot][chan] = ped + /*100*/ /*6*/ 0; /* MUST BE TET FROM CONFIG FILE */
-      }
-      else printf("bad slot=%d or chan=%d\n",slot,chan);
-    }
-
-    if(status==EOF) printf("EOF reached\n");
-    else            printf("fscanf() returned error %d\n",status);
-
-    fclose(fd);
-    printf("ttfa: pedestal file >%s< is closed\n",fname);
-  }
-
-  return(0);
+  return fname;
 }
 
 #endif
@@ -361,31 +311,6 @@ __download()
   int fadc_mode = 1, iFlag = 0;
   int ich, NSA, NSB;
 
-  /*ctp params*/
-  unsigned int cluster_threshold = 0; /* 8 bits: (MeV) cluster energy sum threshold */
-
-  /*ssp params*/
-  unsigned int ssp_addr_a24 = 0xBE0000;
-
-  unsigned int coincidence_window = 15; /*4: +/-16ns time window for cluster pairs */
-
-  unsigned int energy_sum_max = 255; /*255: no cut (cut on pair)*/
-  unsigned int pair_energy_difference_max = 255; /*255: no cut*/
-  unsigned int pair_energy_difference_threshold = 255; /*255: no cut*/
-  unsigned int energy_max = 255; /*255: no cut (cut on individual cluster)*/
-  unsigned int energy_min = 10/*10*/; /*not cut (cut on individual cluster)*/
-  unsigned int cluster_delay = 128; /*128: 512ns delay critical parameter for internal algorithm to work*/
-  unsigned int trigger_latency = 511; /*2us delay for sync->trigger out of SSP...real latency to FADC trigger input will be about 3.2us*/
-
-  /*
-  0:    will trigger on a cluster pair
-  0x10: will trigger on a cluster found in top half of calorimeter
-  0x20: will trigger on a cluster found in bottom half of calorimeter
-  0x30: will trigger on a cluster found in top OR bottom half of calorimeter
-  */
-  unsigned int trigger_cut_enable_mask = 0x30;
-
-
 #endif
 #ifdef POLLING_MODE
   rol->poll = 1;
@@ -395,6 +320,7 @@ __download()
 
   printf("\n>>>>>>>>>>>>>>> ROCID=%d, CLASSID=%d <<<<<<<<<<<<<<<<\n",rol->pid,rol->classid);
   printf("CONFFILE >%s<\n\n",rol->confFile);
+  printf("LAST COMPILED: %s %s\n", __DATE__, __TIME__);
 
   /*
   printf("rol1: downloading DDL table ...\n");
@@ -412,92 +338,47 @@ __download()
   CDOINIT(TIPRIMARY,TIR_SOURCE);
 #endif
 
-printf("***1***\n");
-tiStatus(1); /* Ben & William Testing */
   /*************************************/
   /* redefine TI settings if neseccary */
 
 
-
-
-
-
-
-
-
-
-
-
-
-printf("***2***\n");
-tiStatus(1); /* Ben & William Testing */
-
-
-
-
-
-
-
-
-
-
-
-
-
-  /*********************************************************/
-  /*********************************************************/
-
-
-
-
-
-
-
-
-printf("***4***\n");
-tiStatus(1); /* Ben & William Testing */
-
-
-  /* for timing measurements in FADC250s */
-  tiSetTriggerHoldoff(1,5,0);   /* No more than 1 trigger within 80 ns */
-printf("***5***\n");
-tiStatus(1); /* Ben & William Testing */
-  tiSetTriggerHoldoff(4,41,0);  /* No more than 4 triggers within 656 ns */
-printf("***6***\n");
-tiStatus(1); /* Ben & William Testing */
-
-  /* Allow set/clear control of sync reset - for s/w pulse control */
-  tiSetUserSyncResetReceive(1);
-printf("***7***\n");
-tiStatus(1); /* Ben & William Testing */
-
-
-#ifdef NEW
-/* set wide pulse
-tiSetSyncDelayWidth(1,127,1);
-*/
+#ifndef TI_SLAVE
+  /* TS 1-6 create physics trigger, no sync event pin, no trigger 2 */
+  tiLoadTriggerTable(3);
 #endif
 
 
+  /*********************************************************/
+  /*********************************************************/
+
+
+#if 0
+  /* for timing measurements in FADC250s */
+  tiSetTriggerHoldoff(1,5,0);   /* No more than 1 trigger within 80 ns */
+  tiSetTriggerHoldoff(4,41,0);  /* No more than 4 triggers within 656 ns */
+#endif
+  tiSetTriggerHoldoff(1,10,0);   /* No more than 1 trigger within 160 ns */
+  tiSetTriggerHoldoff(2,20,1);  /* No more than 2 triggers within 10000 ns */
 
 
 
 
-
-
-
-
-
+  /* set wide pulse */
+  tiSetSyncDelayWidth(1,127,1);
 
   usrVmeDmaSetConfig(2,5,1); /*A32,2eSST,267MB/s*/
   /*usrVmeDmaSetConfig(2,5,0);*/ /*A32,2eSST,160MB/s*/
   /*usrVmeDmaSetConfig(2,3,0);*/ /*A32,MBLT*/
 
-  /*for 1190 */
-if(rol->pid==46)
+
+
+  /*
+if(rol->pid==58)
 {
   usrVmeDmaSetConfig(2,3,0);
 }
+  */
+
 
   /*
   usrVmeDmaSetChannel(1);
@@ -515,10 +396,18 @@ if(rol->pid==46)
 #ifdef USE_V1190
   
   dsc2Init(0x100000,0x80000,16,0);
-  dsc2Config("");
+  ndsc2 = dsc2GetNdsc();
+  if(ndsc2>0) dsc2Config(DSC2_CONF_FILE);
 
   ntdcs = tdc1190Init(0x11100000,0x80000,20,0);
-  tdc1190Config("");
+  if(ntdcs>0) tdc1190Config(TDC_CONF_FILE);
+
+  /* set block level based on current TI setting */
+  printf("Set TDC block level to %d\n",block_level);
+  for(ii=0; ii<ntdcs; ii++)
+  {
+    tdc1190SetBLTEventNumber(ii, block_level);
+  }
 
   for(ii=0; ii<ntdcs; ii++)
   {
@@ -543,17 +432,6 @@ if(rol->pid==46)
 
 
 #ifdef USE_FADC250
-
-
-  /*HPS stuff
-#ifdef TI_SLAVE
-  abcReadPeds(2);
-#else
-  abcReadPeds(1);
-#endif
-  */
-  abcReadPeds(rol->pid);
-
 
   /* Here, we assume that the addresses of each board were set according
    to their geographical address (slot number): on FADC250 it must be set by jumpers,
@@ -641,110 +519,83 @@ v1190: 0x11xx0000, where xx follows the same scheme as FADCs
   vmeSetQuietFlag(0); /* Turn the error statements back on */
 #endif
 
-  /* Calculate the maximum number of words per block transfer (assuming Pulse mode)
-   *   MAX = NFADC * block_level * (EvHeader + TrigTime*2 + Pulse*2*chan) 
-   *         + 2*32 (words for byte alignment) 
-   */
-  MAXFADCWORDS = NFADC * block_level * (1+2+100/*FADC_WINDOW_WIDTH*/*16) + 2*32;
+  if(nfadc>0)
+  {
+
+    /* Calculate the maximum number of words per block transfer (assuming Pulse mode)
+     *   MAX = NFADC * block_level * (EvHeader + TrigTime*2 + Pulse*2*chan) 
+     *         + 2*32 (words for byte alignment) 
+     */
+    MAXFADCWORDS = NFADC * block_level * (1+2+100/*FADC_WINDOW_WIDTH*/*16) + 2*32;
   
-  printf("**************************************************\n");
-  printf("* Calculated MAX FADC words per block = %d\n",MAXFADCWORDS);
-  printf("**************************************************\n");
+    printf("**************************************************\n");
+    printf("* Calculated MAX FADC words per block = %d\n",MAXFADCWORDS);
+    printf("**************************************************\n");
 
-  /* Check these numbers, compared to our buffer size.. */
-  if( (MAXFADCWORDS+MAXTIWORDS)*4 > MAX_EVENT_LENGTH )
-  {
-    printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-    printf(" WARNING.  Event buffer size is smaller than the expected data size\n");
-    printf("     Increase the size of MAX_EVENT_LENGTH and recompile!\n");
-    printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-  }
-
-
-  if(nfadc==1) FADC_ROFLAG = 1; /*no chainedDMA if one board only*/
-
-  if(FADC_ROFLAG==2) faEnableMultiBlock(1);
-  else faDisableMultiBlock();
-
-  /* configure all modules based on config file */
-  fadc250Config("");
-
-  /* Additional Configuration for each module */
-  fadcSlotMask=0;
-  for(id=0; id<nfadc; id++) 
-  {
-    FA_SLOT = faSlot(id);      /* Grab the current module's slot number */
-    fadcSlotMask |= (1<<FA_SLOT); /* Add it to the mask */
-	printf("=======================> fadcSlotMask=0x%08x\n",fadcSlotMask);
-
-    fadc_mode = faGetProcMode(FA_SLOT);
-    printf("slot %d, fadc_mode=%d\n",FA_SLOT,fadc_mode);
-    if(fadc_mode==1)
+    /* Check these numbers, compared to our buffer size.. */
+    if( (MAXFADCWORDS+MAXTIWORDS)*4 > MAX_EVENT_LENGTH )
     {
-      /* Set the threshold for data readout */
-
-		/* do this for pedestal runs */
-/*
-      faSetThreshold(FA_SLOT,FADC_THRESHOLD,0);
-*/
-		/* do this for zero-suppressed runs using raw mode */
-      faSetThresholdAll(FA_SLOT,ic_adc_thres[FA_SLOT]);
-    }
-    else
-    {
-      /*fadc_mode=2-pulse modes, fadc_mode=3-integral mode*/
-      faSetThresholdAll(FA_SLOT,ic_adc_thres[FA_SLOT]);
+      printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+      printf(" WARNING.  Event buffer size is smaller than the expected data size\n");
+      printf("     Increase the size of MAX_EVENT_LENGTH and recompile!\n");
+      printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
     }
 
-    /* Bus errors to terminate block transfers (preferred) */
-    faEnableBusError(FA_SLOT);
+    if(nfadc==1) FADC_ROFLAG = 1; /*no chainedDMA if one board only*/
 
-    /* Set the Block level */
-    faSetBlockLevel(FA_SLOT, block_level);
+    if(FADC_ROFLAG==2) faEnableMultiBlock(1);
+    else faDisableMultiBlock();
 
+    /* configure all modules based on config file */
+    fadc250Config(FADC_CONF_FILE);
 
+    /* Additional Configuration for each module */
+    fadcSlotMask=0;
+    for(id=0; id<nfadc; id++) 
+    {
+      FA_SLOT = faSlot(id);      /* Grab the current module's slot number */
+      fadcSlotMask |= (1<<FA_SLOT); /* Add it to the mask */
+      printf("=======================> fadcSlotMask=0x%08x\n",fadcSlotMask);
 
+	  {
+        unsigned int PL, PTW, NSB, NSA, NP;
+        faGetProcMode(FA_SLOT, &fadc_mode, &PL, &PTW, &NSB, &NSA, &NP);
+        printf("slot %d, fadc_mode=%d\n",FA_SLOT,fadc_mode);
+	  }
+
+      /* Bus errors to terminate block transfers (preferred) */
+      faEnableBusError(FA_SLOT);
+
+      /* Set the Block level */
+      faSetBlockLevel(FA_SLOT, block_level);
 
 #ifdef NEW
-    /*****************/
-    /*trigger-related*/
-    faResetMGT(FA_SLOT,1);
-
-    /*faSetThreshold(FA_SLOT,400,0xFFFF);*/
-
-    NSA = faGetNSA(FA_SLOT);
-    NSB = faGetNSB(FA_SLOT);
-    printf("slot %d -> nsa=%d nsb=%d\n",FA_SLOT,NSA,NSB);
-
-    for(ichan=0; ichan<16; ichan++)
-    {
-
-      /* Set the individual channel pedestals for the data that is sent to the CTP */
-      /* pedestal is for trigger chain only, must be integral, so we'll multiply
-		 value from the file by (NSA+NSB) */
-	  faSetChannelPedestal(FA_SLOT,ichan, ic_adc_ped[FA_SLOT][ichan]*(NSA+NSB) );
-      printf("  slot=%2d chan=%2d ped=%5d\n",FA_SLOT,ichan,faGetChannelPedestal(FA_SLOT, ichan));
-
-      faSetChannelGain(FA_SLOT,ichan,0.5); /* MUST BE IN CONFIG FILE */
-    }
+      /*****************/
+      /*trigger-related*/
+      faResetMGT(FA_SLOT,1);
 #endif
 
-	/*****************/
-	/*****************/
-  }
-
-
-  /* read back and print trigger pedestals */
-  printf("\n\nTrigger pedestals readback\n");
-  for(id=0; id<nfadc; id++) 
-  {
-    FA_SLOT = faSlot(id);
-    for(ichan=0; ichan<16; ichan++)
-	{
-      printf("  slot=%2d chan=%2d ped=%5d\n",FA_SLOT,ichan,faGetChannelPedestal(FA_SLOT, ichan));
+	  /*****************/
+	  /*****************/
     }
+
+    /* 1) Load FADC pedestals from file for trigger path.
+       2) Offset FADC threshold for each channel based on pedestal for both readout and trigger */
+    faGLoadChannelPedestals(getFadcPedsFilename(rol->pid), 1);
+
+    /* read back and print trigger pedestals */
+    printf("\n\nTrigger pedestals readback\n");
+    for(id=0; id<nfadc; id++) 
+    {
+      FA_SLOT = faSlot(id);
+      for(ichan=0; ichan<16; ichan++)
+      {
+        printf("  slot=%2d chan=%2d ped=%5d\n",FA_SLOT,ichan,faGetChannelPedestal(FA_SLOT, ichan));
+      }
+    }
+    printf("\n\n");
+
   }
-  printf("\n\n");
 
 
 /*
@@ -784,10 +635,6 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
 */
 
 
-printf("***8***\n");
-tiStatus(1); /* Ben & William Testing */
-
-
 
 
   /***************************************
@@ -798,8 +645,36 @@ tiStatus(1); /* Ben & William Testing */
   sdStatus();
 #endif
 
-printf("***9***\n");
-tiStatus(1); /* Ben & William Testing */
+
+#ifdef USE_VSCM
+
+  printf("\n\n\n");
+#ifndef VXWORKS
+  vmeSetQuietFlag(1); /* skip the errors associated with BUS Errors */
+#endif
+  nvscm1 = vscmInit((unsigned int)(3<<19),(1<<19),20,0);
+#ifndef VXWORKS
+  vmeSetQuietFlag(0); /* Turn the error statements back on */
+#endif
+  printf("\n\n\n");
+
+  if(VSCM_ROFLAG==2 && nvscm1==1) VSCM_ROFLAG = 1; /*no chainedDMA if one board only*/
+  /*
+  if(VSCM_ROFLAG==2) faEnableMultiBlock(1);
+  else faDisableMultiBlock();
+  */
+
+  vscmSlotMask=0;
+  for(ii=0; ii<nvscm1; ii++)
+  {
+    slot = vscmSlot(ii);      /* Grab the current module's slot number */
+    vscmSlotMask |= (1<<slot); /* Add it to the mask */
+    vscmSetBlockLevel(slot, block_level);
+  }
+
+#endif
+
+
 
 
   logMsg("INFO: User Download Executed\n",1,2,3,4,5,6);
@@ -823,6 +698,7 @@ __prestart()
 
   /* Clear some global variables etc for a clean start */
   *(rol->nevents) = 0;
+  event_number = 0;
 
   tiEnableVXSSignals();
 
@@ -868,27 +744,34 @@ __prestart()
   }
 #endif
 
+#ifdef USE_VSCM
+  /* if VSCMs are present, set busy from SD board */
+  if(nvscm1>0)
+  {
+    printf("Set BUSY from SWB for FADCs\n");
+    tiSetBusySource(TI_BUSY_SWB,0);
+
+    printf("vscmPrestart ...\n"); fflush(stdout);
+    vscmPrestart("VSCMConfig.txt");
+    printf("vscmPrestart done\n"); fflush(stdout);
+  }
+#endif
+
+
+
   /*********************************************************/
   /* hps only, busy from trigger board and ack mask for it */
 /*
   tiSetBusySource(TI_BUSY_SWA,0);
 */
 
-
-printf("***3***\n");
-tiStatus(1); /* Ben & William Testing */
-
-
 /*tiAddRocSWA();*/
 tiRemoveRocSWA();
 
 
+
   /*****************************************************************/
   /*****************************************************************/
-
-
-
-
 
 #ifdef USE_FADC250
 
@@ -939,8 +822,6 @@ tiRemoveRocSWA();
 
 
 
-
-
 #ifdef USE_SSP
 
  /*****************
@@ -957,65 +838,27 @@ tiRemoveRocSWA();
   nssp = sspInit(0, 0, 0, iFlag); /* Scan for, and initialize all SSPs in crate */
   printf("hps1: found %d SSPs (using iFlag=0x%08x)\n",nssp,iFlag);
 
-  sspConfig("");
-
-
 
   if(nssp>0)
   {
+    sspConfig(SSP_CONF_FILE);
+    sspSlotMask=0;
     for(id=0; id<nssp; id++)
     {
+      SSP_SLOT = sspSlot(id);      /* Grab the current module's slot number */
+      sspSlotMask |= (1<<SSP_SLOT); /* Add it to the mask */
+      printf("=======================> sspSlotMask=0x%08x\n",sspSlotMask);
+
+
       printf("Setting SSP %d, slot %d\n",id,sspSlot(id));
 
-      /* Direct SSP Internal "Trigger 0" to LVDS0 Output on Front Panel */
-      sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT0, SD_SRC_SEL_TRIGGER0); /* HPS Trigger = */
-      sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT1, SD_SRC_SEL_TRIGGER1); /* HPS Trigger = */
-      sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT2, SD_SRC_SEL_TRIGGER2); /* HPS Trigger = */
-      sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT3, SD_SRC_SEL_TRIGGER3); /* HPS Trigger = */
-      sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT4, SD_SRC_SEL_TRIGGER4); /* HPS Trigger = */
-
-
-#ifdef HPS_BLA
-      /* SSP Trigger Configuration - NEEDS TO BE MOVED/LOADED BY CONFIG FILE */
-      sspHps_SetLatency(sspSlot(id), 500);	/* 500 = 2us L1 trigger decision latency */
-      sspHps_SetSinglesEnableTop(sspSlot(id), 1);
-      sspHps_SetSinglesEnableBot(sspSlot(id), 1);
-      sspHps_SetSinglesEmin(sspSlot(id), 1000);
-      sspHps_SetSinglesEmax(sspSlot(id), 8191);
-      sspHps_SetSinglesNHitsmin(sspSlot(id), 1);
-
-/*
-      sspHps_SetPairsEnableSum(sspSlot(id), int en);
-      sspHps_SetPairsEnableDiff(sspSlot(id), int en);
-      sspHps_SetPairsEnableCoplanar(sspSlot(id), int en);
-      sspHps_SetPairsEnableED(sspSlot(id), int en);
-      sspHps_SetPairsTimeCoincidence(sspSlot(id), int ticks);
-      sspHps_SetPairsSummax(sspSlot(id), int max);
-      sspHps_SetPairsDiffmax(sspSlot(id), int max);
-      sspHps_SetPairsEmin(sspSlot(id), int min);
-      sspHps_SetPairsEmax(sspSlot(id), int max);
-      sspHps_SetPairsNHitsmin(sspSlot(id), int min);
-      sspHps_SetPairsCoplanarTolerance(sspSlot(id), int tol);
-      sspHps_SetPairsEDFactor(sspSlot(id), int f);
-      sspHps_SetPairsEDmin(sspSlot(id), int min);
-*/
       /* SSP Status */
       /*sspPrintHpsScalers(sspSlot(id));*/
       sspPrintHpsConfig(sspSlot(id));
-#endif
-
 
       /* Set the Block level (always use TI block level !) */
       sspSetBlockLevel(sspSlot(id), block_level);
       sspGetBlockLevel(sspSlot(id));
-
-
-		/* Setup 10Hz pulser on fp trig 0, or comment out to use single cluster trigger from fadc->gtp->ssp */
-      /* note currently for test LVDSOUT1 is going to TS input 1 */
-	  /*sspPulserSetup(sspSlot(id), 1.0, 0.5, 0xFFFFFFFF);*/
-	  sspPulserSetup(sspSlot(id), 200000.0, 0.5, 0xFFFFFFFF);
-      sspSetIOSrc(sspSlot(id), SD_SRC_LVDSOUT0, SD_SRC_SEL_PULSER);
-
     }
   }
 
@@ -1032,7 +875,7 @@ tiRemoveRocSWA();
 #ifdef USE_V1190
 
   /* dsc2 configuration */
-  dsc2Config("");
+  if(ntdcs>0) dsc2Config(DSC2_CONF_FILE);
 
   for(ii=0; ii<ntdcs; ii++)
   {
@@ -1044,34 +887,11 @@ tiRemoveRocSWA();
   /* master and standalone crates, NOT slave */
 #ifndef TI_SLAVE
 
-printf("***11***\n");
-tiStatus(1);
   sleep(1);
-printf("***12***\n");
-tiStatus(1);
   tiSyncReset(1);
-printf("***13***\n");
-tiStatus(1);
   sleep(1);
-printf("***14***\n");
-tiStatus(1);
   tiSyncReset(1);
-printf("***15***\n");
-tiStatus(1);
   sleep(1);
-printf("***16***\n");
-tiStatus(1);
-
-
-/* long sync pulse to ensure trigger pipelines are clear. only needs to be ~trigger latency long. 
-#ifdef NEW
-  sleep(1);
-  tiUserSyncReset(1);
-  sleep(1);
-  tiUserSyncReset(0);
-  sleep(1);
-#endif
-*/
 
   if(tiGetSyncResetRequest())
   {
@@ -1081,9 +901,6 @@ tiStatus(1);
     sleep(1);
   }
 
-printf("***17***\n");
-tiStatus(1);
-
   if(tiGetSyncResetRequest())
   {
     printf("ERROR: syncrequest still ON after tiSyncReset(); try 'tcpClient <rocname> tiSyncReset'\n");
@@ -1092,13 +909,9 @@ tiStatus(1);
   {
     printf("INFO: syncrequest is OFF now\n");
   }
-printf("***18***\n");
-tiStatus(1);
 
   printf("holdoff rule 1 set to %d\n",tiGetTriggerHoldoff(1));
   printf("holdoff rule 2 set to %d\n",tiGetTriggerHoldoff(2));
-printf("***19***\n");
-tiStatus(1);
 
 #endif
 
@@ -1106,7 +919,6 @@ tiStatus(1);
 
 if(rol->pid==46)
 {
-  /* activate v851 pulser */
   ret = v851Init(0xd000,0);
   if(ret < 0)
   {
@@ -1114,7 +926,6 @@ if(rol->pid==46)
   }
   else
   {
-    /*v851SetDelay(1,10,1,0);*/
     v851_start(200000);
   }
 }
@@ -1156,7 +967,7 @@ __end()
 
 #ifdef USE_FADC250
   /* FADC Disable */
-  for(id=0;id<nfadc;id++) 
+  for(id=0; id<nfadc; id++) 
   {
     FA_SLOT = faSlot(id);
     faDisable(FA_SLOT,0);
@@ -1183,7 +994,7 @@ __pause()
 static void
 __go()
 {
-  int jj, id;
+  int ii, jj, id, slot;
 
   logMsg("INFO: Entering Go 1\n",1,2,3,4,5,6);
 
@@ -1215,6 +1026,55 @@ __go()
 
 #endif
 
+
+
+#ifdef USE_VSCM
+  for(ii=0; ii<nvscm1; ii++)
+  {
+    for(jj=0; jj<8; jj++)
+    {
+      fssrSCR(vscmSlot(ii), jj);
+	}
+  }
+
+  /* Reset the Token */
+  if(VSCM_ROFLAG==2)
+  {
+	for(ii=0; ii<nvscm1; ii++)
+    {
+	  slot = vscmSlot(ii);
+      vscmResetToken(slot);
+	}
+  }
+
+	for(ii=0; ii<nvscm1; ii++)
+    {
+	  slot = vscmSlot(ii);
+	  vscmStat(slot);
+	}
+
+
+  /*
+  printf("\n\nFSSR Status:\n\n");
+  for(ii=0; ii<nvscm1; ii++)
+  {
+    for(jj=0; jj<8; jj++)
+    {
+      fssrStatus(vscmSlot(ii), jj);
+	}
+  }
+  printf("\n\n\n\n");
+  */
+
+#endif
+
+
+
+
+  /* always clear exceptions */
+  jlabgefClearException(1);
+
+
   CDOENABLE(TIPRIMARY,TIR_SOURCE,0); /* bryan has (,1,1) ... */
 
   logMsg("INFO: Go 1 Executed\n",1,2,3,4,5,6);
@@ -1228,7 +1088,7 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   int *jw, ind, ind2, i, ii, jj, jjj, blen, len, rlen, itdcbuf, nbytes;
   unsigned int *tdcbuf_save, *tdc;
   unsigned int *dabufp1, *dabufp2;
-  int njjloops;
+  int njjloops, slot;
 #ifndef VXWORKS
   TIMERL_VAR;
 #endif
@@ -1250,7 +1110,7 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 #endif
 #endif
 #ifdef DMA_TO_BIGBUF
-    unsigned int pMemBase, uMemBase, mSize;
+  unsigned int pMemBase, uMemBase, mSize;
 #endif
 
   /*printf("EVTYPE=%d syncFlag=%d\n",EVTYPE,syncFlag);*/
@@ -1264,7 +1124,8 @@ usleep(100);
   sleep(1);
   */
 
-  CEOPEN(EVTYPE, BT_BANKS);
+
+  CEOPEN(EVTYPE, BT_BANKS); /* reformatted on CODA_format.c !!! */
 
   if((syncFlag<0)||(syncFlag>1))         /* illegal */
   {
@@ -1294,8 +1155,9 @@ usleep(100);
     /*************/
 	/* TI stuff */
 
-    /* Set high, the first output port */
+    /* Set high, the first output port 
     tiSetOutputPort(1,0,0,0);
+    */
 
     /* Grab the data from the TI */
 vmeBusLock();
@@ -1303,7 +1165,8 @@ vmeBusLock();
 vmeBusUnlock();
     if(len<=0)
     {
-      /*printf("TIreadout : No data or error, len = %d\n",len)*/;
+      printf("ERROR in tiReadBlock : No data or error, len = %d\n",len);
+      sleep(1);
     }
     else
     {
@@ -1320,9 +1183,9 @@ vmeBusUnlock();
 	  
     }
 
-    /* Turn off all output ports */
+    /* Turn off all output ports 
     tiSetOutputPort(0,0,0,0);
-
+    */
 	/* TI stuff */
     /*************/
 
@@ -1370,18 +1233,18 @@ vmeBusUnlock();
       njjloops = ntdcs;
 
       BANKOPEN(0xe10B,1,rol->pid);
-      for(jj=0; jj<njjloops; jj++)
+      for(ii=0; ii<njjloops; ii++)
       {
-        rlen = rlenbuf[jj];
-#ifdef DEBUG
-        logMsg("jj=%d, rlen=%d\n",jj,rlen,3,4,5,6);
-#endif
+        rlen = rlenbuf[ii];
+		/*
+        printf("rol1(TDCs): ii=%d, rlen=%d\n",ii,rlen);
+		*/
 
 	  /*	  
 #ifdef DEBUG
-        level = tdc1190GetAlmostFullLevel(jj);
-        ii = tdc1190StatusAlmostFull(jj);
-        logMsg("jj=%d, rlen=%d, almostfull=%d level=%d\n",jj,rlen,ii,level,5,6);
+        level = tdc1190GetAlmostFullLevel(ii);
+        iii = tdc1190StatusAlmostFull(ii);
+        logMsg("ii=%d, rlen=%d, almostfull=%d level=%d\n",ii,rlen,iii,level,5,6);
 #endif
 	  */	  
 
@@ -1404,10 +1267,41 @@ vmeBusUnlock();
 
 
 
-
 #ifdef USE_SSP
     if(nssp>0)
     {
+
+
+#ifdef DEBUG
+      printf("Calling sspGBReady ...\n");fflush(stdout);
+#endif
+      for(itime=0; itime<100000; itime++) 
+	  {
+vmeBusLock();
+	    gbready = sspGBReady();
+vmeBusUnlock();
+	    stat = (gbready == sspSlotMask);
+	    if (stat>0) 
+	    {
+	      break;
+	    }
+#ifdef DEBUG
+		else
+		{
+          printf("SSP NOT READY: gbready=0x%08x, expect 0x%08x\n",gbready,sspSlotMask);
+		}
+#endif
+	  }
+
+
+#ifdef DEBUG
+      printf("SSP IS READY: gbready=0x%08x, expect 0x%08x\n",gbready,sspSlotMask);
+#endif
+
+
+
+
+
 vmeBusLock();
       len = sspReadBlock(0,tdcbuf,0x10000,1);
 vmeBusUnlock();
@@ -1415,7 +1309,7 @@ vmeBusUnlock();
 /*
       printf("ssp tdcbuf[%2d]: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
           len,tdcbuf[0],tdcbuf[1],tdcbuf[2],tdcbuf[3],tdcbuf[4],tdcbuf[5],tdcbuf[6]);
-*/  
+*/
 
 	  
       if(len>0)
@@ -1435,14 +1329,16 @@ vmeBusUnlock();
     /* Configure Block Type... temp fix for 2eSST trouble with token passing */
     tdcbuf = tdcbuf_save;
     dCnt=0;
-    if(nfadc != 0)
+    if(nfadc>0)
     {
 
 
 /*COMMENT OUT FOLLOWING 'FOR' LOOP FOR SPEED UP !!!*/
       for(itime=0; itime<100000; itime++) 
 	  {
+vmeBusLock();
 	    gbready = faGBready();
+vmeBusUnlock();
 	    stat = (gbready == fadcSlotMask);
 	    if (stat>0) 
 	    {
@@ -1519,13 +1415,17 @@ vmeBusUnlock();
             usrChangeVmeDmaMemory(pMemBase, uMemBase, mSize);
 
 
+vmeBusLock();
 	        len = faReadBlock(faSlot(jj),rol->dabufp,500000/*MAXFADCWORDS*/,FADC_ROFLAG);
+vmeBusUnlock();
             rol->dabufp += len;
             dCnt += len;
 
             usrRestoreVmeDmaMemory();
 #else
+vmeBusLock();
 	        len = faReadBlock(faSlot(jj),&tdcbuf[dCnt],500000/*MAXFADCWORDS*/,FADC_ROFLAG);
+vmeBusUnlock();
             dCnt += len;
 #endif
 
@@ -1572,20 +1472,307 @@ vmeBusUnlock();
 	    for(id=0; id<nfadc; id++)
 	    {
 	      FA_SLOT = faSlot(id);
+vmeBusLock();
 	      faResetToken(FA_SLOT);
+vmeBusUnlock();
 	    }
 /*->2us*/
 	  }
-
 
     }
 
 #endif /* USE_FADC250 */
 
 
+
+
+
+#ifdef USE_VSCM
+
+    /* Configure Block Type... temp fix for 2eSST trouble with token passing */
+    tdcbuf = tdcbuf_save;
+    dCnt=0;
+    if(nvscm1 != 0)
+    {
+
+#ifdef DEBUG
+      printf("Calling vscmGBReady ...\n");fflush(stdout);
+#endif
+      for(itime=0; itime<100000; itime++) 
+	  {
+vmeBusLock();
+	    gbready = vscmGBReady();
+vmeBusUnlock();
+	    stat = (gbready == vscmSlotMask);
+	    if (stat>0) 
+	    {
+	      break;
+	    }
+#ifdef DEBUG
+		else
+		{
+          printf("VSCM NOT READY: gbready=0x%08x, expect 0x%08x\n",gbready,vscmSlotMask);
+		}
+#endif
+	  }
+
+
+#ifdef DEBUG
+	  
+	  /* print fifo info */
+      printf("FIFOs info:\n");fflush(stdout);
+      for(jj=0; jj<nvscm1; jj++)
+	  {
+vmeBusLock();
+        vscmStat(vscmSlot(jj));
+vmeBusUnlock();
+	  }
+      printf("mask=0x%08x gbready=0x%08x stat=%d\n",vscmSlotMask,gbready,stat);
+	  
+#endif
+	  
+      if(stat>0)
+	  {
+        BANKOPEN(0xe104,1,rol->pid);
+
+        if(VSCM_ROFLAG==2)
+        {
+          slot = vscmSlot(0);
+#ifdef DMA_TO_BIGBUF
+          uMemBase = dabufp_usermembase;
+          pMemBase = dabufp_physmembase;
+          mSize = 0x100000;
+          usrChangeVmeDmaMemory(pMemBase, uMemBase, mSize);
+ 
+          usrVmeDmaMemory(&pMemBase, &uMemBase, &mSize);
+ 
+
+ 
+vmeBusLock();
+ 	      dCnt = vscmReadBlock(slot,rol->dabufp,500000/*MAXFADCWORDS*/,VSCM_ROFLAG);
+vmeBusUnlock();
+#ifdef DEBUG
+		  printf("readout ends, len=%d\n",dCnt);
+          /*if(len>12) len=12;*/
+          vscmPrintFifo(rol->dabufp,dCnt);
+#endif
+          rol->dabufp += dCnt;
+		  /*  
+ 		  printf("dCnt=%d, data: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",dCnt,
+ 		  rol->dabufp[0],rol->dabufp[1],rol->dabufp[2],rol->dabufp[3],rol->dabufp[4],rol->dabufp[5]);
+ 		  */
+          usrRestoreVmeDmaMemory();
+          usrVmeDmaMemory(&pMemBase, &uMemBase, &mSize);
+#else
+
+vmeBusLock();
+	      dCnt = vscmReadBlock(slot,tdcbuf,500000/*MAXFADCWORDS*/,VSCM_ROFLAG);
+vmeBusUnlock();
+
+#ifdef DEBUG
+		  printf("readout ends, len=%d\n",dCnt);
+          /*if(len>12) len=12;*/
+          vscmPrintFifo(tdcbuf,dCnt);
+#endif
+
+
+
+
+#endif
+        }
+        else
+		{
+#ifdef DEBUG
+		  printf("readout, VSCM_ROFLAG=%d\n",VSCM_ROFLAG);
+#endif
+          for(jj=0; jj<nvscm1; jj++)
+		  {
+#ifdef DMA_TO_BIGBUF
+
+            uMemBase = dabufp_usermembase;
+            pMemBase = dabufp_physmembase;
+            mSize = 0x100000;
+            usrChangeVmeDmaMemory(pMemBase, uMemBase, mSize);
+
+
+vmeBusLock();
+	        len = vscmReadBlock(vscmSlot(jj),rol->dabufp,1000/*MAXFADCWORDS*/,VSCM_ROFLAG);
+vmeBusUnlock();
+
+#ifdef DEBUG
+			printf("readout ends, len=%d\n",len);
+            /*if(len>12) len=12;*/
+            vscmPrintFifo(rol->dabufp,len);
+#endif
+
+			/*			
+vscmPrintFifo(rol->dabufp,len);
+			*/
+
+            rol->dabufp += len;
+            dCnt += len;
+
+            usrRestoreVmeDmaMemory();
+
+#else
+
+vmeBusLock();
+	        len = vscmReadBlock(vscmSlot(jj),&tdcbuf[dCnt],1000/*MAXFADCWORDS*/,VSCM_ROFLAG);
+vmeBusUnlock();
+
+#ifdef DEBUG
+			printf("readout ends, len=%d\n",len);
+            /*if(len>12) len=12;*/
+            vscmPrintFifo(&tdcbuf[dCnt],len);
+#endif
+
+            dCnt += len;
+#endif
+
+#ifdef DEBUG
+            printf("[%d] len=%d dCnt=%d\n",jj,len,dCnt);
+#endif
+		  }
+	    }
+
+	    if(dCnt<=0)
+	    {
+	      printf("VSCM: No data or error.  dCnt = %d (slots from %d)\n",dCnt,slot);
+          dCnt=0;
+	    }
+	    else
+	    {
+#ifndef DMA_TO_BIGBUF
+          for(jj=0; jj<dCnt; jj++) *rol->dabufp++ = tdcbuf[jj];
+#endif
+	    }
+
+        BANKCLOSE;
+	  }
+      else 
+	  {
+	    printf ("VSCMs: no events   stat=%d  intcount = %d   gbready = 0x%08x  vscmSlotMask = 0x%08x\n",
+		  stat,tiGetIntCount(),gbready,vscmSlotMask);
+        printf("Missing slots:");
+        for(jj=1; jj<21; jj++)
+		{
+          mask = 1<<jj;
+          if((vscmSlotMask&mask) && !(gbready&mask)) printf("%3d",jj);
+		}
+        printf("\n");
+	  }
+
+      /* Reset the Token */
+      if(VSCM_ROFLAG==2)
+	  {
+	    for(ii=0; ii</*1*/nvscm1; ii++)
+	    {
+	      slot = vscmSlot(ii);
+vmeBusLock();
+	      vscmResetToken(slot);
+vmeBusUnlock();
+	    }
+	  }
+
+    }
+
+#endif /* USE_VSCM */
+
+
+
+
+#if 1
+
+  /* create HEAD bank if master and standalone crates, NOT slave */
+#ifndef TI_SLAVE
+
+	event_number = (EVENT_NUMBER) * block_level;
+
+    BANKOPEN(0xe10F,1,0);
+    *rol->dabufp ++ = 0; /*version  number */
+    *rol->dabufp ++ = LSWAP(RUN_NUMBER); /*run  number */
+    *rol->dabufp ++ = LSWAP(event_number); /*event number */
+    *rol->dabufp ++ = LSWAP(time(0)); /*event unix time */
+    *rol->dabufp ++ = LSWAP(EVTYPE); /*event type */
+    BANKCLOSE;
+
+#endif
+
+#endif
+
+
+
+
+
 #ifndef VXWORKS
 TIMERL_STOP(100000/block_level,1000+rol->pid);
 #endif
+
+
+
+#if 1
+    /* read boards settings and create bank */
+    if( ((*(rol->nevents))%(100000/block_level)) == 1 )
+    {
+      BANKOPEN(0xe10E,3,rol->pid);
+
+	  /*
+vmeBusLock();
+      len = tiUploadAll((char *)rol->dabufp, 10000);
+vmeBusUnlock();
+      printf("len=%d\n",len);
+      printf(">%s<\n",(char *)rol->dabufp);
+      rol->dabufp += (len/4);
+	  */
+
+#ifdef USE_FADC250
+      if(nfadc>0)
+      {
+vmeBusLock();
+        len = fadc250UploadAll((char *)rol->dabufp, 10000);
+vmeBusUnlock();
+        /*printf("%s\n",(char *)rol->dabufp);*/
+        rol->dabufp += len/4;
+	  }
+#endif
+
+	  /*
+	  if(ntdcs>0)
+	  {
+vmeBusLock();
+        len = tdc1190UploadAll((char *)rol->dabufp, 10000);
+vmeBusUnlock();
+        printf("%s\n",(char *)rol->dabufp);
+        rol->dabufp += len/4;
+	  }
+	  */
+
+	  /*
+	  if(ndsc2>0)
+	  {
+vmeBusLock();
+        len = dsc2UploadAll((char *)rol->dabufp, 10000);
+vmeBusUnlock();
+        printf("%s\n",(char *)rol->dabufp);
+        rol->dabufp += len/4;
+	  }
+	  */
+
+#ifdef USE_SSP
+      if(nssp>0)
+      {
+vmeBusLock();
+        len = sspUploadAll((char *)rol->dabufp, 10000);
+vmeBusUnlock();
+        /*printf("%s\n",(char *)rol->dabufp);*/
+        rol->dabufp += len/4;
+	  }
+#endif
+
+      BANKCLOSE;
+    }
+#endif
+	
 
 
 #if 0

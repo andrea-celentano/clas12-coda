@@ -1,7 +1,0 @@
- 9456 clasrun  2163M  474M cpu3    41    0   0:00:35  15% coda_ebc/23
-  9456 clasrun  2163M  474M sleep   10    0   0:00:16 6.9% coda_ebc/21
-  9456 clasrun  2163M  474M sleep   30    0   0:00:13 5.5% coda_ebc/22
-
- 9456 clasrun  2163M  474M sleep   59    0   0:00:52  11% coda_ebc/23
-  9456 clasrun  2163M  474M sleep   59    0   0:00:18 3.8% coda_ebc/22
-

@@ -192,31 +192,31 @@ typedef struct
 /*****************************************************/
 typedef struct
 {
-	int len;
-	int type;
+  int len;
+  int type;
   
-	union
-	{
-		Cmd_Read16				  m_Cmd_Read16;
-		Cmd_Read16_Rsp			  m_Cmd_Read16_Rsp;
-		Cmd_Write16				  m_Cmd_Write16;
-		Cmd_Read32				  m_Cmd_Read32;
-		Cmd_Read32_Rsp			  m_Cmd_Read32_Rsp;
-		Cmd_Write32				  m_Cmd_Write32;
-		Cmd_Delay				  m_Cmd_Delay;
+  union
+  {
+	Cmd_Read16				  m_Cmd_Read16;
+	Cmd_Read16_Rsp			  m_Cmd_Read16_Rsp;
+	Cmd_Write16				  m_Cmd_Write16;
+	Cmd_Read32				  m_Cmd_Read32;
+	Cmd_Read32_Rsp			  m_Cmd_Read32_Rsp;
+	Cmd_Write32				  m_Cmd_Write32;
+	Cmd_Delay				  m_Cmd_Delay;
 
-		Cmd_ReadScalers	          m_Cmd_ReadScalers;
-		Cmd_ReadScalers_Rsp	      m_Cmd_ReadScalers_Rsp;
-		Cmd_GetCrateMap	          m_Cmd_GetCrateMap;
-		Cmd_GetCrateMap_Rsp	      m_Cmd_GetCrateMap_Rsp;
-		Cmd_GetBoardParams	      m_Cmd_GetBoardParams;
-		Cmd_GetBoardParams_Rsp	  m_Cmd_GetBoardParams_Rsp;
-		Cmd_GetChannelParams	  m_Cmd_GetChannelParams;
-		Cmd_GetChannelParams_Rsp  m_Cmd_GetChannelParams_Rsp;
-		Cmd_SetChannelParams	  m_Cmd_SetChannelParams;
+	Cmd_ReadScalers	          m_Cmd_ReadScalers;
+	Cmd_ReadScalers_Rsp	      m_Cmd_ReadScalers_Rsp;
+	Cmd_GetCrateMap	          m_Cmd_GetCrateMap;
+	Cmd_GetCrateMap_Rsp	      m_Cmd_GetCrateMap_Rsp;
+	Cmd_GetBoardParams	      m_Cmd_GetBoardParams;
+	Cmd_GetBoardParams_Rsp	  m_Cmd_GetBoardParams_Rsp;
+	Cmd_GetChannelParams	  m_Cmd_GetChannelParams;
+	Cmd_GetChannelParams_Rsp  m_Cmd_GetChannelParams_Rsp;
+	Cmd_SetChannelParams	  m_Cmd_SetChannelParams;
 
-		unsigned char			  m_raw[MAX_MSG_SIZE];
-	} msg;
+	unsigned char			  m_raw[MAX_MSG_SIZE];
+  } msg;
 } CrateMsgStruct;
 
 /*****************************************************/
@@ -224,16 +224,16 @@ typedef struct
 /*****************************************************/
 typedef struct
 {
-	int (*Read16)(Cmd_Read16 *pCmd_Read16, Cmd_Read16_Rsp *pCmd_Read16_Rsp);
-	int (*Write16)(Cmd_Write16 *pCmd_Write16);
-	int (*Read32)(Cmd_Read32 *pCmd_Read32, Cmd_Read32_Rsp *pCmd_Read32_Rsp);
-	int (*Write32)(Cmd_Write32 *pCmd_Write32);
-	int (*Delay)(Cmd_Delay *pCmd_Delay);
-    int (*ReadScalers)(Cmd_ReadScalers *pCmd, Cmd_ReadScalers_Rsp *pCmd_Rsp);
-    int (*GetCrateMap)(Cmd_GetCrateMap *pCmd, Cmd_GetCrateMap_Rsp *pCmd_Rsp);
-    int (*GetBoardParams)(Cmd_GetBoardParams *pCmd, Cmd_GetBoardParams_Rsp *pCmd_Rsp);
-    int (*GetChannelParams)(Cmd_GetChannelParams *pCmd, Cmd_GetChannelParams_Rsp *pCmd_Rsp);
-    int (*SetChannelParams)(Cmd_SetChannelParams *pCmd);
+  int (*Read16)(Cmd_Read16 *pCmd_Read16, Cmd_Read16_Rsp *pCmd_Read16_Rsp);
+  int (*Write16)(Cmd_Write16 *pCmd_Write16);
+  int (*Read32)(Cmd_Read32 *pCmd_Read32, Cmd_Read32_Rsp *pCmd_Read32_Rsp);
+  int (*Write32)(Cmd_Write32 *pCmd_Write32);
+  int (*Delay)(Cmd_Delay *pCmd_Delay);
+  int (*ReadScalers)(Cmd_ReadScalers *pCmd, Cmd_ReadScalers_Rsp *pCmd_Rsp);
+  int (*GetCrateMap)(Cmd_GetCrateMap *pCmd, Cmd_GetCrateMap_Rsp *pCmd_Rsp);
+  int (*GetBoardParams)(Cmd_GetBoardParams *pCmd, Cmd_GetBoardParams_Rsp *pCmd_Rsp);
+  int (*GetChannelParams)(Cmd_GetChannelParams *pCmd, Cmd_GetChannelParams_Rsp *pCmd_Rsp);
+  int (*SetChannelParams)(Cmd_SetChannelParams *pCmd);
 } ServerCBFunctions;
 
 int CrateMsgServerStart(ServerCBFunctions *pCB, unsigned short listen_port);

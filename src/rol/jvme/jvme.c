@@ -515,15 +515,15 @@ vmeBusLock()
   int rval;
 
   if(p_sync!=NULL)
-    {
-      rval = pthread_mutex_lock(&(p_sync->mutex));
-      if(rval<0) 
+  {
+    rval = pthread_mutex_lock(&(p_sync->mutex));
+    if(rval<0) 
 	{
 	  perror("pthread_mutex_lock");
 	  printf("%s: ERROR locking vmeBus\n",__FUNCTION__);
 	  return ERROR;
 	}
-      if(rval==EOWNERDEAD)
+    if(rval==EOWNERDEAD)
 	{
 	  printf("%s: WARN: Previous owner of vmeBus (mutex) died unexpectedly\n",
 		 __FUNCTION__);
@@ -531,18 +531,18 @@ vmeBusLock()
 	  if(pthread_mutex_consistent_np(&(p_sync->mutex))<0)
 	    perror("pthread_mutex_consistent_np");
 	}
-      if(rval==ENOTRECOVERABLE)
+    if(rval==ENOTRECOVERABLE)
 	{
 	  printf("%s: ERROR: vmeBus mutex in an unrecoverable state!\n",
 		 __FUNCTION__);
 	  return ERROR;
 	}
-    }
+  }
   else
-    {
-      printf("%s: ERROR: vmeBusLock not initialized.\n",__FUNCTION__);
-      return ERROR;
-    }
+  {
+    printf("%s: ERROR: vmeBusLock not initialized.\n",__FUNCTION__);
+    return ERROR;
+  }
   return OK;
 }
 

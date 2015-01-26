@@ -18,20 +18,14 @@ typedef struct bigbuf
   unsigned int *data[NBIGBUFFERS];  /* circular buffer of pointers */
 
   /* locks and conditions */
-#ifdef VXWORKS
-  SEM_ID bb_lock;
-#else
   pthread_mutex_t bb_lock;   /* lock the structure */
   /*pthread_cond_t bb_cond;*/    /* full <-> not full condition */
-#endif
 
   int cleanup;
 
   /* for NEW_ROC */
-#ifndef VXWORKS
   unsigned int userMemBase[NBIGBUFFERS];
   unsigned int physMemBase[NBIGBUFFERS];
-#endif
 
 } BIGBUF;
 
@@ -49,8 +43,8 @@ typedef struct bignet
   int port;
   int socket;
 
-  BIGBUF *gbigBuffer; /* input data buffer */
-  BIGBUF *gbigBuffer1; /* output data buffer (NULL for 'coda_net') */
+  BIGBUF *gbigin;  /* input data buffer */
+  BIGBUF *gbigout; /* output data buffer (NULL for 'coda_net') */
 
   /* general info */
   int token_interval;
@@ -58,64 +52,11 @@ typedef struct bignet
   char host[128];
   char rolname[256];
   char rolparams[128];
-  int proc_on_pmc;
-  int net_on_pmc;
 
   char roc_name[128]; /* CODA name for ROC (for example dc1) */
   char eb_name[128]; /* CODA name for EB (for example EB1) */
 
 } BIGNET;
-
-
-
-/* PMC stuff */
-#ifdef VXWORKS
-
-/* some following definitions borrowed from dcpu.h; although we can use
-our own defs, we'll use same as dcpu.h; in future we may create generic
-header file for inter-processor communication and use it everywhere */
-
-/* Commands */
-#define DC_CMD_MASK    0xffff
-#define DC_DOWNLOAD      0x01
-#define DC_PRESTART      0x02
-#define DC_GO            0x04
-#define DC_END           0x08
-#define DC_RESET         0x10
-
-/* States */
-#define DC_STATE_MASK  0xffff0000
-#define DC_DOWNLOADED     0x10000
-#define DC_PRESTARTED     0x20000
-#define DC_ACTIVE         0x40000
-#define DC_ENDING         0xc0000
-#define DC_ENDED          0x80000
-#define DC_ERROR       0xff000000
-#define DC_IDLE             0
-
-/* keep data pointers aligned to 16-byte */
-typedef struct pmc *PMCPtr;
-typedef struct pmc
-{
-  volatile unsigned int  csrr;        /* command/state  register */
-  volatile unsigned int  cmd;
-  volatile unsigned int  dataReady;
-  volatile BIGNET       *bignetptr;
-
-  volatile unsigned int *bufin;
-  volatile unsigned int  lenin;
-
-  volatile unsigned int *bufout;
-  volatile unsigned int  lenout;
-
-  volatile unsigned int  heartbeat[4];
-
-} PMC;
-
-#endif
-
-
-
 
 
 /* function prototypes */
@@ -146,11 +87,9 @@ void bb_delete1(BIGBUF **bbh);
 void bb_cleanup_pci(BIGBUF **bbh);
 unsigned int *bb_read_pci(BIGBUF **bbh);
 
-#ifndef VXWORKS
 int usrMem2MemDmaCopy(unsigned int chan, unsigned int *sourceAddr, unsigned int *destAddr, unsigned int nbytes);
 int usrMem2MemDmaStart(unsigned int chan, unsigned int *sourceAddr, unsigned int *destAddr, unsigned int nbytes);
 int usrDmaDone(unsigned int chan);
-#endif
 
 #ifdef  __cplusplus
 }

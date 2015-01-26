@@ -49,10 +49,6 @@ void usrtrig_done();
 
 static char rcname[5];
 
-/*
-long decrement;
-extern long nevent;
-*/
 
 
 #define TIMERL_VAR \
@@ -156,12 +152,9 @@ __prestart()
 
   gtpFiberTriggerReset();
   gtpFiberTriggerEnable();
-/*
-  void gtpSetHpsParameters(int pulseCoincidenceTicks, int pulseClusterThreshold)
-    pulseCoincidenceTicks: 0-7=number of +/-4ns ticks to combine hits into a cluster
-    pulseClusterThreshold: 0-8191=minimum threshold(MeV) to form a cluster
-*/
-  gtpSetHpsParameters(0, 10);
+
+
+  gtpConfig("");
 
   printf("INFO: User Prestart 1 executed\n");
 
@@ -230,12 +223,15 @@ TIMERL_START;
 
   CEOPEN(EVTYPE, BT_BANKS);
 
+  /* gtp produce the same format as TI, so give a bank the same tag as TI */
+  BANKOPEN(0xe10A,1,rol->pid);
   /*printf("\nlen=%d\n",len);*/
   for(ii=0; ii<len; ii++)
   {
     /*printf("ti[%2d] = 0x%08x\n",ii,buf[ii]);*/
     *rol->dabufp++ = buf[ii];
   }
+  BANKCLOSE;
 
   CECLOSE;
 

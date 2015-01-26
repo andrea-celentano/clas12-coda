@@ -1,8 +1,6 @@
 
 /* dacgethostbynametest.c */
 
-#ifndef VXWORKS
-
 #include <stdio.h>
 
 main()
@@ -22,13 +20,3 @@ main()
 
   exit(0);
 }
-
-#else
-
-void
-dacgethostbynametest_dummy()
-{
-  return;
-}
-
-#endif

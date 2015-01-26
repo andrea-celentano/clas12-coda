@@ -11,6 +11,13 @@
 #define __TIPRIMARY_ROL__
 
 
+#define TI_CONF_FILE ""
+#define DSC2_CONF_FILE ""
+#define FADC_CONF_FILE ""
+#define SSP_CONF_FILE ""
+#define TDC_CONF_FILE ""
+
+
 #include <stdio.h>
 
 #ifndef VXWORKS
@@ -89,7 +96,9 @@ static unsigned int i2_from_rol1;
 static void
 tiprimarytinit(int code)
 {
-  int i1, i2, i3;
+  int ii, i1, i2, i3;
+  unsigned int slavemask, connectmask;
+
   /*int overall_offset=0x80;*/
 
 #ifdef VXWORKS
@@ -141,7 +150,7 @@ tiprimarytinit(int code)
   tiDisableVXSSignals();
   
   /*sergey*/
-  tiConfig("");
+  tiConfig(TI_CONF_FILE);
 
   printf("after tiConfig()\n");
   tiStatus(1);
@@ -175,26 +184,105 @@ tiprimarytinit(int code)
 
 
 
+/*
+tiSyncReset(0);
+tiTrigDisable();
+tiSetSyncSource(0);
+tiClockReset();
+tiSetSyncSource(TI_SYNC_LOOPBACK);
+
+tiTrigLinkReset();
+*/
+
+
+
   /* master and standalone crates, NOT slave */
+
 #ifndef TI_SLAVE
+
+
+
+
 
   printf("befor tiSyncReset\n");
   tiStatus(1);
 tiSyncReset(0);
   printf("after tiSyncReset\n");
   tiStatus(1);
+  /* fine */
+
+
   printf("tiClockReset/tiTrigLinkReset\n");
   taskDelay(200);
+
+
+
+  /* on William's advise */
+tiTrigDisable();
+  taskDelay(200);
+
+
+
 tiSetSyncSource(0); /* we do not want to issue 'tiClockReset' to the master, so we set sync source to 0, and restore it after */
 tiClockReset();
 tiSetSyncSource(TI_SYNC_LOOPBACK);
   printf("tiClockReset done\n");
   tiStatus(1);
+  /* not connected */
+
+
+
+
+try_again1:
+  /* check if any of fiber connections were lost; if so, resync */
+  connectmask = tiGetConnectedFiberMask();
+  slavemask = tiGetSlaveMask();
+  for(ii=0; ii<8; ii++)
+  {
+    i1 = slavemask&(1<<ii);
+    if(i1)
+	{
+      i2 = (i1 & connectmask) >> ii;
+      printf("======> ii=%d i2=%d\n",ii,i2);
+      if(i2==0)
+	  {
+        printf("Fiber %d lost connection - trying to recover\n");
+
+		//        tiClock250Resync();
+		tiResetMGT();
+
+        taskDelay(10);
+        goto try_again1;
+	  }
+	}
+  }
+
+
+
+
+
   taskDelay(200);
 tiTrigLinkReset();
   printf("tiTrigLinkReset done\n");
   tiStatus(1);
   taskDelay(200);
+
+
+
+
+
+
+  /*
+tiTrigLinkReset();
+  printf("tiTrigLinkReset done\n");
+  tiStatus(1);
+  taskDelay(200);
+
+tiTrigLinkReset();
+  printf("tiTrigLinkReset done\n");
+  tiStatus(1);
+  taskDelay(200);
+  */
 
 #else
 

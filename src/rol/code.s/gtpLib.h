@@ -197,6 +197,12 @@ typedef struct
 /* 0x2500-0xFFFF */	unsigned int			Reserved2[(0x10000-0x2500)/4];
 } Gtp_regs;
 
+
+#define FNLEN     128       /* length of config. file name */
+#define STRLEN    250       /* length of str_tmp */
+#define ROCLEN     80       /* length of ROC_name */
+
+
 unsigned int gtpRead32(volatile unsigned int *addr);
 void gtpWrite32(volatile unsigned int *addr, unsigned int val);
 
@@ -212,9 +218,12 @@ void gtpPayloadTriggerReset(int mask);
 void gtpFiberTriggerStatus();
 void gtpFiberTriggerEnable();
 void gtpFiberTriggerReset();
-void gtpSetHpsParameters(int pulseCoincidenceTicks, int pulseClusterThreshold);
-void gtpGetHpsParameters();
 int gtpInit(int flag);
+void gtpSetHpsPulseCoincidence(int ticks_before, int ticks_after);
+int gtpGetHpsPulseCoincidenceBefore();
+int gtpGetHpsPulseCoincidenceAfter();
+void gtpSetHpsPulseThreshold(int threshold);
+int gtpGetHpsPulseThreshold();
 
 /* New GTP function for Multi-ROC TI interface */
 int gtpReadBlock(volatile unsigned int *data, int nwrds, int rflag);
@@ -237,4 +246,7 @@ int  gtpIntEnable(int iflag);
 void gtpIntDisable();
 unsigned int  gtpGetIntCount();
 */
+
+int gtpConfig(char *fname);
+
 #endif

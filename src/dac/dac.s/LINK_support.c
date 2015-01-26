@@ -1,7 +1,5 @@
 
-/* LINK_support.c (used by UNIX programs only, no vxWorks !!!) */
-
-#ifndef VXWORKS
+/* LINK_support.c */
 
 #include <stdio.h>
 #include <string.h>
@@ -326,6 +324,12 @@ static int nev;
 hrtime_t start1, end1, start2, end2, start3, end3;
 
 
+#ifdef DEBUG
+ printf("LINK_sized_read reached\n");fflush(stdout);
+ printf("LINK_sized_read reached\n");fflush(stdout);
+ printf("LINK_sized_read reached\n");fflush(stdout);
+#endif
+
 
   /* Wait for all the data requested */
   int recv_flags = MSG_WAITALL;
@@ -335,6 +339,10 @@ hrtime_t start1, end1, start2, end2, start3, end3;
   /* read header off socket */
   rembytes = sizeof(netlong);
   bufferp = (char *) &netlong;
+
+#ifdef DEBUG
+  printf("LINK_sized_read: at the beginning rembytes=%d\n",rembytes);fflush(stdout);
+#endif
 
 start1 = start3 = gethrtime();
 
@@ -359,16 +367,18 @@ goto skiipp;
 	  */
     }
 skiipp:
-	/*
-  printf("RECV1: fd=%d, bufferp=0x%08x, rembytes=0x%08x, recv_flags=%d\n",
-    fd, bufferp, rembytes, recv_flags);fflush(stdout);
-	*/
-/*printf("0: rembytes=%d [%d]\n",rembytes,fd);*/
-    /*printf("processing 1 >%d<\n",fd);*/
-    cc = recv(fd, bufferp, rembytes, /*MSG_DONTWAIT*/recv_flags);
 
-    /*printf("processing 2 >%d<\n",fd);*/
-/*printf("1: %d %d [%d]\n",rembytes,cc,fd);*/
+#ifdef DEBUG
+    printf("RECV1: fd=%d, bufferp=0x%08x, rembytes=0x%08x, recv_flags=%d\n",
+      fd, bufferp, rembytes, recv_flags);fflush(stdout);
+    printf("0: rembytes=%d [%d]\n",rembytes,fd);
+    printf("processing 1 >%d<\n",fd);
+#endif
+    cc = recv(fd, bufferp, rembytes, /*MSG_DONTWAIT*/recv_flags);
+#ifdef DEBUG
+    printf("processing 2 >%d<\n",fd);
+    printf("1: %d %d [%d]\n",rembytes,cc,fd);
+#endif
     if(cc == -1)
     {
       if(errno == EWOULDBLOCK)
@@ -1465,13 +1475,3 @@ printf("906\n"); fflush(stdout);
   
   return(CODA_OK);
 }
-
-#else /* ifndef VXWORKS */
-
-void
-LINK_support_vxworks_dummy()
-{
-  return;
-}
-
-#endif

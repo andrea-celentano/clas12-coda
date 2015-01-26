@@ -3,6 +3,8 @@
       usage example:      ./Linux_i686_vme/bin/cratemsgclienttest hps11 6102
 */
 
+#if defined(Linux_vme)
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -18,12 +20,15 @@ CrateMsgClient *tcp;
                          (((x) & 0xff000000) >> 24))
 
 
+
+unsigned int *buf;
+
 int
 main(int argc, char *argv[])
 {
   char hostname[256];
   int hostport, len, ii, ret, slot, chan, partype;
-  unsigned int **buf, buffer[100];
+  unsigned int buffer[100];
 
   if(argc==3)
   {
@@ -48,26 +53,28 @@ main(int argc, char *argv[])
     exit(0);
   }
 
-  ret = tcp->GetCrateMap(buf, &len);
-  printf("len=%d\n",len);
-  for(ii=0; ii<len; ii++) printf("slot %2d, boardID 0x%08x\n",ii,(*buf)[ii]);
+  printf("111\n");fflush(stdout);
+  ret = tcp->GetCrateMap(&buf, &len);
+  printf("222\n");fflush(stdout);
+  for(ii=0; ii<len; ii++) {printf("slot %2d, boardID 0x%08x\n",ii,buf[ii]);fflush(stdout);}
 
 
   slot = 2;
   partype = SCALER_PARTYPE_THRESHOLD;
-  ret = tcp->GetBoardParams(slot, partype, buf, &len);
+  ret = tcp->GetBoardParams(slot, partype, &buf, &len);
 
   partype = SCALER_PARTYPE_THRESHOLD2;
-  ret = tcp->GetBoardParams(slot, partype, buf, &len);
+  ret = tcp->GetBoardParams(slot, partype, &buf, &len);
 
   chan = 5;
-  ret = tcp->GetChannelParams(slot, chan, partype, buf, &len);
+  ret = tcp->GetChannelParams(slot, chan, partype, &buf, &len);
 
+  /*
   len = 1;
   buffer[0] = 12;
   ret = tcp->SetChannelParams(slot, chan, partype, buffer, len);
-
-  ret = tcp->GetChannelParams(slot, chan, partype, buf, &len);
+  */
+  ret = tcp->GetChannelParams(slot, chan, partype, &buf, &len);
 
   sleep(3);
 
@@ -75,22 +82,44 @@ main(int argc, char *argv[])
   printf("-------------------------\n");
   while(1)
   {
-    slot=2;
-    ret = tcp->ReadScalers(slot, buf, &len);
-    printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
-    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,(*buf)[ii],LSWAP((*buf)[ii]));fflush(stdout);
-    delete (*buf);
-
     slot=3;
-    ret = tcp->ReadScalers(slot, buf, &len);
+    ret = tcp->ReadScalers(slot, &buf, &len);
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
-    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,(*buf)[ii],LSWAP((*buf)[ii]));fflush(stdout);
-    delete (*buf);
+    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    delete [] buf;
+
+    slot=4;
+    ret = tcp->ReadScalers(slot, &buf, &len);
+    printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
+    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    delete [] buf;
+
+    slot=5;
+    ret = tcp->ReadScalers(slot, &buf, &len);
+    printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
+    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    delete [] buf;
+
+    slot=6;
+    ret = tcp->ReadScalers(slot, &buf, &len);
+    printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
+    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    delete [] buf;
+
+    printf("\n\n");
 
     sleep(1);
   }
-  
 
   exit(0);
 }
 
+#else
+
+int
+main()
+{
+  return(0);
+}
+
+#endif

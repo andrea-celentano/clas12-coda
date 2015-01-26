@@ -25,7 +25,7 @@ set EB_t  = "-T EB_hps"
 set ER_t  = "-T ER_hps"
 set RC_t  = "-T runcontrol_hps"
 set XT1_t = "-T CRATE_hps11"
-set XT2_t = "-T CRATE_hps12"
+set XT2_t = "-T CRATE_hps1"
 set XT3_t = "-T CRATE_hps2"
 set XT4_t = "-T CRATE_hps1gtp"
 set XT5_t = "-T CRATE_hps2gtp"
@@ -44,7 +44,7 @@ set EB_comp  = 'coda_ebc -s clashps -o "EB18 CDEB" '
 set ER_comp  = 'coda_erc -s clashps -o "ER18 ER" '
 set RC_comp  = 'runcontrol -s clashps -cedit -dbedit'
 set XT1_comp  = 'coda_roc_gef -s clashps -o "hps11 TS" '
-set XT2_comp  = 'coda_roc_gef -s clashps -o "hps12 ROC" '
+set XT2_comp  = 'coda_roc_gef -s clashps -o "hps1 ROC" '
 set XT3_comp  = 'coda_roc_gef -s clashps -o "hps2 ROC" '
 set XT4_comp  = 'coda_roc -s clashps -o "hps1gtp ROC" '
 set XT5_comp  = 'coda_roc -s clashps -o "hps2gtp ROC" '
@@ -75,7 +75,7 @@ set geom  = "-geometry 70x12+$xpos+"
 set color = "-sb -sl 5000 -bg lightgreen -fg black"
 set tmp   = `xterm $XT1_t $color $geom$ypos -e $XT $XT1_comp >& /dev/null &`
 
-echo " Start connection to CRATE_hps12"
+echo " Start connection to CRATE_hps1"
 set ypos  = `expr $ypos + $yinc`
 set geom  = "-geometry 70x12+$xpos+"
 set color = "-sb -sl 5000 -bg lightgreen -fg black"

@@ -56,6 +56,8 @@ DSC2_CH_TRGDIGITAL   0   40  64    <- channel digital TRG output: channel#, widt
 
 
 /* Global variables */
+static int active;
+
 static int Ndsc = 0;                        /* Number of DSCs in Crate */
 
 #undef DEBUG
@@ -137,7 +139,7 @@ dsc2InitGlobals()
 
 
 #define DSC2_READ_MASKS(XXMASK,R_MSK,JJ_ADD) \
-	else if( (strcmp(keyword,(XXMASK)) == 0) && (kk >= 0) ) \
+    else if(active && ((strcmp(keyword,(XXMASK)) == 0) && (kk >= 0)))	\
 	{ \
 	  sscanf (str_tmp, "%*s %d %d %d %d %d %d %d %d \
                                 %d %d %d %d %d %d %d %d", \
@@ -220,6 +222,7 @@ dsc2ReadConfigFile(char *filename)
 
 
   /* Parsing of config file */
+  active = 0;
   while ((ch = getc(fd)) != EOF)
   {
     if ( ch == '#' || ch == ' ' || ch == '\t' )
@@ -231,23 +234,31 @@ dsc2ReadConfigFile(char *filename)
     {
       ungetc(ch,fd);
       fgets(str_tmp, STRLEN, fd);
-      sscanf (str_tmp, "%s", keyword);
+      sscanf (str_tmp, "%s %s", keyword, ROC_name);
 #ifdef DEBUG
       printf("\nfgets returns %s so keyword=%s\n\n",str_tmp,keyword);
 #endif
 
-      if(strcmp(keyword,"CRATE") == 0)
+      if(strcmp(keyword,"DSC2_CRATE") == 0)
       {
-        /* check if */
-        sprintf(ROC_name, "<%s>", host);
-        if( (strstr(str_tmp,ROC_name) != NULL))
+	    if(strcmp(ROC_name,host) == 0)
         {
-          printf("\nERROR: ReadConfigFile: Wrong crate name in config file (%s)\n",str_tmp);
-          return(-3);
+	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+          active = 1;
         }
+	    else if(strcmp(ROC_name,"all") == 0)
+		{
+	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+          active = 1;
+		}
+        else
+		{
+	      printf("\nReadConfigFile: crate = %s  host = %s - disactivated\n",ROC_name,host);
+          active = 0;
+		}
       }
 
-      else if(strcmp(keyword,"DSC2_SLOT") == 0)
+      else if(active && (strcmp(keyword,"DSC2_SLOT")==0))
       {
         kk++;
         sscanf (str_tmp, "%*s %s", str2);
@@ -283,21 +294,21 @@ dsc2ReadConfigFile(char *filename)
 
       DSC2_READ_MASKS("DSC2_TRGORMASK",ORMask,(jj+16))
 
-      else if( (strcmp(keyword,"DSC2_WIDTH") == 0) && (kk >= 0) )
+      else if(active && ((strcmp(keyword,"DSC2_WIDTH") == 0) && (kk >= 0)))
 	  {
         sscanf (str_tmp, "%*s %d %d", &i1, &i2);
         for(slot=slot1; slot<slot2; slot++) TDCWidth[slot] = i1;
         for(slot=slot1; slot<slot2; slot++) TRGWidth[slot] = i2;
       }
 
-      else if( (strcmp(keyword,"DSC2_THRESHOLD") == 0) && (kk >= 0) )
+      else if(active && ((strcmp(keyword,"DSC2_THRESHOLD") == 0) && (kk >= 0)))
 	  {
         sscanf (str_tmp, "%*s %d %d", &i1, &i2);
         for(slot=slot1; slot<slot2; slot++) for(chan=0; chan<NCHAN; chan++) TDCThreshold[slot][chan] = i1;
         for(slot=slot1; slot<slot2; slot++) for(chan=0; chan<NCHAN; chan++) TRGThreshold[slot][chan] = i2;
       }
 
-      else if( (strcmp(keyword,"DSC2_CH_THRESHOLD") == 0) && (kk >= 0) )
+      else if(active && ((strcmp(keyword,"DSC2_CH_THRESHOLD") == 0) && (kk >= 0)))
       {
         sscanf (str_tmp, "%*s %d %d %d", &chan, &i1, &i2);
         if((chan<0) || (chan>=NCHAN))
@@ -309,14 +320,14 @@ dsc2ReadConfigFile(char *filename)
         for(slot=slot1; slot<slot2; slot++) TRGThreshold[slot][chan] = i2;
       }
 
-      else if( (strcmp(keyword,"DSC2_TRGDIGITAL") == 0) && (kk >= 0) )
+      else if(active && ((strcmp(keyword,"DSC2_TRGDIGITAL") == 0) && (kk >= 0)))
       {
         sscanf (str_tmp, "%*s %d %d", &i1, &i2);
         for(slot=slot1; slot<slot2; slot++) for(chan=0; chan<NCHAN; chan++) TRGDigitalWidth[slot][chan] = i1;
         for(slot=slot1; slot<slot2; slot++) for(chan=0; chan<NCHAN; chan++) TRGDigitalDelay[slot][chan] = i2;
       }
 
-      else if( (strcmp(keyword,"DSC2_CH_TRGDIGITAL") == 0) && (kk >= 0) )
+      else if(active && ((strcmp(keyword,"DSC2_CH_TRGDIGITAL") == 0) && (kk >= 0)))
       {
         sscanf (str_tmp, "%*s %d %d %d", &chan, &i1, &i2);
         if((chan<0) || (chan>=NCHAN))
@@ -330,11 +341,14 @@ dsc2ReadConfigFile(char *filename)
 
       else
       {
+        ; /* unknown key - do nothing */
+		/*
         printf("ReadConfigFile: Unknown Field or Missed Field in\n");
         printf("   %s \n", fname);
         printf("   str_tmp=%s", str_tmp);
         printf("   keyword=%s \n\n", keyword);
         return(-7);
+		*/
       }
 
     }
@@ -467,6 +481,117 @@ dsc2Mon(int slot)
     printf("\n");
   }
 }
+
+
+
+
+
+#define ADD_TO_STRING \
+  len1 = strlen(str); \
+  len2 = strlen(sss); \
+  if((len1+len2) < length) strcat(str,sss); \
+  else \
+  { \
+    str[len1+1] = ' '; \
+    str[len1+2] = ' '; \
+    str[len1+3] = ' '; \
+    len1 = ((len1+3)/4)*4; \
+    return(len1); \
+  }
+
+/* upload setting from all found DSC2s */
+int
+dsc2UploadAll(char *string, int length)
+{
+  int slot, i, ii, jj, kk, len1, len2;
+  char *str, sss[1024];
+  unsigned int tmp, val[NCHAN], val1[NCHAN];
+  unsigned short sval[NCHAN];
+  unsigned short bypMask;
+
+  str = string;
+  str[0] = '\0';
+  Ndsc = dsc2GetNdsc();
+  for(kk=0; kk<Ndsc; kk++)
+  {
+    slot = dsc2Slot(kk);
+
+    sprintf(sss,"DSC2_SLOT %d\n",slot);
+    ADD_TO_STRING;
+
+    sprintf(sss,"DSC2_WIDTH %d %d\n",dsc2GetPulseWidth(slot,1),dsc2GetPulseWidth(slot,2));
+    ADD_TO_STRING;
+
+    tmp = dsc2GetChannelMask(slot, 1),
+    sprintf(sss,"DSC2_TDCMASK");
+    ADD_TO_STRING;
+    for(jj=0; jj<NCHAN; jj++)
+	{
+      sprintf(sss," %d",(tmp>>(15-jj))&0x1);
+      ADD_TO_STRING;
+    }
+    sprintf(sss,"\n");
+    ADD_TO_STRING;
+
+    tmp = dsc2GetChannelORMask(slot, 1);
+    sprintf(sss,"DSC2_TDCORMASK");
+    ADD_TO_STRING;
+    for(jj=0; jj<NCHAN; jj++)
+	{
+      sprintf(sss," %d",(tmp>>(15-jj))&0x1);
+      ADD_TO_STRING;
+    }
+    sprintf(sss,"\n");
+    ADD_TO_STRING;
+
+    tmp = dsc2GetChannelMask(slot, 2),
+    sprintf(sss,"DSC2_TRGMASK");
+    ADD_TO_STRING;
+    for(jj=0; jj<NCHAN; jj++)
+	{
+      sprintf(sss," %d",(tmp>>(15-jj))&0x1);
+      ADD_TO_STRING;
+    }
+    sprintf(sss,"\n");
+    ADD_TO_STRING;
+
+    tmp = dsc2GetChannelORMask(slot, 2);
+    sprintf(sss,"DSC2_TRGORMASK");
+    ADD_TO_STRING;
+    for(jj=0; jj<NCHAN; jj++)
+	{
+      sprintf(sss," %d",(tmp>>(15-jj))&0x1);
+      ADD_TO_STRING;
+    }
+    sprintf(sss,"\n");
+    ADD_TO_STRING;
+
+    for(jj=0; jj<NCHAN; jj++)
+    {
+      sprintf(sss,"DSC2_CH_THRESHOLD %d %d %d\n",jj,dsc2GetThreshold(slot,jj,1),dsc2GetThreshold(slot,jj,2));
+      ADD_TO_STRING;
+    }
+
+    bypMask = dsc2GetTRGOutSource(slot,1);
+    for(jj=0;jj<NCHAN;jj++)
+    {
+      if( (bypMask&(1<<jj))==0 )
+	  {
+        sprintf(sss,"DSC2_CH_TRGDIGITAL %d %d %d\n",jj,dsc2GetTRGOutDelay(slot,jj),dsc2GetTRGOutWidth(slot,jj));
+	  }
+    }
+  }
+
+  len1 = strlen(str);
+  str[len1+1] = ' ';
+  str[len1+2] = ' ';
+  str[len1+3] = ' ';
+  len1 = ((len1+3)/4)*4;
+
+  return(len1);
+}
+
+
 
 
 

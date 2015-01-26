@@ -5,41 +5,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#include <semLib.h>
-#include <memLib.h>
-#endif
-
 #include "circbuf.h"
 
-/*
-#ifndef VXWORKS
-*/
 #define logMsg printf
-/*
-#endif
-*/
-
-
-#ifdef VXWORKS
-
-#define BB_LOCK   semTake(bbp->bb_lock, WAIT_FOREVER)
-#define BB_UNLOCK semGive(bbp->bb_lock)
-
-#else
 
 #define BB_LOCK   pthread_mutex_lock(&bbp->bb_lock)
 #define BB_UNLOCK pthread_mutex_unlock(&bbp->bb_lock)
-
-#endif
-
 
 #define LSWAP(x)        ((((x) & 0x000000ff) << 24) | \
                          (((x) & 0x0000ff00) <<  8) | \
                          (((x) & 0x00ff0000) >>  8) | \
                          (((x) & 0xff000000) >> 24))
-
 
 /****************************************************************************/
 /****************************************************************************/
@@ -95,16 +71,7 @@ bb_new(int nbufs, int nbytes)
   }
 
   /* initialize semaphores */
-#ifdef VXWORKS
-  bbp->bb_lock = semBCreate(SEM_Q_FIFO, SEM_FULL);
-  if(bbp->bb_lock == NULL)
-  {
-    logMsg("bb_new: ERROR: could not allocate a semaphore\n",1,2,3,4,5,6);
-    return(0);
-  }
-#else
   pthread_mutex_init(&bbp->bb_lock, NULL);
-#endif
 
   /* initialize index */
   bbp->write = 1;
@@ -322,9 +289,7 @@ printf("bb_delete1 [%d]\n",i);fflush(stdout);
 printf("bb_delete1 (%d)\n",i);fflush(stdout);
   }
   */
-#ifndef VXWORKS
   bb_dma_free();
-#endif
 
   /* free 'bbp' structure */
 printf("bb_delete1 6\n");fflush(stdout);
@@ -368,15 +333,8 @@ printf("bb_delete 0: 0x%08x\n",bbh);fflush(stdout);
 
   if((bbh == NULL)||(*bbh == NULL)) return;
 
-#ifdef VXWORKS
-printf("bb_delete 1\n");fflush(stdout);
-  semGive(bbp->bb_lock);
-printf("bb_delete 2\n");fflush(stdout);
-  semDelete(bbp->bb_lock);
-#else
   pthread_mutex_unlock(&bbp->bb_lock);
   pthread_mutex_destroy(&bbp->bb_lock);
-#endif
 
 printf("bb_delete 5\n");fflush(stdout);
 
@@ -488,11 +446,7 @@ printf("bb_write(in): bbp->write=%d\n",bbp->write);fflush(stdout);
 
     if(flag) return(NULL);
 
-#ifdef VXWORKS
-    taskDelay(100);
-#else
 	/*sleep(1);*/usleep(100000);
-#endif
     BB_LOCK;
   }
 
@@ -559,19 +513,6 @@ bb_read(BIGBUF **bbh)
 {
   BIGBUF *bbp = *bbh;
   int icb;
-  /*
-logMsg("bb_read(in): bbp->read=%d bbp->cleanup=%d\n",
-bbp->read,bbp->cleanup,3,4,5,6);
-  */
-  
-  /*
-taskDelay(100*20);
-printf("bb_read(in): bbp->read=%d bbp->cleanup=%d\n",bbp->read,bbp->cleanup);
-printf("bb_read(in): bbp->read=%d bbp->cleanup=%d\n",bbp->read,bbp->cleanup);
-printf("bb_read(in): bbp->read=%d bbp->cleanup=%d\n",bbp->read,bbp->cleanup);
-printf("bb_read(in): bbp->read=%d bbp->cleanup=%d\n",bbp->read,bbp->cleanup);
-printf("bb_read(in): bbp->read=%d bbp->cleanup=%d\n",bbp->read,bbp->cleanup);
-  */
 
   if((bbh == NULL)||(*bbh == NULL)) return(NULL);
   if(bbp->cleanup)
@@ -595,28 +536,17 @@ printf("bb_read(in): bbp->read=%d bbp->cleanup=%d\n",bbp->read,bbp->cleanup);
       BB_UNLOCK;
       return(NULL);
 	}
-    /*printf("bb_read[0x%08x]: waiting for buffer (read=%d write=%d) ...\n",bbp,bbp->read,bbp->write);*/
     BB_UNLOCK;
 
-#ifdef VXWORKS
-    taskDelay(100);
-#else
 	/*sleep(1);*/usleep(100000);
-#endif
     BB_LOCK;
   }
 
-  /*logMsg("bb_read: lock (icb=%d)\n",icb,2,3,4,5,6);*/
   /* set 'read' pointer to the next buffer */
-
   bbp->read = icb;
 
   BB_UNLOCK;
 
-  /*logMsg("bb_read: unlock (icb=%d)\n",icb,2,3,4,5,6);*/
-/*
-printf("bb_read(out): bbp->read=%d\n",bbp->read);fflush(stdout);
-*/
   return(bbp->data[icb]);
 }
 
@@ -628,7 +558,6 @@ bb_check(unsigned int *data)
   int j, nev, lenev, lenbuf, iev, llenw;
   unsigned int *buf, magic;
 
-#ifndef VXWORKS
   magic = data[BBIFD];
   if(magic == 0x01020304)
   {
@@ -637,7 +566,6 @@ bb_check(unsigned int *data)
 	printf("bb_check: llenw=%d\n",llenw);
     bufferSwap(data,llenw);
   }
-#endif
 
   printf("BIGBUF: buflen=%d, bufnum=%d, rocid=%d, nev=%d, magic=%d, end=%d, nhead=%d\n",
          data[BBIWORDS],
@@ -671,12 +599,6 @@ bb_check(unsigned int *data)
 }
 
 
-
-
-#ifndef VXWORKS
-
-/* UNIX-only: VXWORKS has those functions in BSPs */
-
 #define UINT32 unsigned int
 
 int
@@ -702,6 +624,3 @@ usrDmaDone(UINT32 chan)
 {
   return(0);
 }
-
-#endif
-

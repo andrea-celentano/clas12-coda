@@ -1,22 +1,6 @@
 
 /* roc_component.c */
 
-#ifdef VXWORKS
-
-#include <stdio.h>
-#include <string.h>
-#include <sockLib.h>
-#include <errno.h>
-#include <errnoLib.h>
-
-extern long vxTicks;
-
-#define ulong  unsigned long
-
-#define MYCLOCK 25
-
-#else
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -25,9 +9,6 @@ extern long vxTicks;
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
-/*
-#include <dlfcn.h>
-*/
 #include <sys/mman.h>
 
 #ifdef Linux
@@ -41,18 +22,12 @@ extern long vxTicks;
 #define ulong  unsigned long
 #endif
 
-#endif
 
-#ifdef VXWORKS
-static int iTaskROL=0;
-static int iTaskPROC=0;
-static int iTaskNET=0;
-#else
 static pthread_t iTaskROL;
 static pthread_t iTaskPROC;
 static pthread_t iTaskNET;
 static pthread_attr_t detached_attr;
-#endif
+
 
 #ifdef Linux
 int tcpServer(char *name);
@@ -68,16 +43,14 @@ int tcpServer(char *name);
 #define CODA_OK 0
 
 
-
-#ifndef VXWORKS
 #ifdef __cplusplus
 typedef void 		(*VOIDFUNCPTR) (...); /* ptr to function returning void */
 #else
 typedef void 		(*VOIDFUNCPTR) (); /* ptr to function returning void */
 #endif			/* _cplusplus */
-#endif
-#include "rolInt.h"
 
+
+#include "rolInt.h"
 
 
 typedef struct roc_private_store *rocParam;
@@ -93,8 +66,10 @@ typedef struct roc_private_store
   int        output_switch;
 } roc_priv;
 
-/* following structure will be allocated once in constructor */
-static ROLPARAMS *rolPs[2];
+
+
+static int nrols;
+static ROLPARAMS *rolPs[2]; /* will be allocated once in constructor */
 
 int rocMask = 0;
 
@@ -104,11 +79,8 @@ int rocMask = 0;
 /*static*/ int rocp_primefd;
 /*static*/ int rocp_recNb;
 
-#ifdef VXWORKS
-/*static*/ int timeout;
-#else
 /*static*/ /*time_t*/hrtime_t timeout;
-#endif
+
 
 
 /* Global Symbols */
@@ -119,13 +91,11 @@ static int icycle;
 static int cycle;
 static int icycle3;
 static int cycle3;
-#ifdef VXWORKS
-static unsigned long time3;
-#else
+
 #ifndef Darwin
 static hrtime_t time3;
 #endif
-#endif
+
 
 static char confFile[256];
 
@@ -139,11 +109,8 @@ extern char    *session; /* coda_component.c */
 
 /* the number of output buffers */
 /* buffer size defined in circbuf.h */
-#ifdef VXWORKS
-#define NUM_SEND_BUFS        8
-#else
 #define NUM_SEND_BUFS        16
-#endif
+
 
 static int print_output_buffers_are_full = 1; /* enable warning message */
 /* was reenabled in LINK_sized_write, removed temporarily */
@@ -162,22 +129,26 @@ static int socketnum = 0;
 /*static*/ unsigned int *dabufp; /* non-static to be used by ROL1 */
 /*static*/ unsigned int dataInBuf = BBHEAD_BYTES;
 
-#ifndef VXWORKS
+
 unsigned int dabufp_usermembase; /* non-static to be used by ROL1 */
 unsigned int dabufp_physmembase; /* non-static to be used by ROL1 */
-#endif
 
 
+
+
+
+/* big buffers to be used as VME DMA destination */
+/*static*/ BIGBUF *gbigDMA = NULL;
+
+/* big buffers to be used between 'coda_proc' and 'coda_net' */
+static BIGBUF *gbigBUF = NULL;
 
 /* net_thread structure, buffers from it to be used by 'coda_proc', the rest by 'coda_net' */
-/*static*/ BIGNET big0;
+static BIGNET bigproc;
 
-/* big buffers to be used between 'coda_proc' and 'coda_net' if both are on host*/
-static BIGBUF *gbigBuffer1 = NULL;
-
-/* net_thread structure, contains pointer to the gbigBuffer1 - to be used
- between 'coda_proc' and 'coda_net' if both are on host*/
-static BIGNET big1;
+/* net_thread structure, contains pointer to the gbigBUF - to be used
+ between 'coda_proc' and 'coda_net' */
+static BIGNET bignet;
 
 
 extern char configname[128]; /* coda_component.c */
@@ -185,24 +156,12 @@ extern char configname[128]; /* coda_component.c */
 /*static*/extern objClass localobject;
 void output_proc_network(int bla/*struct alist *output*/);
 
-#ifdef VXWORKS
-static volatile PMC localpmc; /* host-pmc communication structure */
-#endif
-static int proc_on_pmc = 0; /* 1 - run coda_proc on pmc, 0 - on host board */
-static int net_on_pmc = 0; /* 1 - run coda_net on pmc, 0 - on host board */
-
 
 int LINK_establish(char *host, int port);
 int LINK_close(int socket);
 
-#ifdef VXWORKS
-void proc_thread(BIGNET *bigprocptr, unsigned int offset);
-void net_thread(BIGNET *bignetptr, unsigned int offset);
-#else
 void proc_thread(BIGNET *bigprocptr);
 void net_thread(BIGNET *bignetptr);
-#endif
-
 
 void rols_loop();
 static int rols_loop_exit = 0;
@@ -212,26 +171,14 @@ static int rols_loop_exit = 0;
 /* semaphore to synchronize CODA transitions and output_proc_network;
 second parameter in semTake() is in 'ticks', we'll wait 5 seconds */
 
-#ifdef VXWORKS
-static SEM_ID transition_lock;
-#define TRANSITION_LOCK semTake(transition_lock, /*WAIT_FOREVER*/5*sysClkRateGet())
-#define TRANSITION_UNLOCK semGive(transition_lock)
-#else
 static pthread_mutex_t transition_lock;
 #define TRANSITION_LOCK pthread_mutex_lock(&transition_lock)
 #define TRANSITION_UNLOCK pthread_mutex_unlock(&transition_lock)
-#endif
 
 
-#ifdef VXWORKS
-/*static*/ SEM_ID sendbuffer_lock;
-#define SENDBUFFER_LOCK semTake(sendbuffer_lock, WAIT_FOREVER)
-#define SENDBUFFER_UNLOCK semGive(sendbuffer_lock)
-#else
 /*static*/ pthread_mutex_t sendbuffer_lock;
 #define SENDBUFFER_LOCK pthread_mutex_lock(&sendbuffer_lock)
 #define SENDBUFFER_UNLOCK pthread_mutex_unlock(&sendbuffer_lock)
-#endif
 
 /****************************************************************************/
 /***************************** tcpServer functions **************************/
@@ -313,134 +260,6 @@ rocStatus()
 /****************************************************************************/
 /****************************************************************************/
 
-#ifdef VXWORKS
-
-#include <bootLib.h>
-
-void
-proconpmc()
-{
-  proc_on_pmc = 1;
-  big0.proc_on_pmc = 1;
-  big1.proc_on_pmc = 1;
-}
-void
-proconhost()
-{
-  proc_on_pmc = 0;
-  big0.proc_on_pmc = 0;
-  big1.proc_on_pmc = 0;
-}
-int
-getproconpmc()
-{
-  return(big0.proc_on_pmc);
-}
-void
-printproconpmc()
-{
-  if(big0.proc_on_pmc == 1)
-  {
-    printf("will start 'coda_proc' on pmc board\n");
-  }
-  else
-  {
-    printf("will run 'coda_proc' on host board in ROL2\n");
-  }
-}
-
-
-
-void
-netonpmc()
-{
-  net_on_pmc = 1;
-  big0.net_on_pmc = 1;
-  big1.net_on_pmc = 1;
-}
-void
-netonhost()
-{
-  net_on_pmc = 0;
-  big0.net_on_pmc = 0;
-  big1.net_on_pmc = 0;
-}
-int
-getnetonpmc()
-{
-  return(big1.net_on_pmc);
-}
-void
-printnetonpmc()
-{
-  if(big1.net_on_pmc == 1)
-  {
-    printf("will start 'coda_net' on pmc board\n");
-  }
-  else
-  {
-    printf("will start 'coda_net' on host board\n");
-  }
-}
-
-
-/* local memory */
-#define BOOTLEN 1024
-static char boot_line[BOOTLEN];
-static BOOT_PARAMS boot_params;
-static char targetname[128];
-static char hostname[128];
-static char rocname[128];
-
-/* name of the computer we are booting from (for example clon10-daq1) */
-char *
-hostName()
-{
-  /*printf("hostName reached\n");fflush(stdout);*/
-  sysNvRamGet(boot_line,BOOTLEN,0);
-  bootStringToStruct(boot_line,&boot_params);
-  strcpy(hostname,boot_params.hostName);  
-
-  return((char*)hostname);
-}
-
-/* name of current cpu (for example dc1, or dc1pmc1 etc) */
-char *
-targetName()
-{
-  /*printf("targetName reached\n");fflush(stdout);*/
-  sysNvRamGet(boot_line,BOOTLEN,0);
-  bootStringToStruct(boot_line,&boot_params);
-  strcpy(targetname,boot_params.targetName);  
-  /*printf("targetName reached >%s<\n",targetname);fflush(stdout);*/
-
-  return((char*)targetname);
-}
-
-/* name of current roc, return the same name on roc itself or any pmc's (on dc1pmc1 it will return dc1) */
-char *
-rocName()
-{
-  /*printf("rocName reached\n");fflush(stdout);*/
-  sysNvRamGet(boot_line,BOOTLEN,0);
-  bootStringToStruct(boot_line,&boot_params);
-  strcpy(rocname,boot_params.targetName);  
-  /*printf("rocName reached >%s<\n",rocname);fflush(stdout);*/
-
-  return((char*)targetname);  
-}
-
-void
-targetName_test()
-{
-  char *myname;
-
-  myname = targetName();
-  printf("myname >%s<\n",myname);
-}
-
-#endif
-
 
 int
 rocId()
@@ -478,8 +297,8 @@ roc_constructor()
   }
   memset((char *) localobject->privated, 0, sizeof (roc_priv));
 
-  memset((char *) &big0, 0, sizeof(BIGNET));
-  memset((char *) &big1, 0, sizeof(BIGNET));
+  memset((char *) &bigproc, 0, sizeof(BIGNET));
+  memset((char *) &bignet, 0, sizeof(BIGNET));
 
 
   /*************************/
@@ -492,144 +311,65 @@ roc_constructor()
   printf("min=0x%08x (bufs 0x%08x x %d x 2, mem=0x%08x)\n",
     maxNeededBytes,SEND_BUF_SIZE,NUM_SEND_BUFS,MIN_MEM_LEFT);
 
-#ifdef VXWORKS
-  /* memory size we have */
-  maxAvailBytes = memFindMax();
-  printf("maxAvailBytes= 0x%08x\n",maxAvailBytes);
-
-  if(maxAvailBytes > maxNeededBytes)
-  {
-    tsendBufSize = SEND_BUF_SIZE;
-    printf("INFO: wants=0x%08x, maxAvailBytes=0x%08x, create=0x%08x\n",
-        maxNeededBytes, maxAvailBytes, tsendBufSize);
-  }
-  else
-  {
-    tsendBufSize = (maxAvailBytes
-		            - MIN_MEM_LEFT /* leave space for other data */
-                     ) / (NUM_SEND_BUFS*2);
-    printf("WARN: Reducing Standard Send Buffer Allocation\n");
-    printf("WARN: wants=0x%08x, maxAvailBytes=0x%08x, create=0x%08x\n",
-        maxNeededBytes, maxAvailBytes, tsendBufSize);
-  }
-#else
   maxAvailBytes = SEND_BUF_SIZE * NUM_SEND_BUFS;
   tsendBufSize = SEND_BUF_SIZE;
   printf("INFO: wants=0x%08x, maxAvailBytes=0x%08x, create=0x%08x\n",
       maxNeededBytes, maxAvailBytes, tsendBufSize);
-#endif
 
   /* create input 'big' buffer pools for 'proc' and 'net'; input to the 'net' will be
   used as output from 'proc' if both of them are running on host */
 
-#ifdef VXWORKS
-
-  /* Does VxWorks have enough memory for output buffers ? */
-  maxAvailBytes = memFindMax();
-  if(maxAvailBytes < NUM_SEND_BUFS*2*tsendBufSize)
-  {
-    printf("ERROR: Do NOT allocate 'big' buffer - no memory !!!\n");
-    printf("ERROR: maxAvailBytes=0x%08x, need 0x%08x x %d\n",
-      maxAvailBytes,tsendBufSize,NUM_SEND_BUFS);
-  }
-  else
-  {
-
-#ifndef NEW_ROC
-    /* input buffer for proc */
-    big0.gbigBuffer = bb_new(NUM_SEND_BUFS,tsendBufSize);
-    if(big0.gbigBuffer == NULL)
-    {
-      printf("ERROR in bb_new: Buffer allocation FAILED\n");
-      return(CODA_ERROR);
-    }
-    else
-    {
-      printf("bb_new: big0 buffer allocated at 0x%08x\n",big0.gbigBuffer);
-    }
-#endif
-
-    /* intermediate buffer */
-    gbigBuffer1 = bb_new(NUM_SEND_BUFS,tsendBufSize);
-    if(gbigBuffer1 == NULL)
-    {
-      printf("ERROR in bb_new: gbigBuffer1 allocation FAILED\n");
-      return(CODA_ERROR);
-    }
-    else
-    {
-      printf("bb_new: gbigBuffer1 allocated at 0x%08x\n",gbigBuffer1);
-    }
-
-  }
 
 
-#else /* not VxWorks */
-
-
-  /* input buffer for proc */
+  /* DMA buffer */
 #if defined(NEW_ROC) && defined(Linux_vme)
 
-  big0.gbigBuffer = bb_new_rol1(NUM_SEND_BUFS,tsendBufSize);
-  if(big0.gbigBuffer == NULL)
+  gbigDMA = bb_new_rol1(NUM_SEND_BUFS,tsendBufSize);
+  if(gbigDMA == NULL)
   {
     printf("ERROR in bb_new_rol1: Buffer allocation FAILED\n");
     return(CODA_ERROR);
   }
   else
   {
-    printf("bb_new_rol1: big buffer allocated at 0x%08x\n",big0.gbigBuffer);
+    printf("bb_new_rol1: big buffer allocated at 0x%08x\n",gbigDMA);
   }
 
 #else
 
-  big0.gbigBuffer = bb_new(NUM_SEND_BUFS,tsendBufSize);
-  if(big0.gbigBuffer == NULL)
+  gbigDMA = bb_new(NUM_SEND_BUFS,tsendBufSize);
+  if(gbigDMA == NULL)
   {
     printf("ERROR in bb_new: Buffer allocation FAILED\n");
     return(CODA_ERROR);
   }
   else
   {
-    printf("bb_new: big0 buffer allocated at 0x%08x\n",big0.gbigBuffer);
+    printf("bb_new: bigproc buffer allocated at 0x%08x\n",gbigDMA);
   }
 #endif
 
+  /***********************/
   /* intermediate buffer */
-  gbigBuffer1 = bb_new(NUM_SEND_BUFS,tsendBufSize);
-  if(gbigBuffer1 == NULL)
+  gbigBUF = bb_new(NUM_SEND_BUFS,tsendBufSize);
+  if(gbigBUF == NULL)
   {
-    printf("ERROR in bb_new: gbigBuffer1 allocation FAILED\n");
+    printf("ERROR in bb_new: gbigBUF allocation FAILED\n");
     return(CODA_ERROR);
   }
   else
   {
-    printf("bb_new: gbigBuffer1 allocated at 0x%08x\n",gbigBuffer1);
+    printf("bb_new: gbigBUF allocated at 0x%08x\n",gbigBUF);
   }
 
-#endif
 
 
+  printf("=== %d %d\n",tcpState,rocp->state);
 
-
-
-
-printf("=== %d %d\n",tcpState,rocp->state);
-printf("=== %d %d\n",tcpState,rocp->state);
-printf("=== %d %d\n",tcpState,rocp->state);
-printf("=== %d %d\n",tcpState,rocp->state);
-printf("=== %d %d\n",tcpState,rocp->state);
-
-if(codaUpdateStatus("booted") != CODA_OK) return(CODA_ERROR);
+  if(codaUpdateStatus("booted") != CODA_OK) return(CODA_ERROR);
 
   /* Sergey */
   tcpState = rocp->state = DA_BOOTED;
-
-printf("--- %d %d\n",tcpState,rocp->state);
-printf("--- %d %d\n",tcpState,rocp->state);
-printf("--- %d %d\n",tcpState,rocp->state);
-printf("--- %d %d\n",tcpState,rocp->state);
-printf("--- %d %d\n",tcpState,rocp->state);
 
   for(ix=0; ix<2; ix++)
   {
@@ -641,37 +381,10 @@ printf("--- %d %d\n",tcpState,rocp->state);
     }
   }
 
-
-#ifdef VXWORKS
-  transition_lock = semBCreate(SEM_Q_FIFO, SEM_FULL);
-  if(transition_lock == NULL)
-  {
-    printf("ERROR: could not allocate a semaphore\n");
-    return(CODA_ERROR);
-  }
-#else
   pthread_mutex_init(&transition_lock, NULL);
-#endif
-
-#ifdef VXWORKS
-  sendbuffer_lock = semBCreate(SEM_Q_FIFO, SEM_FULL);
-  if(sendbuffer_lock == NULL)
-  {
-    printf("ERROR: could not allocate a semaphore\n");
-    return(CODA_ERROR);
-  }
-#else
   pthread_mutex_init(&sendbuffer_lock, NULL);
-#endif
 
-
-  /*
-gethrtimetest();
-  */
-
-#ifndef VXWORKS
   tcpServer(localobject->name); /*start server to process non-coda commands sent by tcpClient*/
-#endif
 
   return(CODA_OK);
 }
@@ -683,9 +396,7 @@ roc_destructor()
   int         ix, res;
   rocParam    rocp;
 
-printf("================== roc_destructor reached\n");
-printf("================== roc_destructor reached\n");
-printf("================== roc_destructor reached\n");
+  printf("================== roc_destructor reached\n");
 
   if(localobject == NULL) return(CODA_OK);
   rocp = (rocParam) localobject->privated;
@@ -713,33 +424,18 @@ printf("================== roc_destructor reached\n");
 		res = codaUnloadROL(rolP);
         if(res) return(CODA_ERROR);
       }
-
       rocp->rolPs[0] = NULL;
-
     }
     if(rocp) {free((char *)rocp);rocp=NULL;}
-
   }
 
   for(ix=0; ix<2; ix++) free(rolPs[ix]);
 
-
-#ifdef VXWORKS
-  semGive(transition_lock);
-  semDelete(transition_lock);
-#else
   pthread_mutex_unlock(&transition_lock);
   pthread_mutex_destroy(&transition_lock);
-#endif
 
-#ifdef VXWORKS
-  semGive(sendbuffer_lock);
-  semDelete(sendbuffer_lock);
-#else
   pthread_mutex_unlock(&sendbuffer_lock);
   pthread_mutex_destroy(&sendbuffer_lock);
-#endif
-
 
   return(CODA_OK);
 }
@@ -751,15 +447,8 @@ rocCloseLink()
 
 
   /* do it on exit from net_thread */
-  if(net_on_pmc)
-  {
-    ;
-  }
-  else
-  {
-    /* shutdown socket connection */
-    /*socketnum = LINK_close(socketnum);*/
-  }
+  /* shutdown socket connection */
+  /*socketnum = LINK_close(socketnum);*/
 
   /*
   if(socketnum != 0)
@@ -790,18 +479,13 @@ rocCleanup()
   objClass object = localobject;
 
   rocParam rocp;
-#ifdef VXWORKS 
-  int status;
-  int ix;
-  int  num_messages, length;
-#endif
 
   printf("rocCleanup reached\n");
   rocp = (rocParam) object->privated;  
-  big0.doclose = 0;
-  big1.doclose = 0;
-  big0.failure = 0;
-  big1.failure = 0;
+  bigproc.doclose = 0;
+  bignet.doclose = 0;
+  bigproc.failure = 0;
+  bignet.failure = 0;
   rocp->active = 1;
 
   return(CODA_OK);
@@ -815,9 +499,6 @@ int
 codaExit()
 {
   objClass object = localobject;
-#ifdef VXWORKS 
-  int state;
-#endif
   rocParam  rocp;
   ROLPARAMS *rolP;
   int       ix, ii;
@@ -848,48 +529,26 @@ codaExit()
   while(rols_loop_exit)
   {
     printf("exit: wait for rols_loop to exit ..\n");
-#ifdef VXWORKS
-    taskDelay(sysClkRateGet());
-#else
     sleep(1);
-#endif
     ii --;
     if(ii<0) break;
   }
 
-
   rocCleanup();
 
-
-
-#ifdef VXWORKS
-  /* if have PMC, check it's status (net_on_pmc will be set in any case if PMC is in use) */
-  if(net_on_pmc)
-  {
-    state = localpmc.csrr & DC_STATE_MASK;
-    printf("PMC state is 0x%08x\n",state);
-    localpmc.cmd = DC_RESET;
-    while(localpmc.cmd != 0)
-    {
-      taskDelay(sysClkRateGet());
-      printf("waiting for PMC to process transaction, localpmc.cmd=0x%08x\n",localpmc.cmd);
-    }
-
-  }
-#endif
-
-
-
   /*sergey: exit bb_write's if still active */
-  printf("\nCalls bb_cleanup 1\n");
-  printf("Calls bb_cleanup 1\n");
-  printf("Calls bb_cleanup 1\n\n");
-  bb_cleanup(&big0.gbigBuffer);
+  if(nrols>1)
+  {
+    printf("\nCalls bb_cleanup 1\n");
+    printf("Calls bb_cleanup 1\n");
+    printf("Calls bb_cleanup 1\n\n");
+    bb_cleanup(&bigproc.gbigin);
+  }
 
   printf("\nCalls bb_cleanup 2\n");
   printf("Calls bb_cleanup 2\n");
   printf("Calls bb_cleanup 2\n\n");
-  bb_cleanup(&big1.gbigBuffer);
+  bb_cleanup(&bignet.gbigin);
 
 
 
@@ -999,7 +658,7 @@ codaDownload(char *confname)
   MYSQL *dbsock;
   MYSQL_RES *result;
   MYSQL_ROW row;
-  char tmp[1000], tmpp[1000], pmcname[64];
+  char tmp[1000], tmpp[1000];
   rocParam rocp;
   ROLPARAMS *rolP;
   int res, ix, state;
@@ -1050,11 +709,7 @@ codaDownload(char *confname)
     while(rols_loop_exit)
     {
       printf("download: wait for rols_loop to exit ..\n");
-#ifdef VXWORKS
-      taskDelay(sysClkRateGet());
-#else
       sleep(1);
-#endif
       ii --;
       if(ii<0) break;
     }
@@ -1062,13 +717,9 @@ codaDownload(char *confname)
     if(ii<0)
 	{
       printf("WARN: cannot exit rols_loop gracefully, will kill it\n");
-#ifdef VXWORKS
-	  vxworks_task_delete("ROLS_LOOP");
-      iTaskROL = 0;
-#else
       /* TODO: delete rols_loop thread */
       sleep(1);
-#endif
+
       rols_loop_exit = 0; /* to let new ROLS_LOOP to start */
 	}
 
@@ -1138,19 +789,10 @@ printf("3123: tmpp>%s<\n",tmpp);fflush(stdout);
 
 
   if(token_interval < 60) token_interval = 60;
-  big0.token_interval = token_interval;
-  big1.token_interval = token_interval;
+  bigproc.token_interval = token_interval;
+  bignet.token_interval = token_interval;
   printf("token_interval=%d\n",token_interval);
   printf("object->name >%s<\n",object->name);
-
-
-  /*set proc and net locations one more time ..*/
-  big0.proc_on_pmc = proc_on_pmc;
-  big0.net_on_pmc = net_on_pmc;
-  big1.proc_on_pmc = proc_on_pmc;
-  big1.net_on_pmc = net_on_pmc;
-  printf("big0.proc_on_pmc=%d, big0.net_on_pmc=%d\n",big0.proc_on_pmc,big0.net_on_pmc);
-  printf("big1.proc_on_pmc=%d, big1.net_on_pmc=%d\n",big1.proc_on_pmc,big1.net_on_pmc);
 
 
   /*************************************************/
@@ -1290,24 +932,26 @@ dbDisconnect(dbsock);
       printf("roc_component ERROR: listArgc=%d, set it to 2\n",listArgc);
       listArgc = 2;
 	}
+    nrols = listArgc;
 
-    for(ix=0; ix<listArgc; ix++) printf("nrols [%1d] >%s<\n",ix,listArgv[ix]);
+    for(ix=0; ix<nrols; ix++) printf("nrols [%1d] >%s<\n",ix,listArgv[ix]);
 
-printf("listArgc=%d listArgv >%s< >%s<\n",listArgc,listArgv[0],listArgv[1]);
+printf("codaDownload: listArgc=%d listArgv >%s< >%s<\n",listArgc,listArgv[0],listArgv[1]);
 
     /* set ROCid */
     this_roc_id = object->codaid;
-    big0.rocid = this_roc_id;
-    big1.rocid = this_roc_id;
-    printf("set this_roc_id = %d, rocId() can be called from now on\n",this_roc_id);
+    bigproc.rocid = this_roc_id;
+    bignet.rocid = this_roc_id;
+    printf("codaDownload: set this_roc_id = %d, rocId() can be called from now on\n",this_roc_id);
 
     /* zero output pointer; will be used to link ROLs */
 	/**
     last_output = (ROL_MEM_PART **) NULL;
 	**/
 
+
     /* loop over readout lists */
-    for(ix=0, jx=0; ix<listArgc; ix++, jx++)
+    for(ix=0, jx=0; ix<nrols; ix++, jx++)
     {
       rolP = rocp->rolPs[jx] = rolPs[jx];
       if(rolP == NULL)
@@ -1326,6 +970,7 @@ printf("listArgc=%d listArgv >%s< >%s<\n",listArgc,listArgv[0],listArgv[1]);
         TRANSITION_UNLOCK;
         return(CODA_ERROR);
 	  }
+
       if(tmpArgc != 2)
       {
         printf("ERROR: Incorrect number of Arguments passed for ROL = %d\n",
@@ -1385,15 +1030,15 @@ printf("listArgc=%d listArgv >%s< >%s<\n",listArgc,listArgv[0],listArgv[1]);
       if(ix==1)
       {
         /* copy rol2's name into BIGNET structures to be executed from 'proc' */
-        strncpy(big0.rolname,tmpArgv[0],255);
-        strncpy(big0.rolparams,tmpArgv[1],127);
-        strncpy(big1.rolname,tmpArgv[0],255);
-        strncpy(big1.rolparams,tmpArgv[1],127);
+        strncpy(bigproc.rolname,tmpArgv[0],255);
+        strncpy(bigproc.rolparams,tmpArgv[1],127);
+        strncpy(bignet.rolname,tmpArgv[0],255);
+        strncpy(bignet.rolparams,tmpArgv[1],127);
       }
 
     }
 
-    printf("downloaded\n");
+    printf("codaDownload: downloaded\n");
   }
   else
   {
@@ -1449,9 +1094,10 @@ if(dbsock==NULL)
     tmp,rocp->async_roc_flag);
 
 
-  /*sergey temporary*/
-rocp->output_switch = 0;
 
+  /*sergey temporary ???????????????????????????
+rocp->output_switch = 0;
+  */
 
 
 /* let NIOS to be async 
@@ -1498,96 +1144,41 @@ rocp->async_roc_flag = 0;
   last_event_check = 0;
 
 
+
+
+
   /******************** VERY IMPORTANT:
   here we will set how 'coda_proc' and 'coda_net' will communicate to surrounding
   and/or to each other; 'dabufp' is set here !!!!!!!!!!!!*/
 
-  if(net_on_pmc==0 && proc_on_pmc==0) /* both 'coda_proc' and 'coda_net' are on host */
+
+  /* 'bigproc' will be used as 'proc_thread' structure, 'dabufp' will be pointing
+  to it's buffer, gbigBUF will be used to pass data from coda_proc to coda_net */
+  if(gbigDMA != NULL)
   {
-    /* 'big0' will be used as 'proc_thread' structure, 'dabufp' will be pointing
-    to it's buffer, gbigBuffer1 will be used to pass data from coda_proc to coda_net */
-    if(big0.gbigBuffer != NULL)
+    bb_init(&gbigDMA);
+    dabufp = bb_write_current(&gbigDMA);
+    if(dabufp == NULL)
     {
-      bb_init(&big0.gbigBuffer);
-      dabufp = bb_write_current(&big0.gbigBuffer);
-      if(dabufp == NULL)
-      {
-        printf("ERROR in bb_write_current: FAILED\n");
-        TRANSITION_UNLOCK;
-        return(CODA_ERROR);
-      }
+      printf("ERROR in bb_write_current: FAILED\n");
+      TRANSITION_UNLOCK;
+      return(CODA_ERROR);
     }
-
-    if(gbigBuffer1 != NULL)
-    {
-      bb_init(&gbigBuffer1);
-
-      /* output from coda_proc goes to gbigBuffer1 */
-      big0.gbigBuffer1 = gbigBuffer1;
-	}
-
-	printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-	printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-	printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-
   }
-  else if(proc_on_pmc==0 && net_on_pmc==1) /* 'coda_proc' on host, 'coda_net' on PMC */
+
+  if(gbigBUF != NULL)
   {
-    /* 'big0' data buffer initialization */
-    if(big0.gbigBuffer != NULL)
-    {
-      bb_init(&big0.gbigBuffer);
-      dabufp = bb_write_current(&big0.gbigBuffer);
-      if(dabufp == NULL)
-      {
-        printf("ERROR in bb_write_current: FAILED\n");
-        TRANSITION_UNLOCK;
-        return(CODA_ERROR);
-      }
-    }
+    bb_init(&gbigBUF);
 
-    /* output from 'proc' must go over PCI bus, so ... */
-    if(gbigBuffer1 != NULL)
-    {
-      bb_init(&gbigBuffer1);
-
-      /* output from coda_proc goes to gbigBuffer1 */
-      big0.gbigBuffer1 = gbigBuffer1;
-	}
-
-
-/* ERRORRRRRRRRRR !!!!!!!!!????????????? */
-big1.gbigBuffer = gbigBuffer1;
-/* ERRORRRRRRRRRR !!!!!!!!!????????????? */
-
-
-	printf("!!!???!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-	printf("!!!???!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-	printf("!!!???!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-
+    /* output from coda_proc goes to gbigBUF */
+    bigproc.gbigout = gbigBUF;
   }
-  else if(net_on_pmc==1 && proc_on_pmc==1) /* both 'coda_proc' and 'coda_net' are on PMC */
-  {
-    /* 'big0' will be used to pass data to the PMC, 'dabufp' will be pointing
-    to it's input buffer */
-    if(big0.gbigBuffer != NULL)
-    {
-      bb_init(&big0.gbigBuffer);
-      dabufp = bb_write_current(&big0.gbigBuffer);
-      if(dabufp == NULL)
-      {
-        printf("ERROR in bb_write_current: FAILED\n");
-        TRANSITION_UNLOCK;
-        return(CODA_ERROR);
-      }
-    }
 
-  }
-  else
-  {
-    printf("ERROR: illegal combination of proc_on_pmc=%d and net_on_pmc=%d\n",
-      proc_on_pmc,net_on_pmc);
-  }
+  printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+  printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+  printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+
+
 
   dabufp += BBHEAD;
   printf("1: dabufp set to 0x%x\n",dabufp);
@@ -1596,34 +1187,23 @@ big1.gbigBuffer = gbigBuffer1;
 
 printf("999: %d %d %d %d\n",rocp->state,DA_ENDING,clear_to_send,rocp_primefd);
 
-/*sergey*/
-big0.failure = 0;
-big1.failure = 0;
+  /*sergey*/
+  bigproc.failure = 0;
+  bignet.failure = 0;
 
-  /* Spawn the rols_loop Thread */
-#ifdef VXWORKS
-
+  if(rocp->async_roc_flag == 0)
   {
-    /*taskSpawn(name,pri,opt,stk,adr,args) 10 args required */
-    /* priority must be lowest if there is no sleep in rols_loop routine ! */
-    /* (the lowest priority can be 255 - VXWORKS limit !!!) */
-    iTaskROL = taskSpawn("ROLS_LOOP", /*121*/255, 0, 200000, rols_loop,
-                          0, 0, 0,0,0,0,0,0,0,0);
-    printf("taskSpawn(\"ROLS_LOOP\") returns %d\n",iTaskROL);
-  }
-
-#else
-  {
-    pthread_attr_init(&detached_attr);
-    pthread_attr_setdetachstate(&detached_attr, PTHREAD_CREATE_DETACHED);
-    pthread_attr_setscope(&detached_attr,PTHREAD_SCOPE_SYSTEM/*PTHREAD_SCOPE_PROCESS*/);
-    pthread_create( (unsigned int *) &iTaskROL, &detached_attr,
+    /* Spawn the rols_loop Thread */
+    {
+      pthread_attr_init(&detached_attr);
+      pthread_attr_setdetachstate(&detached_attr, PTHREAD_CREATE_DETACHED);
+      pthread_attr_setscope(&detached_attr,PTHREAD_SCOPE_SYSTEM/*PTHREAD_SCOPE_PROCESS*/);
+      pthread_create( (unsigned int *) &iTaskROL, &detached_attr,
 		   (void *(*)(void *)) rols_loop, (void *) NULL);
+    }
   }
-#endif
 
-
-/* use codaUpdateStatus here ??????? */
+  /* use codaUpdateStatus here ??????? */
   /* update 'state' column in 'process' table in database */
   sprintf(tmpp,"UPDATE process SET state='downloaded' WHERE name='%s'",
     object->name);
@@ -1643,131 +1223,20 @@ printf("DB command >%s<\n",tmpp);
   dbDisconnect(dbsock);
 
 
-
-
-
-#ifdef VXWORKS
-
-  printf("sysClkRate set to %d ticks\n",sysClkRateGet());
-  printf("proc_on_pmc=%d\n",proc_on_pmc);
-  printf("net_on_pmc=%d\n",net_on_pmc);
-
-  if(proc_on_pmc == 0)
+  printf("ROL1 POLL: %d\n",rocp->rolPs[0]->poll);
+  /* if ROL2 was specified, download proc */
+  if(nrols==2)
   {
-    proc_download(big0.rolname,big0.rolparams,rocId());
+    printf("ROL2 POLL: %d\n",rocp->rolPs[1]->poll);
+
+    bigproc.gbigin = gbigDMA;
+    proc_download(bigproc.rolname,bigproc.rolparams,rocId());
+  }
+  else
+  {
+    bignet.gbigin = gbigDMA;
   }
 
-#ifdef PMCOFFSET
-  if(net_on_pmc)
-  {
-    printf("!!!!!!!!!!!!!! proc_on_pmc=%d, net_on_pmc=%d\n",proc_on_pmc,net_on_pmc);
-    printf("!!!!!!!!!!!!!! proc_on_pmc=%d, net_on_pmc=%d\n",proc_on_pmc,net_on_pmc);
-    printf("!!!!!!!!!!!!!! proc_on_pmc=%d, net_on_pmc=%d\n",proc_on_pmc,net_on_pmc);
-    printf("!!!!!!!!!!!!!! proc_on_pmc=%d, net_on_pmc=%d\n",proc_on_pmc,net_on_pmc);
-    printf("!!!!!!!!!!!!!! proc_on_pmc=%d, net_on_pmc=%d\n",proc_on_pmc,net_on_pmc);
-
-
-    /* let pmc card know the address of 'pmc' structure (init it first !) */
-    localpmc.dataReady = 0;
-    if(proc_on_pmc)
-	{
-      localpmc.bignetptr = &big0; /* pass 'big0' to PMC */
-    }
-	else
-	{
-      localpmc.bignetptr = &big1; /* pass 'big1' to pmc */
-	}
-
-
-#ifdef USE_PCI_BRIDGE_REGISTER
-    usrWriteGPR(&localpmc);
-#else  /* use database */
-
-    /*********************************************************/
-    /* update 'PMCs' table in the database with 'StructAddr' */
-    sprintf(pmcname,"%spmc1",targetName());
-    printf("pmcname >%s<\n",pmcname);
-    dbsock = dbConnect(getenv("MYSQL_HOST"), "daq");
-    if(dbsock==NULL)
-    {
-      printf("cannot connect to the database 4 - exit\n");
-      exit(0);
-    }
-    /* trying to select our name from 'PMCs' table */
-    sprintf(tmp,"SELECT Name FROM PMCs WHERE name='%s'",pmcname);
-    if(mysql_query(dbsock, tmp) != 0)
-    {
-      printf("mysql error (%s)\n",mysql_error(dbsock));
-      return(ERROR);
-    }
-    /* gets results from previous query */
-    /* we assume that numRows=0 if our Name does not exist,
-       or numRows=1 if it does exist */
-    if( !(result = mysql_store_result(dbsock)) )
-    {
-      printf("ERROR in mysql_store_result (%)\n",mysql_error(dbsock));
-      return(ERROR);
-    }
-    else
-    {
-      numRows = mysql_num_rows(result);
-      mysql_free_result(result);
-      /* NOTE: for VXWORKS 'Host' the same as 'Name' */
-      /*printf("nrow=%d\n",numRows);*/
-      if(numRows == 0)
-      {
-        printf("ERROR: PMC does not exist, turn it off and start from Download again !!!\n");
-        return(ERROR);
-      }
-      else if(numRows == 1)
-      {
-        sprintf(tmp,"UPDATE PMCs SET StructAddr=0x%08x WHERE name='%s'",&localpmc,pmcname);
-        printf("execute >%s<\n",tmp);
-      }
-      else
-      {
-        printf("ERROR: PMCs: unknown nrow=%d",numRows);
-        return(ERROR);
-      }
-      if(mysql_query(dbsock, tmp) != 0)
-      {
- 	   printf("ERROR\n");
-        return(ERROR);
-      }
-      else
-      {
-        printf("Query >%s< succeeded\n",tmp);
-      }
-    }
-    dbDisconnect(dbsock);
-
-#endif
-
-
-    localpmc.cmd = DC_DOWNLOAD;
-    printf("coda_roc: localpmc.cmd=0x%08x (addr=0x%08x)\n",localpmc.cmd,&localpmc);
-    printf("coda_roc: sent structure address is 0x%08x\n",&localpmc);
-    printf("coda_roc: big0 at 0x%08x, big0.gbigBuffer at 0x%08x\n",
-      big0, &big0.gbigBuffer);
-
-
-    while(localpmc.cmd != 0)
-    {
-      taskDelay(sysClkRateGet());
-      printf("waiting for PMC to process transaction, localpmc.cmd=0x%08x\n",localpmc.cmd);
-    }
-
-  }
-
-#endif
-
-#else
-
-  proc_download(big0.rolname,big0.rolparams,rocId());
-
-#endif
-
-printf("POLLS: %d %d\n",rocp->rolPs[0]->poll,rocp->rolPs[1]->poll);
 
   if(codaUpdateStatus("downloaded") != CODA_OK)
   {
@@ -1781,6 +1250,65 @@ printf("POLLS: %d %d\n",rocp->rolPs[0]->poll,rocp->rolPs[1]->poll);
 }
 
 
+	
+
+/* read whole text file */
+char *
+loadwholefile(char *file, int *size)
+{
+  FILE *fp;
+  int res, nbytes;
+  char *buffer;
+
+  fp = fopen(file,"rb");
+  if(!fp)
+  {
+    printf("loadwholefile: error opening file\n");
+	return(NULL);
+  }
+
+  /* obtain the value of the file position indicator in the end of file */
+  fseek(fp,0L,SEEK_END);
+  nbytes = ftell(fp);
+  rewind(fp);
+
+  /* allocate memory for entire content */
+  buffer = calloc(1,nbytes+5);
+  if(!buffer)
+  {
+    fclose(fp);
+    printf("loadwholefile: memory alloc fails\n");
+    return(NULL);
+  }
+
+  /* fill end of buffer with \004 */
+  buffer[nbytes-2] = '\004';
+  buffer[nbytes-1] = '\004';
+  buffer[nbytes+0] = '\004';
+  buffer[nbytes+1] = '\004';
+  buffer[nbytes+2] = '\004';
+  buffer[nbytes+3] = '\004';
+  buffer[nbytes+4] = '\004';
+
+  /* copy the file into the buffer */
+  res = fread(buffer,nbytes,1,fp);
+  if(res != 1)
+  {
+    fclose(fp);
+    free(buffer);
+    printf("loadwholefile: entire read fails, res=%d\n",res);
+    return(NULL);
+  }
+
+  /* buffer is a string contains the whole text */
+  *size = (nbytes+4)/4; /* align to 4-byte boundary and return #words */
+  fclose(fp);
+
+  printf("loadwholefile: nbytes=%d, *size=%d\n",nbytes,*size);
+
+  return(buffer);
+}
+
 /******************************************************************************
  *
  * This routine informs the EB of state changes in a particular ROC
@@ -1789,29 +1317,64 @@ printf("POLLS: %d %d\n",rocp->rolPs[0]->poll,rocp->rolPs[1]->poll);
 void
 informEB(objClass object, ulong mTy, ulong mA, ulong mB)
 {
-  unsigned long *data,len;
-#ifdef VXWORKS
-  int status;
-  int old = intLock();
-#endif
+  ROLPARAMS  *rolP;
+
+  unsigned long *data, len;
   rocParam rocp = (rocParam) object->privated;
-  int res;
+  int res, ii;
   unsigned long id;
   unsigned int *bigbuf;
+  char *chbuf;
+  int len_in_words;
 
   printf("informEB reached\n");
 
 
   /*ERRORRRRRRRRRRRRRRRRRRRRRRR*/
-  bigbuf = bb_write_current(&big0.gbigBuffer);
+  bigbuf = bb_write_current(&gbigDMA);
   if(bigbuf == NULL)
   {
     printf("informEB: alloc error - return\n");
     return;
   }
 
+  len = 5; /* full bank length in words */
 
-  bigbuf[BBIWORDS] = (BBHEAD_BYTES+20)>>2;
+
+#define INSERT_CONFIG_FILE
+
+  /* if TS/Standalone and Prestart, insert run confFile */
+#ifdef INSERT_CONFIG_FILE
+
+  if(mTy==(ulong)EV_PRESTART)
+  {
+    printf("confFile >%s<\n",confFile);
+    if( strncmp(confFile,"none",4) && strncmp(confFile,"NONE",4) )
+    {
+      if((rolP = rocp->rolPs[0]) != NULL)
+      {
+        if( rolP->classid > 0 )
+        {
+	      chbuf = loadwholefile(confFile, &len_in_words);
+          if(chbuf == NULL)
+	      {
+            printf("ERROR: coda_roc: cannot read conffile - does not insert it into data stream !!!\n");
+	      }
+          else
+	      {
+            strncpy((char *)&bigbuf[BBHEAD+5],chbuf,(len_in_words<<2));
+            free(chbuf);
+
+            len += len_in_words;
+	      }
+        }
+      }
+    }
+  }
+
+#endif
+
+  bigbuf[BBIWORDS] = (BBHEAD_BYTES+(len*4))>>2;
   bigbuf[BBIBUFNUM] = -1;
   bigbuf[BBIROCID]  = object->codaid;
   bigbuf[BBIEVENTS] = 1;  /* # events in buffer = 1 */
@@ -1824,21 +1387,17 @@ informEB(objClass object, ulong mTy, ulong mA, ulong mB)
   {
     bigbuf[BBIEND]  = 0;
   }
-  bigbuf[BBHEAD]    = 4;  /* event starts here; contains # words in event */
+  bigbuf[BBHEAD]    = (len-1);  /* event starts here; contains # words in event */
   bigbuf[BBHEAD+1]  = CTL_BANK_HDR(mTy);  /* control bank header */
   bigbuf[BBHEAD+2]  = 1200; /* some junk */
   bigbuf[BBHEAD+3]  = mA;   /* parameter a */
   bigbuf[BBHEAD+4]  = mB;   /* parameter b */
-  
+
 printf("informEB: %d %d %d %d %d %d - 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
 bigbuf[0],bigbuf[1],bigbuf[2],bigbuf[3],bigbuf[4],bigbuf[5],
 bigbuf[6],bigbuf[7],bigbuf[8],bigbuf[9],bigbuf[10],bigbuf[11]);
   
-  bigbuf = bb_write(&big0.gbigBuffer);
-
-#ifdef VXWORKS
-  intUnlock(old);
-#endif
+  bigbuf = bb_write(&gbigDMA);
 
   return;
 }
@@ -1866,15 +1425,26 @@ codaPrestart()
   printf("roc_prestart reached\n");
 
   rocp = (rocParam) object->privated;
-  big0.doclose = 0;
-  big1.doclose = 0;
+  bigproc.doclose = 0;
+  bignet.doclose = 0;
+
 
 
 /*sergey*/
-bb_init(&big0.gbigBuffer);
-big0.failure = 0;
-big1.failure = 0;
-last_event_check = 0;
+  if(nrols>1)
+  {
+    bb_init(&bigproc.gbigin);
+    bigproc.failure = 0;
+  }
+  else
+  {
+    bb_init(&bignet.gbigin);
+  }
+  bignet.failure = 0;
+  last_event_check = 0;
+
+
+
 
 /**
   partReInitAll();
@@ -1912,8 +1482,8 @@ last_event_check = 0;
 
 
   /* set token Interval (it was obtained from DB at 'Download') */
-  big0.token_interval = token_interval;
-  big1.token_interval = token_interval;
+  bigproc.token_interval = token_interval;
+  bignet.token_interval = token_interval;
 
 
   /* get rocMask from database's options table; it must be set by EB;
@@ -1928,7 +1498,6 @@ last_event_check = 0;
 
 
   /* open TCP link to the Event Builder */
-  /* if PMC is used, 'localpmc' structure will be updated with 'host' and 'port' - not anymore ??? */
   sprintf(tmpp,"SELECT outputs FROM %s WHERE name='%s'",configname,object->name);
 
   printf("!!!!!!!!!!!!! tmpp >%s<\n",tmpp);
@@ -1967,34 +1536,20 @@ last_event_check = 0;
     printf("!!!!!!!!!!!!! for rocOpenLink: >%s< >%s<\n",object->name,tmp);
     printf("!!!!!!!!!!!!! for rocOpenLink: >%s< >%s<\n",object->name,tmp);
 
-    /* if net or both proc/net on pmc - just pass CODA names for roc and event builder,
-     TCP to EB will be opened from PMC */
-    if(net_on_pmc==1 || proc_on_pmc==1)
-    {
-      strcpy((char *)big0.roc_name, object->name);
-      strcpy((char *)big1.roc_name, object->name);
-      strcpy((char *)big0.eb_name, tmp);
-      strcpy((char *)big1.eb_name, tmp);
-    }
-    else /* open TCP to EB here */
+    /* open TCP to EB here */
 	{
       ret = rocOpenLink(object->name, tmp, host, &port, &socketnum);
       if(ret<0)
 	  {
-        /*MAKE IT FUNCTION: UDP_USER_REQUEST, similar to UDP_standard_request !!!*/
-        /* then call it from coda_roc */
+        /*REDO IT USIBNG UDP_user_request !!!*/
         char tmpp[1000];
         strcpy(tmpp,"err:");
         strcat(tmpp,object->name);
         strcat(tmpp," ");
         strcat(tmpp,"CANNOT ESTABLISH TCP TO EB");
         UDP_request(tmpp);
-#ifdef VXWORKS
-    taskDelay(2*sysClkRateGet());
-#else
-    sleep(2);
-#endif
-       UDP_cancel(tmpp);
+        sleep(2);
+        UDP_cancel(tmpp);
 
         printf("roc_component ERROR: CANNOT ESTABLISH TCP TO EB !!!\n");
         return(CODA_ERROR);
@@ -2002,12 +1557,12 @@ last_event_check = 0;
       if(socketnum>0)
 	  {
         /* why needs that ???*/
-        big0.socket = socketnum;
-        big1.socket = socketnum;
-        big0.port = port;
-        strcpy((char *)big0.host, host);
-        big1.port = port;
-        strcpy((char *)big1.host, host);
+        bigproc.socket = socketnum;
+        bignet.socket = socketnum;
+        bigproc.port = port;
+        strcpy((char *)bigproc.host, host);
+        bignet.port = port;
+        strcpy((char *)bignet.host, host);
 	  }
 	}
   }
@@ -2026,109 +1581,57 @@ last_event_check = 0;
   /* spawn 'proc' or/and 'net' threads */
   /* IMPORTANT: 'net' must be started first !!! (realy ???) */
 
-#ifdef VXWORKS
-
-  if(proc_on_pmc == 0)
+  if(nrols>1)
   {
-    proc_prestart(rocId());
-  }
-
-  if(net_on_pmc) /* if have PMC, send 'prestart' command there and wait for completion */
-  {
-    big0.socket = 0;
-    big1.socket = 0;
-    state = localpmc.csrr & DC_STATE_MASK;
-    printf("PMC state is 0x%08x\n",state);
-    if(state != DC_ACTIVE)
-    {
-      localpmc.cmd = DC_PRESTART;
-      while(localpmc.cmd != 0)
-      {
-        taskDelay(sysClkRateGet());
-        printf("waiting for PMC to process transaction, localpmc.cmd=0x%08x\n",localpmc.cmd);
-      }
-    }
-    else
-    {
-      printf("Cannot Prestart PMC - current state is ACTIVE\n");
-    }
-  }
-
-  /* delete and restart 'net' if it is on host */
-  if(net_on_pmc == 0)
-  {
-	vxworks_task_delete("coda_net");
-    iTaskNET = 0;
-
-    /* input to coda_net goes from gbigBuffer1, and no output from coda_net */
-    big1.gbigBuffer = gbigBuffer1;
-    big1.gbigBuffer1 = NULL;
-
-    bb_init(&big1.gbigBuffer); /*init input buffer*/
-    big1.failure = 0;
-
-    iTaskNET = taskSpawn("coda_net", 120, 0, 500000, net_thread,
-                          &big1, 0, 0,0,0,0,0,0,0,0);
-    printf("taskSpawn(\"coda_net\",0x%08x) returns %d\n",iTaskNET,&big1);
-  }
-
-
-  /* delete and restart 'proc' if it is on host */
-  if(proc_on_pmc == 0)
-  {
-	vxworks_task_delete("coda_proc");
-    iTaskPROC = 0;
-
-    bb_init(&big0.gbigBuffer); /*init input buffer*/
-    bb_init(&big0.gbigBuffer1); /*init output buffer*/
-    big0.failure = 0;
-
-    /*taskSpawn(name,pri,opt,stk,adr,args) 10 args required */
-    iTaskPROC = taskSpawn("coda_proc", 115, 0, 500000, proc_thread,
-                          &big0, 0, 0,0,0,0,0,0,0,0);
-    printf("taskSpawn(\"coda_proc\",0x%08x) returns %d\n",iTaskPROC,&big0);
-  }
-
-#else
-
 printf("unix1\n");
-  proc_prestart(rocId());
+    proc_prestart(rocId());
 printf("unix2\n");
+  }
 
   /* TODO: delete 'net_thread' if running */
   sleep(1);
 
-  /* input to coda_net goes from gbigBuffer1, and no output from coda_net */
-  big1.gbigBuffer = gbigBuffer1;
-  big1.gbigBuffer1 = NULL;
-  bb_init(&big1.gbigBuffer);
-  big1.failure = 0;
 
-printf("unix3\n");
-  pthread_attr_init(&detached_attr);
-  pthread_attr_setdetachstate(&detached_attr, PTHREAD_CREATE_DETACHED);
-  pthread_attr_setscope(&detached_attr,PTHREAD_SCOPE_SYSTEM/*PTHREAD_SCOPE_PROCESS*/);
-  iii=pthread_create( (unsigned int *) &iTaskNET, &detached_attr,
-		   (void *(*)(void *)) net_thread, (void *) &big1);
 
-printf("unix4: net thread returned %d\n",iii);
+  if(rocp->async_roc_flag == 0)
+  {
+    if(nrols>1) /* have rol2 -> input to coda_net goes from gbigBUF */
+	{
+      bignet.gbigin = gbigBUF;
+	}
+    else
+	{
+      bignet.gbigin = gbigDMA; /* no rol2 -> input to coda_net goes from gbigDMA */
+	}
+    bignet.gbigout = NULL; /* no output from coda_net */
+    bb_init(&bignet.gbigin);
+    bignet.failure = 0;
 
-  /* TODO: delete 'proc_thread' if running */
-  sleep(1);
+    pthread_attr_init(&detached_attr);
+    pthread_attr_setdetachstate(&detached_attr, PTHREAD_CREATE_DETACHED);
+    pthread_attr_setscope(&detached_attr,PTHREAD_SCOPE_SYSTEM/*PTHREAD_SCOPE_PROCESS*/);
+    iii=pthread_create( (unsigned int *) &iTaskNET, &detached_attr,
+		   (void *(*)(void *)) net_thread, (void *) &bignet);
+    printf("codaPrestart: net thread returned %d\n",iii);
 
-  bb_init(&big0.gbigBuffer);
-  big0.failure = 0;
-printf("unix5\n");
+    /* TODO: delete 'proc_thread' if running */
+    sleep(1);
 
-  pthread_attr_init(&detached_attr);
-  pthread_attr_setdetachstate(&detached_attr, PTHREAD_CREATE_DETACHED);
-  pthread_attr_setscope(&detached_attr,PTHREAD_SCOPE_SYSTEM/*PTHREAD_SCOPE_PROCESS*/);
-  iii=pthread_create( (unsigned int *) &iTaskPROC, &detached_attr,
-		   (void *(*)(void *)) proc_thread, (void *) &big0);
+    /* have rol2 -> start proc thread */
+	if(nrols>1)
+	{
+      bb_init(&bigproc.gbigin);
+      bigproc.failure = 0;
 
-printf("unix6: proc thread returned %d\n",iii);
+      pthread_attr_init(&detached_attr);
+      pthread_attr_setdetachstate(&detached_attr, PTHREAD_CREATE_DETACHED);
+      pthread_attr_setscope(&detached_attr,PTHREAD_SCOPE_SYSTEM/*PTHREAD_SCOPE_PROCESS*/);
+      iii=pthread_create( (unsigned int *) &iTaskPROC, &detached_attr,
+		   (void *(*)(void *)) proc_thread, (void *) &bigproc);
+      printf("codaPrestart: proc thread returned %d\n",iii);
+	}
+  }
 
-#endif
 
   object->nevents = 0; /* zero bookeeping counters */
   object->nlongs = object_nlongs = 0;
@@ -2152,37 +1655,7 @@ printf("unix6: proc thread returned %d\n",iii);
   if(rocp->output_switch == 0)
   {
     printf("111\n");
-#ifdef VXWORKS
-    if(net_on_pmc)
-    {
-      /* get socket number back from pmc; if zero - wait */
-	  /* should we use 'localpmc.bignetptr->socket' instead of big0/big1 ?? */
-	  if(proc_on_pmc)
-	  {
-        while(big0.socket == 0)
-        {
-          printf("waiting for socket number from pmc ..\n");
-          taskDelay(1);
-	    }
-        socketnum = big0.socket;
-	  }
-	  else
-	  {
-        while(big1.socket == 0)
-        {
-          printf("waiting for socket number from pmc ..\n");
-          taskDelay(1);
-	    }
-        socketnum = big1.socket;
-	  }
-      rocp_primefd = socketnum;
-
-    }
-    else
-#endif
-    {
-      rocp_primefd = socketnum;
-    }
+    rocp_primefd = socketnum;
     printf("333: rocp_primefd=%d\n",rocp_primefd);
   }
   else
@@ -2291,37 +1764,8 @@ printf("ERROR_ENDING ...\n");fflush(stdout);
                       reported to EB (must be 'downloaded') */
   }
 
-#ifdef VXWORKS
-
-  if(proc_on_pmc == 0)
-  {
-    /*DELETE_PROC*/;
-  }
-
-  if(net_on_pmc)
-  {
-    state = localpmc.csrr & DC_STATE_MASK;
-    printf("PMC state is 0x%08x\n",state);
-    if(state == DC_ACTIVE)
-    {
-      localpmc.cmd = DC_END;
-      while(localpmc.cmd != 0)
-      {
-        taskDelay(sysClkRateGet());
-        printf("waiting for PMC to process transaction, localpmc.cmd=0x%08x\n",localpmc.cmd);
-      }
-    }
-    else
-    {
-      printf("Cannot End PMC - current state is not ACTIVE\n");
-    }
-  }
-
-#else
 
   /*DELETE_PROC*/;
-
-#endif
 
   printf("codaEnd: unlocking\n");fflush(stdout);
   TRANSITION_UNLOCK;
@@ -2407,9 +1851,6 @@ codaGo()
 
   printf("activating ..\n");
 
-#ifdef VXWORKS
-  ticks = vxTicks;
-#endif
   if(rocp->async_roc_flag == 0)
   {
     informEB(object, (ulong) EV_GO, (ulong) 0, (ulong) object->nevents);
@@ -2421,7 +1862,7 @@ codaGo()
   /* set pointer to the first buffer (must be set BEFORE ROLs are executed) */
 
   /*ERRORRRRRRRRR*/
-  dabufp = bb_write_current(&big0.gbigBuffer);
+  dabufp = bb_write_current(&gbigDMA);
   if(dabufp == NULL)
   {
     printf("ERROR in bb_write_current: FAILED\n");
@@ -2434,38 +1875,11 @@ codaGo()
 
   /* Go ROL1 - old location */
 
-
-#ifdef VXWORKS
-
-  if(proc_on_pmc == 0)
+  if(nrols>1)
   {
     printf("calls 'proc_go', rocid=%d\n",rocId());
     proc_go(rocId());
   }
-
-  if(net_on_pmc)
-  {
-    state = localpmc.csrr & DC_STATE_MASK;
-    printf("PMC state is 0x%08x\n",state);
-    if(state != DC_ACTIVE)
-    {
-      localpmc.cmd = DC_GO;
-      while(localpmc.cmd != 0)
-      {
-        taskDelay(sysClkRateGet());
-        printf("waiting for PMC to process transaction, localpmc.cmd=0x%08x\n",localpmc.cmd);
-      }
-    }
-    else
-    {
-      printf("Cannot Go PMC - current state is not ACTIVE\n");
-    }
-  }
-
-#else
-    printf("calls 'proc_go', rocid=%d\n",rocId());
-    proc_go(rocId());
-#endif
 
   TRANSITION_UNLOCK;
 
@@ -2503,11 +1917,7 @@ codaGo()
       /*without following delay we are hunging on the first event in standalone mode with interrupts;
       probably have to give a time to rols_loop to start after setting 'rocp->active=2'
       and before first interrupt; need to synchronize them better ... */
-#ifdef VXWORKS
-      taskDelay(sysClkRateGet());
-#else
       sleep(1);
-#endif
       rolP->daproc = DA_GO_PROC;
       (*rolP->rol_code) (rolP);
     }
@@ -2522,30 +1932,9 @@ codaGo()
 /* MAIN LOOP */
 /*************/
 
-#ifdef VXWORKS
-static int intLockKey;
-#define LOCKINTS intLockKey = intLock();
-#define UNLOCKINTS intUnlock(intLockKey);
-#else
 #define LOCKINTS
 #define UNLOCKINTS
-#endif
 
-#ifdef VXWORKS
-
-#define SET_TIMEOUT(cba) \
-    if(object->nevents < 10) \
-    { \
-      timeout = vxTicks + sysClkRateGet()/* /6 */; /*1 sec */ \
-      /*printf("timeout 1: %d + %d = %d [%d]\n",vxTicks,sysClkRateGet(),timeout,cba);*/ \
-    } \
-    else \
-    { \
-      timeout = vxTicks + token_interval; \
-      /*printf("timeout 2: %d + %d = %d [%d]\n",vxTicks,token_interval,timeout,cba);*/ \
-    }
-
-#else
 
 
 #define SET_TIMEOUT(cba) \
@@ -2570,7 +1959,6 @@ static int intLockKey;
     }
 */
 
-#endif
 
 /* NOTES:
 
@@ -2627,7 +2015,7 @@ rols_loop()
     /* set now 'dabufp' to the beginning of */ \
     /* 'big' buffer just to fill a header   */ \
     /*printf("1 SEND_BUFFER_ROC %d (0x%08x)\n",abc,dabufp);*/ \
-    dabufp = bb_write_current(&big0.gbigBuffer); \
+    dabufp = bb_write_current(&gbigDMA); \
     /*printf("2 SEND_BUFFER_ROC %d (0x%08x %d) (conditions %d %d)\n",abc,dabufp,dabufp[0],clear_to_send,rocp_primefd);*/ \
     /*setHeartBeat(HB_ROL,15,5);*/ \
     if(dabufp == NULL) \
@@ -2653,7 +2041,7 @@ rols_loop()
     if(dabufp[BBIWORDS] > BBHEAD) \
     { \
 	  /*printf("coda_roc: bb_write 1\n");*/	\
-      dabufp = bb_write(&big0.gbigBuffer); \
+      dabufp = bb_write(&gbigDMA); \
       if(dabufp == NULL) \
       { \
         printf("INFO from bb_write: RETURN 0\n"); \
@@ -2691,14 +2079,10 @@ output_proc_network(int dummy)
   char tmpp[1000];
 
 /* timing */
-#ifdef VXWORKS
-  static unsigned long start, end, time1, time2, time03, nevent;
-#else
 #ifndef Darwin
   static hrtime_t start, end, time1, time2, time03, nevent;
   static int nev;
   static hrtime_t sum;
-#endif
 #endif
   /*
   printf("00: rocp->active=%d\n",rocp->active);fflush(stdout);
@@ -2716,13 +2100,13 @@ printf("output_proc_network reached\n");fflush(stdout);
 printf("000: %d %d %d %d\n",rocp->state,DA_ENDING,clear_to_send,rocp_primefd);
   */
   /* if thread(s) returns error: */
-  if(big0.failure || big1.failure)
+  if(bigproc.failure || bignet.failure)
   {
-    printf("ERROR: big0.failure=%d, big1.failure=%d\n",big0.failure,big1.failure);fflush(stdout);
+    printf("ERROR: bigproc.failure=%d, bignet.failure=%d\n",bigproc.failure,bignet.failure);fflush(stdout);
     fflush(stdout);
     rocp->active = 0;
-    big0.failure = 0;
-    big1.failure = 0;
+    bigproc.failure = 0;
+    bignet.failure = 0;
 
 	/* do not call transitions from here - it is deadlock !!!
     set some flag or something - TODO !!!!!!!!!!!!!!!!!
@@ -2732,7 +2116,9 @@ printf("000: %d %d %d %d\n",rocp->state,DA_ENDING,clear_to_send,rocp_primefd);
 printf("\nCalls bb_cleanup.\n");
 printf("Calls bb_cleanup.\n");
 printf("Calls bb_cleanup.\n\n");
-bb_cleanup(&big0.gbigBuffer);
+
+if(nrols>1) bb_cleanup(&bigproc.gbigin);
+else bb_cleanup(&bignet.gbigin);
 
 
     setHeartBeat(HB_ROL,0,-1);
@@ -2766,11 +2152,7 @@ bb_cleanup(&big0.gbigBuffer);
     nevent = time1 = time2 = 0;
     do
     {
-#ifdef VXWORKS
-      start = sysTimeBaseLGet();
-#else
       start = gethrtime();
-#endif
       setHeartBeat(HB_ROL,3,5);
 
 	  /*
@@ -2792,8 +2174,8 @@ bb_cleanup(&big0.gbigBuffer);
           setHeartBeat(HB_ROL,21,5);
 #ifdef Linux_vme
 #ifdef NEW_ROC
-          dabufp_usermembase = bb_get_usermembase(&big0.gbigBuffer);
-          dabufp_physmembase = bb_get_physmembase(&big0.gbigBuffer);
+          dabufp_usermembase = bb_get_usermembase(&gbigDMA);
+          dabufp_physmembase = bb_get_physmembase(&gbigDMA);
 #endif
 #endif
 	      /* printf("11: befor ROL1\n");fflush(stdout);*/
@@ -2816,18 +2198,12 @@ bb_cleanup(&big0.gbigBuffer);
           /*printf("ROLS_LOOP LOCKed, buffer sent\n");fflush(stdout);*/
           SENDBUFFER_UNLOCK;
           /*printf("ROLS_LOOP UNLOCKed\n");fflush(stdout);*/
-#ifdef VXWORKS
-          LOCKINTS;
-#endif
 		  /* call done only if writing was successful !!!???*/
           rolP->daproc = DA_DONE_PROC;
           rolP->doDone = 0;
           setHeartBeat(HB_ROL,23,5);
           (*rolP->rol_code) (rolP);
           setHeartBeat(HB_ROL,24,5);
-#ifdef VXWORKS
-          UNLOCKINTS;
-#endif
 		}
       }
       /* end of ROL1 */
@@ -2838,32 +2214,6 @@ bb_cleanup(&big0.gbigBuffer);
 
       /* check for timeout - NEED TO SYNCHRONIZE WITH ROL1 !!! */
       /* on timeout condition we are sending ONLY if buffer is not empty - this is what we want ? */
-#ifdef VXWORKS
-      SENDBUFFER_LOCK;
-      if(vxTicks > timeout)
-      {
-        /*printf("timeout: %d %d\n",vxTicks,timeout);*/
-        if(dataInBuf > BBHEAD_BYTES)
-        {
-#ifdef VXWORKS
-          LOCKINTS;
-#endif
-          clear_to_send  = 1;
-          SEND_BUFFER_(4);
-#ifdef VXWORKS
-          UNLOCKINTS;
-#endif
-        }
-        else
-		{
-          SET_TIMEOUT(89);
-		}
-        SENDBUFFER_UNLOCK;
-        /*printf(" ..break\n");fflush(stdout);*/
-        break;
-      }
-      SENDBUFFER_UNLOCK;
-#else
       if(/*time(0)*/gethrtime() > timeout)
       {
 		/*printf("timeout..\n");*/
@@ -2882,7 +2232,6 @@ bb_cleanup(&big0.gbigBuffer);
         /*printf(" ..break\n");fflush(stdout);*/
         break;
       }
-#endif
       
     } while(1); /* 'do' loop */
     /**********************************************/
@@ -2897,13 +2246,8 @@ bb_cleanup(&big0.gbigBuffer);
       icycle ++;
       if(icycle>=cycle)
       {
-#ifdef VXWORKS
-        printf("rols_thread: waiting=%7lu processing=%7lu microsec per event (nev=%d)\n",
-          time1/nevent,time2/nevent,nevent);
-#else
         printf("rols_thread: waiting=%7llu processing=%7llu microsec per event (nev=%d)\n",
           time1/nevent,time2/nevent,nevent);
-#endif
         icycle = 0;
       }
       nevent = time1 = time2 = 0;
@@ -2935,21 +2279,17 @@ bb_cleanup(&big0.gbigBuffer);
   {
   case DA_DOWNLOADED: 
     /*printf("DA_DOWNLOADED\n");*/
-#ifdef VXWORKS
-    taskDelay(sysClkRateGet());
-#else
     sleep(1);
-#endif
     TRANSITION_LOCK;
 	/* ERRORRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR */
     setHeartBeat(HB_ROL,10,5);
-    if((rocp->output_switch == 0) && (big1.doclose == 1))
+    if((rocp->output_switch == 0) && (bignet.doclose == 1))
     {
       /* printf("delete \n"); */
       printf("call: '%s close_links'\n", object->name);
       rocCloseLink();
 
-      big1.doclose = 0;
+      bignet.doclose = 0;
     }
     TRANSITION_UNLOCK;
     break;
@@ -2968,11 +2308,7 @@ bb_cleanup(&big0.gbigBuffer);
 
   case DA_PAUSING:
     printf("DA_PAUSING\n");
-#ifdef VXWORKS
-    taskDelay(sysClkRateGet());
-#else
     sleep(1);
-#endif
     TRANSITION_LOCK;
     /*
      * If we got this far then either the last event is either on
@@ -3084,84 +2420,15 @@ __attribute__((destructor)) void end (void)
 /* main program */
 /****************/
 
-#ifdef VXWORKS
-
-void
-coda_roc (char *arg1, char *arg2, char *arg3, char *arg4, char *arg5, char *arg6, char *arg7)
-{
-	int            argc = 1;
-	char           *argv[8];
-
-	/* Copy arguments into argv array */
-
-	argv[0] = "coda_roc";
-	if(arg1) {
-	  argv[1] = arg1;
-	  argc++;
-	}
-	if(arg2) {
-	  argv[2] = arg2;
-	  argc++;
-	}
-	if(arg3) {
-	  argv[3] = arg3;
-	  argc++;
-	}
-	if(arg4) {
-	  argv[4] = arg4;
-	  argc++;
-	}
-	if(arg5) {
-	  argv[5] = arg5;
-	  argc++;
-	}
-	if(arg6) {
-	  argv[6] = arg6;
-	  argc++;
-	}
-	if(arg7) {
-	  argv[7] = arg7;
-	  argc++;
-	}
-	
-	if (argc < 5) {
-	  printf (" Wrong number of arguments (must be >= 5) argc = %d\n",argc);
-	}else if (argc == 5) { 
-	  printf (" Args = %s %s %s %s \n", argv[1], argv[2], argv[3], argv[4]);
-	} else if (argc == 6) {
-	  printf (" Args = %s %s %s %s %s\n", argv[1], argv[2], argv[3], argv[4], argv[5]);
-	} else if (argc == 7){
-	  printf (" Args = %s %s %s %s %s %s\n", argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]);
-	} else {
-	  printf (" Args = %s %s %s %s %s %s %s\n", 
-		  argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7]);
-	}
-
-/**********/
-
-
-#else
-
 
 void
 main (int argc, char **argv)
 {
-#endif
-
   CODA_Init (argc, argv);
 
   roc_constructor();
 
-printf("main 1\n");
+  printf("main 1\n");
   CODA_Execute ();
-printf("main 2\n");
+  printf("main 2\n");
 }
-
-
-
-
-
-
-
-
-

@@ -26,8 +26,8 @@ set RC   = daq_comp.tcl
 set XT   = daq_comp.tcl
 
 set ET_comp  = 'et_start -n 2000 -s 500000 -f /tmp/et_sys_clastest0'
-set EB_comp  = 'coda_ebc -s clastest0 -o "EB0 CDEB" -i'
-set ER_comp  = 'coda_erc -s clastest0 -o "ER0 ER" -i'
+set EB_comp  = 'coda_ebc -s clastest0 -o "EB0 CDEB" '
+set ER_comp  = 'coda_erc -s clastest0 -o "ER0 ER" '
 set RC_comp  = 'runcontrol -s clastest0 -cedit -dbedit'
 set XT1_comp  = 'coda_roc -s clastest0 -o "zedboard1 ROC" '
 

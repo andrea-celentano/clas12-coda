@@ -2,23 +2,8 @@
 /* roc_process.c - ROC processing service routines; can be run at the same
    CPU as coda_roc or on secondary CPU */
 
-#include "da.h"
-
 #include <stdio.h>
 #include <unistd.h>
-
-#ifdef VXWORKS
-
-#include <sockLib.h>
-#include <errno.h>
-#include <errnoLib.h>
-
-extern long     vxTicks;
-
-#define MYCLOCK 25
-
-#else
-
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -35,7 +20,7 @@ extern long     vxTicks;
 #include <sys/prctl.h>
 #endif
 
-#endif
+#include "da.h"
 
 #include "circbuf.h"
 #include "bigbuf.h"
@@ -56,13 +41,12 @@ extern long     vxTicks;
 
 #include "pmc.h"
 
-#ifndef VXWORKS
 #ifdef __cplusplus
 typedef void 		(*VOIDFUNCPTR) (...); /* ptr to function returning void */
 #else
 typedef void 		(*VOIDFUNCPTR) (); /* ptr to function returning void */
 #endif			/* _cplusplus */
-#endif
+
 #include "rolInt.h"
 static ROLPARAMS rolP2;
 
@@ -232,36 +216,20 @@ proc_poll(int *bufin, int *bufout, int pid, int *nev)
 /***************************************************************************/
 /******************************* proc_thread *******************************/
 
-
-#ifdef VXWORKS
-
-#define PROC_TIMER_START timeout = vxTicks + token_interval
-
-#else
-
 #define PROC_TIMER_START timeout = time(0) + token_interval/60
-
-#endif
-
 
 /* special events must be in separate buffer, buffer number must be -1 */
 /* from BIGNET structure it uses following:
-  BIGBUF *gbigBuffer - input data buffer
-  BIGBUF *gbigBuffer1 - output data buffer
+  BIGBUF *gbigin - input data buffer
+  BIGBUF *gbigout - output data buffer
   token_interval - for time profiling
   failure - set it to 0 just in case
   doclose - just for printing
  */
-#ifdef VXWORKS
-void 
-proc_thread(BIGNET *bigprocptrin, unsigned int offsetin)
-{
-#else
 void 
 proc_thread(BIGNET *bigprocptrin)
 {
   unsigned int offsetin = 0;
-#endif
   ROLPARAMS *rolP = &rolP2;
   static int length, status, ifend;
   int i, jj, llen, llenw, evsz, res, nevent, iev, lenin, lenout, pid, nbuffer;
@@ -274,12 +242,8 @@ proc_thread(BIGNET *bigprocptrin)
   static int token_interval;
 
 /* timing */
-#ifdef VXWORKS
-  unsigned long start, end, time1, time2, icycle, cycle = 1;
-#else
   hrtime_t start, end, time1, time2, icycle, cycle = 1;
   static hrtime_t sum;
-#endif
 
 #ifdef Linux
   prctl(PR_SET_NAME,"coda_proc");
@@ -291,29 +255,13 @@ proc_thread(BIGNET *bigprocptrin)
   offset = offsetin;
   token_interval = bigprocptr->token_interval;
 
-#ifdef VXWORKS
-  printf("bigprocptr=0x%08x offset=0x%08x\n",bigprocptr,offset);
-  taskDelay(100);
-  printf("bigprocptr=0x%08x offset=0x%08x\n",bigprocptr,offset);
-  
-  printf("bigproc at 0x%08x, bigproc.gbigBuffer at 0x%08x -> 0x%08x\n",
-          bigprocptr, &(bigprocptr->gbigBuffer),
-          (&(bigprocptr->gbigBuffer))+offset);
-#endif
-
-
-
-
-
   printf("proc_thread reached\n");fflush(stdout);
   printf("proc_thread reached\n");fflush(stdout);
   printf("proc_thread reached\n");fflush(stdout);
   printf("proc_thread reached\n");fflush(stdout);
   printf("proc_thread reached\n");fflush(stdout);
   printf("proc_thread reached\n");fflush(stdout);
-#ifndef VXWORKS
   sleep(1);
-#endif
   printf("proc_thread reached\n");fflush(stdout);
   printf("proc_thread reached\n");fflush(stdout);
   printf("proc_thread reached\n");fflush(stdout);
@@ -327,46 +275,31 @@ proc_thread(BIGNET *bigprocptrin)
   nbuffer = 1;
 
   /* get output buffer maximum length in bytes */
-  maxoutbuflen = bigprocptr->gbigBuffer1->nbytes;
+  maxoutbuflen = bigprocptr->gbigout->nbytes;
   /*printf("proc_thread: maxoutbuflen=%u bytes\n",maxoutbuflen);*/
 
   do
   {
     icycle ++;
-#ifdef VXWORKS
-    start = sysTimeBaseLGet();
-#else
     start = gethrtime();
-#endif
 #ifdef DEBUG
     printf("proc: next itteration, icycle=%d\n",icycle);fflush(stdout);
 #endif
 
     /* wait for input buffer */
-    bigbufin = bb_read(&(bigprocptr->gbigBuffer));
+    bigbufin = bb_read(&(bigprocptr->gbigin));
     if(bigbufin == NULL)
     {
       printf("proc_thread: ERROR: bigbufin==NULL\n");fflush(stdout);
       break;
     }
 
-#ifdef VXWORKS
-    end = sysTimeBaseLGet();
-    time1 += (end-start)/MYCLOCK;
-#else
     end = gethrtime();
     time1 += (end-start)/MYCLOCK;
-#endif
 
-
-#ifdef VXWORKS
-    start = sysTimeBaseLGet();
-#else
     start = gethrtime();
-#endif
 
     bigprocptr->failure = 0;
-
 
     /* remember some values (do not need all of them ..) */
     llenw = bigbufin[BBIWORDS];
@@ -398,7 +331,7 @@ proc_thread(BIGNET *bigprocptrin)
 /*
 printf("=0=> %d\n",bigbufout[BBIFD]);
 */
-        bigbufout = bb_write(&(bigprocptr->gbigBuffer1));
+        bigbufout = bb_write(&(bigprocptr->gbigout));
         if(bigbufout == NULL)
         {
           printf("proc bb_write ERROR 0\n");
@@ -413,7 +346,7 @@ printf("=0=> %d\n",bigbufout[BBIFD]);
       /* get new output buffer if needed */
       if(bigbufout == NULL)
       {
-        bigbufout = bb_write_current(&(bigprocptr->gbigBuffer1));
+        bigbufout = bb_write_current(&(bigprocptr->gbigout));
         if(bigbufout == NULL)
         {
           printf("proc bb_write_current ERROR 1\n");
@@ -434,7 +367,7 @@ printf("=0=> %d\n",bigbufout[BBIFD]);
           bigbufout[BBIEVENTS] = 0;
           bigbufout[BBIFD]     = bigbufin[BBIFD];
 /*
-printf("<--- 0x%08x 0x%08x - fd=%d\n",bigprocptr->gbigBuffer1,bigbufout,bigbufin[BBIFD]);
+printf("<--- 0x%08x 0x%08x - fd=%d\n",bigprocptr->gbigout,bigbufout,bigbufin[BBIFD]);
 */
           bigbufout[BBIEND]    = bigbufin[BBIEND];
           bufout = bigbufout + BBHEAD;
@@ -464,7 +397,7 @@ printf("<--- 0x%08x 0x%08x - fd=%d\n",bigprocptr->gbigBuffer1,bigbufout,bigbufin
         printf(">>>>>>>>>>>>>>>> use pid=%d <<<<<<<<<<<<<<<<<\n",pid);fflush(stdout);
 #endif
         lenout = proc_poll(bufin, bufout, pid, &nev_per_block);
-/*printf("222 nev_per_block=%d\n",nev_per_block);*/
+		/*printf("222 nev_per_block=%d\n",nev_per_block);*/
       }
       bufout += lenout;
 
@@ -483,18 +416,13 @@ printf("<--- 0x%08x 0x%08x - fd=%d\n",bigprocptr->gbigBuffer1,bigbufout,bigbufin
       /* release output buffer on full condition (use actual big buffer size, not SEND_BUF_SIZE !!!)
          or on timer (Sergey: not on timer, will release on input buffer processed below) */
       if( ((bigbufout[BBIWORDS]<<2) > (maxoutbuflen - SEND_BUF_MARGIN))  ||
-#ifdef VXWORKS
-          ((vxTicks > timeout) && ((bufout - bigbufout) > BBHEAD_BYTES))
-#else
-          ((time(0) > timeout) && ((bufout - bigbufout) > BBHEAD_BYTES))
-#endif
-      )
+          ((time(0) > timeout) && ((bufout - bigbufout) > BBHEAD_BYTES)) )
       {
 		/*		
 printf("=== PROC1: %d %d %d %d 0x%08x\n",bigbufout[0],bigbufout[1],bigbufout[2],bigbufout[3],bigbufout[4]);
 		*/		
 
-        bigbufout = bb_write(&(bigprocptr->gbigBuffer1));
+        bigbufout = bb_write(&(bigprocptr->gbigout));
         if(bigbufout == NULL)
         {
           printf("proc bb_write ERROR 2\n");
@@ -506,15 +434,9 @@ printf("=== PROC1: %d %d %d %d 0x%08x\n",bigbufout[0],bigbufout[1],bigbufout[2],
         }
       }
 
-
-
-
       bufin += lenin;
 
     } /* finish processing input buffer*/
-
-
-
 
     /* always release output buffer if input buffer number equal to -1 (special events) */
 
@@ -529,7 +451,7 @@ printf("=== PROC1: %d %d %d %d 0x%08x\n",bigbufout[0],bigbufout[1],bigbufout[2],
 	/*
 printf("=== PROC2: %d %d %d %d 0x%08x\n",bigbufout[0],bigbufout[1],bigbufout[2],bigbufout[3],bigbufout[4]);
 	*/
-      bigbufout = bb_write(&(bigprocptr->gbigBuffer1));
+      bigbufout = bb_write(&(bigprocptr->gbigout));
       if(bigbufout == NULL)
       {
         printf("proc bb_write ERROR 3\n");
@@ -542,35 +464,20 @@ printf("=== PROC2: %d %d %d %d 0x%08x\n",bigbufout[0],bigbufout[1],bigbufout[2],
 	}
 
 /*timing */
-#ifdef VXWORKS
-    end = sysTimeBaseLGet();
-    time2 += (end-start)/MYCLOCK;
-#else
     end = gethrtime();
     time2 += (end-start)/MYCLOCK;
-#endif
 if(nevent != 0 && icycle >= cycle)
 {
 
-#ifdef VXWORKS
-printf("proc_thread: waiting=%7lu processing=%7lu microsec per event (nev=%d)\n",
-	   time1/nevent,time2/nevent,nevent/icycle);
-#else
 printf("proc_thread: waiting=%7llu processing=%7llu microsec per event (nev=%d)\n",
 	   time1/nevent,time2/nevent,nevent/icycle);
-#endif
 nevent = icycle = time1 = time2 = 0;
 }
-
 
     if(ifend == 1)
     {
       printf("proc_thread: ifend==1 (%d), ending ..\n",bigprocptr->doclose);fflush(stdout);
-#ifdef VXWORKS
-      taskDelay(60);
-#else
       sleep(1);
-#endif
 	}
 
 	/* ????? why 'bigprocptr->doclose == 1' ??? */
@@ -588,8 +495,7 @@ printf("roc_process cleanup +++++++++++++++++++++++++++++++++++++ 1\n");fflush(s
 sleep(1);
 
   /* force input 'big' buffer read/write methods to exit */
-  bb_cleanup(&(bigprocptr->gbigBuffer));
+  bb_cleanup(&(bigprocptr->gbigin));
 
   printf("PROC THREAD EXIT\n");
 }
-

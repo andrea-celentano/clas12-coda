@@ -16,6 +16,8 @@
 #include <unistd.h>
 #include "gtpLib.h"
 
+static int active;
+
 static Gtp_regs *pGtpRegPtr;
 static int fdGtpMem = 0; 
 
@@ -223,17 +225,29 @@ gtpFiberTriggerEnable()
 
   printf("gtpFiberTriggerEnable\n");
 
-  /* release resets */
-  gtpWrite32(&pGtpRegPtr->QsfpSer.Ctrl, 0x0);
+  for(i = 0; i < 10; i++)
+  {
+    if(!(gtpRead32(&pGtpRegPtr->QsfpSer.Status) & 0x1000))
+	 {
+      gtpWrite32(&pGtpRegPtr->QsfpSer.Ctrl, 0x401);
+	    /* release resets */
+      gtpWrite32(&pGtpRegPtr->QsfpSer.Ctrl, 0x0);
+	 }
+    else
+      break;
 
-  /* delay to allow channel to lock */
-  usleep(20000);
+    /* delay to allow channel to lock */
+    sleep(1);
+  }
+
+  if(!(gtpRead32(&pGtpRegPtr->QsfpSer.Status) & 0x1000))
+    printf("*** ERROR: FIBER LINK NOT UP!!! ***\n");
 
   /* enable error counters */
   gtpWrite32(&pGtpRegPtr->QsfpSer.Ctrl, 0x800);
 
   /* print status of ports */
-  gtpPayloadTriggerStatus();
+  gtpFiberTriggerStatus();
 }
 
 void
@@ -241,7 +255,7 @@ gtpFiberTriggerReset()
 {
   int i;
 
-  printf("gtpFiberTriggerReset payload\n");
+  printf("gtpFiberTriggerReset\n");
 
   gtpWrite32(&pGtpRegPtr->QsfpSer.Ctrl, 0x401);
 }
@@ -249,21 +263,46 @@ gtpFiberTriggerReset()
 void
 gtpPayloadTriggerEnable(int mask)
 {
-  int i;
+  int i, j, allup = 1;
 
   printf("gtpPayloadTriggerEnable payload 0x%04X\n", mask);
 
-  /* release resets */
-  for(i = 0; i < 16; i++)
+  for(j = 0; j < 10; j++)
   {
-    if(!(mask & (1<<i)))
-      continue;
-    gtpWrite32(&pGtpRegPtr->Ser[i].Ctrl, 0x0);
+    allup = 1;
+	 
+    /* release resets */
+    for(i = 0; i < 16; i++)
+    {
+      if(!(mask & (1<<i)))
+        continue;
+      gtpWrite32(&pGtpRegPtr->Ser[i].Ctrl, 0x0);
+    }
+
+    /* delay to allow channel to lock */
+    usleep(20000);
+
+    for(i = 0; i < 16; i++)
+    {
+      if(!(mask & (1<<i)))
+        continue;
+	 
+	   if(!(gtpRead32(&pGtpRegPtr->Ser[i].Status) & 0x1000))
+		{
+	     gtpWrite32(&pGtpRegPtr->Ser[i].Ctrl, 0x401);
+		  allup = 0;
+		}
+    }
+    
+    if(allup)
+      break;
+	 
+    sleep(1);
   }
-
-  /* delay to allow channel to lock */
-  usleep(20000);
-
+  
+  if(!allup)
+    printf("*** ERROR: NOT ALL FADC LINKS UP!!! ***\n");
+  
   /* enable error counters */
   for(i = 0; i < 16; i++)
   {
@@ -294,33 +333,45 @@ gtpPayloadTriggerReset(int mask)
   }
 }
 
-/*
-  void gtpSetHpsParameters(int pulseCoincidenceTicks, int pulseClusterThreshold)
-    pulseCoincidenceTicks: 0-7=number of +/-4ns ticks to combine hits into a cluster
-    pulseClusterThreshold: 0-8191=minimum threshold(MeV) to form a cluster
-*/
 void
-gtpSetHpsParameters(int pulseCoincidenceTicks, int pulseClusterThreshold)
+gtpSetHpsPulseCoincidence(int ticks_before, int ticks_after)
 {
-  printf("INFO: %s: ClusterPulseCoincidence window = +/-%dns, ClusterPulseThreshold = %dMeV\n", __func__, pulseCoincidenceTicks, 4*pulseClusterThreshold);
-  gtpWrite32(&pGtpRegPtr->Trg.ClusterPulseCoincidence, pulseCoincidenceTicks);
-  gtpWrite32(&pGtpRegPtr->Trg.ClusterPulseThreshold, pulseClusterThreshold);
+  if((ticks_before < 0) || (ticks_before > 4) || (ticks_after < 0) || (ticks_after > 4))
+  {
+    printf("ERROR: %s - ticks out of range: before %d, after %d\n", __func__, ticks_before, ticks_after);
+    return;
+  }
+  printf("gtpSetHpsPulseCoincidence(%d, %d)\n", ticks_before, ticks_after);
+  gtpWrite32(&pGtpRegPtr->Trg.ClusterPulseCoincidence, ticks_before | (ticks_after<<16));
+}
 
-  gtpGetHpsParameters();
+int
+gtpGetHpsPulseCoincidenceBefore()
+{
+  return gtpRead32(&pGtpRegPtr->Trg.ClusterPulseCoincidence) & 0x7;
+}
+
+int
+gtpGetHpsPulseCoincidenceAfter()
+{
+  return (gtpRead32(&pGtpRegPtr->Trg.ClusterPulseCoincidence)>>16) & 0x7;
 }
 
 void
-gtpGetHpsParameters()
+gtpSetHpsPulseThreshold(int threshold)
 {
-  int v;
+  if((threshold < 0) || (threshold > 8191))
+  {
+    printf("ERROR: %s - threshold out of range: %d\n", __func__, threshold);
+    return;
+  }
+  gtpWrite32(&pGtpRegPtr->Trg.ClusterPulseThreshold, threshold);
+}
 
-  printf("INFO: %s\n", __func__);
-
-  v = gtpRead32(&pGtpRegPtr->Trg.ClusterPulseCoincidence);
-  printf("ClusterPulseCoincidence window = +/-%dns\n", v * 4);
-
-  v = gtpRead32(&pGtpRegPtr->Trg.ClusterPulseThreshold);
-  printf("ClusterPulseThreshold = %dMeV\n", v);
+int
+gtpGetHpsPulseThreshold()
+{
+  return gtpRead32(&pGtpRegPtr->Trg.ClusterPulseThreshold);
 }
 
 /*******************************************************************************
@@ -530,6 +581,255 @@ gtpInit(int flag)
   
   gtpEnableInt(0);
 }
+
+
+
+
+
+/*****************************************************************************/
+typedef struct
+{
+  int ClusterPulseCoincidenceBefore;
+  int ClusterPulseCoincidenceAfter;
+  int ClusterPulseThreshold;
+} GTP_CONFIG_STRUCT;
+
+GTP_CONFIG_STRUCT gtp;
+
+void
+gtpInitGlobals()
+{
+  gtp.ClusterPulseCoincidenceBefore = 1;
+  gtp.ClusterPulseCoincidenceAfter = 1;
+  gtp.ClusterPulseThreshold = 50;
+  
+  return;
+}
+
+
+
+#define NCHAN 8
+#define SCAN_MSK \
+	args = sscanf (str_tmp, "%*s %d %d %d %d %d %d %d %d   \
+                                     %d %d %d %d %d %d %d %d", \
+		       &msk[ 0], &msk[ 1], &msk[ 2], &msk[ 3], \
+		       &msk[ 4], &msk[ 5], &msk[ 6], &msk[ 7], \
+		       &msk[ 8], &msk[ 9], &msk[10], &msk[11], \
+		       &msk[12], &msk[13], &msk[14], &msk[15])
+
+
+int
+gtpReadConfigFile(char *filename)
+{
+  FILE   *fd;
+  char   fname[FNLEN] = { "" };  /* config file name */
+  int    ii, jj, ch;
+  char   str_tmp[STRLEN], keyword[ROCLEN];
+  char   host[ROCLEN], ROC_name[ROCLEN];
+  char   str2[2];
+  int    args, i1, i2, i3, i4, msk[NCHAN];
+  float  f1;
+  int    slot, chan;
+  unsigned int  ui1, ui2;
+  char *getenv();
+  char *clonparms;
+  char *expid;
+
+  clonparms = getenv("CLON_PARMS");
+  expid = getenv("EXPID");
+  if(strlen(filename)!=0) /* filename specified */
+  {
+    if ( filename[0]=='/' || (filename[0]=='.' && filename[1]=='/') )
+	{
+      sprintf(fname, "%s", filename);
+	}
+    else
+	{
+      sprintf(fname, "%s/gtp/%s", clonparms, filename);
+	}
+
+    if((fd=fopen(fname,"r")) == NULL)
+    {
+      printf("\ngtpReadConfigFile: Can't open config file >%s<\n",fname);
+      return(-1);
+    }
+  }
+  else /* filename does not specified */
+  {
+    /* obtain our hostname */
+    gethostname(host,ROCLEN);
+    sprintf(fname, "%s/gtp/%s.cnf", clonparms, host);
+    if((fd=fopen(fname,"r")) == NULL)
+    {
+      sprintf(fname, "%s/gtp/%s.cnf", clonparms, expid);
+      if((fd=fopen(fname,"r")) == NULL)
+      {
+        printf("\ngtpReadConfigFile: Can't open config file >%s<\n",fname);
+        return(-2);
+	  }
+	}
+
+  }
+  printf("\ngtpReadConfigFile: Using configuration file >%s<\n",fname);
+
+  /* Parsing of config file */
+  active = 0;
+  while ((ch = getc(fd)) != EOF)
+  {
+    if ( ch == '#' || ch == ' ' || ch == '\t' )
+    {
+      while (getc(fd) != '\n') {}
+    }
+    else if( ch == '\n' ) {}
+    else
+    {
+      ungetc(ch,fd);
+      fgets(str_tmp, STRLEN, fd);
+      sscanf (str_tmp, "%s %s", keyword, ROC_name);
+
+
+      /* Start parsing real config inputs */
+      if(strcmp(keyword,"GTP_CRATE") == 0)
+      {
+	    if(strcmp(ROC_name,host) == 0)
+        {
+	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+          active = 1;
+        }
+	    else if(strcmp(ROC_name,"all") == 0)
+		{
+	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+          active = 1;
+		}
+        else
+		{
+	      printf("\nReadConfigFile: crate = %s  host = %s - disactivated\n",ROC_name,host);
+          active = 0;
+		}
+      }
+
+      else if(active && (strcmp(keyword,"GTP_CLUSTER_PULSE_COIN")==0))
+      {
+        i1 = i2 = -1;
+        sscanf (str_tmp, "%*s %d %d", &i1, &i2);
+		  gtp.ClusterPulseCoincidenceBefore = i1;
+		  gtp.ClusterPulseCoincidenceAfter = i2;
+      }
+
+      else if(active && (strcmp(keyword,"GTP_CLUSTER_PULSE_THRESHOLD")==0))
+      {
+        sscanf (str_tmp, "%*s %d", &i1);
+		  gtp.ClusterPulseThreshold = i1;
+      }
+
+      else
+      {
+        ; /* unknown key - do nothing */
+		/*
+        printf("gtpReadConfigFile: Unknown Field or Missed Field in\n");
+        printf("   %s \n", fname);
+        printf("   str_tmp=%s", str_tmp);
+        printf("   keyword=%s \n\n", keyword);
+        return(-10);
+		*/
+      }
+
+    }
+  } /* end of while */
+
+  fclose(fd);
+
+  return(0);
+}
+
+int
+gtpDownloadAll()
+{
+  gtpSetHpsPulseCoincidence(gtp.ClusterPulseCoincidenceBefore, gtp.ClusterPulseCoincidenceAfter);
+  gtpSetHpsPulseThreshold(gtp.ClusterPulseThreshold);
+
+  return(0);
+}
+
+/* gtpInit() have to be called before this function */
+int  
+gtpConfig(char *fname)
+{
+  int res;
+
+  /* set defaults */
+  gtpInitGlobals();
+
+  /* read config file */
+  if( (res = gtpReadConfigFile(fname)) < 0 ) return(res);
+
+  /* download to all boards */
+  gtpDownloadAll();
+
+  return(0);
+}
+
+void
+gtpMon(int slot)
+{
+  int id, ii, start, end, res;
+  int coin_before, coin_after;
+  int cluster_threshold;
+
+  coin_before = gtpGetHpsPulseCoincidenceBefore();
+  coin_after = gtpGetHpsPulseCoincidenceAfter();
+  cluster_threshold = gtpGetHpsPulseThreshold();
+  
+  printf("GTP HPS cluster threshold: %dMeV\n", cluster_threshold);
+  printf("GTP HPS cluster coincidence: -%dns to +%dns\n", coin_before*4, coin_after*4);
+  
+  gtpFiberTriggerStatus();
+  gtpPayloadTriggerStatus();
+}
+
+
+
+#define ADD_TO_STRING \
+  len1 = strlen(str); \
+  len2 = strlen(sss); \
+  if((len1+len2) < length) strcat(str,sss); \
+  else \
+  { \
+    str[len1+1] = ' '; \
+    str[len1+2] = ' '; \
+    str[len1+3] = ' '; \
+    len1 = ((len1+3)/4)*4; \
+    return(len1); \
+  }
+
+/* upload setting from all found DSC2s */
+int
+gtpUploadAll(char *string, int length)
+{
+  int slot, i, ii, jj, kk, ifiber, len1, len2;
+  char *str, sss[1024];
+  unsigned int tmp, connectedfibers;
+  unsigned short sval;
+  unsigned short bypMask;
+  unsigned short channels[8];
+
+  str = string;
+  str[0] = '\0';
+  sprintf(sss,"GTP_CLUSTER_PULSE_COIN %d %d\n", gtpGetHpsPulseCoincidenceBefore(), gtpGetHpsPulseCoincidenceAfter()); ADD_TO_STRING;
+  sprintf(sss,"GTP_CLUSTER_PULSE_THRESHOLD %d\n", gtpGetHpsPulseThreshold()); ADD_TO_STRING;
+
+  len1 = strlen(str);
+  str[len1+1] = ' ';
+  str[len1+2] = ' ';
+  str[len1+3] = ' ';
+  len1 = ((len1+3)/4)*4;
+
+  return(len1);
+}
+
+
+
+
 
 #else /* dummy version*/
 

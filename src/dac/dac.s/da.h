@@ -27,57 +27,23 @@
 #endif
 
 #define _DADEFINED
-#ifdef VXWORKS
 
-#include <vxWorks.h>
-#include <types.h>
-#include <logLib.h>
-#include <memLib.h>
-#include <string.h>
-#include <semLib.h>
-#include <taskLib.h>
-#include <socket.h>
-#include <sockLib.h>
-#include <in.h>
-#include <intLib.h>
-#include <iosLib.h>
-#include <inetLib.h>
-#include <hostLib.h>
-#include <ioLib.h>
-#include <loadLib.h>
-#include <errnoLib.h>
-#include <sigLib.h>
-#include <selectLib.h>
-#include <msgQLib.h>
-#include <sysSymTbl.h>
-#include <symLib.h>
-#include <netdb.h>
-
-#else
-
+#include <stdio.h>
+#include <strings.h>
 #include <sys/types.h>
 #include <errno.h>
 #include <sys/uio.h>
 #include <netinet/in.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#include <stdio.h>
-#include <strings.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <sys/time.h>
-
-#endif /* ifdef VXWORKS */
-
-
-#ifndef VXWORKS
 
 #include "et.h"
 
 #ifdef SOLARIS
 #include <ucontext.h>
-#endif
-
 #endif
 
 #include "obj.h"
@@ -104,6 +70,8 @@
 #define PHYS_BANK_HDR(t,e) (unsigned int)((((t)&0xf)<<16) | ((e)&0xff) | EV_BANK_HDR)
 
 #define CTL_BANK_HDR(t) (unsigned int)((((t)&0xffff)<<16) | 0x000001CC)
+
+#define CHAR_BANK_HDR(t) (unsigned int)((((t)&0xffff)<<16) | 0x00000300)
 
 #define IS_BANK(b) (((unsigned int) (b) && EV_BANK_HDR)==EV_BANK_HDR)
 
@@ -154,22 +122,13 @@ static int dtswap[] = {
   0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0 };
 
 
-
 extern jmp_buf global_env[8][32];
 extern int use_recover;
 
 extern int global_env_depth[32];
 extern char *global_routine[8][32];
 
-#ifdef HP_UX
-#define SIGVECTOR sigvector
-#else
 #define SIGVECTOR sigvec
-#endif
-
-#ifdef VXWORKS
-#define pthread_self() 1
-#endif
 
 #define recoverContext(name,res) \
 { \
@@ -189,44 +148,9 @@ extern char *global_routine[8][32];
 #define DATA_DEBUG 1
 #define API_DEBUG  2
 
-
-
 /* defines for listSplit1() */
 #define LISTARGV1 40
 #define LISTARGV2 256
-
-
-/* observed coda_er error:
-.................................
-CODAtcpServer: start work thread
-befor: socket=8 address>129.57.71.15< port=40591
-wait: coda request in progress
-XXX: msgLen=218759184 nRead=2
-wait: coda request in progress
-wait: coda request in progress
-wait: coda request in progress
-wait: coda request in progress
-wait: coda request in progress
-wait: coda request in progress
-Error(new rc): nRead=0, must be 218759185
-CODAtcpServer: start work thread
-befor: socket=8 address>129.57.71.15< port=40608
-wait: coda request in progress
-XXX: msgLen=1392574464 nRead=4
-Error(new rc): nRead=80, must be 1392574465
-CODAtcpServer: start work thread
-befor: socket=8 address>129.57.71.15< port=40612
-wait: coda request in progress
-XXX: msgLen=-11317950 nRead=4
-Error(new rc): nRead=-1, must be -11317949
-CODAtcpServer: start work thread
-befor: socket=8 address>129.57.71.15< port=40614
-wait: coda request in progress
-XXX: msgLen=0 nRead=4
-MESSAGE (nRead=1, Address>129.57.71.15<, port=40614): Executing ><
-Executing ><
-Segmentation fault
- */
 
 /* Linux and Darwin returns microsecs, Solaris returns nanosecs */
 #ifdef Linux
@@ -238,9 +162,6 @@ Segmentation fault
 #define NANOMICRO 1000
 #endif
 #endif
-
-
-
 
 /* Linux does not have hrtime */
 #ifdef Linux
@@ -259,12 +180,7 @@ hrtime_t/*uint64_t*/ gethrtime(void);
 #endif
 
 
-
-
-
-
 #define USE_128
-
 
 /* to handle 128-bit words, needed by event building process */
 
@@ -273,7 +189,6 @@ typedef struct
   uint32_t words[4]; /* words[0] is least significant */  
 
 } WORD128;
-
 
 void Print128(WORD128 *hw);
 char *String128(WORD128 *hw);
@@ -287,6 +202,4 @@ int EQ128(WORD128 *hwa, WORD128 *hwb);
 void Clear128(WORD128 *hw);
 void Negate128(WORD128 *hw);
 
-
-/* _CODA_DA_H */
-#endif
+#endif /* _CODA_DA_H */

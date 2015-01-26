@@ -32,7 +32,9 @@
   UNIX:
      cd $CLON_PARMS/firmwares
 #####     tiFirmwareUpdate 0x00A80000 ti193.svf
-     tiFirmwareUpdate 0x00A80000 mti24.svf
+##     tiFirmwareUpdate 0x00A80000 mti24.svf
+
+     tiFirmwareUpdate 0x00A80000 mti74.svf
      tiFirmwareUpdate 0x00A80000 fpgareload.svf
 */
 

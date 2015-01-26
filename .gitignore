@@ -12,3 +12,4 @@ common/
 *.o
 *.so
 *.a
+*.his

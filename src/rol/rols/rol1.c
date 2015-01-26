@@ -50,6 +50,19 @@ long decrement;
 extern long nevent;
 */
 
+/* for compatibility with hps1.c */
+int
+getTdcTypes(int *typebyslot)
+{
+  return(0);
+}
+int
+getTdcSlotNumbers(int *slotnumbers)
+{
+  return(0);
+}
+
+
 static void
 __download()
 {
@@ -70,6 +83,12 @@ __download()
   /*CDOINIT(TIPRIMARY,TIR_SOURCE);*/
 
   printf("INFO: User Download 1 Executed\n");
+
+  /*
+  UDP_user_request(MSGINF,"rol1","information");
+  UDP_user_request(MSGWRN,"rol1","warnings");
+  UDP_user_request(MSGERR,"rol1","errors");
+  */
 
   return;
 }
@@ -156,11 +175,13 @@ usleep(1000);
 
   CEOPEN(EVTYPE, BT_BANKS);
 
+  BANKOPEN(0xe1FF,1,rol->pid);
   len = 20;
   for(ii=0; ii<len; ii++)
   {
     *rol->dabufp++ = ii;
   }
+  BANKCLOSE;
 
   CECLOSE;
 

@@ -1,7 +1,5 @@
 
 /* circbuf.c - circular buffer library */
-/*   (used by UNIX programs only, no vxWorks !!!) */
-#ifndef VXWORKS
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,14 +32,6 @@
 
 /*#define READ_SIGNAL_ALL  for(ii=0; ii<nrocs; ii++) {ccc = cba[ii]; pthread_cond_signal(&ccc->read_cond);}*/
 #define READ_SIGNAL_ALL  for(ii=0; ii<nrocs; ii++) {ccc = cba[ii]; pthread_cond_broadcast(&ccc->read_cond);}
-
-
-
-
-
-
-
-
 
 
 
@@ -354,7 +344,7 @@ get_cb_count(CIRCBUF **cbh)
     lenbuf += lenev; /* returned buffer length in words */ \
     if( ((buf[1]>>16)&0xff)==0 ) \
 	{ \
-      printf("[%1d] ERROR: bank tag is zero\n", id); \
+      printf("[%1d] ERROR: bank tag is zero (header: %d 0x%08x)\n",id,buf[0],buf[1]); \
 	} \
 	else \
 	{ \
@@ -449,7 +439,7 @@ cb_events_get(CIRCBUF *cba[MAX_ROCS], int id, int nrocs, int chunk,
     /* wait while there's nothing in the buffer (SHOULD NEVER BE HERE ???!!!) */
     while(cbp->nevents[icb] == 0)
     {
-      printf("[%1d] >%8.8s< NEVER COME HERE - 1\n",id,cbp->name);fflush(stdout);
+      printf("[%1d] >%8.8s< NEVER COME HERE - 1 (nevents=0)\n",id,cbp->name);fflush(stdout);
       if(cbp->deleting && (NFBUF(cbp->read,cbp->write) == 0))
       {
         printf("[%1d] deleting 2 .. %8.8s\n",id,cbp->name);fflush(stdout);
@@ -792,17 +782,6 @@ get_cb_data(CIRCBUF **cbh, int id, int chunk,
   cbp->nbuf[id] = 0;
 
 
-
-
-
-
-
-
-
-
-
-
-
   /* get first buffer number with valid data
   and the number of the next buffer */
   icb = cbp->read;
@@ -1043,19 +1022,3 @@ delete_cb(CIRCBUF **cbh)
 
   return;
 }
-
-
-#else /* ifndef VXWORKS */
-
-void
-circbuf_vxworks_dummy()
-{
-  return;
-}
-
-#endif
-
-
-
-
-

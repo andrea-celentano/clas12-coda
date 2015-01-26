@@ -85,6 +85,7 @@ static int *StartOfBank;
 #define RUN_TYPE   rol->runType
 #define EVENT_NUMBER *(rol->nevents)
 
+static int event_number;
 
 
 #include "../../dac/dac.s/bigbuf.h" /*for protutypes, SEND_BUF_MARGIN, etc */
@@ -159,6 +160,7 @@ and extract info about banks found; to be used in ROL2 */ \
     ptr = (unsigned int *)((rol->dabufpi));	\
 	ptrend = ptr + *(rol->dabufpi); \
     ptr +=2; /*skip bank-of-banks header*/ \
+	/*printf("BANKSCAN: tag=%d typ=%d num=%d\n",((*(ptr-1))>>16)&0xFF,((*(ptr-1))>>8)&0xFF,(*(ptr-1))&0xFF);*/ \
 	while(ptr < ptrend) \
     { \
       /*printf("BANKSCAN[%d]: while begin: ptr=0x%08x ptrenv=0x%08x (%d)\n",nbanks,ptr,ptrend,(ptrend-ptr));fflush(stdout);*/ \
@@ -191,7 +193,8 @@ and extract info about banks found; to be used in ROL2 */ \
 
 /********************************************************/
 /* sergey: new bank handling: using big buffer directly */
-extern BIGNET big0;
+extern BIGBUF *gbigDMA;
+
 extern int object_nlongs;
 extern long clear_to_send;
 extern int last_event_check;
@@ -239,8 +242,9 @@ extern pthread_mutex_t sendbuffer_lock;
 #define CEOPEN(bnum, btype) \
 { \
 dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise following loop will think there is an event */ \
- StartOfEvent = rol->dabufp = (int *)dabufp; \
-  *(++(rol->dabufp)) = (syncFlag<<24) | ((bnum) << 16) | ((btype##_ty) << 8) | (0xff & *(rol->nevents));\
+  StartOfEvent = rol->dabufp = (int *)dabufp; \
+  *(++(rol->dabufp)) = (syncFlag<<24) | ((bnum) << 16) | ((btype##_ty) << 8) | ( (*(rol->nevents)) & 0xff); \
+  /*printf("CEOPEN: tag=%d typ=%d num=%d\n",((*(rol->dabufp))>>16)&0xFF,((*(rol->dabufp))>>8)&0xFF,(*(rol->dabufp))&0xFF);*/ \
   ((rol->dabufp))++; \
 }
 
@@ -375,7 +379,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
   /*printf("BANKOPEN: StartOfBank=0x%08x\n",StartOfBank);fflush(stdout);*/ \
   /*printf("BANKOPEN: rol->dabufp=0x%08x\n",rol->dabufp);fflush(stdout);*/ \
   StartOfBank = rol->dabufp; \
-  *(++(rol->dabufp)) = (btag<<16) + (btyp<<8) + bnum;	\
+  *(++(rol->dabufp)) = ((btag)<<16) + ((btyp)<<8) + (bnum);	\
   ((rol->dabufp))++; \
   /*printf("BANKOPEN: rol->dabufp=0x%08x\n",rol->dabufp);fflush(stdout);*/ \
 }
@@ -465,7 +469,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     /* send current output buffer */ \
     /* set now 'dabufp' to the beginning of */ \
     /* 'big' buffer just to fill a header   */ \
-    dabufp = bb_write_current(&big0.gbigBuffer); \
+    dabufp = bb_write_current(&gbigDMA); \
     /*setHeartBeat(HB_ROL,15,5);*/ \
     if(dabufp == NULL) \
     { \
@@ -487,7 +491,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     { \
       /*trying to get next buffer; if not available - do nothing, rols_loop will take care*/ \
 	  /*printf("rol.h: bb_write_nodelay 1\n");*/ \
-      dabufp = bb_write_nodelay(&big0.gbigBuffer); \
+      dabufp = bb_write_nodelay(&gbigDMA); \
       if(dabufp == NULL) \
       { \
         rocp_recNb --; /* decrement it back */ \

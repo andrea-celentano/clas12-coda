@@ -317,7 +317,7 @@ rcRunTypeDialog::parseConfigFile(char *fname)
 
   if((fin=fopen(fname,"r")) == NULL)
   {
-    printf("\ncodaParseRunConfigFile: Can't open input run config file >%s<\n",fname);
+    printf("\nparseConfigFile: Can't open input run config file >%s<\n",fname);
     return(-1);
   }
 
@@ -336,12 +336,12 @@ rcRunTypeDialog::parseConfigFile(char *fname)
 
   if((fout=fopen(fnameout,"w")) == NULL)
   {
-    printf("\ncodaParseRunConfigFile: Can't open output run config file >%s<\n",fnameout);
+    printf("\nparseConfigFile: Can't open output run config file >%s<\n",fnameout);
     return(-2);
   }
 
-  printf("\ncodaParseRunConfigFile: parsing run config file >%s<\n",fname);
-  printf("\ncodaParseRunConfigFile: writing run config file >%s<\n",fnameout);
+  printf("\nparseConfigFile: parsing run config file >%s<\n",fname);
+  printf("\nparseConfigFile: writing run config file >%s<\n",fnameout);
 
 
   while ((ch = fgets(str_tmp, STRLEN, fin)) != NULL)
@@ -438,6 +438,8 @@ rcRunTypeDialog::parseConfigFile(char *fname)
 
   if(chmod(fnameout,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH) != 0) /*open file for everybody*/
   {
+    printf("ERROR: cannot change mode on output run config file\n");
+    printf("ERROR: cannot change mode on output run config file\n");
     printf("ERROR: cannot change mode on output run config file\n");
   }
 

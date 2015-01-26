@@ -32,6 +32,7 @@ typedef struct {
   unsigned int thr[NCHAN];
   unsigned int dac[NCHAN];
   unsigned int ped[NCHAN];
+  float gain[NCHAN];
 
 } FADC250_CONF;
 

@@ -523,6 +523,14 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
     /*************/
 
 
+
+
+
+
+
+
+
+
     /* Configure Block Type... temp fix for 2eSST trouble with token passing */
     tdcbuf = tdcbuf_save;
     dCnt=0;
@@ -542,6 +550,7 @@ TIMERL_START;
 stat=1;
 goto a1233;
 */
+
 #ifdef DEBUG
       printf("Calling vscmGBReady ...\n");fflush(stdout);
 #endif
@@ -704,8 +713,10 @@ vscmPrintFifo(rol->dabufp,len);
 TIMERL_STOP(100000,1000+rol->pid);
 #endif
 
+    }
 
-	}
+
+
 
 
 

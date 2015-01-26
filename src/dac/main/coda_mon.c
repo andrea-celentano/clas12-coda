@@ -1,12 +1,12 @@
 
 /* UNIX version only */
 
-#if defined(VXWORKS) || defined(Linux_armv7l)
+#if defined(Linux_armv7l)
 
 void
 coda_mon()
 {
-  printf("coda_mon is dummy for VXWORKS\n");
+  printf("coda_mon is dummy for ARM\n");
 }
 
 #else

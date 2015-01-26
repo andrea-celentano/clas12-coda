@@ -1,19 +1,7 @@
 
 /* tcpClient.c - TCP client example */ 
-/* DESCRIPTION This file contains the client-side of the VxWorks TCP example code. 
+/* DESCRIPTION This file contains the client-side of the TCP example code. 
    The example code demonstrates the usage of several BSD 4.4-style socket routine calls. */ 
-
-#ifdef VXWORKS
-
-#include <vxWorks.h>
-#include <sockLib.h>
-#include <inetLib.h>
-#include <stdioLib.h>
-#include <strLib.h>
-#include <hostLib.h>
-#include <ioLib.h>
-
-#else
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,7 +24,6 @@
 #define ERROR -1
 #define STD_IN stdin
 
-#endif
 
 #include "libtcp.h"
 #include "libdb.h"
@@ -67,17 +54,10 @@ alarmHandler(int sig)
 * Server received your message 
 * * RETURNS: OK, or ERROR if the message could not be sent to the server. */ 
 
-#ifdef VXWORKS
-
-STATUS 
-tcpClient(char *serverName) 
-{
-#else
-
+int
 main(int argc, char *argv[])
 {
   struct hostent *hptr;
-#endif
  
   TREQUEST myRequest; /* request to send to server */ 
   struct sockaddr_in serverAddr; /* server's socket address */ 
@@ -93,12 +73,11 @@ main(int argc, char *argv[])
   char tmp[1000], temp[100];
   char *ch;
 
-#ifndef VXWORKS  /* make sure all arguments are there */
+  /* make sure all arguments are there */
   if (argc<3) {
     printf("Usage: tcpClient <target name> [command]\n");
     exit(1);
   }
-#endif
 
   /* create client's socket */ 
   if((sFd = socket (AF_INET, SOCK_STREAM, 0)) == ERROR)
@@ -112,13 +91,6 @@ main(int argc, char *argv[])
   sockAddrSize = sizeof (struct sockaddr_in); 
   bzero ((char *) &serverAddr, sockAddrSize); 
   serverAddr.sin_family = AF_INET; 
-#ifdef VXWORKS
-  /*  serverAddr.sin_len = (u_char) sockAddrSize; */
-#endif
-
-
-  /* Sergey: vxworks is not ready !!!!! */
-#ifndef VXWORKS
 
   /* get port and host from DB; if no record in DB for <target name> - exit */
   dbsock = dbConnect(getenv("MYSQL_HOST"), "daq");
@@ -141,19 +113,8 @@ main(int argc, char *argv[])
   printf("hostname=>%s< portnum=%d\n",hostname,portnum);
   */
 
-#endif
-
   serverAddr.sin_port = htons(portnum/*SERVER_PORT_NUM*/); 
 
-#ifdef VXWORKS
-  if (((serverAddr.sin_addr.s_addr = inet_addr (serverName)) == ERROR) && 
-      ((serverAddr.sin_addr.s_addr = hostGetByName (serverName)) == ERROR))
-  {
-    perror ("unknown server name"); 
-    close (sFd); 
-    return (ERROR); 
-  } 
-#else
   hptr = gethostbyname(hostname);
   if(hptr == NULL) {
       printf("unknown hostname %s \n",hostname); 
@@ -162,7 +123,6 @@ main(int argc, char *argv[])
     } else {
       memcpy(&serverAddr.sin_addr,*(hptr->h_addr_list),sizeof(sizeof(struct in_addr)));
     }
-#endif
 
 
   /*
@@ -265,11 +225,8 @@ a123:
 */
 
 
-
-#ifndef VXWORKS
   signal(SIGALRM,alarmHandler);
   alarm(10); /* in 3 seconds connect call will be interrupted if did not finished */
-#endif
 
   /* connect to server */ 
   /*printf("connecting to server ...\n");*/ 
@@ -281,31 +238,9 @@ a123:
   }
   /*printf("connected !!!\n");*/ 
 
-#ifndef VXWORKS
   alarm(0); /* clear alarm so it will not interrupt us */
-#endif
-
-
 
   /* build request, prompting user for message */ 
-#ifdef VXWORKS
-  printf ("Message to send: \n"); 
-  mlen = read (STD_IN, myRequest.message, REQUEST_MSG_SIZE); 
-  myRequest.msgLen = mlen; 
-  myRequest.message[mlen - 1] = '\0'; 
-  printf ("Would you like a reply (Y or N): \n"); 
-  read (STD_IN, &reply, 1); 
-  switch (reply) { 
-  case 'y': 
-  case 'Y': 
-    myRequest.reply = TRUE; 
-    break; 
-  default: 
-    myRequest.reply = FALSE; 
-    break; 
-  } 
-#else
-
   myRequest.msgLen = strlen(argv[2]);
   sprintf(myRequest.message,"%s\0",argv[2]);
   myRequest.reply = TRUE;
@@ -323,7 +258,6 @@ printf("2: 0x%08x 0x%08x\n", myRequest.msgLen, myRequest.reply);
     myRequest.msgLen, myRequest.message, sizeof (myRequest));
   fflush(stdout);
   */
-#endif
 
   /* send request to server */ 
   if(write(sFd, (char *) &myRequest, sizeof(TREQUEST)) == ERROR)

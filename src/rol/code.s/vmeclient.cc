@@ -368,6 +368,12 @@ BOOL VMEClient::VMEBlkRead32(unsigned int addr, unsigned int count, unsigned int
 
 
 
+
+
+
+
+
+/*
 BOOL VMEClient::VMEGTPReset()
 {
 	if(!m_bConnected)
@@ -377,13 +383,8 @@ BOOL VMEClient::VMEGTPReset()
 	}
 
 	OutgoingMsg.Length = htonl(REMOTE_MSG_SIZE(Cmd_Empty)-4);
-	OutgoingMsg.BoardType = htonl(BOARD_TYPE_CLASTRIG); /*n/a*/
+	OutgoingMsg.BoardType = htonl(BOARD_TYPE_CLASTRIG);
 	OutgoingMsg.MsgType = htonl(REMOTE_CMD_RESET);
-	/* 
-	pCmd_Write32 = (Cmd_Write32 *)OutgoingMsg.Msg;
-	pCmd_Write32->Address = htonl(addr);
-	pCmd_Write32->Value = htonl(val);
-	*/
 
 	if(write(sFd,(void *)&OutgoingMsg, REMOTE_MSG_SIZE(Cmd_Empty)) == -1)
 	{
@@ -394,13 +395,6 @@ BOOL VMEClient::VMEGTPReset()
 
 	return TRUE;
 }
-
-
-
-
-
-
-
 
 
 BOOL VMEClient::VMEGTPEventCount(unsigned int *val)
@@ -415,7 +409,7 @@ BOOL VMEClient::VMEGTPEventCount(unsigned int *val)
 
 	OutgoingMsg.Length = htonl(REMOTE_MSG_SIZE(Cmd_Empty)-4);
 
-	OutgoingMsg.BoardType = htonl(BOARD_TYPE_CLASTRIG); /*n/a*/
+	OutgoingMsg.BoardType = htonl(BOARD_TYPE_CLASTRIG);
 	OutgoingMsg.MsgType = htonl(REMOTE_CMD_GETNUMEVT);
 
 
@@ -453,12 +447,6 @@ BOOL VMEClient::VMEGTPEventCount(unsigned int *val)
 }
 
 
-
-
-
-
-
-
 BOOL VMEClient::VMEGTPGetEvent(unsigned int *evnum, unsigned int *count, unsigned int *vals)
 {
   int res, len1, len2;
@@ -471,7 +459,7 @@ BOOL VMEClient::VMEGTPGetEvent(unsigned int *evnum, unsigned int *count, unsigne
 
 	OutgoingMsg.Length = htonl(REMOTE_MSG_SIZE(Cmd_Empty)-4);
 
-	OutgoingMsg.BoardType = htonl(BOARD_TYPE_CLASTRIG); /*n/a*/
+	OutgoingMsg.BoardType = htonl(BOARD_TYPE_CLASTRIG);
 	OutgoingMsg.MsgType = htonl(REMOTE_CMD_GETEVENT);
 
 
@@ -514,6 +502,14 @@ BOOL VMEClient::VMEGTPGetEvent(unsigned int *evnum, unsigned int *count, unsigne
 	DisconnectVMEOnError();
 	return FALSE;
 }
+*/
+
+
+
+
+
+
+
 
 
 

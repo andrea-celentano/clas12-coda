@@ -39,14 +39,14 @@ set XT   = daq_comp.tcl
 
 set ET_comp   = 'et_start -n 1000 -s 100000 -f /tmp/et_sys_classvt'
 set EB_comp1  = 'coda_ebc -s classvt -o "EB'
-set EB_comp2  = ' CDEB" -i'
+set EB_comp2  = ' CDEB" '
 set EB_comp   = "$EB_comp1$nn$EB_comp2"
 set ER_comp1  = 'coda_erc -s classvt -o "ER'
-set ER_comp2  = ' ER" -i'
+set ER_comp2  = ' ER" '
 set ER_comp   = "$ER_comp1$nn$ER_comp2"
 set RC_comp   = 'runcontrol -s classvt -cedit -dbedit'
 set XT1_comp1 = 'coda_roc_gef -s classvt -o "svt'
-set XT1_comp2 = ' ROC" -i '
+set XT1_comp2 = ' ROC" '
 set XT1_comp  = "$XT1_comp1$nn$XT1_comp2"
 
 

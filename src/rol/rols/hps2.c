@@ -1,6 +1,7 @@
 
 /* hps2.c - second readout list for VXS crates with FADC250 boards */
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -21,9 +22,10 @@
 
 
 #undef DEBUG
-#undef DEBUG1
-#undef DEBUG2
-#undef DEBUG3 /*SSP */
+#undef DEBUG1 /*TI*/
+#undef DEBUG2 /*TDC*/
+#undef DEBUG3 /*SSP*/
+#undef DEBUG4 /*VSCM*/
 
 
 #define ROL_NAME__ "HPS2"
@@ -51,6 +53,10 @@ int mynev; /*defined in tttrans.c */
 #define SPLIT_BLOCKS
 
 
+#define PASS_AS_IS
+
+
+#define MODE7
 
 
 
@@ -120,6 +126,22 @@ int mynev; /*defined in tttrans.c */
 #define MAXBLOCK 22  /* 22-max# of blocks=boards of certain type */
 #define MAXEVENT 256 /* max number of events in one block */
 
+
+/* jlab boards data type defs */
+#define DATA_TYPE_BLKHDR    0x10
+#define DATA_TYPE_BLKTLR    0x11
+#define DATA_TYPE_EVTHDR    0x12
+#define DATA_TYPE_TRGTIME   0x13
+#define DATA_TYPE_BCOTIME   0x14
+#define DATA_TYPE_FSSREVT   0x18
+#define DATA_TYPE_DNV       0x1E
+#define DATA_TYPE_FILLER    0x1F
+
+
+/* MUST COME FROM CONFIG FILE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+#define VSCM_BCO_FREQ 16
+
+
 #ifdef DO_PEDS
 #define NPEDEVENTS 100
 #define NSLOTS 22
@@ -128,6 +150,7 @@ static int npeds[NSLOTS][NCHANS];
 static float pedval[NSLOTS][NCHANS];
 static float pedrms[NSLOTS][NCHANS];
 static FILE *fd = NULL;
+static FILE *fc = NULL;
 static char *dir = NULL;
 static char *expid = NULL;
 #endif
@@ -176,6 +199,7 @@ __prestart()
   rol->recNb = 0;
 
 
+#ifndef NIOS
 
   /* get some tdc info fron rol1 */
   ntdcs = getTdcTypes(tdctypebyslot);
@@ -185,6 +209,8 @@ __prestart()
   ntdcs = getTdcSlotNumbers(slotnums);
   printf("ROL2: ntdcs_2=%d\n",ntdcs);
   for(ii=0; ii<ntdcs; ii++) printf(" tdc_id %d, slotnum %d\n",ii,slotnums[ii]);
+
+#endif
 
 
   printf("INFO: Prestart ROL22 executed\n");
@@ -220,6 +246,14 @@ __go()
   return;
 }
 
+
+#define NEV 50
+#define NSL 22
+#define NCH 16
+#define NPL 4
+
+
+
 void
 rol2trig(int a, int b)
 {
@@ -229,14 +263,19 @@ rol2trig(int a, int b)
 
   int nB[MAXBANKS], iB[MAXBANKS][MAXBLOCK], sB[MAXBANKS][MAXBLOCK], nE[MAXBANKS][MAXBLOCK];
   int iE[MAXBANKS][MAXBLOCK][MAXEVENT], lenE[MAXBANKS][MAXBLOCK][MAXEVENT];
+#ifdef PASS_AS_IS
+  int nASIS, iASIS[MAXBANKS];
+#endif
 
   unsigned int *iw;
   int i, j, k, m, iii, ind, bank, nhits=0, mux_index, rlen, printing, nnE, iev, ibl;
   int nr = 0;
   int ncol = 2;
-  int a_channel, a_nevents, a_blocknumber, a_triggernumber, a_module_id;
+  int a_channel, a_chan1, a_chan2, a_nevents, a_blocknumber, a_triggernumber, a_module_id;
   int a_windowwidth, a_pulsenumber, a_firstsample, samplecount;
   int a_adc1, a_adc2, a_valid1, a_valid2, a_nwords, a_slot, a_slot2, a_slot3;
+  int a_hfcb_id, a_chip_id, a_chan;
+  unsigned int a_bco, a_bco1;
   int a_slot_prev;
   int a_qualityfactor, a_pulseintegral, a_pulsetime, a_vm, a_vp;
   int a_trigtime[4];
@@ -245,29 +284,69 @@ rol2trig(int a, int b)
   int a_channel_old;
   int npedsamples;
   int error;
+  int ndnv;
   char errmsg[256];
   unsigned int *StartOfBank;
   char *ch;
   unsigned int *Nchan, *Npuls, *Nsamp;
-  int islot, ichan, ii, jj, npulses;
+  int islot, ichan, ii, jj, kk;
   int banknum = 0;
   int have_time_stamp, a_nevents2, a_event_type;
   int a_event_number_l, a_timestamp_l, a_event_number_h, a_timestamp_h;
   int a_clusterN, a_clusterE, a_clusterY, a_clusterX, a_clusterT, a_type, a_data, a_time;
+  long long timestamp, latency, latency_offset;
 
   int nheaders, ntrailers, nbcount, nbsubtract, nwtdc;
   unsigned int *tdchead, tdcslot, tdcchan, tdcval, tdc14, tdcedge, tdceventcount;
   unsigned int tdceventid, tdcbunchid, tdcwordcount, tdcerrorflags;
   unsigned int NBsubtract = 9; /*same for v1190 and v1290 ?*/
 
+#ifdef MODE7
+  /* because of wierd FADC data format in mode 7 (all channels reports PULSE INTEGRAL,
+  then all channels reports PULSE TIME, we'll remember those values in pass 1 in array,
+  and use that array in pass 2 instead of actual values from buffer */
+  static int npulse_integral[NEV][NSL][NCH];
+  static int npulse_time[NEV][NSL][NCH];
+  static int npulse_VmVp[NEV][NSL][NCH];
+  static int pulse_integral[NEV][NSL][NCH][NPL];
+  static int pulse_time[NEV][NSL][NCH][NPL];
+  static int pulse_Vm[NEV][NSL][NCH][NPL];
+  static int pulse_Vp[NEV][NSL][NCH][NPL];
+#endif
 
 
 #ifdef DO_PEDS
-  char fname[1024];
+  char fname[1024]; /* old format */
+  char cname[1024]; /* cnf format */
 #endif
 
   mynev ++; /* needed by ttfa.c */
 
+
+#ifdef MODE7
+  /* clean up pulse arrays */
+  for(iev=0; iev<NEV; iev++)
+  {
+    for(i=0; i<NSL; i++)
+    {
+	  for(j=0; j<NCH; j++)
+	  {
+        npulse_integral[iev][i][j] = 0;
+        npulse_time[iev][i][j] = 0;
+        npulse_VmVp[iev][i][j] = 0;
+		/*
+	    for(k=0; k<NPL; k++)
+	    {
+          pulse_integral[iev][i][j][k] = 0;
+          pulse_time[iev][i][j][k] = 0;
+          pulse_Vm[iev][i][j][k] = 0;
+          pulse_Vp[iev][i][j][k] = 0;
+	    }
+		*/
+	  }
+    }
+  }
+#endif
 
 
   BANKSCAN;
@@ -279,14 +358,20 @@ rol2trig(int a, int b)
 #endif
 
 
+
   /* first for() over banks from rol1 */
+#ifdef PASS_AS_IS
+  nASIS = 0; /*cleanup AS IS banks counter*/
+#endif
   for(jj=0; jj<nbanks; jj++)
   {
     datain = bankdata[jj];
     lenin = banknw[jj];
 #ifndef VXWORKS
+#ifndef NIOS
     /* swap input buffer (assume that data from VME is big-endian, and we are on little-endian Intel) */
-    for(ii=0; ii<lenin; ii++) datain[ii] = LSWAP(datain[ii]);
+    if(banktyp[jj] != 3) for(ii=0; ii<lenin; ii++) datain[ii] = LSWAP(datain[ii]);
+#endif
 #endif
 
 
@@ -411,6 +496,7 @@ lenE[jj][nB][nE[nB]] - event length in words
           iE[jj][k][m]=ii; /*remember event start index*/
 
 	      ii++;
+
         }
         else if( ((datain[ii]>>27)&0x1F) == 0x13) /*trigger time: remember timestamp*/
         {
@@ -502,15 +588,47 @@ lenE[jj][nB][nE[nB]] - event length in words
 	      }
 
         }
-        else if( ((datain[ii]>>27)&0x1F) == 0x17) /*pulse integral: assume that 'pulse time' was received ! */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        else if( ((datain[ii]>>27)&0x1F) == 0x17) /* pulse integral */
         {
           a_channel = ((datain[ii]>>23)&0xF);
           a_pulsenumber = ((datain[ii]>>21)&0x3);
           a_qualityfactor = ((datain[ii]>>19)&0x3);
           a_pulseintegral = (datain[ii]&0x7FFFF);
+
+#ifdef MODE7
+          m = nE[jj][k]-1; /*current event number*/
+          pulse_integral[m][a_slot][a_channel][a_pulsenumber] = a_pulseintegral;
+          if(npulse_integral[m][a_slot][a_channel] != a_pulsenumber)
+		  {
+            printf("ERROR: slot=%d channel=%d npulse_integral=%d != a_pulsenumber=%d\n",a_slot,
+				   a_channel,npulse_integral[m][a_slot][a_channel],a_pulsenumber);
+		  }
+          npulse_integral[m][a_slot][a_channel] ++;
+#endif
+
+
 #ifdef DEBUG
 	      printf("[%3d] PULSE INTEGRAL: channel %d, pulse number %d, quality %d, integral %d\n",ii,
-			   a_channel,a_pulsenumber,a_qualityfactor,a_pulseintegral);
+				 a_channel,a_pulsenumber,a_qualityfactor,a_pulseintegral);
 #endif
 
 	      ii++;
@@ -525,13 +643,38 @@ lenE[jj][nB][nE[nB]] - event length in words
           a_pulsenumber = ((datain[ii]>>21)&0x3);
           a_qualityfactor = ((datain[ii]>>19)&0x3);
           a_pulsetime = (datain[ii]&0xFFFF);
+
+#ifdef MODE7
+          m = nE[jj][k]-1; /*current event number*/
+          pulse_time[m][a_slot][a_channel][a_pulsenumber] = a_pulsetime;
+          if(npulse_time[m][a_slot][a_channel] != a_pulsenumber)
+		  {
+            printf("ERROR: slot=%d channel=%d npulse_time=%d != a_pulsenumber=%d\n",a_slot,
+				   a_channel,npulse_time[m][a_slot][a_channel],a_pulsenumber);
+		  }
+          npulse_time[m][a_slot][a_channel] ++;
+#endif
+
 #ifdef DEBUG
 	      printf("[%3d] PULSE TIME: channel %d, pulse number %d, quality %d, time %d\n",ii,
-			 a_channel,a_pulsenumber,a_qualityfactor,a_pulsetime);
+				 a_channel,a_pulsenumber,a_qualityfactor,a_pulsetime);
 #endif
 
 	      ii++;
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -545,18 +688,40 @@ lenE[jj][nB][nE[nB]] - event length in words
 
 
 
+
+
+
+
+
+
         else if( ((datain[ii]>>27)&0x1F) == 0x1a) /* Vm Vp */
         {
           a_channel = ((datain[ii]>>23)&0xF);
           a_pulsenumber = ((datain[ii]>>21)&0x3);
           a_vm = ((datain[ii]>>12)&0x1FF);
           a_vp = (datain[ii]&0xFFF);
+
+#ifdef MODE7
+          m = nE[jj][k]-1; /*current event number*/
+          pulse_Vm[m][a_slot][a_channel][a_pulsenumber] = a_vm;
+          pulse_Vp[m][a_slot][a_channel][a_pulsenumber] = a_vp;
+          if(npulse_VmVp[m][a_slot][a_channel] != a_pulsenumber)
+		  {
+            printf("ERROR: slot=%d channel=%d npulse_VmVp=%d != a_pulsenumber=%d\n",a_slot,
+				   a_channel,npulse_VmVp[m][a_slot][a_channel],a_pulsenumber);
+		  }
+          npulse_VmVp[m][a_slot][a_channel] ++;
+#endif
+
 #ifdef DEBUG
 	      printf("[%3d] PULSE VmVp: channel %d, pulse number %d, Vm %d, Vp %d\n",ii,
-			 a_channel,a_pulsenumber,a_vm,a_vp);
+				 a_channel,a_pulsenumber,a_vm,a_vp);
 #endif
 	      ii++;
         }
+
+
+
 
 
 
@@ -865,6 +1030,7 @@ lenE[jj][nB][nE[nB]] - event length in words
 
 
 
+
     else if(banktag[jj] == 0xe10B) /* v1190/v1290 hardware format */
 	{
       banknum = rol->pid;
@@ -999,10 +1165,11 @@ lenE[jj][nB][nE[nB]] - event length in words
              assume that if slot shows up for the first time, we are in the beginning of block */
           if(a_slot_prev != a_slot)
 		  {
-            a_slot_prev = a_slot;
 #ifdef DEBUG2
-            printf(">>> update iB and nB\n");
+            printf(">>> a_slot_prev=%d, a_slot=%d -> update iB and nB\n",a_slot_prev,a_slot);
 #endif
+            a_slot_prev = a_slot;
+
             nB[jj]++;                  /*increment block counter*/
             iB[jj][nB[jj]-1] = ii;     /*remember block start index*/
             sB[jj][nB[jj]-1] = a_slot; /*remember slot number*/
@@ -1015,6 +1182,7 @@ lenE[jj][nB][nE[nB]] - event length in words
 
 
 
+          k = nB[jj]-1; /*current block index*/
 
           /*"open" next event*/
           nE[jj][k]++; /*increment event counter in current block*/
@@ -1158,6 +1326,7 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 #endif
 
       error = 0;
+      ndnv = 0;
       ii=0;
       printing=1;
       a_slot_prev = -1;
@@ -1219,16 +1388,25 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
               printing=0;
 	        }
 	      }
-          if(a_nwords != (ii-iB[jj][nB[jj]-1]+1))
+          if(a_nwords != ( (ii-iB[jj][nB[jj]-1]+1) - ndnv ) )
           {
             error ++;
             if(printing)
             {
-              printf("[%3d][%3d] ERROR2 in SSP data: trailer #words %d != actual #words %d\n",mynev,
-				 ii,a_nwords,ii-iB[jj][nB[jj]-1]+1);
+              printf("[%3d][%3d] ERROR2 in SSP data: trailer #words=%d != actual #words=%d - ndnv=%d)\n",
+					 mynev,ii,a_nwords,ii-iB[jj][nB[jj]-1]+1,ndnv);
               printing=0;
 	        }
           }
+          if(ndnv>0)
+          {
+            if(printing)
+            {
+              printf("[%3d] WARN in SSP data: ndnv=%d)\n",mynev,ndnv);
+              printing=0;
+	        }
+          }
+
 	      ii++;
         }
 
@@ -1323,6 +1501,7 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
         }
         else if( ((datain[ii]>>27)&0x1F) == 0x1E)
         {
+          ndnv ++;
 #ifdef DEBUG3
 	      printf("[%3d] DNV\n",ii);
           printf(">>> do nothing\n");
@@ -1346,8 +1525,217 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 
 
 
+    else if(banktag[jj] == 0xe104) /* VSCM hardware format */
+	{
+      banknum = rol->pid;
+
+#ifdef DEBUG4
+      printf("\nFIRST PASS VSCM\n\n");
+#endif
+
+      error = 0;
+      ndnv = 0;
+      ii=0;
+      printing=1;
+      a_slot_prev = -1;
+      have_time_stamp = 1;
+      nB[jj]=0; /*cleanup block counter*/
+      while(ii<lenin)
+      {
+#ifdef DEBUG4
+        printf("[%5d] VSCM 0x%08x (lenin=%d)\n",ii,datain[ii],lenin);
+#endif
+        if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_BLKHDR) /*block header*/
+        {
+          a_slot_prev = a_slot;
+          a_slot = ((datain[ii]>>22)&0x1F);
+          /*a_module_id = ((datain[ii]>>18)&0xF);*/
+          a_blocknumber = (datain[ii]&0x7FF);
+          a_nevents = ((datain[ii]>>11)&0x7FF);
+#ifdef DEBUG4
+	      printf("[%3d] VSCM BLOCK HEADER: slot %d, nevents %d, block number %d module id %d\n",ii,
+				 a_slot,a_nevents,a_blocknumber,a_module_id);
+          printf(">>> VSCM update iB and nB\n");
+#endif
+          nB[jj]++;                  /*increment block counter*/
+          iB[jj][nB[jj]-1] = ii;     /*remember block start index*/
+          sB[jj][nB[jj]-1] = a_slot; /*remember slot number*/
+          nE[jj][nB[jj]-1] = 0;      /*cleanup event counter in current block*/
+
+#ifdef DEBUG4
+		  printf("VSCM: jj=%d nB[jj]=%d\n",jj,nB[jj]);
+#endif
+
+	      ii++;
+        }
+        else if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_BLKTLR) /*block trailer*/
+        {
+          a_slot2 = ((datain[ii]>>22)&0x1F);
+          a_nwords = (datain[ii]&0x3FFFFF);
+#ifdef DEBUG4
+	      printf("[%3d] VSCM BLOCK TRAILER: slot %d, nwords %d\n",ii,
+				   a_slot2,a_nwords);
+          printf(">>> VSCM data check\n");
+#endif
+
+          /*"close" previous event if any*/
+          k = nB[jj]-1; /*current block index*/
+          if(nE[jj][k] > 0)
+	      {
+            m = nE[jj][k]-1; /*current event number*/
+            lenE[jj][k][m] = ii-iE[jj][k][m]; /*#words in current event*/
+#ifdef DEBUG4
+            printf(">>> VSCM lenE(block trailer)=%d\n",lenE[jj][k][m]);
+#endif
+	      }
+
+          if(a_slot2 != a_slot)
+	      {
+            error ++;
+            if(printing)
+            {
+              printf("[%3d][%3d] ERROR1 in VSCM data: blockheader slot %d != blocktrailer slot %d\n",mynev,
+				 ii,a_slot,a_slot2);
+              printing=0;
+	        }
+	      }
+          if(a_nwords != ( (ii-iB[jj][nB[jj]-1]+1) - ndnv ) )
+          {
+            error ++;
+            if(printing)
+            {
+              printf("[%3d][%3d] ERROR2 in VSCM data: trailer #words=%d != actual #words=%d - ndnv=%d)\n",
+					 mynev,ii,a_nwords,ii-iB[jj][nB[jj]-1]+1,ndnv);
+              printing=0;
+	        }
+          }
+          if(ndnv>0)
+          {
+            if(printing)
+            {
+              printf("[%3d] WARN in VSCM data: ndnv=%d)\n",mynev,ndnv);
+              printing=0;
+	        }
+          }
+
+	      ii++;
+        }
+
+        else if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_EVTHDR) /*event header*/
+        {
+          a_triggernumber = (datain[ii]&0x7FFFFFF);
+
+#ifdef DEBUG4
+	      printf("[%3d] VSCM EVENT HEADER: trigger number %d\n",ii,
+				 a_triggernumber);
+          printf(">>> VSCM update iE and nE\n");
+#endif
+
+          /*"close" previous event if any*/
+          k = nB[jj]-1; /*current block index*/
+          if(nE[jj][k] > 0)
+	      {
+            m = nE[jj][k]-1; /*current event number*/
+            lenE[jj][k][m] = ii-iE[jj][k][m]; /*#words in current event*/
+#ifdef DEBUG4
+            printf(">>> VSCM lenE(event header)=%d\n",lenE[jj][k][m]);
+#endif
+	      }
+
+          /*"open" next event*/
+          nE[jj][k]++; /*increment event counter in current block*/
+          m = nE[jj][k]-1; /*current event number*/
+          iE[jj][k][m]=ii; /*remember event start index*/
 
 
+	      ii++;
+        }
+        else if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_TRGTIME) /*trigger time: remember timestamp*/
+        {
+          a_trigtime[0] = (datain[ii]&0xFFFFFF);
+#ifdef DEBUG4
+	      printf("[%3d] VSCM TRIGGER TIME: 0x%06x\n",ii,a_trigtime[0]);
+#endif
+	      ii++;
+          iii=1;
+          while( ((datain[ii]>>31)&0x1) == 0 && ii<lenin ) /*must be one more word*/
+	      {
+            a_trigtime[iii] = (datain[ii]&0xFFFFFF);
+#ifdef DEBUG4
+            printf("   [%3d] VSCM TRIGGER TIME: 0x%06x\n",ii,a_trigtime[iii]);
+            printf(">>> VSCM remember timestamp 0x%06x 0x%06x\n",a_trigtime[0],a_trigtime[1]);
+#endif
+            iii++;
+            if(iii>2) printf("ERROR1 in VSCM: iii=%d\n",iii); 
+            ii++;
+	      }
+        }
+
+        else if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_BCOTIME) /* bco start and stop */
+		{
+#ifdef DEBUG4
+          printf("[%3d] VSCM  BCOTIME START: %u STOP: %u\n",ii, (datain[ii]>>0) & 0xFF, (datain[ii]>>16) & 0xFF);
+#endif
+          ii++;
+		}
+
+        else if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_FSSREVT) /*FSSR event*/
+        {
+          a_hfcb_id = ((datain[ii]>>22)&0x1);
+          a_chip_id = ((datain[ii]>>19)&0x7);
+          a_chan = ((datain[ii]>>12)&0x7F);
+          a_bco = ((datain[ii]>>4)&0xFF);
+          a_adc1 = (datain[ii]&0x7);
+
+#ifdef DEBUG4
+	      printf("[%3d] VSCM FSSREVT: HFCBID=%1u CHIPID=%1u CHAN=%3u BCO=%3u ADC=%1u \n",ii,a_hfcb_id,a_chip_id,a_chan,a_bco,a_adc1);
+#endif
+	      ii++;
+        }
+
+        else if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_FILLER)
+        {
+#ifdef DEBUG4
+	      printf("[%3d] VSCM FILLER WORD\n",ii);
+          printf(">>> VSCM do nothing\n");
+#endif
+	      ii++;
+        }
+        else if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_DNV)
+        {
+          ndnv ++;
+#ifdef DEBUG4
+	      printf("[%3d] VSCM DNV\n",ii);
+          printf(">>> VSCM do nothing\n");
+#endif
+	      ii++;
+        }
+        else
+		{
+          printf("VSCM UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
+          ii++;
+		}
+
+	  } /* while() */
+
+	} /* else if(0xe104) */
+
+
+
+
+
+
+
+
+
+#ifdef PASS_AS_IS
+    else /*any other bank will be passed 'as is' */
+	{
+      iASIS[nASIS++] = jj; /* remember bank number as it reported by BANKSCAN */
+      /*printf("mynev=%d: remember bank number %d\n",mynev,jj);*/
+	}
+
+#endif
 
 
 
@@ -1376,7 +1764,7 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 
 
 #ifdef DEBUG
-  printf("\nSECOND PASS\n\n");
+  printf("\n\n\nSECOND PASS\n\n");
 #endif
 
   lenout = 2; /* already done in CPINIT !!?? */
@@ -1406,6 +1794,13 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
       printf("iev=%d jj=%d nB=%d\n",iev,jj,nB[jj]);
 #endif
 
+
+
+
+
+
+
+
       if(banktag[jj] == 0xe109) /* FADC250 hardware format */
 	  {
 #ifdef DEBUG
@@ -1413,10 +1808,11 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 #endif
 
         a_slot_old = -1;
-        a_channel_old = -1;
 
         for(ibl=0; ibl<nB[jj]; ibl++) /*loop over blocks*/
         {
+          a_channel_old = -1;
+
 #ifdef DEBUG
           printf("0xe109: Block %d, Event %2d, event index %2d, event lenght %2d\n",
             ibl,iev,iE[jj][ibl][iev],lenE[jj][ibl][iev]);
@@ -1492,6 +1888,7 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
                   printf("ERROR: environment variable EXPID is not defined - exit\n");
                   exit(0);
 		        }
+
                 sprintf(fname,"%s/parms/peds/%s/roc%02d.ped",dir,expid,rol->pid);
                 fd = fopen(fname,"w");
                 if(fd==NULL)
@@ -1501,6 +1898,17 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
                 else
 	            {
                   printf("ttfa: pedestal file >%s< is opened for writing\n",fname);
+                }
+
+                sprintf(cname,"%s/parms/peds/%s/roc%02d.cnf",dir,expid,rol->pid);
+                fc = fopen(cname,"w");
+                if(fc==NULL)
+                {
+                  printf("ttfa: ERROR: cannot open pedestal-cnf file >%s<\n",cname);
+		        }
+                else
+	            {
+                  printf("ttfa: pedestal-cnf file >%s< is opened for writing\n",cname);
                 }
 
                 for(i=0; i<NSLOTS; i++)
@@ -1513,12 +1921,13 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 		          }
 	            }
 	          }
-              else if(mynev==110 && fd!=NULL)
+              else if(mynev==110 && fd!=NULL && fc!=NULL)
 	          {
                 printf("mynev=%d - closing pedestal file (Nmeasures=%d (%d %d ..))\n",
                   mynev,npeds[3][0],npeds[3][1],npeds[4][0]);
                 for(i=0; i<NSLOTS; i++)
 	            {
+                  fprintf(fc,"FADC250_SLOT %d\n",i);
                   for(j=0; j<NCHANS; j++)
                   {
                     if(npeds[i][j]>0)
@@ -1530,13 +1939,18 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
                       pedrms[i][j] = sqrtf( pedrms[i][j]/((float)npeds[i][j]) - (pedval[i][j]*pedval[i][j]) );
 #endif
                       fprintf(fd,"%2d %2d %5d %6.3f %2d\n",i,j,(int)pedval[i][j],pedrms[i][j],0);
+                      fprintf(fc,"FADC250_CH_PED %d %7.3f\n",j,pedval[i][j]);
 			        }
 		          }
 	            }
 
 #ifndef VXWORKS
-                /*open file for everybody*/
+                /*open files for everybody*/
                 if(chmod(fname,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH) != 0)
+                {
+                  printf("ERROR: cannot change mode on output run config file\n");
+                }
+                if(chmod(cname,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH) != 0)
                 {
                   printf("ERROR: cannot change mode on output run config file\n");
                 }
@@ -1545,6 +1959,10 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
                 fclose(fd);
                 printf("ttfa: pedestal file >%s< is closed\n",fname);
                 fd = NULL;
+
+                fclose(fc);
+                printf("ttfa: pedestal-cnf file >%s< is closed\n",fname);
+                fc = NULL;
 	          }
 #endif
 
@@ -1619,7 +2037,7 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 			    a_channel,a_pulsenumber,a_firstsample);
 #endif
 
-              CCOPEN(0xe102,"c,i,l,N(c,N(c,Ns))",banknum);
+              CCOPEN(0xe10F,"c,i,l,N(c,N(c,Ns))",banknum);
 #ifdef DEBUG
               printf("0x%08x: CCOPEN(2)\n",b08);
 #endif
@@ -1671,7 +2089,19 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 	          }
 
             }
-            else if( ((datain[ii]>>27)&0x1F) == 0x17) /*pulse integral: assume that 'pulse time' was received ! */
+
+
+
+
+
+
+
+
+
+
+
+
+            else if( ((datain[ii]>>27)&0x1F) == 0x17) /* pulse integral */
             {
               a_channel = ((datain[ii]>>23)&0xF);
               a_pulsenumber = ((datain[ii]>>21)&0x3);
@@ -1686,13 +2116,26 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 #ifdef DEBUG
               printf("0x%08x: pulseintegral = %d\n",b08,a_pulseintegral);
 #endif
-              b32 = (unsigned int *)b08;
-              *b32 = a_pulseintegral;
-              b08 += 4;
+
+
+#ifdef MODE7
+              if(npulse_VmVp[iev][a_slot][a_channel] == 0) /* it means mode 3 - fill output, otherwise do nothing */
+			  {
+#endif
+                b32 = (unsigned int *)b08;
+                *b32 = a_pulseintegral;
+                b08 += 4;
+#ifdef MODE7
+			  }
+#endif
 
 
 	          ii++;
             }
+
+
+
+
 
 
 
@@ -1709,11 +2152,27 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 #endif
 
 
-              CCOPEN(0xe103,"c,i,l,N(c,N(s,i))",banknum);
+#ifdef MODE7
+              if(npulse_VmVp[iev][a_slot][a_channel] > 0) /* it means mode 7 */
+			  {
+if(a_pulsenumber == 0)
+{
+                CCOPEN(0xe102,"c,i,l,N(c,N(s,i,s,s))",banknum);
 #ifdef DEBUG
-              printf("0x%08x: CCOPEN(3), dataout=0x%08x\n",b08,dataout);
+                printf("0x%08x: CCOPEN(2), dataout=0x%08x\n",b08,dataout);
 #endif
-
+}
+			  }
+			  else
+			  {
+#endif
+                CCOPEN(0xe103,"c,i,l,N(c,N(s,i))",banknum);
+#ifdef DEBUG
+                printf("0x%08x: CCOPEN(3), dataout=0x%08x\n",b08,dataout);
+#endif
+#ifdef MODE7
+			  }
+#endif
 
               if(a_channel != a_channel_old)
               {
@@ -1737,17 +2196,71 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
                 b08 += 4;
               }
 
-              Npuls[0] ++;
 
+#ifdef MODE7
+              if(npulse_VmVp[iev][a_slot][a_channel] > 0) /* it means mode 7 */
+			  {
+if(a_pulsenumber == 0)
+{
+			    Npuls[0] = npulse_integral[iev][a_slot][a_channel];
+				if(Npuls[0]>4) printf("ERROR: Npuls=%d\n",Npuls[0]);
+                for(i=0; i<Npuls[0]; i++)
+			    {                
+                  b16 = (unsigned short *)b08;
+                  *b16 = pulse_time[iev][a_slot][a_channel][i];
+                  b08 += 2;
+
+                  b32 = (unsigned int *)b08;
+                  *b32 = pulse_integral[iev][a_slot][a_channel][i];
+                  b08 += 4;
+
+                  b16 = (unsigned short *)b08;
+                  *b16 = pulse_Vm[iev][a_slot][a_channel][i];
+                  b08 += 2;
+
+                  b16 = (unsigned short *)b08;
+                  *b16 = pulse_Vp[iev][a_slot][a_channel][i];
+                  b08 += 2;
+			    }
+}
+			  }
+			  else
+			  {
+                Npuls[0] ++;
+                b16 = (unsigned short *)b08;
+                *b16 = a_pulsetime;
+                b08 += 2;
+			  }
+#else
+
+              Npuls[0] ++;
 #ifdef DEBUG
               printf("0x%08x: pulsetime = %d\n",b08,a_pulsetime);
 #endif
               b16 = (unsigned short *)b08;
               *b16 = a_pulsetime;
               b08 += 2;
+#endif
+
+
+
 
 	          ii++;
             }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
             else if( ((datain[ii]>>27)&0x1F) == 0x19)
@@ -1757,6 +2270,26 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 #endif
 	          ii++;
             }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             else if( ((datain[ii]>>27)&0x1F) == 0x1a) /* Vm Vp */
             {
               a_channel = ((datain[ii]>>23)&0xF);
@@ -1767,8 +2300,25 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 	          printf("[%3d] PULSE VmVp: channel %d, pulse number %d, Vm %d, Vp %d\n",ii,
 			    a_channel,a_pulsenumber,a_vm,a_vp);
 #endif
+
+              /* do not output anything, will be done above in 'pulse time' processing */
+
 	          ii++;
             }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
             else if( ((datain[ii]>>27)&0x1F) == 0x1D)
@@ -1928,6 +2478,10 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 	  {
 
         banknum = iev; /*rol->pid;*/
+#ifdef DEBUG2
+        printf("CPOPEN 0xe107\n");
+#endif
+        CPOPEN(0xe107,1,banknum);
 
         for(ibl=0; ibl<nB[jj]; ibl++) /*loop over blocks*/
         {
@@ -1937,7 +2491,9 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
             ibl,iev,iE[jj][ibl][iev],lenE[jj][ibl][iev]);
 #endif
 
-          CPOPEN(0xe107,1,banknum);
+
+
+
 
           a_slot = sB[jj][ibl];
           ii = iE[jj][ibl][iev];
@@ -2032,8 +2588,10 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 		      }
 		      */
 #endif
+			  /*sergey: do not output global header
               *dataout ++ = tdcslot;
               b08 += 4;
+			  */
 
               nheaders++;
 
@@ -2120,9 +2678,13 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 
 	      } /* while() */
 
-          CPCLOSE;
 
         } /* loop over blocks */
+
+        CPCLOSE;
+#ifdef DEBUG2
+        printf("CPCLOSE 0xe107\n");
+#endif
 
 	  } /* TDC hardware format */
 
@@ -2264,11 +2826,228 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 
 
 
+      else if(banktag[jj] == 0xe104) /* VSCM hardware format */
+	  {
+
+        banknum = iev; /*rol->pid;*/
+
+#ifdef DEBUG4
+		printf("\n\nSECOND PASS VSCM\n");
+#endif
+        a_slot_old = -1;
+        for(ibl=0; ibl<nB[jj]; ibl++) /*loop over blocks*/
+        {
+          a_channel_old = -1;
+#ifdef DEBUG4
+          printf("\n\n\nVSCM: Block %d, Event %2d, event index %2d, event lenght %2d\n",
+            ibl,iev,iE[jj][ibl][iev],lenE[jj][ibl][iev]);
+#endif
+
+          a_slot = sB[jj][ibl];
+          ii = iE[jj][ibl][iev];
+          rlen = ii + lenE[jj][ibl][iev];
+          while(ii<rlen)
+          {
+#ifdef DEBUG4
+            printf("[%5d] VSCM 0x%08x (rlen=%d)\n",ii,datain[ii],rlen);
+#endif
+			
+            if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_EVTHDR) /*event header*/
+			{
+              a_triggernumber = (datain[ii]&0x7FFFFFF);
+#ifdef DEBUG4
+		      printf("[%3d] VSCM EVENT HEADER, a_triggernumber = %d\n",ii,a_triggernumber);
+#endif
+		      ii++;
+			}
+
+            else if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_TRGTIME) /*trigger time: remember timestamp*/
+            {
+              a_trigtime[0] = (datain[ii]&0xFFFFFF);
+	          ii++;
+
+              a_trigtime[1] = (datain[ii]&0xFFFFFF);
+              ii++;
+
+		      timestamp = (((unsigned long long)a_trigtime[0])<<24) | (a_trigtime[1]);
+
+#ifdef DEBUG4
+              printf(">>> VCSM remember timestamp 0x%06x 0x%06x\n",a_trigtime[0],a_trigtime[1]);
+		      printf(">>> VSCM timestamp=%lld (bco style = %lld)\n",timestamp,((timestamp / (long long)(16)) % 256)); /*16-from par file*/
+#endif
+
+	        }
+
+            else if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_BCOTIME) /* bco start and stop */
+		    {
+#ifdef DEBUG4
+              printf("[%3d] VSCM  BCOTIME START: %u STOP: %u\n",ii, (datain[ii]>>0) & 0xFF, (datain[ii]>>16) & 0xFF);
+#endif
+              ii++;
+		    }
+
+
+
+
+            else if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_FSSREVT) /*FSSR event*/
+            {
+              a_hfcb_id = ((datain[ii]>>22)&0x1);
+              a_chip_id = ((datain[ii]>>19)&0x7);
+              a_chan = ((datain[ii]>>12)&0x7F);
+              a_bco = ((datain[ii]>>4)&0xFF);
+              a_adc1 = (datain[ii]&0x7);
+
+              a_channel = a_chan + (a_chip_id<<7) + (a_hfcb_id<<10);
+
+              a_chan1 = a_chip_id + (a_hfcb_id<<3);
+              a_chan2 = a_chan;
+
+#ifdef DEBUG4
+	          printf("[%3d] VSCM FSSREVT: HFCBID=%1u CHIPID=%1u CHAN=%3u (%4u)  BCO=%3u ADC=%1u \n",
+					 ii,a_hfcb_id,a_chip_id,a_chan,a_channel,a_bco,a_adc1);
+#endif
+
+
+
+              CCOPEN(0xe111,"c,i,l,N(c,c,c,c)",banknum);
+#ifdef DEBUG4
+              printf("0x%08x: CCOPEN(VSCM), dataout=0x%08x\n",b08,dataout);
+#endif
+
+
+              if(a_channel != a_channel_old)
+              {
+                a_channel_old = a_channel;
+
+	            Nchan[0] ++; /* increment channel counter */
+#ifdef DEBUG4
+                printf("0x%08x: VSCM increment Nchan[0]=%d\n",b08,Nchan[0]);
+#endif
+
+				/*
+                b16 = (unsigned short *)b08;
+                *b16++ = a_channel;
+                b08 += 2;
+				*/
+                *b08++ = a_chan1;
+                *b08++ = a_chan2;
+
+                /* remember the place to put the number of pulses 
+                Npuls = (unsigned int *)b08;
+                Npuls[0] = 0;
+                b08 += 4;
+				*/
+			  }
+
+              /* calculate 'latency' and put it in a data instead of 'bco' (16*8 is bco period (ns)) */
+              latency_offset = timestamp % ((long long)VSCM_BCO_FREQ);
+              latency = ABS( ((timestamp / (long long)VSCM_BCO_FREQ) % 256) - (long long)(a_bco) );
+              latency = latency*((long long)VSCM_BCO_FREQ) + latency_offset; /* in clocks=8ns */
+#ifdef DEBUG4
+              printf("VSCM>>> bco=%u timestamp=%lld latency=%lld\n",a_bco,timestamp,latency);
+              printf("VSCM>>> latency=%d BCO's (%d ns)",latency,latency*8);
+#endif
+
+              /*Npuls[0] ++*/;
+              *b08++ = a_bco/*latency*/;
+              *b08++ = a_adc1;
+
+	          ii++;
+            }
+
+
+
+
+
+
+
+
+
+            else if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_FILLER)
+            {
+#ifdef DEBUG4
+	          printf("[%3d] VSCM FILLER WORD\n",ii);
+              printf(">>> VSCM do nothing\n");
+#endif
+	          ii++;
+            }
+            else if( ((datain[ii]>>27)&0x1F) == DATA_TYPE_DNV)
+            {
+#ifdef DEBUG4
+	          printf("[%3d] VSCM DNV\n",ii);
+              printf(">>> VSCM do nothing\n");
+#endif
+	          ii++;
+            }
+            else
+		    {
+              printf("VSCM UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
+              ii++;
+		    }
+
+	      } /* while() */
+
+
+        } /* loop over blocks */
+
+
+        if(b08 != NULL) CCCLOSE; /*call CCCLOSE only if CCOPEN was called*/
+#ifdef DEBUG4
+        printf("0x%08x: CCCLOSE1, dataout=0x%08x\n",b08,dataout);
+        printf("0x%08x: CCCLOSE2, dataout=0x%08x\n",b08,(unsigned int *) ( ( ((unsigned int)b08+3)/4 ) * 4));
+        printf("-> 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+		    (unsigned int)b08+3,((unsigned int)b08+3),
+            ((unsigned int)b08+3) / 4,(((unsigned int)b08+3) / 4)*4, 
+		    (unsigned int *)((((unsigned int)b08+3) / 4)*4) );
+#endif
+
+
+	  } /* VSCM hardware format */
+
+
+
+
+
 
 
 
 
     } /* loop over banks  */
+
+
+
+
+
+
+	/* create HEAD bank here ??????? */
+
+
+
+
+
+
+#ifdef PASS_AS_IS
+    /* if last event, loop over banks to be passed 'as is' and attach them to that last event */
+    if(iev==(nnE-1))
+	{
+      for(ii=0; ii<nASIS; ii++)
+      {
+        jj = iASIS[ii]; /* bank number as it reported by BANKSCAN */
+        datain = bankdata[jj];
+        lenin = banknw[jj];
+        /*printf("mynev=%d: coping bank number %d (header %d 0x%08x))\n",mynev,jj,*(datain-2),*(datain-1));*/
+	    
+        CPOPEN(banktag[jj],banktyp[jj],banknr[jj]);
+        for(kk=0; kk<lenin; kk++)
+        {
+          dataout[kk] = datain[kk];
+          b08 += 4;
+        }        
+        CPCLOSE;
+	  }
+    }
+#endif
+
 
 #ifdef SPLIT_BLOCKS
 
@@ -2279,6 +3058,8 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 
     header[0] = lenev - 1;
     header[1] = rol->dabufpi[1];
+
+	/*printf("HEADER: tag=%d typ=%d num=%d\n",(header[1]>>16)&0xFF,(header[1]>>8)&0xFF,header[1]&0xFF);*/
 
   /*printf("(%d) header[0]=0x%08x (0x%08x)\n",iev,header[0],lenev - 1);*/
   /*printf("(%d) header[1]=0x%08x (0x%08x)\n",iev,header[1],rol->dabufpi[1]);*/
@@ -2295,7 +3076,10 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 
 #endif
 
+
+
   } /* loop over events */
+
 
 
 
@@ -2321,6 +3105,7 @@ if(lenout>2) printf("return lenout=%d\n**********************\n\n",lenout);
 
   /*printf("return lenout=%d\n**********************\n\n",lenout);*/
 
+/*printf("--> %d %d\n",rol->user_storage[0],rol->user_storage[1]);*/
 
   return;
 }

@@ -7,7 +7,7 @@
  
 config file format:
 
-CRATE      <tdcecal1>     <- crate name, usually IP name
+TI_CRATE      <tdcecal1>     <- crate name, usually IP name
 
 TI_ADD_SLAVE 1                                 # for every slave need to be added
 
@@ -34,11 +34,15 @@ TI_BUFFER_LEVEL 1                              # 0 - pipeline mode, 1 - ROC Lock
 #define ROCLEN     80       /* length of ROC_name */
 
 #define MAXSLAVES 100
+
+static int active;
+
 static int is_slave;
 static nslave, slave_list[MAXSLAVES];
 static unsigned int delay, offset;
 static int block_level;
 static int buffer_level;
+static int input_prescale[6];
 
 /* tiInit() have to be called before this function */
 int  
@@ -71,6 +75,7 @@ tiInitGlobals()
   buffer_level = 1;
   nslave = 0;
   for(ii=0; ii<MAXSLAVES; ii++) slave_list[ii] = 0;
+  for(ii=0; ii<6; ii++) input_prescale[ii] = 0;
 
   return(0);
 }
@@ -131,6 +136,7 @@ tiReadConfigFile(char *filename)
   printf("\nReadConfigFile: Using configuration file >%s<\n",fname);
 
   /* Parsing of config file */
+  active = 0;
   while ((ch = getc(fd)) != EOF)
   {
     if ( ch == '#' || ch == ' ' || ch == '\t' )
@@ -146,49 +152,74 @@ tiReadConfigFile(char *filename)
 
 
       /* Start parsing real config inputs */
-      if(strcmp(keyword,"CRATE") == 0)
+      if(strcmp(keyword,"TI_CRATE") == 0)
       {
-	    if(strcmp(ROC_name,host) != 0)
+	    if(strcmp(ROC_name,host) == 0)
         {
-	      printf("\nReadConfigFile: Wrong crate name in config file, %s\n",str_tmp);
-          return(-3);
+	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+          active = 1;
         }
-	    printf("\nReadConfigFile: conf_CRATE_name = %s  host = %s\n",ROC_name,host);
+	    else if(strcmp(ROC_name,"all") == 0)
+		{
+	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+          active = 1;
+		}
+        else
+		{
+	      printf("\nReadConfigFile: crate = %s  host = %s - disactivated\n",ROC_name,host);
+          active = 0;
+		}
       }
 
-      else if((strcmp(keyword,"TI_ADD_SLAVE")==0))
+      else if(active && (strcmp(keyword,"TI_ADD_SLAVE")==0))
       {
         sscanf (str_tmp, "%*s %d", &i1);
         slave_list[nslave++] = i1;
       }
 
-      else if((strcmp(keyword,"TI_FIBER_DELAY_OFFSET")==0))
+      else if(active && (strcmp(keyword,"TI_FIBER_DELAY_OFFSET")==0))
       {
         sscanf (str_tmp, "%*s %x %x", &i1, &i2);
         delay = i1;
         offset = i2;
       }
 
-      else if((strcmp(keyword,"TI_BLOCK_LEVEL")==0))
+      else if(active && (strcmp(keyword,"TI_BLOCK_LEVEL")==0))
       {
         sscanf (str_tmp, "%*s %d", &i1);
         block_level = i1;
       }
 
-      else if((strcmp(keyword,"TI_BUFFER_LEVEL")==0))
+      else if(active && (strcmp(keyword,"TI_BUFFER_LEVEL")==0))
       {
         sscanf (str_tmp, "%*s %d", &i1);
         buffer_level = i1;
       }
-
+      else if(active && (strcmp(keyword,"TI_INPUT_PRESCALE")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d", &i1, &i2);
+        if((i1 < 1) || (i1 > 6))
+        {
+          printf("\nReadConfigFile: Invalid prescaler inputs selction, %s\n",str_tmp);
+        }
+        if((i2 < 0) || (i2 > 15))
+        {
+          printf("\nReadConfigFile: Invalid prescaler value selction, %s\n",str_tmp);
+        }
+        input_prescale[i1-1] = i2;
+      }
       else
       {
+        ; /* unknown key - do nothing */
+		/*
         printf("ReadConfigFile: Unknown Field or Missed Field in\n");
         printf("   %s \n", fname);
         printf("   str_tmp=%s", str_tmp);
         printf("   keyword=%s \n\n", keyword);
         return(-10);
+		*/
       }
+
     }
   } /* end of while */
 
@@ -216,6 +247,7 @@ tiDownloadAll()
   */
 
   for(ii=0; ii<nslave; ii++) tiAddSlave(slave_list[ii]);
+  for(ii=0; ii<6; ii++) tiSetInputPrescale(ii+1,input_prescale[ii]);
 
   tiSetFiberDelay(delay, offset);
 
@@ -231,6 +263,76 @@ tiMon(int slot)
 {
   tiStatus(1);
 }
+
+
+
+#define ADD_TO_STRING \
+  len1 = strlen(str); \
+  len2 = strlen(sss); \
+  if((len1+len2) < length) strcat(str,sss); \
+  else \
+  { \
+    str[len1+1] = ' '; \
+    str[len1+2] = ' '; \
+    str[len1+3] = ' '; \
+    len1 = ((len1+3)/4)*4; \
+    return(len1); \
+  }
+
+/* upload setting from all found DSC2s */
+int
+tiUploadAll(char *string, int length)
+{
+  int slot, i, ii, jj, kk, ifiber, len1, len2;
+  char *str, sss[1024];
+  unsigned int tmp;
+  int connectedfibers;
+  unsigned short sval;
+  unsigned short bypMask;
+  unsigned short channels[8];
+
+  str = string;
+  str[0] = '\0';
+
+  connectedfibers = tiGetConnectedFiberMask();
+  if(connectedfibers>0)
+  {
+	for(ifiber=0; ifiber<8; ifiber++)
+	{
+	  if( connectedfibers & (1<<ifiber) )
+	  {
+        sprintf(sss,"TI_ADD_SLAVE %d\n",ifiber+1);
+        ADD_TO_STRING;
+	  }
+    }
+  }
+
+  sprintf(sss,"TI_BLOCK_LEVEL %d\n",tiGetCurrentBlockLevel());
+  ADD_TO_STRING;
+
+  sprintf(sss,"TI_BUFFER_LEVEL %d\n",tiGetBlockBufferLevel());
+  ADD_TO_STRING;
+
+  for(ii = 0; ii < 6; ii++)
+  {
+    sprintf(sss,"TI_INPUT_PRESCALE %d %d\n",ii,tiGetInputPrescale(ii));
+    ADD_TO_STRING;
+  }
+
+  len1 = strlen(str);
+  str[len1+1] = ' ';
+  str[len1+2] = ' ';
+  str[len1+3] = ' ';
+  len1 = ((len1+3)/4)*4;
+
+  return(len1);
+}
+
+
+
+
+
+
 
 #else /* dummy version*/
 

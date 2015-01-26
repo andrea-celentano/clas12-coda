@@ -604,8 +604,11 @@ v1190: 0x11xx0000, where xx follows the same scheme as FADCs
     fadcSlotMask |= (1<<FA_SLOT); /* Add it to the mask */
 	printf("=======================> fadcSlotMask=0x%08x\n",fadcSlotMask);
 
-    fadc_mode = faGetProcMode(FA_SLOT);
-    printf("slot %d, fadc_mode=%d\n",FA_SLOT,fadc_mode);
+	{
+      unsigned int PL, PTW, NSB, NSA, NP;
+      faGetProcMode(FA_SLOT, &fadc_mode, &PL, &PTW, &NSB, &NSA, &NP);
+      printf("slot %d, fadc_mode=%d\n",FA_SLOT,fadc_mode);
+	}
     if(fadc_mode==1)
     {
       /* Set the threshold for data readout */

@@ -61,7 +61,7 @@ CrateMsgClient::~CrateMsgClient()
 
 
 
-bool  CrateMsgClient::IsValid() 
+bool CrateMsgClient::IsValid() 
 {
 	/*
     if(pSocket==NULL)
@@ -73,7 +73,7 @@ bool  CrateMsgClient::IsValid()
 }
 
 
-void  CrateMsgClient::Close(char *opt)
+void CrateMsgClient::Close(char *opt)
 {
 	/*
 	if(pSocket)
@@ -91,7 +91,7 @@ void  CrateMsgClient::Close(char *opt)
 */
 
 
-int  CrateMsgClient::SendRaw(const void* buffer, int length/*, ESendRecvOptions opt = kDefault*/)
+int CrateMsgClient::SendRaw(const void* buffer, int length/*, ESendRecvOptions opt = kDefault*/)
 {
 	/*
     return pSocket->SendRaw(buffer,length,opt);
@@ -161,131 +161,128 @@ bool CrateMsgClient::InitConnection()
 
 
 
-	bool  CrateMsgClient::Reconnect()
+bool CrateMsgClient::Reconnect()
+{
+  Close();
+  /*delete pSocket;*/
+
+  printf("Reconnect... %s %d\n",hostname,hostport);
+
+  /*pSocket = new TSocket(hostname,hostport,32768);*/
+  Connect(hostname,hostport);
+
+  return InitConnection();
+}
+
+
+
+
+
+bool CrateMsgClient::CheckConnection(const char *fcn_name)
+{
+  if(!IsValid())
+  {
+	printf("Function %s FAILED\n", fcn_name);
+	return Reconnect();
+  }
+  return kTRUE;
+}
+
+
+
+bool CrateMsgClient::RcvRsp(int type)
+{
+  if(RecvRaw(&Msg, 8) == 8)
+  {
+	if(swap)
 	{
-		Close();
-		/*delete pSocket;*/
-
-		printf("Reconnect... %s %d\n",hostname,hostport);
-
-		/*pSocket = new TSocket(hostname,hostport,32768);*/
-        Connect(hostname,hostport);
-
-		return InitConnection();
+	  Msg.len = LSWAP(Msg.len);
+	  Msg.type = LSWAP(Msg.type);
 	}
-
-
-
-
-
-	bool  CrateMsgClient::CheckConnection(const char *fcn_name)
+	if((Msg.len <= MAX_MSG_SIZE) && (Msg.len >= 0) && (Msg.type == (int)CMD_RSP(type)))
 	{
-		if(!IsValid())
-		{
-			printf("Function %s FAILED\n", fcn_name);
-			return Reconnect();
-		}
-		return kTRUE;
+	  if(!Msg.len) return kTRUE;
+
+	  if(RecvRaw(&Msg.msg, Msg.len) == Msg.len) return kTRUE;
 	}
+  }
+  Close();
+  return kFALSE;
+}
 
 
 
-	bool  CrateMsgClient::RcvRsp(int type)
-	{
-		if(RecvRaw(&Msg, 8) == 8)
-		{
-			if(swap)
-			{
-				Msg.len = LSWAP(Msg.len);
-				Msg.type = LSWAP(Msg.type);
-			}
-			if((Msg.len <= MAX_MSG_SIZE) && (Msg.len >= 0) && (Msg.type == (int)CMD_RSP(type)))
-			{
-				if(!Msg.len)
-					return kTRUE;
+bool CrateMsgClient::Write16(unsigned int addr, unsigned short *val, int cnt, int flags)
+{
+  if(!CheckConnection(__FUNCTION__)) return kFALSE;
 
-				if(RecvRaw(&Msg.msg, Msg.len) == Msg.len)
-					return kTRUE;
-			}
-		}
-		Close();
-		return kFALSE;
-	}
-
-
-
-	bool  CrateMsgClient::Write16(unsigned int addr, unsigned short *val, int cnt, int flags)
-	{
-		if(!CheckConnection(__FUNCTION__))
-			return kFALSE;
-
-		Msg.len = 12+2*cnt;
-		Msg.type = CRATEMSG_TYPE_WRITE16;
-		Msg.msg.m_Cmd_Write16.cnt = cnt;
-		Msg.msg.m_Cmd_Write16.addr = addr;
-		Msg.msg.m_Cmd_Write16.flags = flags;
-		for(int i = 0; i < cnt; i++)
-			Msg.msg.m_Cmd_Write16.vals[i] = val[i];
-		SendRaw(&Msg, Msg.len+8);
+  Msg.len = 12+2*cnt;
+  Msg.type = CRATEMSG_TYPE_WRITE16;
+  Msg.msg.m_Cmd_Write16.cnt = cnt;
+  Msg.msg.m_Cmd_Write16.addr = addr;
+  Msg.msg.m_Cmd_Write16.flags = flags;
+  for(int i = 0; i < cnt; i++) Msg.msg.m_Cmd_Write16.vals[i] = val[i];
+  SendRaw(&Msg, Msg.len+8);
 
 #if DEBUG_PRINT
-		printf("Write16 @ 0x%08X, Count = %d, Flag = %d, Vals = ", addr, cnt, flags);
-		for(int i = 0; i < cnt; i++)
-			printf("0x%04hX ", val[i]);
-		printf("\n");
+  printf("Write16 @ 0x%08X, Count = %d, Flag = %d, Vals = ", addr, cnt, flags);
+  for(int i = 0; i < cnt; i++) printf("0x%04hX ", val[i]);
+  printf("\n");
 #endif
 
-		return kTRUE;
-	}
+  return kTRUE;
+}
 
 
 
-	bool  CrateMsgClient::Read16(unsigned int addr, unsigned short *val, int cnt, int flags)
+bool CrateMsgClient::Read16(unsigned int addr, unsigned short *val, int cnt, int flags)
+{
+  if(!CheckConnection(__FUNCTION__)) return kFALSE;
+
+  Msg.len = 12;
+  Msg.type = CRATEMSG_TYPE_READ16;
+  Msg.msg.m_Cmd_Read16.cnt = cnt;
+  Msg.msg.m_Cmd_Read16.addr = addr;
+  Msg.msg.m_Cmd_Read16.flags = flags;
+  SendRaw(&Msg, Msg.len+8);
+
+#if DEBUG_PRINT
+  printf("Read16 @ 0x%08X, Count = %d, Flag = %d, Vals = ", addr, cnt, flags);
+#endif
+
+  if(RcvRsp(Msg.type))
+  {
+	if(swap)
 	{
-		if(!CheckConnection(__FUNCTION__))
-			return kFALSE;
-
-		Msg.len = 12;
-		Msg.type = CRATEMSG_TYPE_READ16;
-		Msg.msg.m_Cmd_Read16.cnt = cnt;
-		Msg.msg.m_Cmd_Read16.addr = addr;
-		Msg.msg.m_Cmd_Read16.flags = flags;
-		SendRaw(&Msg, Msg.len+8);
-
-#if DEBUG_PRINT
-		printf("Read16 @ 0x%08X, Count = %d, Flag = %d, Vals = ", addr, cnt, flags);
-#endif
-
-		if(RcvRsp(Msg.type))
-		{
-			if(swap)
-			{
-				Msg.msg.m_Cmd_Read16_Rsp.cnt = LSWAP(Msg.msg.m_Cmd_Read16_Rsp.cnt);
-				for(int i = 0; i < Msg.msg.m_Cmd_Read16_Rsp.cnt; i++)
-					val[i] = HSWAP(Msg.msg.m_Cmd_Read16_Rsp.vals[i]);
-			}
-			else
-			{
-				for(int i = 0; i < Msg.msg.m_Cmd_Read16_Rsp.cnt; i++)
-					val[i] = Msg.msg.m_Cmd_Read16_Rsp.vals[i];
-			}
-#if DEBUG_PRINT
-		for(int i = 0; i < cnt; i++)
-			printf("0x%04hX ", val[i]);
-		printf("\n");
-#endif
-			return kTRUE;
-		}
-#if DEBUG_PRINT
-		printf("failed...\n");
-#endif
-		return kFALSE;
+	  Msg.msg.m_Cmd_Read16_Rsp.cnt = LSWAP(Msg.msg.m_Cmd_Read16_Rsp.cnt);
+	  for(int i = 0; i < Msg.msg.m_Cmd_Read16_Rsp.cnt; i++)
+	  {
+	    val[i] = HSWAP(Msg.msg.m_Cmd_Read16_Rsp.vals[i]);
+	  }
 	}
+	else
+	{
+	  for(int i = 0; i < Msg.msg.m_Cmd_Read16_Rsp.cnt; i++)
+	  {
+        val[i] = Msg.msg.m_Cmd_Read16_Rsp.vals[i];
+	  }
+	}
+#if DEBUG_PRINT
+	for(int i = 0; i < cnt; i++) printf("0x%04hX ", val[i]);
+	printf("\n");
+#endif
+	return kTRUE;
+  }
+#if DEBUG_PRINT
+  printf("failed...\n");
+#endif
+  return kFALSE;
+}
 
 
 
 
-bool  CrateMsgClient::Write32(unsigned int addr, unsigned int *val, int cnt, int flags)
+bool CrateMsgClient::Write32(unsigned int addr, unsigned int *val, int cnt, int flags)
 {
   if(!CheckConnection(__FUNCTION__)) return kFALSE;
 
@@ -308,7 +305,7 @@ bool  CrateMsgClient::Write32(unsigned int addr, unsigned int *val, int cnt, int
 
 
 
-bool  CrateMsgClient::Read32(unsigned int addr, unsigned int *val, int cnt, int flags)
+bool CrateMsgClient::Read32(unsigned int addr, unsigned int *val, int cnt, int flags)
 {
   if(!CheckConnection(__FUNCTION__)) return kFALSE;
 
@@ -350,6 +347,12 @@ bool  CrateMsgClient::Read32(unsigned int addr, unsigned int *val, int cnt, int 
 
 
 
+
+
+
+/*****************/
+/*****************/
+/* start scalers */
 
 
 bool CrateMsgClient::ReadScalers(int slot, unsigned int **val, int *len)
@@ -411,7 +414,8 @@ bool CrateMsgClient::GetCrateMap(unsigned int **val, int *len)
 	{
 	  Msg.msg.m_Cmd_GetCrateMap_Rsp.cnt = LSWAP(Msg.msg.m_Cmd_GetCrateMap_Rsp.cnt);
 	}
-	*val = new unsigned int[Msg.msg.m_Cmd_GetCrateMap_Rsp.cnt];
+
+    *val = new unsigned int[Msg.msg.m_Cmd_GetCrateMap_Rsp.cnt];
 	if(!(*val))
 	{
       printf("CrateMsgClient::GetCrateMap ERROR: cannot allocate memory - return\n");
@@ -548,6 +552,10 @@ bool  CrateMsgClient::SetChannelParams(int slot, int channel, int partype, unsig
 
   return kTRUE;
 }
+
+/* end scalers */
+/***************/
+/***************/
 
 
 

@@ -175,6 +175,16 @@ CrateMsg_SetChannelParams(CrateMsgStruct *msg, int swap)
 
 
 
+
+
+
+
+
+
+
+
+
+
 void *
 ConnectionThread(void *parm)
 {

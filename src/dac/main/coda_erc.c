@@ -1,12 +1,12 @@
 
 /* coda_erc.c - CODA format */
 
-#if defined(VXWORKS) || defined(Linux_armv7l)
+#if defined(Linux_armv7l)
 
 void
 coda_er()
 {
-  printf("coda_er is dummy for VXWORKS\n");
+  printf("coda_er is dummy for ARM etc\n");
 }
 
 #else

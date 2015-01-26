@@ -1,4 +1,4 @@
-#if defined(VXWORKS) || defined(Linux_armv7l) || defined(Linux_nios2)
+#if defined(Linux_armv7l) || defined(Linux_nios2)
 
 int
 bigbufcheck_dummy()

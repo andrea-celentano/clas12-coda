@@ -1,12 +1,12 @@
 
 /* coda_ebc.c */
 
-#if defined(VXWORKS) || defined(Linux_armv7l)
+#if defined(Linux_armv7l)
 
 void
 coda_eb()
 {
-  printf("coda_eb is dummy for VXWORKS\n");
+  printf("coda_eb is dummy for ARM etc\n");
 }
 
 #else
@@ -30,6 +30,8 @@ coda_eb()
 
 #include "CODA_format.h"
 #include "libdb.h"
+
+static char confFile[256];
 
 void *handle_build();
 
@@ -69,7 +71,7 @@ static unsigned int hpsbuf[MAXBUF];
     /*printf("[%3d] len1=%d\n",ii,len);*/ \
     memcpy((char *)hpsbuf, (char *)ptr, len); /*copy event from et to the temporary buffer*/ \
     /*for(jjj=0; jjj<(len/4); jjj++) printf("HACK [%3d] 0x%08x\n",jjj,ptr[jjj]);*/ \
-    EVIO_RECORD_HEADER(ptr,len); \
+    EVIO_RECORD_HEADER(ptr,(len/4));									\
     memcpy((char *)(ptr+8), (char *)hpsbuf, len); \
     len += 32;  /* add 8 words for record header we just created, and update et event length */ \
 	/*printf("len2=%d\n",len/4);*/ \
@@ -1764,7 +1766,8 @@ codaDownload(char *confname)
   strcpy(ebp->out_name,"CODA");
 
 
-
+  /* get run config file name from DB */
+  getConfFile(configname, confFile, 255);
 
   /* connect to database */
   dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
@@ -2101,8 +2104,6 @@ static trArg args[NTHREADMAX];
   printf("thread concurrency level is %d\n",thr_getconcurrency());
   thr_setconcurrency(30);
 #endif
-
-
 
   debcloselinks();
   sleep(1);

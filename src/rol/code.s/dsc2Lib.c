@@ -2059,7 +2059,7 @@ dsc2ReadScalers(UINT32 id, volatile UINT32 *data, int nwrds, int rflag, int rmod
 {
 /*   int dCnt=0, ichan; */
 #ifndef NODMA
-  int dummy=0, retVal, xferCount;
+  int ii,dummy=0, retVal, xferCount;
   volatile unsigned int *laddr;
   unsigned int vmeAdr;
 #endif
@@ -2281,11 +2281,13 @@ dsc2ReadScalers(UINT32 id, volatile UINT32 *data, int nwrds, int rflag, int rmod
 	  xferCount = (/*nwrds - */(retVal>>2) + dummy); /* Number of longwords transfered */
 #else
 	  xferCount = ((retVal>>2) + dummy); /* Number of longwords transfered */
+      for(ii=0; ii<xferCount; ii++) data[ii] = LSWAP(data[ii]); /* swap to cpu order if DMA was used */
 #endif
 	  DSCUNLOCK;
+
 	  return(xferCount);
 	}
-      else if (retVal == 0) 
+    else if (retVal == 0) 
 	{
 #ifdef VXWORKS
 	  logMsg("\n%s: WARN: DMA transfer terminated by word count (nwrds = %d)\n",
@@ -2297,7 +2299,7 @@ dsc2ReadScalers(UINT32 id, volatile UINT32 *data, int nwrds, int rflag, int rmod
 	  DSCUNLOCK;
 	  return(retVal);
 	}
-      else 
+    else 
 	{  /* Error in DMA */
 #ifdef VXWORKS
 	  logMsg("\n%s: ERROR: sysVmeDmaDone returned an Error\n",
@@ -2310,9 +2312,13 @@ dsc2ReadScalers(UINT32 id, volatile UINT32 *data, int nwrds, int rflag, int rmod
 	  return(retVal>>2);
 	  
 	}
+
+
+
+
 #endif /* NODMA */
 
-    }
+  }
   else
   {
     logMsg("%s: ERROR: Unsupported mode (%d)\n",__FUNCTION__,rmode,3,4,5,6);

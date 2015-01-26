@@ -49,6 +49,10 @@ typedef struct rolParameters
 
 
 
+/* for UDP_user_request */
 
+#define MSGINF 0
+#define MSGWRN 1
+#define MSGERR 2
 
-
+int UDP_user_request(int msgclass, char *name, char *message);

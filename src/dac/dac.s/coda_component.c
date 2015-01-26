@@ -23,23 +23,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
-
-#ifdef VXWORKS
-
-extern char *mystrdup(const char *s);
-
-
-#include <types.h>
-#include <errno.h>
-#include <taskLib.h>
-#include <bootLib.h>
-#include <sysLib.h>
-#include <time.h>
-
-#include <varargs.h> /*???*/
-
-#else
-
 #include <pthread.h>
 #include <sys/resource.h>
 #include <signal.h>
@@ -55,7 +38,6 @@ typedef int 		(*FUNCPTR) ();	   /* ptr to function returning int */
 typedef void 		(*VOIDFUNCPTR) (); /* ptr to function returning void */
 #endif			/* _cplusplus */
 
-#endif
 
 
 #include "rc.h"
@@ -75,12 +57,10 @@ typedef void 		(*VOIDFUNCPTR) (); /* ptr to function returning void */
 #define CODA_ERROR 1
 #define CODA_OK 0
 
-#ifndef VXWORKS
 #include <et_private.h>
 /* more globals */
 static char *et_filename = NULL;  /* for command line */
 char et_name[ET_FILENAME_LENGTH];
-#endif
 
 static int iTaskCODA;
 static int iTaskUDP;
@@ -118,14 +98,6 @@ FUNCPTR         process_poll_proc = NULL;
 unsigned int *eventNumber;
 unsigned int *dataSent;
 
-
-#ifdef VXWORKS
-/* function prototypes */
-int usrNetStackSysPoolStatus(char *title, int flag);
-int usrNetStackDataPoolStatus(char *title, int flag);
-#endif
-
-
 int            rcdebug_level__;
 int             global_code[32];
 char           *global_routine[8][32];
@@ -134,55 +106,6 @@ int            global_env_depth[32];
 int            use_recover = 0;
 static int     codaDebugLevel = 0;
 
-
-
-
-#ifdef VXWORKS
-
-/*
-
-taskSpawn "MMM",120,0,200000,tdtest
-taskSpawn "MMM",120,0,200000,tdtest
-taskSpawn "MMM",120,0,200000,tdtest
-
-vxworks_task_delete("MMM") - deletes all 3 of them at once !!!
-
-void
-tdtest()
-{
-  while(1)
-  {
-    taskDelay(sysClkRateGet());
-  }
-}
-*/
-
-/* checks if task(s) with specified name exists, and delete */
-int
-vxworks_task_delete(char *taskname)
-{
-  int ret, id;
-
-  while( (id=taskNameToId(taskname)) > 0)
-  {
-    ret = taskIdVerify(id);
-    /*printf("taskIdVerify returns %d\n",ret);*/
-    if(ret==OK)
-	{
-      /*printf("INFO: calling taskDelete(%d) for id=%d(0x%08x)\n",id);*/
-      ret = taskDelete(id);
-      taskDelay(sysClkRateGet());
-      /*printf("taskDelete() returns %d\n",ret);*/
-	}
-    else
-	{
-      printf("vxworks_task_delete: ERROR: taskIdVerify() returned %d\n",ret);
-	}
-  }
-
-  return(0);
-}
-#endif
 
 
 /*****************************************/
@@ -351,12 +274,7 @@ checkHeartBeats()
 
 /* routine to dynamically load and unload readout list */
 
-#ifdef VXWORKS
-static int dalf;
-#else
 #include <dlfcn.h>
-#endif
-
 
 #include "rolInt.h"
 
@@ -369,19 +287,12 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
   int nchar = 0;
   int res;
   char *env, rolnametmp[256], rolnameful[256], tmp[128];
-#ifdef VXWORKS
-  SYM_TYPE sType;
-#endif
 
   /* if 'rolname' does not start from '/', '.' or '$', assume that it contains no path
 	 and add default one */
   if(rolname[0]!='/'&&rolname[0]!='.'&&rolname[0]!='$')
   {
-#ifdef VXWORKS
-    strcpy(rolnametmp,"$CODA/VXWORKS_ppc/rol/");
-#else
     strcpy(rolnametmp,"$CODA/$OSTYPE_MACHINE/rol/");
-#endif
     strcat(rolnametmp,rolname);
   }
   else
@@ -409,22 +320,7 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
     printf("ERROR: cannot extract ObjInitName from the rolname\n");
   }
 
-#if defined(VXWORKS)
-
-  strcpy(rolnameful,rolnametmp);
-
-  dalf = open (rolnameful, 0, 0);
-  if(dalf == ERROR)
-  {
-    printf("ERROR: open failed with status=%d for rol (unable to open ROL): >%s<\n",
-             dalf,rolnameful);
-    return(CODA_ERROR);
-  }
-
-  rolP->id = (void *) loadModuleAt(dalf, GLOBAL_SYMBOLS, NULL, NULL, NULL);
-  close(dalf);
-
-#elif defined __sun||LINUX
+#if defined __sun||LINUX
 
   /* resolve environment variables in rolname; go from '/' to '/' and replace
   env names starting from '$' by actual directories */
@@ -475,15 +371,9 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
   }
   rolP->nounload = 0;
 
-#if defined(VXWORKS)
-  res = (long) symFindByName (sysSymTbl, &ObjInitName[1], &rolP->rol_code,
-             &sType);
-  if((res != ERROR))
-#else
   res = (long) dlsym (rolP->id, &ObjInitName[1]);
   rolP->rol_code = (VOIDFUNCPTR) res;
   if((res != (-1)) && (res != 0))
-#endif
   {
     printf("INFO: >%s()< routine found\n",ObjInitName);
   }
@@ -505,16 +395,7 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
 int
 codaUnloadROL(ROLPARAMS *rolP)
 {
-#if defined(VXWORKS)
-  if(unldByModuleId (rolP->id) == ERROR)
-  {
-    close(dalf);/*ERROR ??? must be closed already in codaLoadROL ...*/
-    printf("ERROR: failed to unload old list %d\n",rolP->id);
-    printf("ERROR: failed to unload list %s\n",rolP->tclName);
-    return(CODA_ERROR);
-  }
-  printf("Old ROL object module 0x%08x unloaded\n",rolP->id);
-#elif defined __sun || LINUX
+#if defined __sun || LINUX
   if(dlclose ((void *) rolP->id) != 0)
   {
     printf("ERROR: failed to unload list %s\n",rolP->tclName);
@@ -554,12 +435,7 @@ debug_printf(int level, char *fmt,...)
 printf("debug_printf reached\n");fflush(stdout);
 printf("debug_printf: level=%d, fmt >%s<\n",level,fmt);fflush(stdout);
   */
-#ifdef VXWORKS
-  /* Sergey ?????: va_start(ap);*/
   va_start(ap,fmt);
-#else
-  va_start(ap,fmt);
-#endif 
  
   if (level & codaDebugLevel) {
     fprintf(stderr, "[CODA debug] ");
@@ -614,7 +490,6 @@ lastContext ()
   return(0);
 }
 
-#ifndef VXWORKS
 
 /*
  * Error recovery Init. . .
@@ -694,12 +569,12 @@ signal_thread (void *arg)
     siglongjmp(global_env[global_env_depth[thr]][thr],sig_number);
   }
 }
-#endif
+
 
 void
 Recover_Init ()
 {
-#if !defined(VXWORKS) && !defined(Darwin)
+#if !defined(Darwin)
   pthread_t  id;
   sigset_t   signal_set;
   int        status;
@@ -868,9 +743,6 @@ CODA_Init(int argc, char **argv)
 
       if(!strcmp(Objects,"ROC"))
 	  {
-#ifdef VXWORKS
-        sprintf(Objects,"%s ROC",targetName());
-#else
         strcpy(tmp,getenv("HOST"));
         if( (p=strchr(tmp,'.'))!=NULL )
 		{
@@ -878,14 +750,10 @@ CODA_Init(int argc, char **argv)
           *p = '\0';
 		}
         sprintf(Objects,"%s ROC",tmp);
-#endif
         printf("Received object 'ROC', will use '%s'\n",Objects);
 	  }
       else if(!strcmp(Objects,"TS"))
 	  {
-#ifdef VXWORKS
-        sprintf(Objects,"%s TS",targetName());
-#else
         strcpy(tmp,getenv("HOST"));
         if( (p=strchr(tmp,'.'))!=NULL )
 		{
@@ -893,7 +761,6 @@ CODA_Init(int argc, char **argv)
           *p = '\0';
 		}
         sprintf(Objects,"%s TS",tmp);
-#endif
         printf("Received object 'TS', will use '%s'\n",Objects);
 	  }
 
@@ -931,7 +798,6 @@ CODA_Init(int argc, char **argv)
 
 
   /* ET name */
-#ifndef VXWORKS
   if (et_filename == NULL)
   {
     sprintf(et_name, "%s%s", "/tmp/et_sys_", session);
@@ -941,7 +807,6 @@ CODA_Init(int argc, char **argv)
     strncpy(et_name, et_filename, ET_FILENAME_LENGTH - 1);
     et_name[ET_FILENAME_LENGTH - 1] = '\0';
   }
-#endif
 
   /* mysql host */
   if(mysql_host)
@@ -955,11 +820,7 @@ CODA_Init(int argc, char **argv)
   {
     if(!(mysql_host = getenv("MYSQL_HOST")))
     {
-#ifdef VXWORKS
-      mysql_host = mystrdup("localhost");
-#else
       mysql_host = strdup("localhost");
-#endif
     }
   }
 
@@ -1010,17 +871,8 @@ CODA_Init(int argc, char **argv)
 	  listSplit2(list," ",&listArgc,listArgv);
       if(listArgc == 4)
       {
-#ifdef VXWORKS
-	    nfsAuthUnixSet(listArgv[0],
-			 atoi(listArgv[2]),
-			 atoi(listArgv[3]),
-			 0,
-			 0);
-	    nfsAuthUnixShow();
-#else
 	    /*setuid(atoi(listArgv[2]));
 	      setgid(atoi(listArgv[3]));*/
-#endif
 	  }
       else
       {
@@ -1099,20 +951,11 @@ static int CODAtcpServer(void);
 void
 CODA_Execute ()
 {
-#ifndef VXWORKS
   pthread_t id;
-#endif  
   int fd;
   int status;
 
   /* Sergey: start CODAtcpServer as thread */
-#ifdef VXWORKS
-  {
-    iTaskCODA = taskSpawn("CODATCPSRV", 150, 0, 200000, CODAtcpServer,
-                          0, 0, 0,0,0,0,0,0,0,0);
-    printf("taskSpawn(\"CODATCPSRV\") returns %d\n",iTaskCODA);
-  }
-#else
   {
     pthread_attr_t attr;
 
@@ -1122,21 +965,12 @@ CODA_Execute ()
 
     pthread_create(&id, &attr, CODAtcpServer, NULL);
   }
-#endif
-
 
   /*
    * TODO: die gracefully.  This function never returns.
    */
 
-#ifdef VXWORKS
-  while(1)
-  {
-    taskDelay(sysClkRateGet());
-  }
-#else
   while(1) sleep(1);
-#endif
 
   exit(0);
 }
@@ -1298,12 +1132,7 @@ getConfFile(char *configname, char *conffile, int lname)
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#ifdef VXWORKS
-static SEM_ID udp_lock;
-#else
 static pthread_mutex_t udp_lock;
-#endif
-
 
 typedef struct udpstruct
 {
@@ -1332,7 +1161,6 @@ UDP_establish(char *host, int port)
   /* */
   bzero((char *)&sin, sizeof(sin));
 
-  /* for vxworks - in libdb.c */
   hp = gethostbyname(host);
   if(hp == 0 && (sin.sin_addr.s_addr = inet_addr(host)) == -1)
   {
@@ -1423,18 +1251,7 @@ exit(0);
   printf("UDP_establish: socket %d is ready: host %s port %d\n",
       socketnum, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
 
-
-
-#ifdef VXWORKS
-  udp_lock = semBCreate(SEM_Q_FIFO, SEM_FULL);
-  if(udp_lock == NULL)
-  {
-    logMsg("UDP_establish: ERROR: could not allocate a semaphore\n",1,2,3,4,5,6);
-    return(0);
-  }
-#else
   pthread_mutex_init(&udp_lock, NULL);
-#endif
 
   return(socketnum);
 }
@@ -1446,23 +1263,13 @@ UDP_close(int socket)
   int retsocket;
 
   /* wait a while to let a few messages to be send */
-#ifdef VXWORKS
-    taskDelay(300);
-#else
     sleep(3);
-#endif
 
   /* reset all messages first to cleanup static structure */
   UDP_reset();
 
-#ifdef VXWORKS
-  /*semFlush(udp_lock);*/
-  semGive(udp_lock);
-  semDelete(udp_lock);
-#else
   pthread_mutex_unlock(&udp_lock);
   pthread_mutex_destroy(&udp_lock);
-#endif
 
   if(socket != 0)
   {
@@ -1512,17 +1319,52 @@ UDP_standard_request(char *name, char *state)
   return(0);
 }
 
+
+
+/* UDP_user_request */
+int
+UDP_user_request(int msgclass, char *name, char *message)
+{
+  char tmp[1000];
+
+  if(msgclass==MSGERR)      strcpy(tmp,"err:");
+  else if(msgclass==MSGWRN) strcpy(tmp,"wrn:");
+  else                      strcpy(tmp,"inf:");
+
+  strcat(tmp,name); /*object->name*/
+  strcat(tmp," ");
+  strcat(tmp,message);
+
+  printf("UDP_user_request >%s<",tmp);
+  printf("\n");
+
+  UDP_request(tmp);
+
+  sleep(2);
+
+  UDP_cancel(tmp);
+
+  return(0);
+}
+
+
+
+
+
+
+
+
+
+
+
+
 /* remove all UDP messages */
 int
 UDP_reset()
 {
   int i;
 
-#ifdef VXWORKS
-  semTake(udp_lock, WAIT_FOREVER);
-#else
   pthread_mutex_lock(&udp_lock);
-#endif
 
   printf("UDP_reset reached\n");
   /* cancel all messages */
@@ -1533,11 +1375,7 @@ UDP_reset()
     udpstr[i].message[0] = '\0'; /* just in case */
   }
 
-#ifdef VXWORKS
-  semGive(udp_lock);
-#else
   pthread_mutex_unlock(&udp_lock);
-#endif
 
   return(0);
 }
@@ -1548,11 +1386,7 @@ UDP_cancel(char *str)
 {
   int i;
 
-#ifdef VXWORKS
-  semTake(udp_lock, WAIT_FOREVER);
-#else
   pthread_mutex_lock(&udp_lock);
-#endif
 
   /* cancel all messages with identical key (first 4 characters) */
   for(i=0; i<MAXUDPS; i++)
@@ -1566,11 +1400,7 @@ UDP_cancel(char *str)
     }
   }
 
-#ifdef VXWORKS
-  semGive(udp_lock);
-#else
   pthread_mutex_unlock(&udp_lock);
-#endif
 
   return(0);
 }
@@ -1584,11 +1414,7 @@ UDP_request(char *str)
   /* cancel all messages with the same key (first 4 characters) */
   UDP_cancel(str);
 
-#ifdef VXWORKS
-  semTake(udp_lock, WAIT_FOREVER);
-#else
   pthread_mutex_lock(&udp_lock);
-#endif
 
   found = 0;
   for(i=0; i<MAXUDPS; i++)
@@ -1602,11 +1428,7 @@ UDP_request(char *str)
     }
   }
 
-#ifdef VXWORKS
-  semGive(udp_lock);
-#else
   pthread_mutex_unlock(&udp_lock);
-#endif
 
   if(found) return(0);
 
@@ -1631,11 +1453,7 @@ UDP_send(int socket)
 
   if(oldtime==0) oldtime=time(0);
 
-#ifdef VXWORKS
-  semTake(udp_lock, WAIT_FOREVER);
-#else
   pthread_mutex_lock(&udp_lock);
-#endif
 
   for(i=0; i<MAXUDPS; i++)
   {
@@ -1768,11 +1586,7 @@ exit3:
 
   } /* for() */
 
-#ifdef VXWORKS
-  semGive(udp_lock);
-#else
   pthread_mutex_unlock(&udp_lock);
-#endif
 
   return(nbytes);
 }
@@ -1866,21 +1680,14 @@ UDP_loop()
     UDP_send(udpsocket);
 
     /* wait 1 sec */
-#ifdef VXWORKS
-    taskDelay(100);
-#else
     sleep(1);
-#endif
-
   }
 
   UDP_close(udpsocket);
   udp_loop_exit = 0;
 
-#ifndef VXWORKS
   printf("UDP_loop: calls pthread_exit\n");
   pthread_exit(NULL);
-#endif
 
   return;
 }
@@ -1923,11 +1730,7 @@ UDP_start()
     while(udp_loop_exit)
     {
       printf("download: wait for udp_loop to exit ..\n");
-#ifdef VXWORKS
-      taskDelay(100);
-#else
       sleep(1);
-#endif
       ii --;
       if(ii<0) break;
     }
@@ -1935,13 +1738,8 @@ UDP_start()
     if(ii<0)
 	{
       printf("WARN: cannot exit udp_loop gracefully, will kill it\n");
-#ifdef VXWORKS
-	  vxworks_task_delete("UDP_LOOP");
-      iTaskUDP = 0;
-#else
       /* TODO: delete udp_loop thread */
       sleep(1);
-#endif
       udp_loop_exit = 0; /* to let new UDP_LOOP to start */
 	}
 
@@ -1951,14 +1749,6 @@ UDP_start()
   udp_loop_exit = 0;
 
 
-#ifdef VXWORKS
-  {
-    /*taskSpawn(name,pri,opt,stk,adr,args) 10 args required */
-    iTaskUDP = taskSpawn("UDP_LOOP", 110, 0, 200000, UDP_loop,
-                          0,0,0,0,0,0,0,0,0,0);
-    printf("taskSpawn(\"udp_loop\") returns %d\n",iTaskUDP);
-  }
-#else
   {
     int res;
     pthread_t thread1;
@@ -1974,7 +1764,6 @@ UDP_start()
     printf("pthread_create returned %d\n",res);fflush(stdout);
     perror("pthread_create");
   }
-#endif
 
   return(0);
 }
@@ -1987,19 +1776,6 @@ UDP_start()
 /***************************************************/
 /***************************************************/
 /* CODAtcpServer functions - to receive commands from runcontrol */
-
-#ifdef VXWORKS
-
-#include <vxWorks.h>
-#include <sockLib.h>
-#include <inetLib.h>
-#include <taskLib.h>
-#include <stdioLib.h>
-#include <strLib.h>
-#include <ioLib.h>
-#include <fioLib.h>
-
-#else
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -2016,7 +1792,6 @@ UDP_start()
 #define ERROR (-1)
 #define STD_IN stdin
 
-#endif
 
 #include "libtcp.h" 
 
@@ -2122,22 +1897,13 @@ CODAtcpServer(void)
   while(1)
   {
 
-#ifdef VXWORKS
-    /* check for free net buffers */
-    usrNetStackSysPoolStatus("CODAtcpServer",0);
-    usrNetStackDataPoolStatus("CODAtcpServer",0);
-#endif
 
     /* do not accept new request if current one is not finished yet; too
     many requests may create network buffer shortage */
     if(coda_request_in_progress)
     {
       printf("wait: coda request >%s< in progress\n",coda_current_message);
-#ifdef VXWORKS
-      taskDelay(100);
-#else
       sleep(1);
-#endif
 
       continue;
     }
@@ -2163,18 +1929,6 @@ printf("WorkTask: alloc 0x%08x\n",targ.address);fflush(stdout);
     targ.port = ntohs (clientAddr.sin_port);
 
     coda_request_in_progress = 1;
-#ifdef VXWORKS
-    sprintf(workName,"twork%04d",ix++);
-    if(taskSpawn(workName, 150/*SERVER_WORK_PRIORITY*/, 0, SERVER_STACK_SIZE,
-       (FUNCPTR) CODAtcpServerWorkTask, &targ,
-	   0, 0, 0, 0, 0, 0, 0, 0, 0)
-          == ERROR)
-    {
-	  perror("taskSpawn"); 
-	  close(targ.newFd); 
-      coda_request_in_progress = 0;
-    }
-#else
     printf("CODAtcpServer: start work thread\n");
 	{
       int ret;
@@ -2207,7 +1961,6 @@ printf("WorkTask: alloc 0x%08x\n",targ.address);fflush(stdout);
         }
 	  }
 	}
-#endif
  
   }
 
@@ -2243,58 +1996,6 @@ CODAtcpServerWorkTask(TWORK *targ)
   printf("CODAtcpServerWorkTask: socket=%d address>%s< port=%d\n",
     targ->newFd,targ->address,targ->port); fflush(stdout);
   */
-
-#ifdef VXWORKS
-
-  if( (nRead = recv(targ->newFd, (char *) &clientRequest, sizeof (TREQUEST), NULL)) > 0 )
-  {
-	/*
-    printf ("MESSAGE (nRead=%d, Address>%s<, port=%d): Executing >%s<\n", 
-	    nRead, targ->address, targ->port, clientRequest.message);
-	*/
-    strcpy(message, clientRequest.message);
-
-    /* store it to be used later for debugging */
-    strcpy(coda_current_message, message);
-
-    /* try Executing the message (each component must provide codaExecute() function */
-	/*
-    printf("Executing >%s<\n",message);
-	*/
-	/*setHeartBeat(HB_TCP,1,2);*/
-    codaExecute(message);
-	/*setHeartBeat(HB_TCP,2,2);*/
-
-    free(targ->address); /* free malloc from inet_ntoa() */ 
-  }
-  else if(nRead == 0)
-  {
-    printf("connection closed, exit thread\n");
-  }
-  else
-  {
-    perror("ERROR (recv)"); 
-    fflush(stdout);
-
-	/* do NOT free() here, error was observed:
-CODAtcpServerWorkTask: socket=17 address>129.57.68.21< port=40181
-Error: nRead=-1, must be 1032
-0x8268e0 (twork0008): memPartFree: invalid block 0x86f910 in partition 0x250254.
-	 */
-  }
-  /*
-printf("WorkTask: free 0x%08x\n",targ->address);fflush(stdout);
-printf("WorkTask: free 0x%08x\n",targ->address);fflush(stdout);
-printf("WorkTask: free 0x%08x\n",targ->address);fflush(stdout);
-printf("WorkTask: free 0x%08x\n",targ->address);fflush(stdout);
-printf("WorkTask: free 0x%08x\n",targ->address);fflush(stdout);
-  */
-  close(targ->newFd);    /* close server socket connection */ 
-  coda_request_in_progress = 0;
-
-
-#else /* UNIX */
-
 
   if( (nRead = recv(targ->newFd, (char *) &clientRequest, sizeof (TREQUEST), NULL)) > 0 )
   {
@@ -2335,7 +2036,6 @@ printf("WorkTask: free 0x%08x\n",targ->address);fflush(stdout);
   /* terminate calling thread */
   pthread_exit(NULL);
 
-#endif
   /*setHeartBeat(HB_TCP,0,-1);*/
 
   return;
@@ -2519,131 +2219,6 @@ gethrtimetest()
     printf("jj=%ld\n",jj);
     sleep(1);
   }
-  return;
-}
-
-#endif
-
-
-/******************************************/
-/* buffer pool information - VxWorks only */
-/******************************************/
-
-
-#ifdef VXWORKS
-
-/* see netBufLib.h */
-
-/* return the number of times failed to find space */
-/* flag: 1 - before, 2 - after */
-int
-usrNetStackSysPoolStatus(char *title, int flag)
-{
-  int i;
-  NET_POOL *mySysPtr = ( NET_POOL *)_pNetSysPool; /*system mbuf pool (global)*/
-  CL_POOL  *myPoolPtr[CL_TBL_SIZE]; /* point at each pool cluster */
-  /*
-  printf("=======================================\n");
-  printf("=======================================\n");
-  printf("mbufs   = %d\n",mySysPtr->pPoolStat->mNum);
-  printf("failed  = %d\n",mySysPtr->pPoolStat->mDrops);
-  printf("waited  = %d\n",mySysPtr->pPoolStat->mWait);
-  printf("drained = %d\n",mySysPtr->pPoolStat->mDrain);
-  */
-
-  if(flag==1)      printf("netSys(befor):  ");
-  else if(flag==2) printf("netSys(after):  ");
-  if(flag)
-  {
-    printf("%4d %4d %4d %4d -",
-      mySysPtr->pPoolStat->mNum,
-      mySysPtr->pPoolStat->mDrops,
-      mySysPtr->pPoolStat->mWait,
-      mySysPtr->pPoolStat->mDrain);
-  }
-
-  /* print out data pool mbuf usage */
-  for(i=0; i<CL_TBL_SIZE; i++)
-  {
-    myPoolPtr[i] = (CL_POOL *) mySysPtr->clTbl[i];
-
-    /* only interested in non-zero entries */
-    if( (NULL == myPoolPtr[i]) || (NULL == myPoolPtr[i]->clSize) ) break ;
-    if(flag) printf(" %4d",myPoolPtr[i]->clNumFree);
-	/*
-    printf("%d %d %d %d\n" ,
-               myPoolPtr[i]->clSize ,
-               myPoolPtr[i]->clNum ,
-               myPoolPtr[i]->clNumFree,
-               myPoolPtr[i]->clUsage
-          );
-	*/
-    if(myPoolPtr[i]->clNumFree < MINNETBUFS)
-	{
-      printf("\nWARN(%s): too few %3d-byte sys  net buffers (%3d)\n",
-        title,myPoolPtr[i]->clSize,myPoolPtr[i]->clNumFree);
-	}
-  }
-  if(flag) printf("\n");
-  /*
-  printf("=======================================\n");
-  printf("=======================================\n");
-  */
-  return(mySysPtr->pPoolStat->mDrops);
-}
-
-int
-usrNetStackDataPoolStatus(char *title, int flag)
-{
-  int i;
-  NET_POOL *myDataPtr = ( NET_POOL *) _pNetDpool; /*data mbuf pool (global)*/
-  CL_POOL  *myPoolPtr[CL_TBL_SIZE]; /* point at each pool cluster */
-  /*
-  printf("=======================================\n");
-  printf("=======================================\n");
-  printf("mbufs   = %d\n",myDataPtr->pPoolStat->mNum);
-  printf("failed  = %d\n",myDataPtr->pPoolStat->mDrops);
-  printf("waited  = %d\n",myDataPtr->pPoolStat->mWait);
-  printf("drained = %d\n",myDataPtr->pPoolStat->mDrain);
-  */
-  if(flag==1)      printf("netData(befor): ");
-  else if(flag==2) printf("netData(after): ");
-  if(flag)
-  {
-    printf("%4d %4d %4d %4d -",
-      myDataPtr->pPoolStat->mNum,
-      myDataPtr->pPoolStat->mDrops,
-      myDataPtr->pPoolStat->mWait,
-      myDataPtr->pPoolStat->mDrain);
-  }
-
-  /* print out data pool mbuf usage */
-  for(i=0; i<CL_TBL_SIZE; i++)
-  {
-    myPoolPtr[i] = (CL_POOL *) myDataPtr->clTbl[i];
-
-    /* only interested in non-zero entries */
-    if( (NULL == myPoolPtr[i]) || (NULL == myPoolPtr[i]->clSize) ) break ;
-    if(flag) printf(" %4d",myPoolPtr[i]->clNumFree);
-	/*
-    printf("%d %d %d %d\n" ,
-               myPoolPtr[i]->clSize ,
-               myPoolPtr[i]->clNum ,
-               myPoolPtr[i]->clNumFree,
-               myPoolPtr[i]->clUsage
-          );
-	*/
-    if(myPoolPtr[i]->clNumFree < MINNETBUFS)
-	{
-      printf("\nWARN(%s): too few %3d-byte data net buffers (%3d)\n",
-        title,myPoolPtr[i]->clSize,myPoolPtr[i]->clNumFree);
-	}
-  }
-  if(flag) printf("\n");
-  /*
-  printf("=======================================\n");
-  printf("=======================================\n");
-  */
   return;
 }
 

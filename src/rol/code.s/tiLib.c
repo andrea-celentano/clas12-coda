@@ -814,8 +814,8 @@ tiStatus(int pflag)
 
   fibermask = fiber;
   if(tiMaster)
-    {
-      if(fibermask)
+  {
+    if(fibermask)
 	{
 	  printf(" HFBR enabled (0x%x)= \n",fibermask);
 	  for(ifiber=0; ifiber<8; ifiber++)
@@ -824,7 +824,7 @@ tiStatus(int pflag)
 		  printf("   %d: -%s-   -%s-\n",ifiber+1,
 		       (fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"    CONNECTED":"NOT CONNECTED",
 		       (fiber & TI_FIBER_TRIGSRC_ENABLED_TI(ifiber+1))?"TRIGSRC ENABLED":"TRIGSRC DISABLED");
-	    }
+	  }
 	  printf("\n");
 	}
       else
@@ -833,7 +833,7 @@ tiStatus(int pflag)
 
   if(tiMaster)
     {
-      if(tiSlaveMask)
+    if(tiSlaveMask)
 	{
 	  printf(" TI Slaves Configured on HFBR (0x%x) = ",tiSlaveMask);
 	  fibermask = tiSlaveMask;
@@ -1988,6 +1988,9 @@ tiDisableTriggerSource(int fflag)
 
 }
 
+
+
+
 /*******************************************************************************
  *
  * tiSetSyncSource - Set the Sync source mask
@@ -2930,6 +2933,76 @@ tiGetPrescale()
   return rval;
 }
 
+/**
+ *  @ingroup MasterConfig
+ *  @brief Set the prescale factor for the selected input
+ *
+ *  @param   input Selected trigger input (1-6)
+ *  @param   prescale Factor for prescale.  
+ *               Max {prescale} available is 65535
+ *
+ *  @return OK if successful, otherwise ERROR.
+ */
+int
+tiSetInputPrescale(int input, int prescale)
+{
+  unsigned int oldval=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((prescale<0) || (prescale>0xf))
+    {
+      printf("%s: ERROR: Invalid prescale (%d).  Must be between 0 and 15.",
+	     __FUNCTION__,prescale);
+      return ERROR;
+    }
+
+  if((input<1) || (input>6))
+    {
+    {
+      printf("%s: ERROR: Invalid input (%d).",
+	     __FUNCTION__,input);
+      return ERROR;
+    }
+    }
+
+  TILOCK;
+  oldval = vmeRead32(&TIp->inputPrescale) & ~(TI_INPUTPRESCALE_FP_MASK(input));
+  vmeWrite32(&TIp->inputPrescale, oldval | (prescale<<(4*(input-1) )) );
+  TIUNLOCK;
+
+  return OK;
+}
+
+
+/**
+ *  @ingroup Status
+ *  @brief Get the current prescale factor for the selected input
+ *  @param   input Selected trigger input (1-6)
+ *  @return Current prescale factor, otherwise ERROR.
+ */
+int
+tiGetInputPrescale(int input)
+{
+  int rval;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->inputPrescale) & TI_INPUTPRESCALE_FP_MASK(input);
+  rval = rval>>(4*(input-1));
+  TIUNLOCK;
+
+  return rval;
+}
+
+
 /*******************************************************************************
  *
  *  tiSetTriggerPulse - Set the characteristics of a specified trigger
@@ -3066,15 +3139,50 @@ tiTrigLinkReset()
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_TRIGGERLINK_DISABLE); 
   taskDelay(1);
 
+TIUNLOCK;
+printf("status21\n");
+tiStatus(1);
+TILOCK;
+
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_TRIGGERLINK_DISABLE); 
   taskDelay(1);
+
+TIUNLOCK;
+printf("status22\n");
+tiStatus(1);
+TILOCK;
 
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_TRIGGERLINK_ENABLE);
   taskDelay(1);
 
+TIUNLOCK;
+printf("status23\n");
+tiStatus(1);
+TILOCK;
+
   TIUNLOCK;
 
   printf ("%s: Trigger Data Link was reset.\n",__FUNCTION__);
+}
+
+/*sergey on William's abvise*/
+int
+tiTrigDisable()
+{
+    if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+  
+  TILOCK;
+  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_TRIGGERLINK_DISABLE); 
+  taskDelay(1);
+  TIUNLOCK;
+
+  printf ("%s: Trigger was disabled.\n",__FUNCTION__);
+
+  return OK;
 }
 
 /*******************************************************************************
@@ -3139,6 +3247,30 @@ tiSyncResetResync()
 
 }
 
+
+
+/*  */
+void
+tiClock250Resync()
+{
+  if(TIp == NULL) 
+  {
+    printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+    return;
+  }
+
+  if(tiMaster!=1)
+  {
+    printf("%s: ERROR: TI is not the Master.  No Clock Reset.\n", __FUNCTION__);
+    return;
+  }
+  
+  TILOCK;
+  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_CLK250_RESYNC);
+  TIUNLOCK;
+}
+
+
 /*******************************************************************************
  *
  *  tiClockReset
@@ -3165,8 +3297,28 @@ tiClockReset()
   
   TILOCK;
   /* Send a clock reset */
-  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_CLK250_RESYNC); 
+  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_CLK250_RESYNC);
+
+
   taskDelay(2);
+
+TIUNLOCK;
+printf("status1\n");
+tiStatus(1);
+TILOCK;
+
+
+/* William's advise 18-dec-2014
+printf("tiClockReset fix\n");
+vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_SYNCRESET);
+taskDelay(1);
+*/
+
+TIUNLOCK;
+printf("status2\n");
+tiStatus(1);
+TILOCK;
+
 
   /* Store the old sync source */
   old_syncsrc = vmeRead32(&TIp->sync) & TI_SYNC_SOURCEMASK;
@@ -3174,14 +3326,36 @@ tiClockReset()
   vmeWrite32(&TIp->sync, 0);
   taskDelay(2);
 
+TIUNLOCK;
+printf("status3\n");
+tiStatus(1);
+TILOCK;
+
   /* Send another clock reset */
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_CLK250_RESYNC); 
   taskDelay(2);
 
+TIUNLOCK;
+printf("status4\n");
+tiStatus(1);
+TILOCK;
+
+  /* William's advise Dec 15, 2014 */
+  /* resync the AD9510 only.  */
+  /*
+  vmeWrite32(&TIp->syncCommand, TI_SYNCCOMMAND_AD9510_RESYNC);
+  taskDelay(2);
+  */
+
   /* Re-enable the sync source */
   vmeWrite32(&TIp->sync, old_syncsrc);
-  TIUNLOCK;
 
+TIUNLOCK;
+printf("status5\n");
+tiStatus(1);
+TILOCK;
+
+  TIUNLOCK;
 }
 
 /*******************************************************************************
@@ -3579,6 +3753,26 @@ tiSetBlockBufferLevel(unsigned int level)
   return OK;
 }
 
+unsigned int
+tiGetBlockBufferLevel()
+{
+  unsigned int level;
+
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  level = vmeRead32(&TIp->blockBuffer) & TI_BLOCKBUFFER_BUFFERLEVEL_MASK;
+  TIUNLOCK;
+
+  /*printf("%s: INFO: Block buffer level set to %d\n",__FUNCTION__,level);*/
+
+  return(level);
+}
+
 /*******************************************************************************
  *
  *   tidEnableTSInput / tidDisableTSInput
@@ -3895,6 +4089,15 @@ tiAddSlave(unsigned int fiber)
 
 }
 
+
+/* */
+
+int
+tiGetSlaveMask()
+{
+  return(tiSlaveMask);
+}
+
 /*******************************************************************************
  *
  * tiAddSlaveMask
@@ -4165,6 +4368,10 @@ tiResetBlockReadout()
  *         TS#1,2,3,4,5 generates Trigger1 (physics trigger),
  *         TS#6 generates Trigger2 (playback trigger),
  *         If both Trigger1 and Trigger2, generates SyncEvent;
+ *     mode 3:
+ *         TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
+ *         No Trigger2 (playback trigger),
+ *         No SyncEvent;
  *
  */
 
@@ -4173,7 +4380,7 @@ tiLoadTriggerTable(int mode)
 {
   int ipat;
 
-  unsigned int trigPattern[3][16] = 
+  unsigned int trigPattern[4][16] = 
     {
       { /* mode 0:
 	   TS#1,2,3,4,5 generates Trigger1 (physics trigger),
@@ -4204,7 +4411,17 @@ tiLoadTriggerTable(int mode)
 	0x53525150, 0x57565554, 0x5b5a5958, 0x5f5e5d5c,
 	0xe3e2e1a0, 0xe7e6e5e4, 0xebeae9e8, 0xefeeedec,
 	0xf3f2f1f0, 0xf7f6f5f4, 0xfbfaf9f8, 0xfffefdfc 
-      }
+      },
+      { /* mode 3:
+	   TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
+	   No Trigger2 (playback trigger),
+	   No SyncEvent;
+	*/
+	0x43424100, 0x47464544, 0x4b4a4948, 0x4f4e4d4c,
+	0x53525150, 0x57565554, 0x5b5a5958, 0x5f5e5d5c,
+	0x63626160, 0x67666564, 0x6b6a6968, 0x6f6e6d6c,
+	0x73727170, 0x77767574, 0x7b7a7978, 0x7f7e7d7c, 
+      },
     };
 
 
@@ -4214,7 +4431,7 @@ tiLoadTriggerTable(int mode)
       return ERROR;
     }
 
-  if(mode>2)
+  if(mode>3)
     {
       printf("%s: WARN: Invalid mode %d.  Using Trigger Table mode = 0\n",
 	     __FUNCTION__,mode);
@@ -4924,8 +5141,8 @@ tiResetMGT()
 
   TILOCK;
   vmeWrite32(&TIp->reset, TI_RESET_MGT);
-  TIUNLOCK;
   taskDelay(10);
+  TIUNLOCK;
 
   printf("%s: INFO: tiResetMGT executed\n",__FUNCTION__);
 

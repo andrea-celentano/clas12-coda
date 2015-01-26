@@ -17,6 +17,13 @@ include $(CODA)/src/Makefile.arch
 #-----------------------
 # customize definitions
 #-----------------------
+ifeq ("$(OSTYPE_MACHINE)","SunOS_i86pc")
+#  CLON_FLAGS += -m64
+  SHLD += -m64
+#  LDCXX += -m64
+endif
+
+
 CLON_FLAGS += -I./src.s -I$(CODA)/common/include
 
 ifneq ("$(OSTYPE)","VXWORKS")

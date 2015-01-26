@@ -47,6 +47,8 @@
 #endif 
  
 /* Global Variables */ 
+static int active;
+
 static int nSSP;                                 /* Number of SSPs found with sspInit(..) */ 
 volatile SSP_regs *pSSP[MAX_VME_SLOTS+1];        /* pointers to SSP memory map */ 
 volatile unsigned int *SSPpf[MAX_VME_SLOTS + 1]; /* pointers to VSCM FIFO memory */
@@ -81,6 +83,37 @@ static int block_level = 1;
 static int bus_error = 1;
 static int window_width  = 100;
 static int window_offset = 825;
+static int trigger_latency = 500;
+
+static int singles_emin[2] = {0, 0};
+static int singles_emax[2] = {8191, 8191};
+static int singles_nmin[2] = {0, 0};
+static int singles_emin_en[2] = {1, 1};
+static int singles_emax_en[2] = {1, 1};
+static int singles_nmin_en[2] = {1, 1};
+
+static int cosmic_timecoincidence = 10;
+static int cosmic_pattern = 0xFE;
+
+static int pairs_clusterdelay[2] = {128, 128};
+static int pairs_timecoincidence[2] = {2, 2};
+static int pairs_emin[2] = {0, 0};
+static int pairs_emax[2] = {8191, 8191};
+static int pairs_nmin[2] = {0, 0};
+static int pairs_summax[2] = {8191, 8191};
+static int pairs_summin[2] = {0, 0};
+static int pairs_summax_en[2] = {1, 1};
+static int pairs_diffmax[2] = {8191, 8191};
+static int pairs_diffmax_en[2] = {1, 1};
+static int pairs_coplanartolerance[2] = {180, 180};
+static int pairs_coplanartolerance_en[2] = {1, 1};
+static float pairs_edfactor[2] = {1.0f, 1.0f};
+static int pairs_edmin[2] = {0, 0};
+static int pairs_ed_en[2] = {1, 1};
+
+static int pulser_freq = 0;
+
+static int ssp_io_mux[SD_SRC_NUM];
 
 /* readout options */
 static int a24_a32, sngl_blt_mblt, sst_rate;
@@ -506,10 +539,10 @@ sspCheckAddresses(int id)
     printf("%s: ERROR pSSP[%d]->Sd not at offset = 0x%x (@ 0x%x)\n", 
 	   __FUNCTION__,id,expected,offset); 
  
-  offset = ((unsigned int) &pSSP[id]->Trg) - base; 
-  expected = 0x400; 
+  offset = ((unsigned int) &pSSP[id]->Trigger) - base; 
+  expected = 0x2100; 
   if(offset != expected) 
-    printf("%s: ERROR pSSP[%d]->Trg not at offset = 0x%x (@ 0x%x)\n", 
+    printf("%s: ERROR pSSP[%d]->Trigger not at offset = 0x%x (@ 0x%x)\n", 
 	   __FUNCTION__,id,expected,offset); 
  
   for(iser=0; iser<10; iser++) 
@@ -664,12 +697,6 @@ sspSetMode(int id, int iFlag, int pflag)
 		 
   sspPortEnable(id, (iFlag & SSP_INIT_FIBER_ENABLE_MASK)>>16, pflag); 
 
-  /*sergey: temporary	 
-  if(sspTriggerSetup(id, (iFlag & SSP_INIT_FIBER_ENABLE_MASK)>>16,  
-		     (iFlag & SSP_INIT_GTP_FIBER_ENABLE_MASK)>>24, pflag) != OK) 
-    return ERROR; 
-  */ 
-
   return OK; 
 } 
  
@@ -683,10 +710,10 @@ sspStatus(int id, int rflag)
   SSP_regs st; 
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-    } 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
  
   if(rflag & SSP_STATUS_SHOWREGS) 
     showregs=1; 
@@ -700,14 +727,13 @@ sspStatus(int id, int rflag)
   st.Clk.Status       = sspReadReg(&pSSP[id]->Clk.Status); 
   for(i=0; i < SD_SRC_NUM; i++) 
     st.Sd.SrcSel[i]   = sspReadReg(&pSSP[id]->Sd.SrcSel[i]); 
-  st.Trg.Ctrl         = sspReadReg(&pSSP[id]->Trg.Ctrl); 
   for(i=0; i < SSP_SER_NUM; i++) 
-    { 
-      st.Ser[i].Ctrl    = sspReadReg(&pSSP[id]->Ser[i].Ctrl); 
-      st.Ser[i].Status = sspReadReg(&pSSP[id]->Ser[i].Status); 
-      if((st.Ser[i].Ctrl & SSP_SER_CTRL_POWERDN)==0) 
-	fiberEnabledMask |= (1<<i); 
-    } 
+  { 
+    st.Ser[i].Ctrl    = sspReadReg(&pSSP[id]->Ser[i].Ctrl); 
+    st.Ser[i].Status = sspReadReg(&pSSP[id]->Ser[i].Status); 
+    if((st.Ser[i].Ctrl & SSP_SER_CTRL_POWERDN)==0) 
+      fiberEnabledMask |= (1<<i); 
+  } 
   SSPUNLOCK; 
  
 #ifdef VXWORKS 
@@ -719,27 +745,26 @@ sspStatus(int id, int rflag)
 #endif 
   printf("--------------------------------------------------------------------------------\n"); 
  
-  if(showregs) 
-    { 
-      printf("\n"); 
-      printf(" Registers (offset):\n"); 
-      printf("  Cfg.BoardID    (0x%04x) = 0x%08x\t", (unsigned int)(&pSSP[id]->Cfg.BoardId) - SSPBase, st.Cfg.BoardId); 
-      printf("  Cfg.FirmwareRev(0x%04x) = 0x%08x\n", (unsigned int)(&pSSP[id]->Cfg.FirmwareRev) - SSPBase, st.Cfg.FirmwareRev); 
-      printf("  Clk.Ctrl       (0x%04x) = 0x%08x\t", (unsigned int)(&pSSP[id]->Clk.Ctrl) - SSPBase, st.Clk.Ctrl); 
-      printf("  Clk.Status     (0x%04x) = 0x%08x\n", (unsigned int)(&pSSP[id]->Clk.Status) - SSPBase, st.Clk.Status); 
+  if(showregs)
+  { 
+    printf("\n"); 
+    printf(" Registers (offset):\n"); 
+    printf("  Cfg.BoardID    (0x%04x) = 0x%08x\t", (unsigned int)(&pSSP[id]->Cfg.BoardId) - SSPBase, st.Cfg.BoardId); 
+    printf("  Cfg.FirmwareRev(0x%04x) = 0x%08x\n", (unsigned int)(&pSSP[id]->Cfg.FirmwareRev) - SSPBase, st.Cfg.FirmwareRev); 
+    printf("  Clk.Ctrl       (0x%04x) = 0x%08x\t", (unsigned int)(&pSSP[id]->Clk.Ctrl) - SSPBase, st.Clk.Ctrl); 
+    printf("  Clk.Status     (0x%04x) = 0x%08x\n", (unsigned int)(&pSSP[id]->Clk.Status) - SSPBase, st.Clk.Status); 
  
-      for(i=0; i < SD_SRC_NUM; i=i+2) 
-	{ 
-	  printf("  Sd.SrcSel[%2d]  (0x%04x) = 0x%08x\t", i, (unsigned int)(&pSSP[id]->Sd.SrcSel[i]) - SSPBase, st.Sd.SrcSel[i]); 
-	  printf("  Sd.SrcSel[%2d]  (0x%04x) = 0x%08x\n", i+1, (unsigned int)(&pSSP[id]->Sd.SrcSel[i+1]) - SSPBase, st.Sd.SrcSel[i+1]); 
-	} 
-      printf("  Trg.Ctrl       (0x%04x) = 0x%08x\n", (unsigned int)(&pSSP[id]->Trg.Ctrl) - SSPBase, st.Trg.Ctrl); 
-      for(i=0; i < SSP_SER_NUM; i=i+2) 
-	{ 
-	  printf("  Ser[%2d].Ctrl   (0x%04x) = 0x%08x\t", i, (unsigned int)(&pSSP[id]->Ser[i].Ctrl) - SSPBase, st.Ser[i].Ctrl); 
-	  printf("  Ser[%2d].Ctrl   (0x%04x) = 0x%08x\n", i+1, (unsigned int)(&pSSP[id]->Ser[i+1].Ctrl) - SSPBase, st.Ser[i+1].Ctrl); 
-	} 
-    } 
+    for(i=0; i < SD_SRC_NUM; i=i+2) 
+	 { 
+	   printf("  Sd.SrcSel[%2d]  (0x%04x) = 0x%08x\t", i, (unsigned int)(&pSSP[id]->Sd.SrcSel[i]) - SSPBase, st.Sd.SrcSel[i]); 
+	   printf("  Sd.SrcSel[%2d]  (0x%04x) = 0x%08x\n", i+1, (unsigned int)(&pSSP[id]->Sd.SrcSel[i+1]) - SSPBase, st.Sd.SrcSel[i+1]); 
+	 } 
+    for(i=0; i < SSP_SER_NUM; i=i+2) 
+	 { 
+	   printf("  Ser[%2d].Ctrl   (0x%04x) = 0x%08x\t", i, (unsigned int)(&pSSP[id]->Ser[i].Ctrl) - SSPBase, st.Ser[i].Ctrl); 
+	   printf("  Ser[%2d].Ctrl   (0x%04x) = 0x%08x\n", i+1, (unsigned int)(&pSSP[id]->Ser[i+1].Ctrl) - SSPBase, st.Ser[i+1].Ctrl); 
+	 } 
+  } 
   printf("\n"); 
  
   printf(" Board Firmware Rev/ID = 0x%04x\n", 
@@ -771,19 +796,17 @@ sspStatus(int id, int rflag)
   { 
     printf(" Fiber Ports Enabled (0x%x) =\n",fiberEnabledMask); 
     for(i=0; i <= SSP_SER_NUM; i++) 
-	{
+    {
       if(i>SSP_SER_FIBER7) continue; /* skip VXS */
-	  if(fiberEnabledMask & (1<<i)) 
-	    printf("   %-10s: -%-12s-\n", 
-		   ssp_serdes_names[i], 
-                   (st.Ser[i].Status & SSP_SER_STATUS_CHUP) ?    
-		   "CHANNEL UP" : 
-		   "CHANNEL DN"); 
-	} 
+      if(fiberEnabledMask & (1<<i)) 
+        printf("   %-10s: -%-12s-\n", 
+		    ssp_serdes_names[i], 
+          (st.Ser[i].Status & SSP_SER_STATUS_CHUP) ? "CHANNEL UP" : "CHANNEL DN"); 
+	 } 
   } 
   else 
   { 
-      printf(" No Fiber Ports Enabled\n"); 
+    printf(" No Fiber Ports Enabled\n"); 
   } 
  
   printf("\n"); 
@@ -791,7 +814,6 @@ sspStatus(int id, int rflag)
   sspPrintIOSrc(id,2); 
   printf("\n"); 
      
- 
   printf("--------------------------------------------------------------------------------\n"); 
   printf("\n"); 
  
@@ -811,20 +833,18 @@ sspGStatus(int rflag)
  
   SSPLOCK; 
   for(issp=0; issp<nSSP; issp++) 
-    { 
-      id = sspSlot(issp); 
-      st[id].Trg.Ctrl         = sspReadReg(&pSSP[id]->Trg.Ctrl); 
-      for(i=0; i < SSP_SER_NUM; i++) 
-	{ 
-	  st[id].Ser[i].Ctrl       = sspReadReg(&pSSP[id]->Ser[i].Ctrl); 
-	  st[id].Ser[i].Status     = sspReadReg(&pSSP[id]->Ser[i].Status); 
-	  st[id].Ser[i].MonStatus  = sspReadReg(&pSSP[id]->Ser[i].MonStatus); 
-	  st[id].Ser[i].CrateId    = sspReadReg(&pSSP[id]->Ser[i].CrateId) & SER_CRATEID_MASK; 
-	  st[id].Ser[i].ErrTile0   = sspReadReg(&pSSP[id]->Ser[i].ErrTile0); 
-	  st[id].Ser[i].ErrTile1   = sspReadReg(&pSSP[id]->Ser[i].ErrTile1); 
-	  portUsedInTrigger[id][i] = (st[id].Trg.Ctrl & (1<<i))>>i; 
-	} 
-    } 
+  { 
+    id = sspSlot(issp); 
+    for(i=0; i < SSP_SER_NUM; i++) 
+	 { 
+	   st[id].Ser[i].Ctrl       = sspReadReg(&pSSP[id]->Ser[i].Ctrl); 
+	   st[id].Ser[i].Status     = sspReadReg(&pSSP[id]->Ser[i].Status); 
+	   st[id].Ser[i].MonStatus  = sspReadReg(&pSSP[id]->Ser[i].MonStatus); 
+	   st[id].Ser[i].CrateId    = sspReadReg(&pSSP[id]->Ser[i].CrateId) & SER_CRATEID_MASK; 
+	   st[id].Ser[i].ErrTile0   = sspReadReg(&pSSP[id]->Ser[i].ErrTile0); 
+	   st[id].Ser[i].ErrTile1   = sspReadReg(&pSSP[id]->Ser[i].ErrTile1); 
+	 } 
+  } 
   SSPUNLOCK; 
  
   printf("\n"); 
@@ -834,25 +854,20 @@ sspGStatus(int rflag)
   printf("Sl- P    ID     Status   Trigger      Data     Latency      0     1     2     3\n"); 
   printf("--------------------------------------------------------------------------------\n"); 
   for(issp=0; issp<nSSP; issp++) 
-    { 
-      id = sspSlot(issp); 
-      for(iport=0; iport<8; iport++) 
-	{ 
-	  /* Slot and port number */ 
-	  printf("%2d-%2d ",id, iport+1); 
+  { 
+    id = sspSlot(issp); 
+    for(iport=0; iport<8; iport++) 
+	 { 
+	   /* Slot and port number */ 
+	   printf("%2d-%2d ",id, iport+1); 
  
-	  /* Crate ID */ 
-	  printf("%5d      ",st[id].Ser[iport].CrateId); 
+	   /* Crate ID */ 
+	   printf("%5d      ",st[id].Ser[iport].CrateId); 
  
-	  /* Channel Status */ 
-	  printf("%s      ", 
+	   /* Channel Status */ 
+	   printf("%s      ", 
 		 (st[id].Ser[iport].Status & SSP_SER_STATUS_CHUP) ?    
 		 " UP ":"DOWN"); 
- 
-	  /* Used in trigger */ 
-	  printf("%s        ", 
-		 (portUsedInTrigger[id][iport]) ?    
-		 " NO":"YES"); 
  
 	  /* Receive trigger data */ 
 	  printf("%s      ", 
@@ -872,9 +887,9 @@ sspGStatus(int rflag)
 		 st[id].Ser[iport].ErrTile1&0xFFFF); 
 	  printf("%5d ", 
 		 st[id].Ser[iport].ErrTile1>>16); 
-	  printf("\n"); 
-	} 
-    } 
+	   printf("\n"); 
+	 } 
+  } 
   printf("--------------------------------------------------------------------------------\n"); 
   printf("\n"); 
   printf("\n"); 
@@ -1102,69 +1117,6 @@ sspPrintIOSrc(int id, int pflag)
  ************************************************************/ 
  
 /************************************************************ 
- * void sspTriggerSetup(int fiber_mask, int gtp_src) 
- *   fiber_mask (bits determine which fiber ports are used in trigger): 
- *    TRG_CTRL_FIBER_EN0			0x00000001 
- *    TRG_CTRL_FIBER_EN1			0x00000002 
- *    TRG_CTRL_FIBER_EN2			0x00000004 
- *    TRG_CTRL_FIBER_EN3			0x00000008 
- *    TRG_CTRL_FIBER_EN4			0x00000010 
- *    TRG_CTRL_FIBER_EN5			0x00000020 
- *    TRG_CTRL_FIBER_EN6			0x00000040 
- *    TRG_CTRL_FIBER_EN7			0x00000080 
- * 
- *   gtp_src (value determines what data the gtp will receive): 
- *    TRG_CTRL_GTPSRC_FIBER0	0 
- *    TRG_CTRL_GTPSRC_FIBER1	1 
- *    TRG_CTRL_GTPSRC_FIBER2	2 
- *    TRG_CTRL_GTPSRC_FIBER3	3 
- *    TRG_CTRL_GTPSRC_FIBER4	4 
- *    TRG_CTRL_GTPSRC_FIBER5	5 
- *    TRG_CTRL_GTPSRC_FIBER6	6 
- *    TRG_CTRL_GTPSRC_FIBER7	7 
- *    TRG_CTRL_GTPSRC_SUM	8 
- */ 
- 
-int  
-sspTriggerSetup(int id, int fiber_mask, int gtp_src, int pflag) 
-{ 
-  int i; 
-	 
-  if(id==0) id=sspSL[0]; 
-  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-  { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-  } 
- 
-  SSPLOCK; 
-  sspWriteReg(&pSSP[id]->Trg.Ctrl, fiber_mask | (gtp_src<<8)); 
-  SSPUNLOCK; 
- 
-  if(pflag) 
-  { 
-      printf("%s -\n",__FUNCTION__); 
-      printf("   enabled fiber ports: "); 
-       
-    for(i = 0; i < 8; i++) 
-	{ 
-	  if(fiber_mask & (1<<i)) 
-	    printf("%d ", i); 
-	} 
-    printf("\n"); 
-       
-    if((gtp_src < 0) || (gtp_src >= TRG_CTRL_GTPSRC_NUM)) 
-	{ 
-	  printf("   gtp data source: unknown\n"); 
-	  return ERROR; 
-	} 
-    else 
-	  printf("   gtp data source: %s\n", ssp_gtpsrc_names[gtp_src]); 
-  }	 
-  return OK; 
-} 
- 
-/************************************************************ 
  * SSP SD.PULSER Functions 
  ************************************************************/ 
  
@@ -1273,7 +1225,27 @@ sspPulserSetup(int id, float freq, float duty, unsigned int npulses)
 
 	if(npulses<0xFFFFFFFF) sspPulserStart(id);
 } 
- 
+
+float sspGetPulserFreq(int id)
+{
+  int val;
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return; 
+  } 
+  
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->Sd.PulserPeriod);
+  SSPUNLOCK;
+  
+  if(!val)
+	  return 0.0f;
+  
+  return (float)GCLK_FREQ/(float)val;
+}
+
 /************************************************************ 
  * SSP SERDES Functions 
  ************************************************************/ 
@@ -1296,51 +1268,57 @@ sspPulserSetup(int id, float freq, float duty, unsigned int npulses)
 void 
 sspPortEnable(int id, int mask, int pflag) 
 { 
-  int i; 
+  int i, j; 
 	 
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return; 
-    } 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return; 
+  } 
  
   if(pflag) 
     printf("%s - \n",__FUNCTION__); 
-  SSPLOCK; 
+  SSPLOCK;
   for(i = 0; i < SSP_SER_NUM; i++) 
   { 
     if(mask & (1<<i)) 
-	{ 
-	  if(pflag) 
-	    printf("   Enabling channel: %s...\n", ssp_serdes_names[i]); 
+    { 
+      if(pflag) 
+        printf("   Enabling channel: %s...\n", ssp_serdes_names[i]); 
  
-	  /* if the port already has its channel up, skip it */ 
-	  if((sspReadReg(&pSSP[id]->Ser[i].Status) & SSP_SER_STATUS_CHUP) == 0) 
-	    { 
-	      sspWriteReg(&pSSP[id]->Ser[i].Ctrl, SSP_SER_CTRL_LINKRST | 
-			  SSP_SER_CTRL_GTXRST | 
-			  SSP_SER_CTRL_POWERDN); 
+      for(j = 0; j < 10; j++)
+		{
+        /* if the port already has its channel up, skip it */ 
+        if((sspReadReg(&pSSP[id]->Ser[i].Status) & SSP_SER_STATUS_CHUP) == 0) 
+        { 
+	       sspWriteReg(&pSSP[id]->Ser[i].Ctrl, SSP_SER_CTRL_LINKRST | 
+            SSP_SER_CTRL_GTXRST | 
+            SSP_SER_CTRL_POWERDN); 
  
-	      sspWriteReg(&pSSP[id]->Ser[i].Ctrl, SSP_SER_CTRL_LINKRST | 
-			  SSP_SER_CTRL_GTXRST); 
+          sspWriteReg(&pSSP[id]->Ser[i].Ctrl, SSP_SER_CTRL_LINKRST | 
+            SSP_SER_CTRL_GTXRST); 
 		 
-	      sspWriteReg(&pSSP[id]->Ser[i].Ctrl, SSP_SER_CTRL_LINKRST); 
+          sspWriteReg(&pSSP[id]->Ser[i].Ctrl, SSP_SER_CTRL_LINKRST); 
 		 
-	      sspWriteReg(&pSSP[id]->Ser[i].Ctrl, 0); 
-	      sspWriteReg(&pSSP[id]->Ser[i].Ctrl, SSP_SER_CTRL_ERRCNT_EN); 
-	    } 
-	} 
+          sspWriteReg(&pSSP[id]->Ser[i].Ctrl, 0); 
+          sspWriteReg(&pSSP[id]->Ser[i].Ctrl, SSP_SER_CTRL_ERRCNT_EN);
+		  
+          sleep(1);
+		  }
+      }
+      if((sspReadReg(&pSSP[id]->Ser[i].Status) & SSP_SER_STATUS_CHUP) == 0)
+        printf("%s: ERROR: SSP in slot %d FIBER %d NOT UP\n", __FUNCTION__,id,i);
+    } 
     else 
-	{ 
-	  if(pflag) 
-	    printf("   Disabling channel: %s...\n", ssp_serdes_names[i]); 
-	  sspWriteReg(&pSSP[id]->Ser[i].Ctrl, SSP_SER_CTRL_LINKRST | 
-		      SSP_SER_CTRL_GTXRST | 
-		      SSP_SER_CTRL_POWERDN); 
-	} 
+    { 
+      if(pflag) 
+        printf("   Disabling channel: %s...\n", ssp_serdes_names[i]); 
+      sspWriteReg(&pSSP[id]->Ser[i].Ctrl, SSP_SER_CTRL_LINKRST | 
+        SSP_SER_CTRL_GTXRST | 
+        SSP_SER_CTRL_POWERDN); 
+    } 
   } 
- 
   SSPUNLOCK; 
   sspPortResetErrorCount(id, mask); 
   sspPortPrintStatus(id, mask); 
@@ -2031,6 +2009,10 @@ sspGetFirmwareVersion(int id)
 
 /* HPS Routines */
 
+/***************************************
+           set parameters
+***************************************/
+
 /* sspHps_SetLatency() - set trigger latency in 4ns ticks */ 
 int sspHps_SetLatency(int id, int latency)
 {
@@ -2048,137 +2030,421 @@ int sspHps_SetLatency(int id, int latency)
   }
  
   SSPLOCK; 
-  sspWriteReg(&pSSP[id]->HpsSingles.Latency, latency);
-  sspWriteReg(&pSSP[id]->HpsPairs.Latency, latency); 
+  sspWriteReg(&pSSP[id]->Trigger.Latency, latency);
   SSPUNLOCK; 
  
   return OK; 
 }
 
-/* sspHps_SinglesEnableTop() - enable/disable top calorimeter cluster trigger */
-int sspHps_SetSinglesEnableTop(int id, int en)
+/* sspHps_SetSinglesEmin() - set calorimeter single cluster trigger parameters
+     n    - singles trigger 0 or 1
+     emin - minimum cluster energy (units: MeV)
+*/
+int sspHps_SetSinglesEmin(int id, int n, int emin)
 {
-  int val;
-
-  if(id==0) id=sspSL[0]; 
+  if(id==0) id=sspSL[0];
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
     { 
       printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
       return ERROR; 
     } 
 
-  SSPLOCK;
-  if(en)
-    val = sspReadReg(&pSSP[id]->HpsSingles.Ctrl) | 0x00000001;
-  else
-    val = sspReadReg(&pSSP[id]->HpsSingles.Ctrl) & 0xFFFFFFFE;
-  sspWriteReg(&pSSP[id]->HpsSingles.Ctrl, val); 
-  SSPUNLOCK; 
- 
-  return OK; 
-}
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
 
-/* sspHps_SinglesEnableBot() - enable/disable bottom calorimeter cluster trigger */
-int sspHps_SetSinglesEnableBot(int id, int en)
-{
-  int val;
-
-  if(id==0) id=sspSL[0]; 
-  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-    } 
-
-  SSPLOCK;
-  if(en)
-    val = sspReadReg(&pSSP[id]->HpsSingles.Ctrl) | 0x00000002;
-  else
-    val = sspReadReg(&pSSP[id]->HpsSingles.Ctrl) & 0xFFFFFFFD;
-  sspWriteReg(&pSSP[id]->HpsSingles.Ctrl, val); 
-  SSPUNLOCK; 
- 
-  return OK; 
-}
-
-/* sspHps_SinglesEmin() - set minimum cluster energy for calorimeter single cluster trigger (units: MeV) */
-int sspHps_SetSinglesEmin(int id, int min)
-{
-  if(id==0) id=sspSL[0]; 
-  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-    } 
-
-  if( (min < 0) || (min > 8191) )
+  if( (emin < 0) || (emin > 8191) )
   {
     printf("%s: ERROR: emin is outside acceptable range.\n",__FUNCTION__);
     return ERROR;
   }
 
   SSPLOCK;
-  sspWriteReg(&pSSP[id]->HpsSingles.ClusterEmin, min); 
+  sspWriteReg(&pSSP[id]->HpsSingles[n].ClusterEmin, emin);
   SSPUNLOCK; 
  
   return OK; 
 }
 
-/* sspHps_SinglesEmax() - set maximum cluster energy for calorimeter single cluster trigger (units: MeV) */
-int sspHps_SetSinglesEmax(int id, int max)
+/* sspHps_SetSinglesEmax() - set calorimeter single cluster trigger parameters
+     n    - singles trigger 0 or 1
+     emax - minimum cluster energy (units: MeV)
+*/
+int sspHps_SetSinglesEmax(int id, int n, int emax)
 {
-  if(id==0) id=sspSL[0]; 
+  if(id==0) id=sspSL[0];
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
     { 
       printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
       return ERROR; 
     } 
 
-  if( (max < 0) || (max > 8191) )
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if( (emax < 0) || (emax > 8191) )
   {
     printf("%s: ERROR: emax is outside acceptable range.\n",__FUNCTION__);
     return ERROR;
   }
 
   SSPLOCK;
-  sspWriteReg(&pSSP[id]->HpsSingles.ClusterEmax, max); 
+  sspWriteReg(&pSSP[id]->HpsSingles[n].ClusterEmax, emax);
   SSPUNLOCK; 
  
   return OK; 
 }
 
-/* sspHps_SinglesNHitsmin() - set minimum cluster hits for calorimeter single cluster trigger (units: counts) */
-int sspHps_SetSinglesNHitsmin(int id, int min)
+/* sspHps_SetSinglesNHitsmin() - set calorimeter single cluster trigger parameters
+     n    - singles trigger 0 or 1
+     nmin - minimum cluster hits
+*/
+int sspHps_SetSinglesNHitsmin(int id, int n, int nmin)
 {
-  if(id==0) id=sspSL[0]; 
+  if(id==0) id=sspSL[0];
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
     { 
       printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
       return ERROR; 
     } 
 
-  if( (min < 0) || (min > 9) )
+  if( (n < 0) || (n > 1) )
   {
-    printf("%s: ERROR: emin is outside acceptable range.\n",__FUNCTION__);
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if( (nmin < 0) || (nmin > 15) )
+  {
+    printf("%s: ERROR: nmin is outside acceptable range.\n",__FUNCTION__);
     return ERROR;
   }
 
   SSPLOCK;
-  sspWriteReg(&pSSP[id]->HpsSingles.ClusterNHitsmin, min); 
+  sspWriteReg(&pSSP[id]->HpsSingles[n].ClusterNHitsmin, nmin);
   SSPUNLOCK; 
  
   return OK; 
 }
 
-/* sspHps_PairsTimeCoincidence() - set cluster pair coincidence time window (units: +/-4ns) */
-int sspHps_SetPairsTimeCoincidence(int id, int ticks)
+/* sspHps_SetSinglesEnableEmin() - set calorimeter single cluster trigger parameters
+     n    - singles trigger 0 or 1
+     en   - '0' disables , '1' enables trigger
+*/
+int sspHps_SetSinglesEnableEmin(int id, int n, int en)
 {
-  if(id==0) id=sspSL[0]; 
+  int val;
+  
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+   } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsSingles[n].Ctrl);
+  if(en)
+    val |= 0x00000001;
+  else
+    val &= 0xFFFFFFFE;
+  sspWriteReg(&pSSP[id]->HpsSingles[n].Ctrl, val);
+  SSPUNLOCK; 
+ 
+  return OK; 
+}
+
+/* sspHps_SetSinglesEnableEmax() - set calorimeter single cluster trigger parameters
+     n    - singles trigger 0 or 1
+     en   - '0' disables , '1' enables trigger
+*/
+int sspHps_SetSinglesEnableEmax(int id, int n, int en)
+{
+  int val;
+  
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsSingles[n].Ctrl);
+  if(en)
+    val |= 0x00000002;
+  else
+    val &= 0xFFFFFFFD;
+  sspWriteReg(&pSSP[id]->HpsSingles[n].Ctrl, val);
+  SSPUNLOCK; 
+ 
+  return OK; 
+}
+
+/* sspHps_SetSinglesEnableNmin() - set calorimeter single cluster trigger parameters
+     n    - singles trigger 0 or 1
+     en   - '0' disables , '1' enables trigger
+*/
+int sspHps_SetSinglesEnableNmin(int id, int n, int en)
+{
+  int val;
+  
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsSingles[n].Ctrl);
+  if(en)
+    val |= 0x00000004;
+  else
+    val &= 0xFFFFFFFB;
+  sspWriteReg(&pSSP[id]->HpsSingles[n].Ctrl, val);
+  SSPUNLOCK; 
+ 
+  return OK; 
+}
+
+/* sspHps_SetCosmicTimeCoincidence() - set cosmic scintillator coincidence time
+     ticks - coincidence time (units: +/-4ns)
+*/
+int sspHps_SetCosmicTimeCoincidence(int id, int ticks)
+{
+  int ctrl = 0;
+  
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (ticks < 0) || (ticks > 255) )
+  {
+    printf("%s: ERROR: ticks is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  sspWriteReg(&pSSP[id]->HpsCosmic.TimeCoincidence, ticks);
+  SSPUNLOCK; 
+ 
+  return OK; 
+}
+
+/* sspHps_SetCosmicCoincidencePattern() - set cosmic scintillator coincidence pattern
+     pattern  - 3:1 LUT definition for scintillator coincidence pattern that is accepted/rejected
+              Scintillator channels are the last 3 channels (14-16) of FADC in slot 20
+              pattern = 0xFE will trigger on any hit channels
+              pattern = 0x80 will trigger when all 3 channels hit
+              pattern = 0x88 will trigger when channels 14&15 are hit
+              pattern = 0xE8 will trigger when any 2 channels hit
+*/
+int sspHps_SetCosmicCoincidencePattern(int id, int pattern)
+{
+  int ctrl = 0;
+  
+  if(id==0) id=sspSL[0];
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
     { 
       printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
       return ERROR; 
     } 
+
+  if( (pattern < 0) || (pattern > 65535) )
+  {
+    printf("%s: ERROR: pattern is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  sspWriteReg(&pSSP[id]->HpsCosmic.TriggerPattern, pattern);
+  SSPUNLOCK; 
+ 
+  return OK; 
+}
+
+int sspHps_SetPairsEnableSum(int id, int n, int en)
+{
+  int val;
+
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  if(en)
+    val = sspReadReg(&pSSP[id]->HpsPairs[n].Ctrl) | 0x00000001;
+  else
+    val = sspReadReg(&pSSP[id]->HpsPairs[n].Ctrl) & 0xFFFFFFFE;
+  sspWriteReg(&pSSP[id]->HpsPairs[n].Ctrl, val); 
+  SSPUNLOCK; 
+ 
+  return OK;
+}
+
+int sspHps_SetPairsEnableDiff(int id, int n, int en)
+{
+  int val;
+
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  if(en)
+    val = sspReadReg(&pSSP[id]->HpsPairs[n].Ctrl) | 0x00000002;
+  else
+    val = sspReadReg(&pSSP[id]->HpsPairs[n].Ctrl) & 0xFFFFFFFD;
+  sspWriteReg(&pSSP[id]->HpsPairs[n].Ctrl, val); 
+  SSPUNLOCK; 
+ 
+  return OK;
+}
+
+int sspHps_SetPairsEnableCoplanar(int id, int n, int en)
+{
+  int val;
+
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  if(en)
+    val = sspReadReg(&pSSP[id]->HpsPairs[n].Ctrl) | 0x00000004;
+  else
+    val = sspReadReg(&pSSP[id]->HpsPairs[n].Ctrl) & 0xFFFFFFFB;
+  sspWriteReg(&pSSP[id]->HpsPairs[n].Ctrl, val); 
+  SSPUNLOCK; 
+ 
+  return OK;
+}
+
+int sspHps_SetPairsEnableED(int id, int n, int en)
+{
+  int val;
+
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  if(en)
+    val = sspReadReg(&pSSP[id]->HpsPairs[n].Ctrl) | 0x00000008;
+  else
+    val = sspReadReg(&pSSP[id]->HpsPairs[n].Ctrl) & 0xFFFFFFF7;
+  sspWriteReg(&pSSP[id]->HpsPairs[n].Ctrl, val); 
+  SSPUNLOCK; 
+ 
+  return OK;
+}
+
+int sspHps_SetPairsClusterDelay(int id, int n, int delay)
+{
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if( (delay < 0) || (delay > 512) )
+  {
+    printf("%s: ERROR: delay is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  sspWriteReg(&pSSP[id]->HpsPairs[n].ClusterDelay, delay); 
+  SSPUNLOCK; 
+ 
+  return OK;
+}
+
+/* sspHps_PairsTimeCoincidence() - set cluster pair coincidence time window (units: +/-4ns) */
+int sspHps_SetPairsTimeCoincidence(int id, int n, int ticks)
+{
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
 
   if( (ticks < 0) || (ticks > 15) )
   {
@@ -2187,21 +2453,27 @@ int sspHps_SetPairsTimeCoincidence(int id, int ticks)
   }
 
   SSPLOCK;
-  sspWriteReg(&pSSP[id]->HpsPairs.ClusterTimeCoincidence, ticks); 
+  sspWriteReg(&pSSP[id]->HpsPairs[n].ClusterTimeCoincidence, ticks); 
   SSPUNLOCK; 
  
   return OK; 
 }
 
 /* sspHps_PairsSummax() - set cluster pair sum maximum (units: MeV) */
-int sspHps_SetPairsSummax(int id, int max)
+int sspHps_SetPairsSummax(int id, int n, int max)
 {
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-    } 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
 
   if( (max < 0) || (max > 8191) )
   {
@@ -2210,21 +2482,56 @@ int sspHps_SetPairsSummax(int id, int max)
   }
 
   SSPLOCK;
-  sspWriteReg(&pSSP[id]->HpsPairs.ClusterSummax, max); 
+  sspWriteReg(&pSSP[id]->HpsPairs[n].ClusterSummax, max); 
+  SSPUNLOCK; 
+ 
+  return OK; 
+}
+
+/* sspHps_PairsSummin() - set cluster pair sum minimum (units: MeV) */
+int sspHps_SetPairsSummin(int id, int n, int min)
+{
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if( (min < 0) || (min > 8191) )
+  {
+    printf("%s: ERROR: ticks is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  sspWriteReg(&pSSP[id]->HpsPairs[n].ClusterSummin, min); 
   SSPUNLOCK; 
  
   return OK; 
 }
 
 /* sspHps_PairsDiffmax() - set cluster pair difference maximum (units: MeV) */
-int sspHps_SetPairsDiffmax(int id, int max)
+int sspHps_SetPairsDiffmax(int id, int n, int max)
 {
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-    } 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
 
   if( (max < 0) || (max > 8191) )
   {
@@ -2233,7 +2540,7 @@ int sspHps_SetPairsDiffmax(int id, int max)
   }
 
   SSPLOCK;
-  sspWriteReg(&pSSP[id]->HpsPairs.ClusterDiffmax, max); 
+  sspWriteReg(&pSSP[id]->HpsPairs[n].ClusterDiffmax, max); 
   SSPUNLOCK; 
  
   return OK;
@@ -2241,14 +2548,20 @@ int sspHps_SetPairsDiffmax(int id, int max)
 
 
 /* sspHps_PairsEmin() - set cluster pair cluster energy minimum (units: MeV) */
-int sspHps_SetPairsEmin(int id, int min)
+int sspHps_SetPairsEmin(int id, int n, int min)
 {
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-    } 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
 
   if( (min < 0) || (min > 8191) )
   {
@@ -2257,21 +2570,27 @@ int sspHps_SetPairsEmin(int id, int min)
   }
 
   SSPLOCK;
-  sspWriteReg(&pSSP[id]->HpsPairs.ClusterEmin, min); 
+  sspWriteReg(&pSSP[id]->HpsPairs[n].ClusterEmin, min); 
   SSPUNLOCK; 
  
   return OK;
 }
 
 /* sspHps_PairsEmin() - set cluster pair cluster energy maximum (units: MeV) */
-int sspHps_SetPairsEmax(int id, int max)
+int sspHps_SetPairsEmax(int id, int n, int max)
 {
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-    } 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
 
   if( (max < 0) || (max > 8191) )
   {
@@ -2280,21 +2599,27 @@ int sspHps_SetPairsEmax(int id, int max)
   }
 
   SSPLOCK;
-  sspWriteReg(&pSSP[id]->HpsPairs.ClusterEmax, max); 
+  sspWriteReg(&pSSP[id]->HpsPairs[n].ClusterEmax, max); 
   SSPUNLOCK; 
  
   return OK;
 }
 
 /* sspHps_PairsNHitsmin() - set minimum cluster hits for calorimeter pair cluster trigger (units: counts) */
-int sspHps_SetPairsNHitsmin(int id, int min)
+int sspHps_SetPairsNHitsmin(int id, int n, int min)
 {
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-    } 
+  {
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  }
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
 
   if( (min < 0) || (min > 9) )
   {
@@ -2303,21 +2628,27 @@ int sspHps_SetPairsNHitsmin(int id, int min)
   }
 
   SSPLOCK;
-  sspWriteReg(&pSSP[id]->HpsPairs.ClusterNHitsmin, min); 
+  sspWriteReg(&pSSP[id]->HpsPairs[n].ClusterNHitsmin, min); 
   SSPUNLOCK; 
  
   return OK; 
 }
 
 /* sspHps_PairsCoplanarTolerance() - set cluster pair-beam coplanarity tolerance (units: degrees) */
-int sspHps_SetPairsCoplanarTolerance(int id, int tol)
+int sspHps_SetPairsCoplanarTolerance(int id, int n, int tol)
 {
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-    } 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
 
   if( (tol < 0) || (tol > 255) )
   {
@@ -2326,43 +2657,58 @@ int sspHps_SetPairsCoplanarTolerance(int id, int tol)
   }
 
   SSPLOCK;
-  sspWriteReg(&pSSP[id]->HpsPairs.ClusterCoplanarTol, tol); 
+  sspWriteReg(&pSSP[id]->HpsPairs[n].ClusterCoplanarTol, tol); 
   SSPUNLOCK; 
  
   return OK;
 }
 
-/* sspHps_PairsEDFactor() - set cluster pair radial distance->energy factor (units: MeV/cm) */
-int sspHps_SetPairsEDFactor(int id, int f)
+/* sspHps_PairsEDFactor() - set cluster pair radial distance->energy factor (units: MeV/mm) */
+int sspHps_SetPairsEDFactor(int id, int n, float f)
 {
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-    } 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
 
-  if( (f < 0) || (f > 8191) )
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if( (f < 0.0) || (f > 511.0) )
   {
     printf("%s: ERROR: f is outside acceptable range.\n",__FUNCTION__);
     return ERROR;
   }
 
+  /* convert to fixed point 8.4 format */
+  f = f * 16.0f;
+
   SSPLOCK;
-  sspWriteReg(&pSSP[id]->HpsPairs.ClusterEDFactor, f); 
+  sspWriteReg(&pSSP[id]->HpsPairs[n].ClusterEDFactor, (int)f); 
   SSPUNLOCK; 
  
   return OK;
 }
 
-int sspHps_SetPairsEDmin(int id, int min)
+int sspHps_SetPairsEDmin(int id, int n, int min)
 {
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-    } 
+  {
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
 
   if( (min < 0) || (min > 8191) )
   {
@@ -2371,16 +2717,19 @@ int sspHps_SetPairsEDmin(int id, int min)
   }
 
   SSPLOCK;
-  sspWriteReg(&pSSP[id]->HpsPairs.ClusterEDmin, min); 
+  sspWriteReg(&pSSP[id]->HpsPairs[n].ClusterEDmin, min); 
   SSPUNLOCK; 
  
   return OK;
 }
 
-int sspHps_SetPairsEnableSum(int id, int en)
+/***************************************
+           get parameters
+***************************************/
+
+int sspHps_GetLatency(int id)
 {
   int val;
-
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
     { 
@@ -2388,22 +2737,172 @@ int sspHps_SetPairsEnableSum(int id, int en)
       return ERROR; 
     } 
 
-  SSPLOCK;
-  if(en)
-    val = sspReadReg(&pSSP[id]->HpsPairs.Ctrl) | 0x00000001;
-  else
-    val = sspReadReg(&pSSP[id]->HpsPairs.Ctrl) & 0xFFFFFFFE;
-  sspWriteReg(&pSSP[id]->HpsPairs.Ctrl, val); 
+  SSPLOCK; 
+  val = sspReadReg(&pSSP[id]->Trigger.Latency);
   SSPUNLOCK; 
  
-  return OK;
+  return val;
 }
 
-int sspHps_SetPairsEnableDiff(int id, int en)
+int sspHps_GetSinglesEmin(int id, int n)
 {
   int val;
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+    { 
+      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+      return ERROR; 
+    } 
 
-  if(id==0) id=sspSL[0]; 
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsSingles[n].ClusterEmin);
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+int sspHps_GetSinglesEmax(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+    { 
+      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+      return ERROR; 
+    } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+  
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsSingles[n].ClusterEmax);
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+int sspHps_GetSinglesNHitsmin(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+    { 
+      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+      return ERROR; 
+    } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsSingles[n].ClusterNHitsmin);
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+int sspHps_GetSinglesEnableEmin(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+   } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = (sspReadReg(&pSSP[id]->HpsSingles[n].Ctrl) & 0x00000001) >> 0;
+  SSPUNLOCK; 
+ 
+  return OK; 
+}
+
+int sspHps_GetSinglesEnableEmax(int id, int n)
+{
+  int val;  
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = (sspReadReg(&pSSP[id]->HpsSingles[n].Ctrl) & 0x00000002) >>1;
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+int sspHps_GetSinglesEnableNmin(int id, int n)
+{
+  int val;  
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = (sspReadReg(&pSSP[id]->HpsSingles[n].Ctrl) & 0x00000004) >> 2;
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+int sspHps_GetCosmicTimeCoincidence(int id)
+{
+  int val;
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsCosmic.TimeCoincidence);
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+int sspHps_GetCosmicCoincidencePattern(int id)
+{
+  int val;
+  if(id==0) id=sspSL[0];
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
     { 
       printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
@@ -2411,83 +2910,398 @@ int sspHps_SetPairsEnableDiff(int id, int en)
     } 
 
   SSPLOCK;
-  if(en)
-    val = sspReadReg(&pSSP[id]->HpsPairs.Ctrl) | 0x00000002;
-  else
-    val = sspReadReg(&pSSP[id]->HpsPairs.Ctrl) & 0xFFFFFFFD;
-  sspWriteReg(&pSSP[id]->HpsPairs.Ctrl, val); 
+  val = sspReadReg(&pSSP[id]->HpsCosmic.TriggerPattern);
   SSPUNLOCK; 
  
-  return OK;
+  return val; 
 }
 
-int sspHps_SetPairsEnableCoplanar(int id, int en)
+int sspHps_GetPairsEnableSum(int id, int n)
 {
   int val;
-
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-    } 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
 
   SSPLOCK;
-  if(en)
-    val = sspReadReg(&pSSP[id]->HpsPairs.Ctrl) | 0x00000004;
-  else
-    val = sspReadReg(&pSSP[id]->HpsPairs.Ctrl) & 0xFFFFFFFB;
-  sspWriteReg(&pSSP[id]->HpsPairs.Ctrl, val); 
+  val = (sspReadReg(&pSSP[id]->HpsPairs[n].Ctrl) & 0x00000001) >> 0;
   SSPUNLOCK; 
  
-  return OK;
+  return val;
 }
 
-int sspHps_SetPairsEnableED(int id, int en)
+int sspHps_GetPairsEnableDiff(int id, int n)
 {
   int val;
-
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return ERROR; 
-    } 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
 
   SSPLOCK;
-  if(en)
-    val = sspReadReg(&pSSP[id]->HpsPairs.Ctrl) | 0x00000008;
-  else
-    val = sspReadReg(&pSSP[id]->HpsPairs.Ctrl) & 0xFFFFFFF7;
-  sspWriteReg(&pSSP[id]->HpsPairs.Ctrl, val); 
+  val = (sspReadReg(&pSSP[id]->HpsPairs[n].Ctrl) & 0x00000002) >> 1;
   SSPUNLOCK; 
  
-  return OK;
+  return val;
 }
+
+int sspHps_GetPairsEnableCoplanar(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = (sspReadReg(&pSSP[id]->HpsPairs[n].Ctrl) & 0x00000004) >> 2;
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+int sspHps_GetPairsEnableED(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = (sspReadReg(&pSSP[id]->HpsPairs[n].Ctrl) & 0x00000008) >> 3;
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+int sspHps_GetPairsClusterDelay(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsPairs[n].ClusterDelay); 
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+int sspHps_GetPairsTimeCoincidence(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsPairs[n].ClusterTimeCoincidence); 
+  SSPUNLOCK; 
+ 
+  return val; 
+}
+
+int sspHps_GetPairsSummax(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsPairs[n].ClusterSummax);
+  SSPUNLOCK; 
+ 
+  return val; 
+}
+
+int sspHps_GetPairsSummin(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsPairs[n].ClusterSummin);
+  SSPUNLOCK; 
+ 
+  return val; 
+}
+
+int sspHps_GetPairsDiffmax(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsPairs[n].ClusterDiffmax);
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+int sspHps_GetPairsEmin(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsPairs[n].ClusterEmin);
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+int sspHps_GetPairsEmax(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsPairs[n].ClusterEmax); 
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+int sspHps_GetPairsNHitsmin(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  {
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  }
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsPairs[n].ClusterNHitsmin);
+  SSPUNLOCK; 
+ 
+  return val; 
+}
+
+int sspHps_GetPairsCoplanarTolerance(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsPairs[n].ClusterCoplanarTol); 
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+float sspHps_GetPairsEDFactor(int id, int n)
+{
+  float val;
+  
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = (float)sspReadReg(&pSSP[id]->HpsPairs[n].ClusterEDFactor) / 16.0f;
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
+int sspHps_GetPairsEDmin(int id, int n)
+{
+  int val;
+  if(id==0) id=sspSL[0]; 
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  {
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  } 
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = sspReadReg(&pSSP[id]->HpsPairs[n].ClusterEDmin); 
+  SSPUNLOCK; 
+ 
+  return val;
+}
+
 
 void sspPrintHpsScalers(int id) 
 {
   double ref, rate; 
   int i; 
   unsigned int scalers[SD_SCALER_NUM];
-  unsigned int hpsscalers[8];
-  const char *hpsscalers_name[8] = {
-    "PairPass",
-    "SumPass",
-    "DiffPass",
-    "EDPass",
-    "CoplanarPass",
-    "TriggerPass",
-    "SinglesPass",
-    "SinglesTot"
+  unsigned int hpsscalers[24];
+  const char *hpsscalers_name[24] = {
+    "PairTrig0.PairPass",
+    "PairTrig0.SumPass",
+    "PairTrig0.DiffPass",
+    "PairTrig0.EDPass",
+    "PairTrig0.CoplanarPass",
+    "PairTrig0.TriggerPass",
+    "PairTrig1.PairPass",
+    "PairTrig1.SumPass",
+    "PairTrig1.DiffPass",
+    "PairTrig1.EDPass",
+    "PairTrig1.CoplanarPass",
+    "PairTrig1.TriggerPass",
+    "SingleTrig0.SinglesPass",
+    "SingleTrig0.SinglesTot",
+    "SingleTrig1.SinglesPass",
+    "SingleTrig1.SinglesTot",
+    "Cosmic.Top0",
+    "Cosmic.Top1",
+    "Cosmic.Top2",
+    "Cosmic.TopTrig",
+    "Cosmic.Bot0",
+    "Cosmic.Bot1",
+    "Cosmic.Bot2",
+    "Cosmic.BotTrig"
     };
  
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return; 
-    } 
+  {
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return; 
+  }
  
   SSPLOCK; 
   sspWriteReg(&pSSP[id]->Sd.ScalerLatch, 0); 
@@ -2495,109 +3309,162 @@ void sspPrintHpsScalers(int id)
   for(i = 0; i < SD_SCALER_NUM; i++) 
     scalers[i] = sspReadReg(&pSSP[id]->Sd.Scalers[i]); 
 
-  hpsscalers[0] = sspReadReg(&pSSP[id]->HpsPairs.ScalerPairsPass);
-  hpsscalers[1] = sspReadReg(&pSSP[id]->HpsPairs.ScalerSumPass);
-  hpsscalers[2] = sspReadReg(&pSSP[id]->HpsPairs.ScalerDiffPass);
-  hpsscalers[3] = sspReadReg(&pSSP[id]->HpsPairs.ScalerEDPass);
-  hpsscalers[4] = sspReadReg(&pSSP[id]->HpsPairs.ScalerCoplanarPass);
-  hpsscalers[5] = sspReadReg(&pSSP[id]->HpsPairs.ScalerTriggerPass);
-  hpsscalers[6] = sspReadReg(&pSSP[id]->HpsSingles.ScalerSinglesPass);
-  hpsscalers[7] = sspReadReg(&pSSP[id]->HpsSingles.ScalerSinglesTot);
- 
+  hpsscalers[0] = sspReadReg(&pSSP[id]->HpsPairs[0].ScalerPairsPass);
+  hpsscalers[1] = sspReadReg(&pSSP[id]->HpsPairs[0].ScalerSumPass);
+  hpsscalers[2] = sspReadReg(&pSSP[id]->HpsPairs[0].ScalerDiffPass);
+  hpsscalers[3] = sspReadReg(&pSSP[id]->HpsPairs[0].ScalerEDPass);
+  hpsscalers[4] = sspReadReg(&pSSP[id]->HpsPairs[0].ScalerCoplanarPass);
+  hpsscalers[5] = sspReadReg(&pSSP[id]->HpsPairs[0].ScalerTriggerPass);
+  hpsscalers[6] = sspReadReg(&pSSP[id]->HpsPairs[1].ScalerPairsPass);
+  hpsscalers[7] = sspReadReg(&pSSP[id]->HpsPairs[1].ScalerSumPass);
+  hpsscalers[8] = sspReadReg(&pSSP[id]->HpsPairs[1].ScalerDiffPass);
+  hpsscalers[9] = sspReadReg(&pSSP[id]->HpsPairs[1].ScalerEDPass);
+  hpsscalers[10] = sspReadReg(&pSSP[id]->HpsPairs[1].ScalerCoplanarPass);
+  hpsscalers[11] = sspReadReg(&pSSP[id]->HpsPairs[1].ScalerTriggerPass);
+  hpsscalers[12] = sspReadReg(&pSSP[id]->HpsSingles[0].ScalerSinglesPass);
+  hpsscalers[13] = sspReadReg(&pSSP[id]->HpsSingles[0].ScalerSinglesTot);
+  hpsscalers[14] = sspReadReg(&pSSP[id]->HpsSingles[1].ScalerSinglesPass);
+  hpsscalers[15] = sspReadReg(&pSSP[id]->HpsSingles[1].ScalerSinglesTot);
+  hpsscalers[16] = sspReadReg(&pSSP[id]->HpsCosmic.ScalerScintillatorTop[0]);
+  hpsscalers[17] = sspReadReg(&pSSP[id]->HpsCosmic.ScalerScintillatorTop[1]);
+  hpsscalers[18] = sspReadReg(&pSSP[id]->HpsCosmic.ScalerScintillatorTop[2]);
+  hpsscalers[19] = sspReadReg(&pSSP[id]->HpsCosmic.ScalerCosmicTop);
+  hpsscalers[20] = sspReadReg(&pSSP[id]->HpsCosmic.ScalerScintillatorBot[0]);
+  hpsscalers[21] = sspReadReg(&pSSP[id]->HpsCosmic.ScalerScintillatorBot[1]);
+  hpsscalers[22] = sspReadReg(&pSSP[id]->HpsCosmic.ScalerScintillatorBot[2]);
+  hpsscalers[23] = sspReadReg(&pSSP[id]->HpsCosmic.ScalerCosmicBot);
+
   SSPUNLOCK; 
  
-  printf("%s - \n", 
-	 __FUNCTION__); 
+  printf("%s - \n", __FUNCTION__); 
   if(!scalers[SD_SCALER_SYSCLK]) 
-    { 
-      printf("Error: sspPrintScalers() reference time is 0. Reported rates will not be normalized.\n"); 
-      ref = 1.0; 
-    } 
+  {
+    printf("Error: sspPrintScalers() reference time is 0. Reported rates will not be normalized.\n"); 
+    ref = 1.0; 
+  } 
   else 
-    { 
-      ref = (double)scalers[SD_SCALER_SYSCLK] / (double)SYSCLK_FREQ; 
-    } 
+  { 
+    ref = (double)scalers[SD_SCALER_SYSCLK] / (double)SYSCLK_FREQ; 
+  } 
 	 
   for(i = 0; i < SD_SCALER_NUM; i++) 
-    { 
-      rate = (double)scalers[i]; 
-      rate = rate / ref; 
-      if(scalers[i] == 0xFFFFFFFF) 
-	printf("   %-25s %10u,%.3fHz [OVERFLOW]\n", ssp_scaler_name[i], scalers[i], rate); 
-      else 
-	printf("   %-25s %10u,%.3fHz\n", ssp_scaler_name[i], scalers[i], rate); 
-    }
+  { 
+    rate = (double)scalers[i]; 
+    rate = rate / ref; 
+    if(scalers[i] == 0xFFFFFFFF) 
+	   printf("   %-25s %10u,%.3fHz [OVERFLOW]\n", ssp_scaler_name[i], scalers[i], rate); 
+    else 
+	   printf("   %-25s %10u,%.3fHz\n", ssp_scaler_name[i], scalers[i], rate); 
+  }
 
-  for(i = 0; i < 8; i++) 
-    { 
-      rate = (double)hpsscalers[i]; 
-      rate = rate / ref; 
-      if(hpsscalers[i] == 0xFFFFFFFF) 
-	printf("   %-25s %10u,%.3fHz [OVERFLOW]\n", hpsscalers[i], hpsscalers[i], rate); 
-      else 
-	printf("   %-25s %10u,%.3fHz\n", hpsscalers[i], hpsscalers[i], rate); 
-    }
-
+  for(i = 0; i < 24; i++) 
+  { 
+    rate = (double)hpsscalers[i]; 
+    rate = rate / ref; 
+    if(hpsscalers[i] == 0xFFFFFFFF) 
+	   printf("   %-25s %10u,%.3fHz [OVERFLOW]\n", hpsscalers[i], hpsscalers[i], rate); 
+    else 
+	   printf("   %-25s %10u,%.3fHz\n", hpsscalers[i], hpsscalers[i], rate); 
+  }
 }
 
 void sspPrintHpsConfig(int id)
 {
-  int singlesLatency, singlesTopEn, singlesBotEn, singlesEmin, singlesEmax, singlesNHitsmin,
-      pairsLatency, pairsTimeCoincidence, pairsSummax, pairsDiffmax, pairsEmin, pairsEmax,
-      pairsNHitsmin, pairsCoplanarTolerance, pairsEDFactor, pairsEDmin, pairsSumEn,
-      pairsDiffEn, pairsCoplanarEn, pairsEDEn;
-
+  int i;
+  int triggerLatency, singlesEmin[2], singlesEmax[2], singlesNmin[2],
+      singlesEminEn[2], singlesEmaxEn[2], singlesNminEn[2],
+      cosmicTimeCoincidence, cosmicPatternCoincidence,
+      pairsSumEn[2], pairsDiffEn[2], pairsCoplanarEn[2], pairsEDEn[2],
+      pairsClusterDelay[2], pairsTimeCoincidence[2], pairsSummax[2],
+      pairsSummin[2], pairsDiffmax[2], pairsEmin[2], pairsEmax[2],
+      pairsNHitsmin[2], pairsCoplanarTolerance[2], pairsEDmin[2];
+  float pairsEDFactor[2];
+		
   if(id==0) id=sspSL[0]; 
   if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-    { 
-      printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-      return; 
-    } 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return; 
+  } 
 
   printf("*** HpsConfig ***\n");
+  
+  triggerLatency = sspHps_GetLatency(id);
+  
+  for(i = 0; i < 2; i++)
+  {
+  singlesEmin[i] = sspHps_GetSinglesEmin(id, i);
+  singlesEmax[i] = sspHps_GetSinglesEmax(id, i);
+  singlesNmin[i] = sspHps_GetSinglesNHitsmin(id, i);
+  singlesEminEn[i] = sspHps_GetSinglesEnableEmin(id, i);
+  singlesEmaxEn[i] = sspHps_GetSinglesEnableEmax(id, i);
+  singlesNminEn[i] = sspHps_GetSinglesEnableNmin(id, i);
+  }
 
-  SSPLOCK; 
-  singlesLatency = sspReadReg(&pSSP[id]->HpsSingles.Latency);
-  singlesTopEn = sspReadReg(&pSSP[id]->HpsSingles.Ctrl) & 0x1; 
-  singlesBotEn = sspReadReg(&pSSP[id]->HpsSingles.Ctrl) & 0x2;
-  singlesEmin = sspReadReg(&pSSP[id]->HpsSingles.ClusterEmin); 
-  singlesEmax = sspReadReg(&pSSP[id]->HpsSingles.ClusterEmax);
-  singlesNHitsmin = sspReadReg(&pSSP[id]->HpsSingles.ClusterNHitsmin);
-  pairsLatency = sspReadReg(&pSSP[id]->HpsPairs.Latency);
-  pairsTimeCoincidence = sspReadReg(&pSSP[id]->HpsPairs.ClusterTimeCoincidence); 
-  pairsSummax = sspReadReg(&pSSP[id]->HpsPairs.ClusterSummax);
-  pairsDiffmax = sspReadReg(&pSSP[id]->HpsPairs.ClusterDiffmax);
-  pairsEmin = sspReadReg(&pSSP[id]->HpsPairs.ClusterEmin);
-  pairsEmax = sspReadReg(&pSSP[id]->HpsPairs.ClusterEmax);
-  pairsNHitsmin = sspReadReg(&pSSP[id]->HpsPairs.ClusterNHitsmin);
-  pairsCoplanarTolerance = sspReadReg(&pSSP[id]->HpsPairs.ClusterCoplanarTol);
-  pairsEDFactor = sspReadReg(&pSSP[id]->HpsPairs.ClusterEDFactor);
-  pairsEDmin = sspReadReg(&pSSP[id]->HpsPairs.ClusterEDmin);
-  pairsSumEn = sspReadReg(&pSSP[id]->HpsPairs.Ctrl) & 0x1;
-  pairsDiffEn = sspReadReg(&pSSP[id]->HpsPairs.Ctrl) & 0x2;
-  pairsCoplanarEn = sspReadReg(&pSSP[id]->HpsPairs.Ctrl) & 0x4;
-  pairsEDEn = sspReadReg(&pSSP[id]->HpsPairs.Ctrl) & 0x8;
-  SSPUNLOCK; 
+  cosmicTimeCoincidence = sspHps_GetCosmicTimeCoincidence(id);
+  cosmicPatternCoincidence = sspHps_GetCosmicCoincidencePattern(id);
+  
+  for(i = 0; i < 2; i++)
+  {
+  pairsSumEn[i] = sspHps_GetPairsEnableSum(id, i);
+  pairsDiffEn[i] = sspHps_GetPairsEnableDiff(id, i);
+  pairsCoplanarEn[i] = sspHps_GetPairsEnableCoplanar(id, i);
+  pairsEDEn[i] = sspHps_GetPairsEnableED(id, i);
+  pairsClusterDelay[i] = sspHps_GetPairsClusterDelay(id, i);
+  pairsTimeCoincidence[i] = sspHps_GetPairsTimeCoincidence(id, i);
+  pairsSummax[i] = sspHps_GetPairsSummax(id, i);
+  pairsSummin[i] = sspHps_GetPairsSummin(id, i);
+  pairsDiffmax[i] = sspHps_GetPairsDiffmax(id, i);
+  pairsEmin[i] = sspHps_GetPairsEmin(id, i);
+  pairsEmax[i] = sspHps_GetPairsEmax(id, i);
+  pairsNHitsmin[i] = sspHps_GetPairsNHitsmin(id, i);
+  pairsCoplanarTolerance[i] = sspHps_GetPairsCoplanarTolerance(id, i);
+  pairsEDFactor[i] = sspHps_GetPairsEDFactor(id, i);
+  pairsEDmin[i] = sspHps_GetPairsEDmin(id, i);
+  }
 
-  printf("   *** Singles Configuration ***\n");
-  printf("     Latency = %dns\n", singlesLatency);
-  printf("     TopEnabled = %d, BotEnabled = %d\n", singlesTopEn, singlesBotEn);
-  printf("     Emin = %dMeV, Emax = %dMeV\n", singlesEmin, singlesEmax);
-  printf("     NHitsmin = %d\n", singlesNHitsmin);
-  printf("   *** Pairs Configuration ***\n");
-  printf("     Latency = %dns\n", pairsLatency);
-  printf("     SumEnabled = %d, DiffEnabled = %d, CoplanarEnabled = %d, EDEnabled = %d\n", pairsSumEn, pairsDiffEn, pairsCoplanarEn, pairsEDEn);
-  printf("     Coincidence = +/-%dns\n", pairsTimeCoincidence*4); 
-  printf("     SumMax = %dMeV\n", pairsSummax);
-  printf("     DiffMax = %dMeV\n", pairsDiffmax);
-  printf("     Emin = %dMeV, Emax = %dMeV\n", pairsEmin, pairsEmax);
-  printf("     NHitsmin = %d\n", pairsNHitsmin);
-  printf("     Coplanar Tolerance = +/-%ddegrees\n", pairsCoplanarTolerance);
-  printf("     EDFactor = %dMeV/mm\n", pairsEDFactor);
-  printf("     EDmin = %dMeV\n", pairsEDmin); 
+  for(i = 0; i < 2; i++)
+  {
+  printf("   *** Singles %d Configuration ***\n", i);
+  printf("     Emin = %dMeV, Enabled = %d\n", singlesEmin[i], singlesEminEn[i]);
+  printf("     Emax = %dMeV, Enabled = %d\n", singlesEmax[i], singlesEmaxEn[i]);
+  printf("     NHitsmin = %d, Enabled = %d\n", singlesNmin[i], singlesNminEn[i]);
+  printf("\n");
+  }
+  
+  for(i = 0; i < 2; i++)
+  {
+  printf("   *** Pairs %d Configuration ***\n", i);
+  printf("     Emin = %dMeV\n", pairsEmin[i]);
+  printf("     Emax = %dMeV\n", pairsEmax[i]);
+  printf("     NHitsmin = %d\n", pairsNHitsmin[i]);
+  printf("     ClusterDelay = %d(%dns)\n", pairsClusterDelay[i], pairsClusterDelay[i]*4);
+  printf("     TimeCoincidence = %d(+/-%dns)\n", pairsTimeCoincidence[i], pairsTimeCoincidence[i]*4);
+  printf("     SumMax = %dMeV, SumMin = %dMeV, Enabled = %d\n", pairsSummax[i], pairsSummin[i], pairsSumEn[i]);
+  printf("     DiffMax = %dMeV, Enabled = %d\n", pairsDiffmax[i], pairsDiffEn[i]);
+  printf("     Coplanarity = +/-%ddegrees, Enabled = %d\n", pairsCoplanarTolerance[i], pairsCoplanarEn[i]);
+  printf("     EDFactor = %.3fMeV/mm, EDmin = %dMeV, Enabled = %d\n", pairsEDFactor[i], pairsEDmin[i], pairsEDEn[i]);
+  printf("\n");
+  }
+
+  printf("   *** Cosmic Configuration ***\n");
+  printf("     TimeCoincidence = %d(%dns)\n", cosmicTimeCoincidence, cosmicTimeCoincidence*4);
+  printf("     PatternCoincidence = 0x%02X\n", cosmicPatternCoincidence);
+  printf("\n");
+  
+  printf("   *** Trigger Configuration ***\n");
+  printf("     Latency = %d(%dns)\n", triggerLatency, triggerLatency*4);
+  
+  printf("   *** Trigger Output Configuration ***\n");
+  for(i = SD_SRC_P2_LVDSOUT0; i <= SD_SRC_P2_LVDSOUT7; i++)
+  {
+  printf("     %s = %s\n", ssp_ioport_names[i], ssp_signal_names[sspGetIOSrc(id, i, 0)]);
+  }
+  
+  printf("\n");
 }
 
- 
+
 /* Global arrays of strings of names of ports/signals */ 
  
 const char *ssp_ioport_names[SD_SRC_NUM] =  
@@ -2609,12 +3476,12 @@ const char *ssp_ioport_names[SD_SRC_NUM] =
     "LVDSOUT4", 
     "GPIO0", 
     "GPIO1", 
-    "P2_LVDSOUT0", 
-    "P2_LVDSOUT1", 
-    "P2_LVDSOUT2", 
-    "P2_LVDSOUT3", 
-    "P2_LVDSOUT4", 
-    "P2_LVDSOUT5", 
+    "P2_LVDSOUT0 (TS#1)", 
+    "P2_LVDSOUT1 (TS#2)", 
+    "P2_LVDSOUT2 (TS#3)", 
+    "P2_LVDSOUT3 (TS#4)", 
+    "P2_LVDSOUT4 (TS#5)", 
+    "P2_LVDSOUT5 (TS#6)", 
     "P2_LVDSOUT6", 
     "P2_LVDSOUT7", 
     "TRIG", 
@@ -2643,12 +3510,12 @@ const char *ssp_signal_names[SD_SRC_SEL_NUM] =
     "SD_SRC_SEL_P2LVDSIN7", 
     "SD_SRC_SEL_PULSER", 
     "SD_SRC_SEL_BUSY", 
-    "SD_SRC_SEL_TRIGGER0", 
-    "SD_SRC_SEL_TRIGGER1", 
-    "SD_SRC_SEL_TRIGGER2", 
-    "SD_SRC_SEL_TRIGGER3", 
-    "SD_SRC_SEL_TRIGGER4", 
-    "SD_SRC_SEL_TRIGGER5", 
+    "SD_SRC_SEL_TRIGGER0 (HPS SINGLES 0)", 
+    "SD_SRC_SEL_TRIGGER1 (HPS SINGLES 1)", 
+    "SD_SRC_SEL_TRIGGER2 (HPS PAIRS 0)", 
+    "SD_SRC_SEL_TRIGGER3 (HPS PAIRS 1)", 
+    "SD_SRC_SEL_TRIGGER4 (HPS LED)", 
+    "SD_SRC_SEL_TRIGGER5 (HPS COSMIC)", 
     "SD_SRC_SEL_TRIGGER6", 
     "SD_SRC_SEL_TRIGGER7" 
   }; 
@@ -2865,9 +3732,34 @@ sspReadBlock(int id, unsigned int *data, int nwrds, int rflag)
 
 
 
+int
+sspBReady(int slot)
+{
+  unsigned int rval;
 
+  SSPLOCK;
+  rval = vmeRead32(&pSSP[slot]->EB.FifoBlockCnt);
+  SSPUNLOCK;
 
+  return (rval > 0) ? 1 : 0;
+}
 
+unsigned int
+sspGBReady()
+{
+  unsigned int mask = 0;
+  int i, stat;
+
+  /*SSPLOCK;*/
+  for (i = 0; i < nSSP; i++) {
+    stat = sspBReady(sspSL[i]);
+    if (stat)
+      mask |= (1 << sspSL[i]);
+  }
+  /*SSPUNLOCK;*/
+
+  return(mask);
+}
 
 
 
@@ -2907,6 +3799,48 @@ sspInitGlobals()
   window_width  = 100;
   window_offset = 825;
 
+  trigger_latency = 500;
+
+  for(ii = 0; ii < 2; ii++)
+  {
+    singles_emin[ii] = 0;
+    singles_emax[ii] = 8191;
+    singles_nmin[ii] = 0;
+    singles_emin_en[ii] = 1;
+    singles_emax_en[ii] = 1;
+    singles_nmin_en[ii] = 1;
+  }
+
+  cosmic_timecoincidence = 10;
+  cosmic_pattern = 0xFE;
+
+  pulser_freq = 0;
+
+  for(ii = 0; ii < 2; ii++)
+  {
+    pairs_clusterdelay[ii] = 128;
+    pairs_timecoincidence[ii] = 2;
+    pairs_emin[ii] = 0;
+    pairs_emax[ii] = 8191;
+    pairs_nmin[ii] = 0;
+    pairs_summax[ii] = 8191;
+    pairs_summin[ii] = 0;
+    pairs_summax_en[ii] = 1;
+    pairs_diffmax[ii] = 8191;
+    pairs_diffmax_en[ii] = 1;
+    pairs_coplanartolerance[ii] = 180;
+    pairs_coplanartolerance_en[ii] = 1;
+    pairs_edfactor[ii] = 1;
+    pairs_edmin[ii] = 0;
+    pairs_ed_en[ii] = 1;
+  }
+
+  for(ii = 0; ii < SD_SRC_NUM; ii++)
+    ssp_io_mux[ii] = SD_SRC_SEL_0;
+
+  ssp_io_mux[SD_SRC_TRIG] = SD_SRC_SEL_TRIG1;
+  ssp_io_mux[SD_SRC_SYNC] = SD_SRC_SEL_SYNC;
+
   /*
   for(ii=0; ii<NBOARD; ii++)
   {
@@ -2942,7 +3876,8 @@ sspReadConfigFile(char *filename)
   char   str_tmp[STRLEN], keyword[ROCLEN];
   char   host[ROCLEN], ROC_name[ROCLEN];
   char   str2[2];
-  int    args, i1, msk[NCHAN];
+  int    args, i1, i2, i3, i4, msk[NCHAN];
+  float  f1;
   int    slot, chan;
   unsigned int  ui1, ui2;
   char *getenv();
@@ -2987,6 +3922,7 @@ sspReadConfigFile(char *filename)
   printf("\nsspReadConfigFile: Using configuration file >%s<\n",fname);
 
   /* Parsing of config file */
+  active = 0;
   while ((ch = getc(fd)) != EOF)
   {
     if ( ch == '#' || ch == ' ' || ch == '\t' )
@@ -3002,23 +3938,32 @@ sspReadConfigFile(char *filename)
 
 
       /* Start parsing real config inputs */
-      if(strcmp(keyword,"CRATE") == 0)
+      if(strcmp(keyword,"SSP_CRATE") == 0)
       {
-	    if(strcmp(ROC_name,host) != 0)
+	    if(strcmp(ROC_name,host) == 0)
         {
-	      printf("\nsspReadConfigFile: Wrong crate name in config file, %s\n",str_tmp);
-          return(-3);
+	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+          active = 1;
         }
-	    printf("\nsspReadConfigFile: conf_CRATE_name = %s  host = %s\n",ROC_name,host);
+	    else if(strcmp(ROC_name,"all") == 0)
+		{
+	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+          active = 1;
+		}
+        else
+		{
+	      printf("\nReadConfigFile: crate = %s  host = %s - disactivated\n",ROC_name,host);
+          active = 0;
+		}
       }
 
-      else if((strcmp(keyword,"SSP_ALLSLOTS")==0))
+      else if(active && (strcmp(keyword,"SSP_ALLSLOTS")==0))
       {
 	    gr++;
 	    for(ii=0; ii<NBOARD; ii++)  sspconf[ii].group = gr;
       }
 
-      else if((strcmp(keyword,"SSP_SLOTS")==0))
+      else if(active && ((strcmp(keyword,"SSP_SLOT")==0) || (strcmp(keyword,"SSP_SLOTS")==0)) )
       {
 	    gr++;
 	    SCAN_MSK;
@@ -3036,10 +3981,7 @@ sspReadConfigFile(char *filename)
 	    }
       }
 
-
-
-
-      else if((strcmp(keyword,"SSP_BERR")==0))
+      else if(active && (strcmp(keyword,"SSP_BERR")==0))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    if(i1!=0 && i1!=1)
@@ -3050,36 +3992,219 @@ sspReadConfigFile(char *filename)
 	    bus_error = i1;
       }
 
-      else if((strcmp(keyword,"SSP_BLOCK_LEVEL")==0))
+      else if(active && (strcmp(keyword,"SSP_BLOCK_LEVEL")==0))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    block_level= i1;
       }
 
-      else if((strcmp(keyword,"SSP_W_WIDTH")==0))
+      else if(active && (strcmp(keyword,"SSP_W_WIDTH")==0))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    window_width= i1;
       }
 
-      else if((strcmp(keyword,"SSP_W_OFFSET")==0))
+      else if(active && (strcmp(keyword,"SSP_W_OFFSET")==0))
       {
         sscanf (str_tmp, "%*s %d %d", &i1);
 	    window_offset= i1;
       }
 
+      else if(active && (strcmp(keyword,"SSP_HPS_SINGLES_EMIN")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d %d", &i1, &i2, &i3);		  
+		if((i1 < 0) || (i1 > 1))
+		{
+	      printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);
+	      return(-4);
+		}
+        singles_emin[i1] = i2;
+		singles_emin_en[i1] = i3;
+      }
 
+      else if(active && (strcmp(keyword,"SSP_HPS_SINGLES_EMAX")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d %d", &i1, &i2, &i3);		  
+		if((i1 < 0) || (i1 > 1))
+		{
+	      printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);
+	      return(-4);
+		}
+        singles_emax[i1] = i2;
+		singles_emax_en[i1] = i3;
+      }
 
+      else if(active && (strcmp(keyword,"SSP_HPS_SINGLES_NMIN")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d %d", &i1, &i2, &i3);		  
+		if((i1 < 0) || (i1 > 1))
+		{
+	      printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);
+	      return(-4);
+		}
+        singles_nmin[i1] = i2;
+		singles_nmin_en[i1] = i3;
+      }
 
+      else if(active && (strcmp(keyword,"SSP_HPS_LATENCY")==0))
+      {
+        sscanf (str_tmp, "%*s %d", &i1);
+        trigger_latency = i1;
+      }
+
+      else if(active && (strcmp(keyword,"SSP_HPS_COSMIC_TIMECOINCIDENCE")==0))
+      {
+        sscanf (str_tmp, "%*s %d", &i1);
+        cosmic_timecoincidence = i1;
+      }
+
+      else if(active && (strcmp(keyword,"SSP_HPS_COSMIC_PATTERNCOINCIDENCE")==0))
+      {
+        sscanf (str_tmp, "%*s %d", &i1);
+        cosmic_pattern = i1;
+      }
+
+      else if(active && (strcmp(keyword,"SSP_HPS_PAIRS_TIMECOINCIDENCE")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d", &i1, &i2);
+		if((i1 < 0) || (i1 > 1))
+		{
+	      printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);
+	      return(-4);
+		}
+        pairs_timecoincidence[i1] = i2;
+      }
+
+      else if(active && (strcmp(keyword,"SSP_HPS_PAIRS_EMIN")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d", &i1, &i2);		  
+		if((i1 < 0) || (i1 > 1))
+		{
+	      printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);
+	      return(-4);
+		}
+        pairs_emin[i1] = i2;
+      }
+
+      else if(active && (strcmp(keyword,"SSP_HPS_PAIRS_EMAX")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d %d", &i1, &i2);		  
+		if((i1 < 0) || (i1 > 1))
+		{
+	      printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);
+	      return(-4);
+		}
+        pairs_emax[i1] = i2;
+      }
+
+      else if(active && (strcmp(keyword,"SSP_HPS_PAIRS_NMIN")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d", &i1, &i2);		  
+		if((i1 < 0) || (i1 > 1))
+		{
+	      printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);
+	      return(-4);
+		}
+        pairs_nmin[i1] = i2;
+      }
+
+      else if(active && (strcmp(keyword,"SSP_HPS_PAIRS_SUMMAX")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d %d", &i1, &i2, &i3);
+		if((i1 < 0) || (i1 > 1))
+		{
+	      printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);
+	      return(-4);
+	    }
+        pairs_summax[i1] = i2;
+	    pairs_summin[i1] = 0;
+	    pairs_summax_en[i1] = i3;
+      }
+
+      else if(active && (strcmp(keyword,"SSP_HPS_PAIRS_SUMMAX_MIN")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d %d %d", &i1, &i2, &i3, &i4);
+		if((i1 < 0) || (i1 > 1))
+		{
+	      printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);
+	      return(-4);
+	    }
+        pairs_summax[i1] = i2;
+	    pairs_summin[i1] = i3;
+	    pairs_summax_en[i1] = i4;
+      }
+
+      else if(active && (strcmp(keyword,"SSP_HPS_PAIRS_DIFFMAX")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d %d", &i1, &i2, &i3);
+	    if((i1 < 0) || (i1 > 1))
+		{
+	      printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);
+	      return(-4);
+  	    }
+        pairs_diffmax[i1] = i2;
+		pairs_diffmax_en[i1] = i3;
+      }
+
+      else if(active && (strcmp(keyword,"SSP_HPS_PAIRS_COPLANARITY")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d %d", &i1, &i2, &i3);
+		if((i1 < 0) || (i1 > 1))
+		{
+	      printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);
+	      return(-4);
+		}
+        pairs_coplanartolerance[i1] = i2;
+		pairs_coplanartolerance_en[i1] = i3;
+      }
+
+      else if(active && (strcmp(keyword,"SSP_HPS_PAIRS_ENERGYDIST")==0))
+      {
+        sscanf (str_tmp, "%*s %d %f %d %d", &i1, &f1, &i3, &i4);
+		if((i1 < 0) || (i1 > 1))
+		{
+	      printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);
+	      return(-4);
+		}
+        pairs_edfactor[i1] = f1;
+		pairs_edmin[i1] = i3;
+		pairs_ed_en[i1] = i4;
+      }
+
+      else if(active && (strcmp(keyword,"SSP_HPS_PULSER")==0))
+      {
+        sscanf (str_tmp, "%*s %d", &i1);
+        pulser_freq = i1;
+      }
+
+      else if(active && (strcmp(keyword,"SSP_HPS_SET_IO_SRC")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d", &i1, &i2);
+        if((i1 < 0) || (i1 >= SD_SRC_NUM))
+        {
+          printf("\nsspReadConfigFile: Wrong src number %d, %s\n",slot,str_tmp);
+          return(-4);
+        }
+        if((i2 < 0) || (i2 >= SD_SRC_SEL_NUM))
+        {
+          printf("\nsspReadConfigFile: Wrong sel number %d, %s\n",slot,str_tmp);
+          return(-4);
+        }
+        ssp_io_mux[i1] = i2;
+      }
 
       else
       {
+        ; /* unknown key - do nothing */
+		/*
         printf("sspReadConfigFile: Unknown Field or Missed Field in\n");
         printf("   %s \n", fname);
         printf("   str_tmp=%s", str_tmp);
         printf("   keyword=%s \n\n", keyword);
         return(-10);
+		*/
       }
+
     }
   } /* end of while */
 
@@ -3185,12 +4310,10 @@ sspGetWindowOffset(int id)
   return(ret);
 }
 
-
-
 int
 sspDownloadAll()
 {
-  int ii;
+  int ii, jj;
 
   /*for(ii=0; ii<nssp; ii++) sspReset(ii);*/
   for(ii=0; ii<nSSP; ii++)
@@ -3203,8 +4326,50 @@ sspDownloadAll()
     else          sspDisableBusError(sspSL[ii]);
 
     /* window size and position */
-	sspSetWindowWidth(sspSL[ii], window_width);
+	 sspSetWindowWidth(sspSL[ii], window_width);
     sspSetWindowOffset(sspSL[ii], window_offset);
+	 
+	 if(pulser_freq)
+    {
+    	sspPulserSetup(sspSL[ii], (float)pulser_freq, 0.5, 0xFFFFFFFF);
+      sspPulserStart(sspSL[ii]);
+    }
+	 else
+    	sspPulserSetup(sspSL[ii], (float)0.0, 0, 0);
+
+	 sspHps_SetLatency(sspSL[ii], trigger_latency);
+	 
+	 sspHps_SetCosmicTimeCoincidence(sspSL[ii], cosmic_timecoincidence);
+	 sspHps_SetCosmicCoincidencePattern(sspSL[ii], cosmic_pattern);
+
+    for(jj=0; jj<2; jj++)
+	 {
+      sspHps_SetSinglesEmin(sspSL[ii], jj, singles_emin[jj]);
+      sspHps_SetSinglesEmax(sspSL[ii], jj, singles_emax[jj]);
+      sspHps_SetSinglesNHitsmin(sspSL[ii], jj, singles_nmin[jj]);
+      sspHps_SetSinglesEnableEmin(sspSL[ii], jj, singles_emin_en[jj]);
+      sspHps_SetSinglesEnableEmax(sspSL[ii], jj, singles_emax_en[jj]);
+      sspHps_SetSinglesEnableNmin(sspSL[ii], jj, singles_nmin_en[jj]);
+
+      sspHps_SetPairsEnableSum(sspSL[ii], jj, pairs_summax_en[jj]);
+      sspHps_SetPairsEnableDiff(sspSL[ii], jj, pairs_diffmax_en[jj]);
+      sspHps_SetPairsEnableCoplanar(sspSL[ii], jj, pairs_coplanartolerance_en[jj]);
+      sspHps_SetPairsEnableED(sspSL[ii], jj, pairs_ed_en[jj]);
+      sspHps_SetPairsClusterDelay(sspSL[ii], jj, pairs_clusterdelay[jj]);
+      sspHps_SetPairsTimeCoincidence(sspSL[ii], jj, pairs_timecoincidence[jj]);
+      sspHps_SetPairsSummax(sspSL[ii], jj, pairs_summax[jj]);
+		sspHps_SetPairsSummin(sspSL[ii], jj, pairs_summin[jj]);
+      sspHps_SetPairsDiffmax(sspSL[ii], jj, pairs_diffmax[jj]);
+      sspHps_SetPairsEmin(sspSL[ii], jj, pairs_emin[jj]);
+      sspHps_SetPairsEmax(sspSL[ii], jj, pairs_emax[jj]);
+      sspHps_SetPairsNHitsmin(sspSL[ii], jj, pairs_nmin[jj]);
+      sspHps_SetPairsCoplanarTolerance(sspSL[ii], jj, pairs_coplanartolerance[jj]);
+      sspHps_SetPairsEDFactor(sspSL[ii], jj, pairs_edfactor[jj]);
+      sspHps_SetPairsEDmin(sspSL[ii], jj, pairs_edmin[jj]);
+	 }
+
+    for(jj=0; jj<SD_SRC_NUM; jj++)
+      sspSetIOSrc(sspSL[ii], jj, ssp_io_mux[jj]);
   }
 
   return(0);
@@ -3278,43 +4443,97 @@ sspMon(int slot)
     printf("[%d] slot %d -> block_level=%d, berr=%d, w_width=%d, w_offset=%d\n",ii,sspSL[ii],
 		   sspGetBlockLevel(sspSL[ii]),sspGetBusError(sspSL[ii]),sspGetWindowWidth(sspSL[ii]),
 		   sspGetWindowOffset(sspSL[ii]));
-
-	/*
-    printf("\nSSP number %d in slot %d\n",ii,tdc1190Slot(ii));
-    printf("  Board Type/ID       = 0x%04x\n", tdc119GetBoardID(ii));
-    printf("  Board Revision      = 0x%08x\n", tdc119GetBoardRev(ii));
-    printf("  Board Serial Number = %04d\n",  tdc119GetSerialNumber(ii));
-
-    tdc1290GetChannels(ii,channels[2]);
-    printf("  Channel Mask        = 0x%04x%04x\n", channels[1],channels[0]);
-    printf("\n");
-
-    tdc1290PrintDMABerrFifo(berr_fifo);
-    printf("\n");
-
-    tdc1190ReadTriggerConfiguration(ii);
-    printf("\n");
-    tdc1190ReadEdgeDetectionConfig(ii);
-
-    res = tdc1190ReadAcquisitionMode(ii);
-    if(res==0)
-      printf(" Acquisition Mode = Continuous Storage\n");
-    else
-      printf(" Acquisition Mode = Trigger Matching\n");
-
-    res = tdc1190StatusFull(ii);
-    if(res==0)
-      printf(" Output Buffer status = Not Full\n");
-    else
-      printf(" Output Buffer status = Full\n");
-
-    printf(" BLT Event Number = %d\n",tdc1190GetBLTEventNumber(ii));
-    printf(" Max Number of Hits per Event = %d\n",tdc1190GetMaxNumberOfHitsPerEvent(ii));
-    tdc1190GetAlmostFullLevel(ii);
-	*/
+			
+    sspPrintHpsConfig(ii);
   }
 
 }
+
+
+
+
+#define ADD_TO_STRING \
+  len1 = strlen(str); \
+  len2 = strlen(sss); \
+  if((len1+len2) < length) strcat(str,sss); \
+  else \
+  { \
+    str[len1+1] = ' '; \
+    str[len1+2] = ' '; \
+    str[len1+3] = ' '; \
+    len1 = ((len1+3)/4)*4; \
+    return(len1); \
+  }
+
+/* upload setting from all found DSC2s */
+int
+sspUploadAll(char *string, int length)
+{
+  int slot, i, ii, jj, kk, ifiber, len1, len2;
+  char *str, sss[1024];
+  unsigned int tmp, connectedfibers;
+  unsigned short sval;
+  unsigned short bypMask;
+  unsigned short channels[8];
+
+  str = string;
+  str[0] = '\0';
+  for(kk=0; kk<nSSP; kk++)
+  {
+    slot = sspSlot(kk);
+
+    sprintf(sss,"SSP_SLOT %d\n",slot); ADD_TO_STRING;
+    sprintf(sss,"SSP_BERR %d\n",sspGetBusError(slot)); ADD_TO_STRING;
+    sprintf(sss,"SSP_BLOCK_LEVEL %d\n",sspGetBlockLevel(slot)); ADD_TO_STRING;
+    sprintf(sss,"SSP_W_WIDTH %d\n",sspGetWindowWidth(slot)); ADD_TO_STRING;
+    sprintf(sss,"SSP_W_OFFSET %d\n",sspGetWindowOffset(slot)); ADD_TO_STRING;
+	 
+	 for(i = 0; i < 2; i++)
+	 {
+      sprintf(sss,"SSP_HPS_SINGLES_EMIN %d %d %d\n",i,sspHps_GetSinglesEmin(slot,i),sspHps_GetSinglesEnableEmin(slot, i)); ADD_TO_STRING;
+      sprintf(sss,"SSP_HPS_SINGLES_EMAX %d %d %d\n",i,sspHps_GetSinglesEmax(slot,i),sspHps_GetSinglesEnableEmax(slot, i)); ADD_TO_STRING;
+      sprintf(sss,"SSP_HPS_SINGLES_NMIN %d %d %d\n",i,sspHps_GetSinglesNHitsmin(slot,i),sspHps_GetSinglesEnableNmin(slot, i)); ADD_TO_STRING;
+	 }
+	 
+    sprintf(sss,"SSP_HPS_LATENCY %d\n",sspHps_GetLatency(slot)); ADD_TO_STRING;
+    sprintf(sss,"SSP_HPS_COSMIC_TIMECOINCIDENCE %d\n",sspHps_GetCosmicTimeCoincidence(slot)); ADD_TO_STRING;
+    sprintf(sss,"SSP_HPS_COSMIC_PATTERNCOINCIDENCE %d\n",sspHps_GetCosmicCoincidencePattern(slot)); ADD_TO_STRING;
+	 
+	 for(i = 0; i < 2; i++)
+	 {
+      sprintf(sss,"SSP_HPS_PAIRS_CLUSTERDELAY %d %d\n",i,sspHps_GetPairsClusterDelay(slot, i)); ADD_TO_STRING;
+		sprintf(sss,"SSP_HPS_PAIRS_TIMECOINCIDENCE %d %d\n",i,sspHps_GetPairsTimeCoincidence(slot,i)); ADD_TO_STRING;
+      sprintf(sss,"SSP_HPS_PAIRS_EMIN %d %d\n",i,sspHps_GetPairsEmin(slot,i)); ADD_TO_STRING;
+      sprintf(sss,"SSP_HPS_PAIRS_EMAX %d %d\n",i,sspHps_GetPairsEmax(slot,i)); ADD_TO_STRING;
+      sprintf(sss,"SSP_HPS_PAIRS_NMIN %d %d\n",i,sspHps_GetPairsNHitsmin(slot,i)); ADD_TO_STRING;
+      sprintf(sss,"SSP_HPS_PAIRS_SUMMAX_MIN %d %d %d %d\n",i,sspHps_GetPairsSummax(slot,i),sspHps_GetPairsSummin(slot,i),sspHps_GetPairsEnableSum(slot, i)); ADD_TO_STRING;
+      sprintf(sss,"SSP_HPS_PAIRS_DIFFMAX %d %d %d\n",i,sspHps_GetPairsDiffmax(slot,i),sspHps_GetPairsEnableDiff(slot,i)); ADD_TO_STRING;
+      sprintf(sss,"SSP_HPS_PAIRS_COPLANARITY %d %d %d\n",i,sspHps_GetPairsCoplanarTolerance(slot,i),sspHps_GetPairsEnableCoplanar(slot,i)); ADD_TO_STRING;
+      sprintf(sss,"SSP_HPS_PAIRS_ENERGYDIST %d %7.3f %d %d\n",i,sspHps_GetPairsEDFactor(slot,i),sspHps_GetPairsEDmin(slot,i),sspHps_GetPairsEnableED(slot,i)); ADD_TO_STRING;
+	 }
+				
+    sprintf(sss,"SSP_HPS_PULSER %d\n",(int)sspGetPulserFreq(slot)); ADD_TO_STRING;
+    for(i = SD_SRC_P2_LVDSOUT0; i <= SD_SRC_P2_LVDSOUT7; i++)
+	 {
+      sprintf(sss,"SSP_HPS_SET_IO_SRC %d %d\n",i,sspGetIOSrc(slot, i, 0)); ADD_TO_STRING;
+	 }
+
+    /*
+    sprintf(sss,"DSC2_WIDTH %d %d\n",dsc2GetPulseWidth(slot,1),dsc2GetPulseWidth(slot,2));
+    ADD_TO_STRING;
+	*/
+  }
+
+  len1 = strlen(str);
+  str[len1+1] = ' ';
+  str[len1+2] = ' ';
+  str[len1+3] = ' ';
+  len1 = ((len1+3)/4)*4;
+
+  return(len1);
+}
+
+
 
 
 
