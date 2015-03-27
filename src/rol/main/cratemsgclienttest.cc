@@ -30,6 +30,8 @@ main(int argc, char *argv[])
   int hostport, len, ii, ret, slot, chan, partype;
   unsigned int buffer[100];
 
+  printf("argc=%d\n",argc);fflush(stdout);
+
   if(argc==3)
   {
     strncpy(hostname, argv[1], 255);
@@ -55,7 +57,7 @@ main(int argc, char *argv[])
 
   printf("111\n");fflush(stdout);
   ret = tcp->GetCrateMap(&buf, &len);
-  printf("222\n");fflush(stdout);
+  printf("222: len=%d\n",len);fflush(stdout);
   for(ii=0; ii<len; ii++) {printf("slot %2d, boardID 0x%08x\n",ii,buf[ii]);fflush(stdout);}
 
 
@@ -69,11 +71,6 @@ main(int argc, char *argv[])
   chan = 5;
   ret = tcp->GetChannelParams(slot, chan, partype, &buf, &len);
 
-  /*
-  len = 1;
-  buffer[0] = 12;
-  ret = tcp->SetChannelParams(slot, chan, partype, buffer, len);
-  */
   ret = tcp->GetChannelParams(slot, chan, partype, &buf, &len);
 
   sleep(3);
@@ -82,6 +79,7 @@ main(int argc, char *argv[])
   printf("-------------------------\n");
   while(1)
   {
+	/*
     slot=3;
     ret = tcp->ReadScalers(slot, &buf, &len);
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
@@ -93,14 +91,15 @@ main(int argc, char *argv[])
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
     for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
     delete [] buf;
+	*/
 
-    slot=5;
+    slot=2;
     ret = tcp->ReadScalers(slot, &buf, &len);
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
     for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
     delete [] buf;
 
-    slot=6;
+    slot=10;
     ret = tcp->ReadScalers(slot, &buf, &len);
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
     for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);

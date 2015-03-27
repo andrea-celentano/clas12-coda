@@ -1,0 +1,60 @@
+#!/bin/csh -f
+#
+# tsconnect - to be used with Etherlite terminal servers and Realport driver 
+# arg: device name
+
+#
+# Check for drivers host
+#
+######if (`hostname` != $CLON_DAQ) then
+#if ((`hostname` != clon00)&&(`hostname` != clon10)) then
+######  echo "You should be logged into $CLON_DAQ to use this command."
+#  echo "You should be logged into clon00 or clon10 to use this command."
+#  exit -1;
+#endif
+
+#
+# define some parameters
+#
+set DIR_SCRIPT=$CLON_PARMS/tsconnect
+set BIN=/usr/bin
+
+#
+# Check for parameter
+#
+if ( $1 == "" ) then
+ echo " Usage: tsconnect 'device name' "
+ exit
+endif
+
+#
+# Check if the device is known (defined in tsconnect.conf)
+#
+set DEV=/dev/cu`grep -i "<$1>" $DIR_SCRIPT/tsconnect.conf|awk '{print $1}'`
+if ( $DEV == "/dev/cu" ) then
+ echo " Unknown device: $1 "
+ echo " Check $DIR_SCRIPT/tsconnect.conf for available devices"
+ exit
+endif
+
+#
+# get speed from config file (Sergey 14-mar-2006)
+#
+set SPEED=`grep -i "<$1>" $DIR_SCRIPT/tsconnect.conf|awk '{print $4}'`
+
+#
+# If line is enabled (busy), we will bump them off.
+#
+###### old CDsts driver ### sudo $BIN/cdflush $DEV
+###sudo $BIN/dflush $DEV
+
+#
+# Exit instructions
+#
+echo ""
+echo "TYPE <RETURN>~q TO QUIT"
+#
+# Engage Terminal
+#
+sudo $BIN/dinc -s $SPEED $DEV
+#

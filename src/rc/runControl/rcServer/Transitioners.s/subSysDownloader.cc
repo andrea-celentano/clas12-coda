@@ -28,7 +28,7 @@ subSysDownloader::subSysDownloader (daqSubSystem* subsys)
 :subSysTransitioner (subsys)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("    Create subSysDownloader Class Object\n");
+  printf ("subSysDownloader::subSysDownloader: Create subSysDownloader Class Object\n");
 #endif
   // empty
 }
@@ -36,7 +36,7 @@ subSysDownloader::subSysDownloader (daqSubSystem* subsys)
 subSysDownloader::~subSysDownloader (void)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("    Delete subSysDownloader Class Object\n");
+  printf ("subSysDownloader::~subSysDownloader: Delete subSysDownloader Class Object\n");
 #endif
   // empty
 }
@@ -50,7 +50,10 @@ subSysDownloader::action (void) const
 void
 subSysDownloader::executeItem (daqComponent* comp)
 {
-  comp->download ();
+#ifdef _TRACE_OBJECTS
+  printf("subSysDownloader::executeItem reached\n");fflush(stdout);
+#endif
+  comp->download (); /*calls netComponent::download() ??? */
 }
 
 int

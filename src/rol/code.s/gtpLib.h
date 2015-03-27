@@ -207,7 +207,7 @@ unsigned int gtpRead32(volatile unsigned int *addr);
 void gtpWrite32(volatile unsigned int *addr, unsigned int val);
 
 Gtp_regs *gtpGetRegsPtr();
-
+int gtpGetBlockLevel();
 void gtpSetClock(int mode);
 void gtpGetClock();
 void gtpSetSync(int mode);
@@ -228,11 +228,13 @@ int gtpGetHpsPulseThreshold();
 /* New GTP function for Multi-ROC TI interface */
 int gtpReadBlock(volatile unsigned int *data, int nwrds, int rflag);
 unsigned int gtpBReady();
+int gtpGetSyncEventFlag();
 
 int gtpWaitForInt();
 void gtpEnableInt(int en);
 void gtpTiGtpFifoReset();
 void gtpClearIntData();
+void gtpTiStatus();
 
 /* Library Interrupt/Polling routine prototypes */
 /*
@@ -248,5 +250,7 @@ unsigned int  gtpGetIntCount();
 */
 
 int gtpConfig(char *fname);
+int gtpUploadAll(char *string, int length);
+int gtpUploadAllPrint();
 
 #endif

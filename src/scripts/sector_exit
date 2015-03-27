@@ -22,6 +22,11 @@ endif
 echo ""
 echo " Stop ROCs"
 stop_proc -n adcecal$nnn -p coda_roc_gef -match "clasprod" -s 0
+stop_proc -n adcpcal$nnn -p coda_roc_gef -match "clasprod" -s 0
+stop_proc -n adcftof$nnn -p coda_roc_gef -match "clasprod" -s 0
+stop_proc -n tdcecal$nnn -p coda_roc_gef -match "clasprod" -s 0
+stop_proc -n tdcpcal$nnn -p coda_roc_gef -match "clasprod" -s 0
+stop_proc -n tdcftof$nnn -p coda_roc_gef -match "clasprod" -s 0
 
 echo ""
 echo " Stop EB"

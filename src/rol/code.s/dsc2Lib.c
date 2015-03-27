@@ -44,10 +44,11 @@
 static int Ndsc = 0;                                     /* Number of DSCs in Crate */
 static volatile DSC2 *dscp[DSC_MAX_SLOTS+1]; /* pointers to DSC A24 memory map */
 static volatile unsigned int *dscpd[DSC_MAX_SLOTS+1];     /* pointers to DSC A32 memory map */
-static int dscID[DSC_MAX_BOARDS+1];                        /* array of slot numbers for DSCs */
+static int dscID[DSC_MAX_BOARDS+1];                       /* array of slot numbers for DSCs */
 static unsigned int dscA24Offset = 0;       /* Offset between VME A24 and Local address space */
 static unsigned int dscA32Offset = 0;       /* Offset between VME A32 and Local address space */
 static unsigned int dscA32Base   = 0x09000000/*0x08000000*/;
+static unsigned int a32addrMax = 0;
 static unsigned int dscAddrList[DSC_MAX_BOARDS];            /* array of a24 addresses for DSCs */
 static int dscIndexedBySlotNumber = 1;  /* How the library pointers are indexed */
 
@@ -67,6 +68,7 @@ pthread_mutex_t   dscMutex = PTHREAD_MUTEX_INITIALIZER;
 #define DSCLOCK   if(pthread_mutex_lock(&dscMutex)<0) perror("pthread_mutex_lock");
 #define DSCUNLOCK if(pthread_mutex_unlock(&dscMutex)<0) perror("pthread_mutex_unlock");
 
+#undef DEBUG
 
 /* sergey: returns some globals */
 int
@@ -193,8 +195,10 @@ dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
 
     if(res < 0) 
 	{
+#ifdef DEBUG
 	  printf("%s: ERROR: No addressable board at A24 Address 0x%x\n",
 		 __FUNCTION__,(UINT32) dsc - dscA24Offset);
+#endif
 	  errFlag = 1;
 	  continue;
 	} 
@@ -202,8 +206,10 @@ dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
     /* Check if this is a DSC */
     if(boardID != DSC_BOARD_ID) 
 	{
+#ifdef DEBUG
 	  printf("%s: ERROR: Board ID at addr=0x%x does not match: 0x%08x \n",
 		 __FUNCTION__,(UINT32) dsc - dscA24Offset,boardID);
+#endif
 	  errFlag = 1;
 	  continue;
 	}
@@ -288,6 +294,7 @@ dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
       if(!noBoardInit)
 	{
 	  a32addr = dscA32Base + ii*DSC_MAX_A32_MEM;
+      a32addrMax = a32addr;
 	}
       else
 	{
@@ -331,6 +338,13 @@ dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
   printf("%s: Found and configured %d dsc2 modules\n",__FUNCTION__,Ndsc);
 
   return(OK);
+}
+
+unsigned int
+dsc2GetA32MaxAddress()
+{
+  printf("dsc2GetA32MaxAddress returns 0x%08x\n",a32addrMax);
+  return(a32addrMax);
 }
 
 /*******************************************************************************
@@ -3360,6 +3374,101 @@ dsc2SetThresholdAll(UINT16 tdcVal, UINT16 trgVal)
 }
 
 
+
+
+
+/*
+ */
+int
+dsc2SetScalerConfigRefPrescale(unsigned int id, int refprescale)
+{
+  unsigned int rval=0, val, oldval;
+  CHECKID(id);
+  
+  oldval = (vmeRead32(&dscp[id]->scalerCfg)) & (~DSC_SCALERCFG_REFPRESCALE_MASK);
+  val = (refprescale<<DSC_SCALERCFG_REFPRESCALE_SHIFT)&DSC_SCALERCFG_REFPRESCALE_MASK;
+
+  DSCLOCK;
+  vmeWrite32(&dscp[id]->scalerCfg,oldval | val);
+  DSCUNLOCK;
+
+  return(rval);
+}
+
+int
+dsc2GetScalerConfigRefPrescale(unsigned int id)
+{
+  unsigned int rval=0;
+  CHECKID(id);
+  
+  DSCLOCK;
+  rval = (vmeRead32(&dscp[id]->scalerCfg) & DSC_SCALERCFG_REFPRESCALE_MASK) >> DSC_SCALERCFG_REFPRESCALE_SHIFT;
+  DSCUNLOCK;
+
+  return(rval);
+}
+
+int
+dsc2SetScalerConfigFlags(unsigned int id, int rflag)
+{
+  unsigned int rval=0, val, oldval;
+  CHECKID(id);
+  
+  oldval = (vmeRead32(&dscp[id]->scalerCfg)) & (~DSC_SCALERCFG_FLAGS_MASK);
+  val = rflag & DSC_SCALERCFG_FLAGS_MASK;
+
+  DSCLOCK;
+  vmeWrite32(&dscp[id]->scalerCfg,oldval | val);
+  DSCUNLOCK;
+
+  return(rval);
+}
+
+int
+dsc2GetScalerConfigFlags(unsigned int id)
+{
+  unsigned int rval=0;
+  CHECKID(id);
+  
+  DSCLOCK;
+  rval = vmeRead32(&dscp[id]->scalerCfg) & DSC_SCALERCFG_FLAGS_MASK;
+  DSCUNLOCK;
+
+  return(rval);
+}
+
+
+int
+dsc2ResetScalersGroupA(unsigned int id)
+{
+  unsigned int rval=0, val, oldval;
+  CHECKID(id);
+  
+  oldval = vmeRead32(&dscp[id]->scalerCfg);
+  val = DSC_SCALERCFG_RESET_A;
+
+  DSCLOCK;
+  vmeWrite32(&dscp[id]->scalerCfg,oldval | val);
+  DSCUNLOCK;
+
+  return(rval);
+}
+
+int
+dsc2ResetScalersGroupB(unsigned int id)
+{
+  unsigned int rval=0, val, oldval;
+  CHECKID(id);
+  
+  oldval = vmeRead32(&dscp[id]->scalerCfg);
+  val = DSC_SCALERCFG_RESET_B;
+
+  DSCLOCK;
+  vmeWrite32(&dscp[id]->scalerCfg,oldval | val);
+  DSCUNLOCK;
+
+  return(rval);
+}
 
 
 #else /* dummy version*/

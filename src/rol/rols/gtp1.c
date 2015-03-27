@@ -48,7 +48,7 @@ void usrtrig_done();
 #include "tt.h"
 
 static char rcname[5];
-
+static int block_level = 1;
 
 
 #define TIMERL_VAR \
@@ -195,6 +195,9 @@ __go()
   gtpTiGtpFifoReset();
   gtpEnableInt(1);
 
+  block_level = gtpGetBlockLevel();
+  printf("block_level is %d\n",block_level);
+
   printf("INFO: User Go 1 Enabling\n");
   CDOENABLE(GTP,1,1);
   printf("INFO: User Go 1 Enabled\n");
@@ -203,25 +206,33 @@ __go()
 }
 
 
+
+
 #define MAXBUFSIZE 4000
 
 void
 usrtrig(unsigned long EVTYPE, unsigned long EVSOURCE)
 {
-  int len, ii;
+  int len, ii, nbytes, nwords;
+  char *chptr, *chptr0;
   unsigned int buf[MAXBUFSIZE];
   TIMERL_VAR;
 
   /*
   usleep(1000);
   */
+  if(syncFlag) printf("EVTYPE=%d syncFlag=%d\n",EVTYPE,syncFlag);
+
   rol->dabufp = (long *) 0;
 
 TIMERL_START;
 
-  len = gtpReadBlock(buf, MAXBUFSIZE, 0);
+
 
   CEOPEN(EVTYPE, BT_BANKS);
+
+#if 1
+  len = gtpReadBlock(buf, MAXBUFSIZE, 0);
 
   /* gtp produce the same format as TI, so give a bank the same tag as TI */
   BANKOPEN(0xe10A,1,rol->pid);
@@ -232,10 +243,58 @@ TIMERL_START;
     *rol->dabufp++ = buf[ii];
   }
   BANKCLOSE;
+#endif
+
+
+TIMERL_STOP(10000,1000+rol->pid);
+
+
+
+  /* read boards configurations */
+  if(syncFlag==1 || EVENT_NUMBER==1)
+  {
+    BANKOPEN(0xe10E,3,rol->pid);
+    chptr = chptr0 =(char *)rol->dabufp;
+    nbytes = 0;
+
+    /* add one 'return' to make evio2xml output nicer */
+    *chptr++ = '\n';
+    nbytes ++;
+
+/*vmeBusLock();*/
+    len = gtpUploadAll(chptr, 10000);
+/*vmeBusUnlock();*/
+    /*printf("len=%d\n",len);
+    printf(">%s<\n",chptr);*/
+    chptr += len;
+    nbytes += len;
+
+    /* 'nbytes' does not includes end_of_string ! */
+    chptr[0] = '\n';
+    chptr[1] = '\n';
+    chptr[2] = '\n';
+    chptr[3] = '\n';
+    nbytes = (((nbytes+1)+3)/4)*4;
+    chptr0[nbytes-1] = '\0';
+
+    nwords = nbytes/4;
+    rol->dabufp += nwords;
+
+    BANKCLOSE;
+  }
+
+
+
+
+
+
+
+
+
+
 
   CECLOSE;
 
-TIMERL_STOP(10000,1000+rol->pid);
 
   return;
 

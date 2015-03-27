@@ -22,6 +22,7 @@
 #ifdef SCALER_THREAD
 
 #include "dsc2Lib.h"
+#include "fadcLib.h"
 
 
 /****************************************************************************
@@ -134,7 +135,7 @@ static pthread_mutex_t vmescalers_lock;
 #endif
 
 
-static int ndsc2, rflag, rmode;
+static int ndsc2_tcp, rflag, rmode;
 static int nfadc;
 static unsigned int  vmescalersmap[MAXBOARDS+1];  /* crate map */
 static unsigned int  vmescalerslen[MAXBOARDS];  /*scalers space (the number of words) */
@@ -180,9 +181,9 @@ vmeScalersRead()
     /* read dsc2 scalers */
     if(itype == SCALER_TYPE_DSC2)
 	{
-      for(id=0; id<ndsc2; id++)
+      for(id=0; id<ndsc2_tcp; id++)
       {
-        slot = dsc2Slot(id);
+        slot = dsc2Slot_tcp(id);
 vmeBusLock();
         nw = dsc2ReadScalers(slot, tdcbuf, MAXWORDS, rflag, 1/*rmode*/);
 vmeBusUnlock();
@@ -462,6 +463,8 @@ vmeReadTask()
 {
   int id, iFlag;
   int ii, jj, slot;
+  unsigned int maxA32Address;
+  unsigned int fadcA32Address = 0x09000000;
 
 #ifdef VXWORKS
   extern unsigned long sysClkRateGet();
@@ -498,11 +501,13 @@ vmeReadTask()
 
   dsc2Init(0x100000,0x80000,16,iFlag);
   dsc2Config("");
-  ndsc2 = dsc2GetNdsc();
-  printf("vmeReadTask: found %d dsc2 boards\n",ndsc2);
+maxA32Address = dsc2GetA32MaxAddress();
+fadcA32Address = maxA32Address + FA_MAX_A32_MEM;
+  ndsc2_tcp = dsc2GetNdsc_tcp();
+  printf("vmeReadTask: found %d dsc2 boards\n",ndsc2_tcp);
 
   /* fill map array with DSC2's found */
-  for(ii=0; ii<ndsc2; ii++) if( (slot=dsc2Slot(ii)) > 0) vmescalersmap[slot] = SCALER_TYPE_DSC2;
+  for(ii=0; ii<ndsc2_tcp; ii++) if( (slot=dsc2Slot_tcp(ii)) > 0) vmescalersmap[slot] = SCALER_TYPE_DSC2;
 
   rflag = 0xFF; /* latch and read everything */
   rmode = 0; /* not-dma readout */
@@ -520,6 +525,7 @@ vmeReadTask()
     iFlag |= (1<<16);
   }
 
+faSetA32BaseAddress(fadcA32Address);
   faInit((unsigned int)(3<<19),(1<<19),18,iFlag);
   nfadc = faGetNfadc();
 

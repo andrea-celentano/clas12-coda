@@ -687,7 +687,8 @@ tiStatus(int pflag)
   unsigned int nblocks;
   unsigned int ifiber, fibermask;
   unsigned int TIBase;
-  unsigned long long int l1a_count=0;
+  unsigned long long l1a_count=0;
+  unsigned long long l1a_count_block_low=0; /*sergey*/
   unsigned int blocklimit;
 
   if(TIp==NULL)
@@ -729,12 +730,18 @@ tiStatus(int pflag)
 
   inputCounter = vmeRead32(&TIp->inputCounter);
 
-  for(iblock=0;iblock<4;iblock++)
-    blockStatus[iblock] = vmeRead32(&TIp->blockStatus[iblock]);
+  /*
+  l1a_count_block_low = (l1a_count/((unsigned long long)tiBlockLevel))&((unsigned long long)TI_NBLOCKS_COUNT_MASK);
+*/
+  l1a_count_block_low = (l1a_count/((unsigned long long)tiBlockLevel))%((unsigned long long)1000);
 
+  for(iblock=0; iblock<4; iblock++)
+  {
+    blockStatus[iblock] = vmeRead32(&TIp->blockStatus[iblock]);
+  }
   blockStatus[4] = vmeRead32(&TIp->adr24);
 
-  nblocks      = vmeRead32(&TIp->nblocks);
+  nblocks = vmeRead32(&TIp->nblocks);
   TIUNLOCK;
 
   TIBase = (unsigned int)TIp;
@@ -770,7 +777,7 @@ tiStatus(int pflag)
 
   printf(" Readout Count: %d\n",tiIntCount);
   printf("     Ack Count: %d\n",tiAckCount);
-  printf("     L1A Count: %llu\n",l1a_count);
+  printf("     L1A Count: %llu (%llu blocks)\n",l1a_count,l1a_count_block_low);
   printf("   Block Limit: %d   %s\n",blocklimit,
 	 (blockBuffer & TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT)?"* Finished *":"- In Progress -");
   printf("   Block Count: %d\n",nblocks & TI_NBLOCKS_COUNT_MASK);
@@ -968,19 +975,19 @@ tiStatus(int pflag)
       if(busy & TI_BUSY_HFBR1)
 	printf("   HFBR #1          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR2)
-	printf("   HFBR #2          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #2          %s\n",(busy&TI_BUSY_MONITOR_HFBR2)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR3)
-	printf("   HFBR #3          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #3          %s\n",(busy&TI_BUSY_MONITOR_HFBR3)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR4)
-	printf("   HFBR #4          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #4          %s\n",(busy&TI_BUSY_MONITOR_HFBR4)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR5)
-	printf("   HFBR #5          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #5          %s\n",(busy&TI_BUSY_MONITOR_HFBR5)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR6)
-	printf("   HFBR #6          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #6          %s\n",(busy&TI_BUSY_MONITOR_HFBR6)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR7)
-	printf("   HFBR #7          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #7          %s\n",(busy&TI_BUSY_MONITOR_HFBR7)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR8)
-	printf("   HFBR #8          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #8          %s\n",(busy&TI_BUSY_MONITOR_HFBR8)?"** BUSY **":"");
     }
   else
     {
@@ -1191,9 +1198,9 @@ tiSlaveStatus(int pflag)
 
   TILOCK;
   for(iport=0; iport<8; iport++)
-    {
-      hfbr_tiID[iport] = vmeRead32(&TIp->hfbr_tiID[iport]);
-    }
+  {
+    hfbr_tiID[iport] = vmeRead32(&TIp->hfbr_tiID[iport]);
+  }
   master_tiID = vmeRead32(&TIp->master_tiID);
   fiber       = vmeRead32(&TIp->fiber);
   busy        = vmeRead32(&TIp->busy);
@@ -1485,6 +1492,8 @@ tiSetCrateID(unsigned int crateID)
   tiCrateID = crateID;
   TIUNLOCK;
 
+  printf("tiSetCrateID: set id to %d\n",crateID);
+
   return OK;
   
 }
@@ -1713,7 +1722,7 @@ tiGetCurrentBlockLevel()
   tiNextBlockLevel = (reg_bl & TI_BLOCKLEVEL_RECEIVED_MASK)>>24;
   TIUNLOCK;
 
-  /* Change Bus Error block termination, based on blocklevel */
+  /* Change Bus Error block termination, based on blocklevel 
   if(tiBlockLevel>2)
     {
       tiEnableBusError();
@@ -1722,6 +1731,7 @@ tiGetCurrentBlockLevel()
     {
       tiDisableBusError();
     }
+  */
 
   return bl;
 }
@@ -5103,6 +5113,8 @@ tiTriggerReadyReset()
 int
 tiFillToEndBlock()
 {
+  printf("%s reached\n",__FUNCTION__);
+
   if(TIp == NULL) 
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);

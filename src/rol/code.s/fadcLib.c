@@ -53,6 +53,8 @@
 /* Include ADC definitions */
 #include "fadcLib.h"
 
+#undef DEBUG
+
 #ifdef VXWORKS
 #define FALOCK
 #define FAUNLOCK
@@ -266,11 +268,13 @@ faInit (UINT32 addr, UINT32 addr_inc, int nadc, int iFlag)
 #endif
       if(res < 0) 
 	{
+#ifdef DEBUG
 #ifdef VXWORKS
 	  printf("faInit: ERROR: No addressable board at addr=0x%x\n",(UINT32) fa);
 #else
 	  printf("faInit: ERROR: No addressable board at VME (Local) addr=0x%x (0x%x)\n",
 		 (UINT32) laddr_inc-fadcA24Offset, (UINT32) fa);
+#endif
 #endif
 	  errFlag = 1;
 	  /* 	  break; */
@@ -280,9 +284,11 @@ faInit (UINT32 addr, UINT32 addr_inc, int nadc, int iFlag)
 	  /* Check that it is an FA board */
 	  if((rdata&FA_BOARD_MASK) != FA_BOARD_ID) 
 	    {
+#ifdef DEBUG
 	      printf("%s: ERROR: For board at 0x%x, Invalid Board ID: 0x%x\n",
 		     __FUNCTION__,
 		     (UINT32) fa-fadcA24Offset, rdata);
+#endif
 	      continue;
 	    }
 	  else 
@@ -680,7 +686,9 @@ faInit (UINT32 addr, UINT32 addr_inc, int nadc, int iFlag)
   fadcInited = nfadc;
   if(errFlag > 0) 
   {
+#ifdef DEBUG
     printf("faInit: ERROR: Unable to initialize all FADC Modules\n");
+#endif
     if(nfadc > 0)
 	  printf("faInit: %d FADC(s) successfully initialized\n",nfadc );
     return(ERROR);
@@ -689,6 +697,13 @@ faInit (UINT32 addr, UINT32 addr_inc, int nadc, int iFlag)
   {
     return(OK);
   }
+}
+
+void
+faSetA32BaseAddress(unsigned int addr)
+{
+  fadcA32Base = addr;
+  printf("fadc A32 base address set to 0x%08X\n",fadcA32Base);
 }
 
 /*******************************************************************************
@@ -797,6 +812,9 @@ faStatus(int id, int sflag)
   unsigned int mgtStatus;
   unsigned int berr_count=0;
   unsigned int scaler_interval=0;
+  unsigned int tet_trg[16], tet_readout[16];
+  float gain_trg[16], ped_trg[16];
+  unsigned int val;
 
   if(id==0) id=fadcID[0];
 
@@ -849,6 +867,18 @@ faStatus(int id, int sflag)
 
 #ifdef CLAS12
   mgtStatus = vmeRead32(&(FAp[id]->gtx_status));
+
+  for(ii=0;ii<FA_MAX_ADC_CHANNELS;ii++)
+  {
+    gain_trg[ii] = ((float)(vmeRead32(&FAp[id]->adc_gain[ii]) & 0xFFFF)) / 256.0f;
+
+    ped_trg[ii] = 4.0 * ((float)(vmeRead32(&FAp[id]->adc_pedestal[ii]) & FA_ADC_PEDESTAL_MASK)) / ((float)(NSA+NSB));
+
+    val = vmeRead16(&(FAp[id]->adc_thres[ii]));
+    tet_trg[ii] = (val & FA_THR_VALUE_MASK) - (int)ped_trg[ii];
+    tet_readout[ii] = (val & FA_THR_IGNORE_MASK) ? 0 : ((val & FA_THR_VALUE_MASK) - (int)ped_trg[ii]);
+  }
+
 #else
   mgtStatus = vmeRead32(&(FAp[id]->mgt_status));
 #endif
@@ -1074,12 +1104,21 @@ faStatus(int id, int sflag)
       printf("  Events in FIFO           = %d  (Block level = %d)\n",count,blevel);
     }
 
+  printf("  BERR count (from module) = %d\n",berr_count);
+
 #ifdef CLAS12
-  printf("  GTX Status Register      = 0x%08x ",mgtStatus);
-  if( mgtStatus & (0x1 | 0x2)) printf(" - **Hard Error**\n");
-  if( (mgtStatus&0x10)==0 || (mgtStatus&0x20)==0 ) printf(" - **Line Down Error**\n");
-  if( (mgtStatus&0x1000)==0 ) printf(" - **Channel Down Error**\n");
-  if( (mgtStatus&0x2000)==0 ) printf(" - **PLL Lock Error**\n");
+  printf("  GTX Status Register      = 0x%08x, Errors:",mgtStatus);
+  if( mgtStatus & (0x1 | 0x2)) printf(" HardErr");
+  if( (mgtStatus&0x10)==0 || (mgtStatus&0x20)==0 ) printf(" LaneErr");
+  if( (mgtStatus&0x1000)==0 ) printf(" ChannelErr");
+  if( (mgtStatus&0x2000)==0 ) printf(" PLLErr");
+  printf("\n\n");
+
+  printf("  Ch| Readout - TET | Trigger - TET | GAIN   | PED    \n");
+  printf("  --|---------------|---------------|--------|--------\n");
+  for(ii=0;ii<FA_MAX_ADC_CHANNELS;ii++)
+    printf("  %2d|          %4d |          %4d |%7.3f |%8.3f\n", ii, tet_readout[ii], tet_trg[ii], gain_trg[ii], ped_trg[ii]);
+
   printf("\n");
 #else
   printf("  MGT Status Register      = 0x%08x ",mgtStatus);
@@ -1089,8 +1128,6 @@ faStatus(int id, int sflag)
   else
     printf("\n");
 #endif
-	 
-  printf("  BERR count (from module) = %d\n",berr_count);
 
 }
 
@@ -1260,7 +1297,7 @@ faGetNSA(int id)
   ret = vmeRead32(&(FAp[id]->adc_nsa)) & 0xFFFF;
   FAUNLOCK;
 
-  printf("faGetNSA returns %d\n",ret);
+/*  printf("faGetNSA returns %d\n",ret); */
 
   return(ret);
 }
@@ -1282,7 +1319,7 @@ faGetNSB(int id)
   ret = vmeRead32(&(FAp[id]->adc_nsb)) & 0xFFFF;
   FAUNLOCK;
 
-  printf("faGetNSB returns %d\n",ret);
+/*  printf("faGetNSB returns %d\n",ret); */
 
   return(ret);
 }
@@ -1365,10 +1402,10 @@ faSetNormalMode(int id, int opt)
   vmeWrite32(&FAp[id]->adc_config[2], 0x40);
   faWaitForAdcReady(id);
   vmeWrite32(&FAp[id]->adc_config[2], 0xC0);
-	    
+/*
   printf("%s: ---- FADC %2d ADC chips initialized ----\n",
 	 __FUNCTION__,id);
-	        
+*/        
   faWaitForAdcReady(id);
   vmeWrite32(&FAp[id]->adc_config[3], 0x0D00);
   faWaitForAdcReady(id);
@@ -2999,6 +3036,7 @@ faSetBlockLevel(int id, int level)
   return(rval);
 
 }
+
 void
 faGSetBlockLevel(int level)
 {
@@ -3186,7 +3224,7 @@ faSetThreshold(int id, unsigned short tvalue, unsigned short chmask)
 
   if(chmask==0) chmask = 0xffff;  /* Set All channels the same */
 
-printf("faSetThreshold: slot %d, value %d, mask 0x%04X\n", id, tvalue, chmask);
+/*printf("faSetThreshold: slot %d, value %d, mask 0x%04X\n", id, tvalue, chmask);*/
 	  
   FALOCK;
   for(ii=0;ii<FA_MAX_ADC_CHANNELS;ii++) 
@@ -3198,12 +3236,12 @@ printf("faSetThreshold: slot %d, value %d, mask 0x%04X\n", id, tvalue, chmask);
 
 	  if((1<<ii)&chmask)
 	    {
-	      lovalue = tvalue;
+	      lovalue = (lovalue & FA_THR_IGNORE_MASK) | tvalue;
 	      doWrite=1;
 	    }
 	  if((1<<(ii+1))&chmask)
 	    {
-	      hivalue = tvalue;
+	      hivalue = (hivalue & FA_THR_IGNORE_MASK) | tvalue;
 	      doWrite=1;
 	    }
 
@@ -3242,18 +3280,16 @@ faPrintThreshold(int id)
     }
   FAUNLOCK;
 
-
   printf(" Threshold Settings for FADC in slot %d:",id);
   for(ii=0;ii<FA_MAX_ADC_CHANNELS;ii++) 
+  {
+    if((ii%4)==0) 
     {
-      if((ii%4)==0) 
-	{
-	  printf("\n");
-	}
-      printf("Chan %2d: %5d   ",(ii+1),tval[ii]);
+      printf("\n");
     }
+    printf("Chan %2d: %5d(%d)   ",(ii+1),tval[ii] & FA_THR_VALUE_MASK, (tval[ii] & FA_THR_IGNORE_MASK)>>15);
+  }
   printf("\n");
-  
 
   return(OK);
 }
@@ -3433,6 +3469,68 @@ faGetChannelPedestal(int id, unsigned int chan)
 #ifdef CLAS12
 
 int
+faThresholdIgnore(int id, unsigned short chmask)
+{
+  int ii, doWrite=0;
+  unsigned int lovalue=0, hivalue=0;
+
+  if(id==0) id=fadcID[0];
+
+  if((id<=0) || (id>21) || (FAp[id] == NULL)) 
+    {
+      logMsg("faThresholdIgnore: ERROR : ADC in slot %d is not initialized \n",id,0,0,0,0,0);
+      return;
+    }
+
+  FALOCK;
+  for(ii=0;ii<FA_MAX_ADC_CHANNELS;ii++)
+  {
+    if(ii%2 == 0)
+    {
+	  lovalue = (vmeRead16(&FAp[id]->adc_thres[ii]));
+	  hivalue = (vmeRead16(&FAp[id]->adc_thres[ii+1]));
+
+	  if((1<<ii)&chmask)     lovalue |= FA_THR_IGNORE_MASK;
+      else                   lovalue &= FA_THR_VALUE_MASK;
+
+	  if((1<<(ii+1))&chmask) hivalue |= FA_THR_IGNORE_MASK;
+      else                   hivalue &= FA_THR_VALUE_MASK;
+
+      vmeWrite32((unsigned int *)&(FAp[id]->adc_thres[ii]),
+                lovalue<<16 | hivalue);
+    }
+  }
+  FAUNLOCK;
+  return(OK);
+}
+
+unsigned int
+faGetThresholdIgnoreMask(int id)
+{
+  int ii;
+  unsigned int tmp, cmask = 0;
+
+  if(id==0) id=fadcID[0];
+
+  if((id<=0) || (id>21) || (FAp[id] == NULL)) 
+  {
+    logMsg("faGetThresholdIgnoreMask: ERROR : ADC in slot %d is not initialized \n",id,0,0,0,0,0);
+    return;
+  }
+
+  FALOCK;
+  for(ii=0;ii<FA_MAX_ADC_CHANNELS;ii++)
+  {
+    tmp = vmeRead16(&FAp[id]->adc_thres[ii]);
+    if(tmp & FA_THR_IGNORE_MASK)
+      cmask |= (1<<ii);
+  }
+  FAUNLOCK;
+
+  return(cmask);
+}
+
+int
 faGetChThreshold(int id, int ch)
 {
   int ii;
@@ -3447,7 +3545,7 @@ faGetChThreshold(int id, int ch)
   }
 
   FALOCK;
-  rvalue = vmeRead16(&(FAp[id]->adc_thres[ch]));
+  rvalue = vmeRead16(&(FAp[id]->adc_thres[ch])) & FA_THR_VALUE_MASK;
   FAUNLOCK;
 
   return rvalue;
@@ -3456,7 +3554,7 @@ faGetChThreshold(int id, int ch)
 int
 faSetChThreshold(int id, int ch, int threshold)
 {
-  printf("faSetChThreshold: slot %d, ch %d, threshold=%d\n",id,ch,threshold);
+/*  printf("faSetChThreshold: slot %d, ch %d, threshold=%d\n",id,ch,threshold);*/
 
   return faSetThreshold(id, threshold, (1<<ch));
 }
@@ -3483,34 +3581,43 @@ faGLoadChannelPedestals(char *fname, int updateThresholds)
 
     while( (status=fscanf(fd,"%d %d %f %f %d\n",&slot,&chan,&ped,&sigma,&offset)) > 0 )
     {
-      printf("status=%d -> slot=%2d chan=%2d ped=%7.3f sigma=%6.3f\n",status,slot,chan,ped,sigma);
+/*      printf("status=%d -> slot=%2d chan=%2d ped=%7.3f sigma=%6.3f\n",status,slot,chan,ped,sigma); */
       if(slot>=2&&slot<21&&chan>=0&&chan<16)
+	  {
         adc_ped[slot][chan] = ped;
+/*        printf("PED=%f\n",adc_ped[slot][chan]); */
+	  }
       else
+	  {
         printf("bad slot=%d or chan=%d\n",slot,chan);
+	  }
     }
 
-    if(status==EOF) printf("EOF reached\n");
+    if(status==EOF) { /*printf("EOF reached\n");*/ }
     else            printf("fscanf() returned error %d\n",status);
 
     fclose(fd);
     printf("faGLoadChannelPedestals: pedestal file >%s< is closed\n",fname);
   }
 
-  for(ii=0;ii<nfadc;ii++)
+  for(ii=0; ii<nfadc; ii++)
   {
-    nsamples = faGetNSA(fadcID[ii]) + faGetNSB(fadcID[ii]);
+    slot = fadcID[ii];
+    nsamples = faGetNSA(slot) + faGetNSB(slot);
+/*    printf("faGLoadChannelPedestals: slot=%d, nsamples=%d\n",slot,nsamples); */
     for(chan = 0; chan < FA_MAX_ADC_CHANNELS; chan++)
     {
-      ped = adc_ped[fadcID[ii]][chan] * ((float)nsamples);
-      faSetChannelPedestal(fadcID[ii], chan, (int)ped);
+      ped = adc_ped[slot][chan] * ((float)nsamples);
+/*      printf("faGLoadChannelPedestals: chan=%d, ped=%d\n",chan,(int)ped); */
+      faSetChannelPedestal(slot, chan, (int)ped);
 
       if(updateThresholds)
       {
-        threshold = faGetChThreshold(fadcID[ii], chan);
+        threshold = faGetChThreshold(slot, chan);
         /* if threshold=0, don't add pedestal since user is disabling zero suppression */
-        if(threshold) threshold += (int)adc_ped[fadcID[ii]][chan];
-        faSetChThreshold(fadcID[ii], chan, threshold);
+        if(threshold) threshold += (int)adc_ped[slot][chan];
+/*        printf("faGLoadChannelPedestals: chan=%d, threshold=%d\n",chan,threshold); */
+        faSetChThreshold(slot, chan, threshold);
       }
     }
   }
@@ -3627,7 +3734,7 @@ faSetChannelGain(int id, unsigned int chan, float gain)
     }
 
   igain = (int)(gain*256.0);
-  printf("gain=%f igain=%d\n",gain,igain);
+/*  printf("gain=%f igain=%d\n",gain,igain);*/
 
   FALOCK;
   vmeWrite32(&FAp[id]->adc_gain[chan], igain);
@@ -4006,14 +4113,18 @@ faGetMinA32MB(int id)
   a32addr = (a32addr & FA_A32_ADDR_MASK)<<16;
   addrMB  = (addrMB & FA_AMB_MIN_MASK)<<16;
 
+#ifdef DEBUG
   printf("faGetMinA32MB: a32addr=0x%08x addrMB=0x%08x for slot %d\n",a32addr,addrMB,id);
+#endif
  
   id = fadcID[0];
   a32addr = vmeRead32(&(FAp[id]->adr32));
   a32addr = (a32addr & FA_A32_ADDR_MASK)<<16;
 
   rval = a32addr;
+#ifdef DEBUG
   printf("faGetMinA32MB: rval=0x%08x\n",rval);
+#endif
 
   FAUNLOCK;
 
@@ -4048,10 +4159,12 @@ faGetMaxA32MB(int id)
   a32addr = (a32addr & FA_A32_ADDR_MASK)<<16;
   addrMB  = addrMB & FA_AMB_MAX_MASK;
 
-  printf("faGetMaxA32MB: a32addr=0x%08x addrMB=0x%08x for slot %d\n",a32addr,addrMB,id);
-
   rval = addrMB;
+
+#ifdef DEBUG
+  printf("faGetMaxA32MB: a32addr=0x%08x addrMB=0x%08x for slot %d\n",a32addr,addrMB,id);
   printf("faGetMaxA32MB: rval=0x%08x\n",rval);
+#endif
 
   FAUNLOCK;
 
@@ -5390,7 +5503,6 @@ int
 faSetThresholdAll(int id, unsigned short tvalue[16])
 {
   int ii;
-  unsigned int wvalue=0;
 
   if(id==0) id=fadcID[0];
 
@@ -5400,20 +5512,10 @@ faSetThresholdAll(int id, unsigned short tvalue[16])
     return(ERROR);
   }
 
-  FALOCK;
   for(ii=0; ii<FA_MAX_ADC_CHANNELS; ii++) 
   {
-    if(ii%2==0)
-	{
-	  wvalue |= (tvalue[ii] << 16);
-	  wvalue |= tvalue[ii+1];
-
-	  printf("faSetThreshold: ch %d, wvalue=0x%08x\n",ii,wvalue);
-	  vmeWrite32((unsigned int *)&(FAp[id]->adc_thres[ii]), wvalue);
-	  wvalue=0;
-	}
+    faSetChThreshold(id, ii, tvalue[ii]);
   }
-  FAUNLOCK;
 
   return(OK);
 }

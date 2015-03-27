@@ -55,7 +55,7 @@ public:
 
 	const char *GetName()
 	{
-		return pCrateMsgClient->GetName();
+		return pCrateMsgClient->hostname;
 	}
 
 	Bool_t BlkReadReg32(volatile unsigned int *p, unsigned int *val, int cnt = 1, int flags = 0)

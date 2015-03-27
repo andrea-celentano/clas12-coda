@@ -145,7 +145,8 @@ daqScriptComp::scriptThread (void* arg)
 
     reporter->cmsglog (CMSGLOG_ERROR,"Thread %d: Child process died ......\n");
   }
-  else {
+  else
+  {
     pthread_mutex_lock (&comp->lock_);
     comp->setState (comp->successState () );
     comp->thrCreated_ = 0;
@@ -287,7 +288,8 @@ daqScriptComp::boot (void)
 {
   status_ = CODA_SUCCESS;
 
-  if (action_ == CODA_BOOT_ACTION) {
+  if (action_ == CODA_BOOT_ACTION)
+  {
     setState (CODA_DORMANT);
     setupStateInfo (action_);
     reporter->cmsglog (CMSGLOG_INFO,"%s boot underway......\n", title_);
@@ -295,18 +297,21 @@ daqScriptComp::boot (void)
     status_ = daqScriptComp::doScript (subsys_.system(), script_, this);
   }
 #ifdef _CODA_USE_THREADS
-  else {
+  else
+  {
     reporter->cmsglog (CMSGLOG_INFO,"%s booted ok\n", title_);
     setState (CODA_BOOTED);
   }
   return CODA_SUCCESS;
 #else
-  if (status_ == CODA_SUCCESS){
+  if (status_ == CODA_SUCCESS)
+  {
     reporter->cmsglog (CMSGLOG_INFO,"%s booted ok\n", title_);
 
     setState (CODA_BOOTED);
   }
-  else {
+  else
+  {
     reporter->cmsglog (CMSGLOG_ERROR,"%s boot failed\n", title_);
     setState (CODA_DORMANT);
   }
@@ -357,7 +362,8 @@ daqScriptComp::configure (void)
 {
   status_ = CODA_SUCCESS;
 
-  if (action_ == CODA_CONFIGURE_ACTION) {
+  if (action_ == CODA_CONFIGURE_ACTION)
+  {
     setState (CODA_BOOTED);
     setupStateInfo (action_);
     reporter->cmsglog (CMSGLOG_INFO,"%s configure underway......\n", title_);    
@@ -365,19 +371,22 @@ daqScriptComp::configure (void)
     status_ = daqScriptComp::doScript (subsys_.system(), script_, this);
   }
 #ifdef _CODA_USE_THREADS
-  else {
+  else
+  {
     reporter->cmsglog (CMSGLOG_INFO,"%s configured ok\n", title_);
 
     setState (CODA_CONFIGURED);
   }
   return CODA_SUCCESS;
 #else
-  if (status_ == CODA_SUCCESS){
+  if (status_ == CODA_SUCCESS)
+  {
     reporter->cmsglog (CMSGLOG_INFO,"%s configured ok\n", title_);
 
     setState (CODA_CONFIGURED);
   }
-  else {
+  else
+  {
     reporter->cmsglog (CMSGLOG_WARN,"%s configure failed\n", title_);
     setState (CODA_DORMANT);
   }
@@ -390,7 +399,8 @@ daqScriptComp::download (void)
 {
   status_ = CODA_SUCCESS;
 
-  if (action_ == CODA_DOWNLOAD_ACTION) {
+  if (action_ == CODA_DOWNLOAD_ACTION)
+  {
     setState (CODA_CONFIGURED);
     setupStateInfo (action_);
     reporter->cmsglog (CMSGLOG_INFO,"%s download underway......\n", title_);    
@@ -398,13 +408,15 @@ daqScriptComp::download (void)
     status_ = daqScriptComp::doScript (subsys_.system(), script_, this);
   }
 #ifdef _CODA_USE_THREADS
-  else {
+  else
+  {
     reporter->cmsglog (CMSGLOG_INFO,"%s downloaded ok\n", title_);
     setState (CODA_DOWNLOADED);
   }
   return CODA_SUCCESS;
 #else
-  if (status_ == CODA_SUCCESS){
+  if (status_ == CODA_SUCCESS)
+  {
     reporter->cmsglog (CMSGLOG_INFO,"%s downloaded ok\n", title_);
     setState (CODA_DOWNLOADED);
   }
@@ -421,20 +433,23 @@ daqScriptComp::go (void)
 {
   status_ = CODA_SUCCESS;
 
-  if (action_ == CODA_GO_ACTION) {
+  if (action_ == CODA_GO_ACTION)
+  {
     setupStateInfo (action_);
     reporter->cmsglog (CMSGLOG_INFO,"%s go underway......\n", title_);
     askTransitionerToWait ();
     status_ = daqScriptComp::doScript (subsys_.system(), script_, this);
   }
 #ifdef _CODA_USE_THREADS
-  else {
+  else
+  {
     reporter->cmsglog (CMSGLOG_INFO,"%s activated ok\n", title_);
     setState (CODA_ACTIVE);
   }
   return CODA_SUCCESS;
 #else
-  if (status_ == CODA_SUCCESS){
+  if (status_ == CODA_SUCCESS)
+  {
     reporter->cmsglog (CMSGLOG_INFO,"%s activated ok\n", title_);
     setState (CODA_ACTIVE);
   }
@@ -499,7 +514,8 @@ daqScriptComp::prestart (void)
     reporter->cmsglog (CMSGLOG_INFO,"%s prestarted ok\n", title_);
     setState (CODA_PAUSED);
   }
-  else {
+  else
+  {
     reporter->cmsglog (CMSGLOG_WARN,"%s prestart failed\n", title_);
     setState (CODA_DOWNLOADED);
   }
@@ -604,7 +620,8 @@ daqScriptComp::successState (void)
 {
   if (action_ > CODA_DOWNLOAD_ACTION)
     return successState_;
-  else {
+  else
+  {
     int cstate = comp_.state ();
     if (cstate != CODA_DORMANT)
       return comp_.state ();

@@ -5,7 +5,7 @@
 
 if ($1 == start) then
 
-  ssh -n $CLON_DAQ "info_server -a $2 -dump -dumpfile $CLON_LOG/info_server/info_server.dump -config $CLON_PARMS/info_server/info_server.cfg -logunknown -logbad -state $CLON_LOG/info_server/info_server.state -savetime 180 >>& $CLON_LOG/info_server/info_server.log &" &
+  ssh -n $CLON_DAQ "info_server -a $2 -dump -dumpfile $CLON_LOG/info_server/info_server.dump -config $CLON_PARMS/info_server/info_server.cfg -logunknown -logbad -state $CLON_PARMS/info_server/info_server.state -savetime 180 >>& $CLON_LOG/info_server/info_server.log &" &
 
 else if ($1 == stop) then
 

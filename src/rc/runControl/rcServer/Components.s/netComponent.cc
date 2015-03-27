@@ -108,7 +108,7 @@
 #include <rcTclInterface.h>
 #endif
 
-/* Sergey: status_ described in daqTarget.h ? */
+/* Sergey: status_, state_ etc described in daqTarget.h */
 
 //===========================================================================
 //        Implementation of class netComponent
@@ -142,9 +142,12 @@ netComponent::bootThread (void *arg)
   tv.tv_usec = (netComponent::tickInterval)*1000;
   int counterLimit = (netComponent::timeoutLimit*1000)/(netComponent::tickInterval);
   int status, timeoutCount = 0;
-  printf("Boot thread!!!\n");
 
-  while (timeoutCount < counterLimit) {
+#ifdef DEBUG_MSGS
+  printf("Boot thread!!!\n");
+#endif
+  while (timeoutCount < counterLimit)
+  {
     // always test cancel thread to enable cancel point right here
     SET_CANCEL_POINT;
 
@@ -152,26 +155,32 @@ netComponent::bootThread (void *arg)
     DISABLE_THREAD_CANCELLING;
     {
       locker guard (comp);
+#ifdef DEBUG_MSGS
       printf("dacreate from boot thread\n");
+#endif
       comp->status_ = ::codaDaCreate (comp->title_, comp->number_, comp->expid_, 
 				      comp->type_, comp->node_,updateI);
 
       comp->transformState (CODA_BOOTED, CODA_BOOTED, comp->status_);
 
-      if (comp->status_ == CODA_SUCCESS) {
-	comp->established_ = 1;
+      if (comp->status_ == CODA_SUCCESS)
+      {
+	    comp->established_ = 1;
 
-	reporter->cmsglog (CMSGLOG_INFO1,"Thread %d: %s booted ok\n", pthread_self (),
+	    reporter->cmsglog (CMSGLOG_INFO1,"Thread %d: %s booted ok\n", pthread_self (),
 			   comp->title_);
-	return 0;
+	    return 0;
       }
-      else if ((timeoutCount % 8) == 0) {
-	reporter->cmsglog (CMSGLOG_INFO1,"Thread %d: %s still booting......\n", 
+      else if ((timeoutCount % 8) == 0)
+      {
+	    reporter->cmsglog (CMSGLOG_INFO1,"Thread %d: %s still booting......\n", 
 			   pthread_self(), comp->title_);
-	timeoutCount ++;
+	    timeoutCount ++;
       }
-      else 
-	timeoutCount ++;
+      else
+	  { 
+	    timeoutCount ++;
+	  }
       ::select (0, 0, 0, 0, &tv);
       // enable canceling
       ENABLE_THREAD_CANCELLING;
@@ -428,7 +437,7 @@ netComponent::buildBootInfo (void)
   }
 }
 #endif      
-  
+
 int
 netComponent::boot (void)
 {
@@ -436,14 +445,23 @@ netComponent::boot (void)
   daqRun* run = subsys_.system().run();
   int updateI = run->dataUpdateInterval();
 
-  if (!established_) {
+#ifdef DEBUG_MSGS
+  printf("netComponent::boot reached\n");
+#endif
+
+  if (!established_)
+  {
 #ifdef _CODA_DEBUG
-    if (bootString_) 
+    if (bootString_)
+	{ 
       printf ("Component number %d type %s node %s and bootString %s\n",
 	      number_, type_, node_, bootString_);
+	}
     else
+	{
       printf ("Component number %d type %s node %s\n",
 	      number_, type_, node_);
+	}
 #endif
 
     reporter->cmsglog (CMSGLOG_INFO,"Connecting to %s on host %s\n",title_,node_);
@@ -454,58 +472,63 @@ netComponent::boot (void)
 
     transformState (CODA_BOOTED, CODA_BOOTED, status_);
 
-    if (autoBoot_) {
-      if (status_ != CODA_SUCCESS && bootString_) {
-				// create bootString
-	char msg[256];
-	char *rshCmd = "rsh";
+    /* if autoboot allowed */
+    if (autoBoot_)
+    {
+      if (status_ != CODA_SUCCESS && bootString_)
+      {
+		// create bootString
+	    char msg[256];
+	    char *rshCmd = "rsh";
+	    char *bootCmd = "echo";
 
-#ifdef HP_UX
-	rshCmd = "remsh";
-#endif
-	char *bootCmd = "echo";
+	    if (::strcmp(type_,"RCS") == 0)
+        {
+	      bootCmd = "rcServer";
+	    }
+	    else if  (::strcmp(type_,"EB") == 0)
+        {
+	      bootCmd = "coda_ebc";
+	    }
+	    else if (::strcmp(type_,"ROC") == 0)
+        {
+	      bootCmd = "coda_roc";
+	    }
+	    else if (::strcmp(type_,"ER") == 0)
+        {
+	      bootCmd = "coda_erc";
+	    }
+	    else if (::strcmp(type_,"TS") == 0)
+        {
+	      bootCmd = "coda_ts";
+	    } 
 
-	if (::strcmp(type_,"RCS") == 0) {
-	  bootCmd = "rcServer";
-	}
-	else if  (::strcmp(type_,"EB") == 0) {
-	  bootCmd = "coda_eb";
-	}
-	else if (::strcmp(type_,"ROC") == 0) {
-	  bootCmd = "coda_roc";
-	}
-	else if (::strcmp(type_,"ER") == 0) {
-	  bootCmd = "coda_er";
-	}
-	else if (::strcmp(type_,"TS") == 0) {
-	  bootCmd = "coda_ts";
-	} 
+	    char *realType = type_;
+	    if (::strcmp(type_,"EB") == 0)
+        {
+	      realType = "CDEB";
+	    }
+	    daqRun* run = subsys_.system().run();
 
-	char *realType = type_;
-	if (::strcmp(type_,"EB") == 0) {
-	  realType = "CDEB";
-	}
-	daqRun* run = subsys_.system().run();
-
-	reporter->cmsglog (CMSGLOG_WARN,"attempt to boot %s\n",
+	    reporter->cmsglog (CMSGLOG_WARN,"attempt to boot %s\n",
 			   title_);      
-	::sprintf(msg,"coda_activate.tcl %s %s %s %s %s %s\n",
-		  run->msqlhost(),
-		  node_,
-		  run->database (),
-		  run->exptname (),
-		  realType,
-		  title_);
+	    ::sprintf(msg,"coda_activate.tcl %s %s %s %s %s %s\n",
+		    run->msqlhost(),
+		    node_,
+		    run->database (),
+		    run->exptname (),
+		    realType,
+		    title_);
 
-	::printf("coda_activate.tcl %s %s %s %s %s %s\n",
-		 run->msqlhost(),
-		 node_,
-		 run->database (),
-		 run->exptname (),
-		 realType,
-		 title_);
+	    ::printf("coda_activate.tcl %s %s %s %s %s %s\n",
+		   run->msqlhost(),
+		   node_,
+		   run->database (),
+		   run->exptname (),
+		   realType,
+		   title_);
 
-	status_ = system(msg);
+	    status_ = system(msg);
 
 				/*if (!bootString_) 
 				  ::sprintf (msg, "coda_activate -m %s %s %d %s %s %s %s", 
@@ -520,37 +543,48 @@ netComponent::boot (void)
 				  run->database (), run->exptname () );*/
 
       }
-      else if (bootString_ == 0 && status_ != CODA_SUCCESS)  {
-	printf("here with boot failure %d\n",status_);
-	status_ = CODA_ERROR;
+      else if (bootString_ == 0 && status_ != CODA_SUCCESS)
+      {
+	    printf("here with boot failure %d\n",status_);
+	    status_ = CODA_ERROR;
       }
-      if ((status_ == CODA_SUCCESS) || (status_ == CODA_WARNING)) {
-	setState (CODA_DORMANT);
-	reporter->cmsglog (CMSGLOG_INFO1,"boot underway...\n");
-	waitForConnection ();
+      if ((status_ == CODA_SUCCESS) || (status_ == CODA_WARNING))
+      {
+	    setState (CODA_DORMANT);
+	    reporter->cmsglog (CMSGLOG_INFO1,"boot underway...\n");
+	    waitForConnection ();
       }
-      else {
-	setState (CODA_DORMANT);
-	reporter->cmsglog (CMSGLOG_ERROR,"boot failed !!!\n");
-	setOverrideState (CODA_DORMANT);
+      else
+      {
+	    setState (CODA_DORMANT);
+	    reporter->cmsglog (CMSGLOG_ERROR,"boot failed !!!\n");
+	    setOverrideState (CODA_DORMANT);
       }
-    } // autoboot
-    else {
-      if (status_ == CODA_SUCCESS) {
-	established_ = 1;
-	setState (CODA_BOOTED);
-	reporter->cmsglog (CMSGLOG_INFO,"booted ok\n");      
+    } /* autoboot */
+    else
+    {
+      if (status_ == CODA_SUCCESS)
+      {
+	    established_ = 1;
+	    setState (CODA_BOOTED);
+	    reporter->cmsglog (CMSGLOG_INFO,"booted ok\n");      
       }
-      else {
-	setState (CODA_DISCONNECTED);
-	reporter->cmsglog (CMSGLOG_ERROR,"boot failed !!!\n");
-	setOverrideState (CODA_DISCONNECTED);
+      else
+      {
+	    setState (CODA_DISCONNECTED);
+	    reporter->cmsglog (CMSGLOG_ERROR,"boot failed !!!\n");
+	    setOverrideState (CODA_DISCONNECTED);
       }
-
     }
   }
   else // if not connected
+  {
     setState (CODA_BOOTED);
+  }
+
+#ifdef NEW_STUFF
+  status_ = ::codaDaBoot (title_);
+#endif
 
   return CODA_SUCCESS;
 }
@@ -558,7 +592,8 @@ netComponent::boot (void)
 int
 netComponent::terminate (void)
 {
-  if (established_) {
+  if (established_)
+  {
     status_ = CODA_SUCCESS;
     reporter->cmsglog (CMSGLOG_INFO,"%s terminate ......\n", title_);
     // real zap function
@@ -578,8 +613,11 @@ void
 netComponent::cancelTransition (void)
 {
   if (established_)
-    daqComponent::cancelTransition ();
-  else {
+  { 
+   daqComponent::cancelTransition ();
+  }
+  else
+  {
     prevState_ = CODA_DORMANT;
     state_ = CODA_DORMANT;
   }
@@ -591,9 +629,15 @@ netComponent::cancelTransition (void)
 #endif
 }
 
+
+
+
 int
 netComponent::configure (void)
 {
+#ifdef DEBUG_MSGS
+  printf("netComponent::configure reached\n");fflush(stdout);
+#endif
   status_ = CODA_SUCCESS;
   // remove all the old information
 
@@ -603,69 +647,155 @@ netComponent::configure (void)
   if (run->getNetConfigInfo (title_, config_) != CODA_SUCCESS)
     fprintf (stderr, "Something is fishy..........\n");
 
-  setState (CODA_CONFIGURED);
-
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)  
+  setState(CODA_CONFIGURED); /* sets 'state_' */
+  
   // get information on the Itcl object that map onto the C++ object
-  if (enabled_) // only get state information for enable components
-    codaDaCompConfigure (title_);
+  // only get state information for enable components
+  if (enabled_) codaDaCompConfigure (title_);
+
+
+
+#ifdef NEW_STUFF
+
+/*sergey: trying to execute component's Configure transition */
+if (enabled_)
+{
+    setState (CODA_CONFIGURING);
+    codaDaCompSetState(title_, CODA_CONFIGURING);
+
+
+    daqRun* run = subsys_.system().run();
+    status_ = ::codaDaConfigure (title_, run->runtype ());
+
+    transformState(CODA_CONFIGURING, CODA_CONFIGURED, status_);
+
+#ifdef DEBUG_MSGS
+  printf("CCCC after transformState =====================\n");
+  printf("CCCCC> status_ = %d\n", status_);
 #endif
+
+    if(status_ == CODA_SUCCESS)
+    {
+#ifdef DEBUG_MSGS
+      printf("%s configure underway.....\n", title_);
+#endif
+      reporter->cmsglog(CMSGLOG_INFO1,"%s configure underway.....\n", title_);
+    }
+    else
+    { 
+#ifdef DEBUG_MSGS
+      printf("%s configure failed\n", title_);
+#endif
+      reporter->cmsglog(CMSGLOG_ERROR,"%s configure failed\n", title_);
+    }
+
+    return CODA_SUCCESS;
+}
+
+#endif /* NEW_STUFF */
+
+
+
 
   return status_;
 }
 
+
 int
 netComponent::download(void)
 {
-  status_ = CODA_SUCCESS;
-  if(established_)
-  {
-    int oldstate = state();
-
-#ifdef NEVER_DEFINED
-    /* It used to be that we could only call download from one of
-       these three states. Now it is safe to call download from
-       anywhere.
-    */
-    if(oldstate == CODA_CONFIGURED || oldstate == CODA_BOOTED ||
-       oldstate == CODA_DOWNLOADED) 
-
+#ifdef DEBUG_MSGS
+  printf("netComponent::download reached\n");fflush(stdout);
 #endif
+  status_ = CODA_SUCCESS;
+
+#ifdef NEW_STUFF
+  established_ = 1; /*sergey: if not calling 'boot' before, have to set established_*/
+#else
+  if(established_)
+#endif
+  {
+#ifdef DEBUG_MSGS
+    printf("netComponent::download: established_\n");fflush(stdout);
+#endif
+    int oldstate = state(); /*do not need ???*/
+
+    reporter->cmsglog (CMSGLOG_INFO,"download component %s ......\n", title_);
+
+    // set internal itcl components state to downloading
+    codaDaCompSetState(title_, CODA_DOWNLOADING);
+
+    daqRun* run = subsys_.system().run();
+
+    /* send 'Download' command to components */
+    status_ = ::codaDaDownload (title_, run->runtype ());
+
+    /* wait for state to become 'CODA_DOWNLOADED' */
+    transformState(CODA_DOWNLOADING, CODA_DOWNLOADED, status_);
+
+    if(status_ == CODA_SUCCESS)
     {
-      reporter->cmsglog (CMSGLOG_INFO,"download component %s ......\n", title_);
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
-      // set internal itcl components state to downloading
-      codaDaCompSetState(title_, CODA_DOWNLOADING);
+#ifdef DEBUG_MSGS
+      printf("%s download underway.....\n", title_);
+#endif
+      reporter->cmsglog(CMSGLOG_INFO1,"%s download underway.....\n", title_);
+    }
+    else
+    { 
+#ifdef DEBUG_MSGS
+      printf("%s downloaded failed\n", title_);
+#endif
+      reporter->cmsglog(CMSGLOG_ERROR,"%s downloaded failed\n", title_);
+    }
+
+  }
+  return CODA_SUCCESS;
+}
+
+
+
+
+int
+netComponent::prestart (void)
+{
+#ifdef DEBUG_MSGS
+  printf("netComponent::prestart reached, established_ = %d\n",established_);
+#endif
+  status_ = CODA_SUCCESS;
+  if (established_)
+  {
+    if(state () == CODA_DOWNLOADED )
+    {
+      reporter->cmsglog (CMSGLOG_INFO,"%s prestart......\n", title_);
+
+      codaDaCompSetState (title_, CODA_PRESTARTING);
 
       daqRun* run = subsys_.system().run();
-      status_ = ::codaDaDownload (title_, run->runtype ());
-#else
-      status_ = ::codaDaDownload (title_, config_);
-#endif
-
-#ifdef DEBUG_MSGS
-      printf("befor transformState +++++++++++++++++++++\n");
-#endif
-      transformState(CODA_DOWNLOADING, CODA_DOWNLOADED, status_);
-#ifdef DEBUG_MSGS
-      printf("after transformState =====================\n");
-#endif
+      status_ = ::codaDaPrestart(title_, run->runtypeNum(), run->runNumber());
+      transformState (CODA_PRESTARTING, CODA_PAUSED, status_);
       if(status_ == CODA_SUCCESS)
       {
-#ifdef DEBUG_MSGS
-        printf("%s download underway.....\n", title_);
-#endif
-        reporter->cmsglog(CMSGLOG_INFO1,"%s download underway.....\n", title_);
+        reporter->cmsglog (CMSGLOG_INFO1,"%s prestart underway......\n", title_);
+
+        // hack to allow pause/resume script. RWM April 99
+        if(strcmp(type_, "TS") == 0)
+        {
+          netComponent::IsPaused = FALSE;
+        }
       }
       else
-      { 
-        printf("%s downloaded failed\n", title_);
-        reporter->cmsglog(CMSGLOG_ERROR,"%s downloaded failed\n", title_);
+      {
+        reporter->cmsglog (CMSGLOG_ERROR,"%s prestart failed\n", title_);
+        return CODA_ERROR;
       }
     }
   }
   return CODA_SUCCESS;
 }
+
+
+
+
 
 int
 netComponent::go (void)
@@ -674,13 +804,13 @@ netComponent::go (void)
   status_ = CODA_SUCCESS;
 
 
-  if (established_) {
-    if (state () == CODA_PAUSED) {
+  if (established_)
+  {
+    if (state () == CODA_PAUSED)
+    {
       reporter->cmsglog (CMSGLOG_INFO,"%s go.....\n", title_);
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
       codaDaCompSetState (title_, CODA_ACTIVATING);
-#endif
 
       // hack to allow pause/resume script. RWM April 99
       if(strcmp(type_, "TS") == 0)
@@ -717,7 +847,9 @@ netComponent::go (void)
         reporter->cmsglog (CMSGLOG_ERROR,"%s go failed\n", title_);
       }
 
-    } else {
+    } 
+    else
+    {
       
       // hack to allow pause/resume script. RWM April 99
       if(strcmp(type_, "TS") == 0)
@@ -758,13 +890,13 @@ netComponent::pause (void)
   char scriptname[1024];
   int script_st = 0;
   status_ = CODA_SUCCESS;
-  if (established_) {
-    if (state () == CODA_ACTIVE) {
+  if (established_)
+  {
+    if (state () == CODA_ACTIVE)
+    {
       reporter->cmsglog (CMSGLOG_INFO,"%s pause......\n", title_);
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
       codaDaCompSetState (title_, CODA_PRESTARTING);
-#endif
 
       // Hack to allow pause/resume script. RWM April 99
 
@@ -816,47 +948,13 @@ netComponent::pause (void)
   return CODA_SUCCESS;
 }
 
-int
-netComponent::prestart (void)
-{
-  status_ = CODA_SUCCESS;
-  if (established_)
-  {
-    if(state () == CODA_DOWNLOADED )
-    {
-      reporter->cmsglog (CMSGLOG_INFO,"%s prestart......\n", title_);
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
-      codaDaCompSetState (title_, CODA_PRESTARTING);
-#endif
-
-      daqRun* run = subsys_.system().run();
-      status_ = ::codaDaPrestart(title_, run->runtypeNum(), run->runNumber());
-      transformState (CODA_PRESTARTING, CODA_PAUSED, status_);
-      if(status_ == CODA_SUCCESS)
-      {
-        reporter->cmsglog (CMSGLOG_INFO1,"%s prestart underway......\n", title_);
-
-        // hack to allow pause/resume script. RWM April 99
-        if(strcmp(type_, "TS") == 0)
-        {
-          netComponent::IsPaused = FALSE;
-        }
-      }
-      else
-      {
-        reporter->cmsglog (CMSGLOG_ERROR,"%s prestart failed\n", title_);
-        return CODA_ERROR;
-      }
-    }
-  }
-  return CODA_SUCCESS;
-}
 
 int
 netComponent::reset (void)
 {
-  if (established_) {
+  if (established_)
+  {
     status_ = CODA_SUCCESS;
     reporter->cmsglog (CMSGLOG_INFO,"%s reset ......\n", title_);
     // real zap function
@@ -883,31 +981,35 @@ int
 netComponent::end (void)
 {
   status_ = CODA_SUCCESS;
-  if (established_) {
-    if (state () >= CODA_DOWNLOADED) {
+  if (established_)
+  {
+    if (state () >= CODA_DOWNLOADED)
+    {
       reporter->cmsglog (CMSGLOG_INFO,"%s end......\n", title_);
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
       codaDaCompSetState (title_, CODA_ENDING);
-#endif
 
       status_ = ::codaDaEnd (title_, 0);
       transformState (CODA_ENDING, CODA_DOWNLOADED, status_);
-      if (status_ == CODA_SUCCESS) {
+      if (status_ == CODA_SUCCESS)
+      {
+	    reporter->cmsglog (CMSGLOG_INFO1,"%s end underway......\n", title_);
 
-	reporter->cmsglog (CMSGLOG_INFO1,"%s end underway......\n", title_);
-
-	// hack to allow pause/resume script. RWM April 99
-	if (strcmp(type_, "TS") == 0) {
-	  netComponent::IsPaused = FALSE;
-	}
-      } else {
-	reporter->cmsglog (CMSGLOG_ERROR,"%s end failed\n", title_);
+	    // hack to allow pause/resume script. RWM April 99
+	    if (strcmp(type_, "TS") == 0)
+        {
+	      netComponent::IsPaused = FALSE;
+	    }
+      }
+      else
+      {
+	    reporter->cmsglog (CMSGLOG_ERROR,"%s end failed\n", title_);
       }
     }
   }
   return CODA_SUCCESS;
 }
+
 
 int
 netComponent::verify (void)
@@ -922,13 +1024,21 @@ netComponent::status (void) const
   return status_;
 }
 
+
+/* sergey: checks component state; transitioner::transitionFinished() use that info to deside if transition is finished */
 int
-netComponent::state (void)
+netComponent::state(void)
 {
+  /* 'netComponent::daqComponent::daqTarget::state_' updated in portHandler() based on 'STA:' message from component;
+  we'll will return 'st' after some checks */
   int st = state_;
 
   daqRun* run = subsys_.system().run();
   int updateI = run->dataUpdateInterval();
+
+#ifdef DEBUG_MSGS
+  printf("netComponent::state() reached\n");
+#endif
 
   /*Sergey
   printf ("netComponent::state: Component %s at state %d\n",title_, state_);
@@ -940,6 +1050,7 @@ netComponent::state (void)
 		       "%s has not reported status for %d seconds\n", 
 		       title_, time(0) - prevtime_);
 
+	/* end run automatically if waiting too long and "AUTOEND" is set */
     if(time(0) > prevtime_ + 6 * updateI + 60)
     {
       if(st == DA_ACTIVE)
@@ -952,7 +1063,7 @@ netComponent::state (void)
         {
           // Warn for now, will be an error later.
           reporter->cmsglog (CMSGLOG_WARN,
-			     "%s no status for %d seconds\n", 
+			     "%s no f.. status for %d seconds\n", 
 			     title_, time(0) - prevtime_ + 60); 
 
           reporter->cmsglog (CMSGLOG_WARN, 
@@ -969,6 +1080,7 @@ netComponent::state (void)
     }
   }
 
+  /* welcome back */
   if((state_ == DA_ACTIVE ) && (prevState_ == overrideState_))
   {
     printf("WARNING: %s welcome back!! where've you been??\n",title_);
@@ -976,15 +1088,18 @@ netComponent::state (void)
     prevState_ = state_;
   }
 
-  //printf ("netComponent::state: Component %s at state %d\n",title_, state_);
-
+#ifdef DEBUG_MSGS
+  printf ("netComponent::state: Component %s at state %d\n",title_,state_);
+#endif
   return(st);
 }
 
 int
 netComponent::state2 (void)
 {
-printf("netComponent::state2 reached\n");
+#ifdef DEBUG_MSGS
+  printf("netComponent::state2 reached\n");
+#endif
   return state();
 }
 
@@ -1016,6 +1131,7 @@ netComponent::waitForConnection (void)
 #endif
 }
 
+
 #if !defined (_CODA_USE_THREADS)
 void
 netComponent::timerCallback (void)
@@ -1028,27 +1144,27 @@ netComponent::timerCallback (void)
 #ifdef DEBUG_MSGS
   printf("netComponent::timerCallback reached\n");
 #endif
-
-  if (timerCount_ < counterLimit) {
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+  if (timerCount_ < counterLimit)
+  {
     status_ = ::codaDaCreate (title_, number_, expid_, type_, node_,updateI);
-#else
-    status_ = ::codaDaCreate (bootinfo_, number_, expid_, type_, node_,updateI);
-#endif
 
     transformState (CODA_BOOTED, CODA_BOOTED, status_);
-    if (status_ == CODA_SUCCESS) {
+    if (status_ == CODA_SUCCESS)
+    {
       established_ = 1;
       reporter->cmsglog (CMSGLOG_INFO,"%s booted ok\n", title_);
       bootTimer_->dis_arm ();
       timerCount_ = 0;
     }
-    else if ((timerCount_ % 8) == 0) {
+    else if ((timerCount_ % 8) == 0)
+    {
       reporter->cmsglog (CMSGLOG_INFO,"%s still booting......\n", title_);
       timerCount_ ++;
     }
-    else 
+    else
+	{ 
       timerCount_ ++;
+	}
   }
   else
   {
@@ -1087,6 +1203,7 @@ netComponent::transformState(int state1, int state2, int& status)
     status = CODA_ERROR;
   }
 }
+
 
 daqSubSystem&
 netComponent::subSystem (void) const
@@ -1181,9 +1298,8 @@ netComponent::runScript(char *scriptName)
     }
   }
 
-#ifndef __ultrix
   ::signal (SIGINT, istat);
   ::signal (SIGQUIT, qstat);
-#endif
+
   return rtn_stat;
 }

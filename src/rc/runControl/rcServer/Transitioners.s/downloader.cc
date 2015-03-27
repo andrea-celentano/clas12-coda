@@ -36,7 +36,7 @@ downloader::downloader (daqSystem* system)
 :transitioner (system), timeoutCache_ (0)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("     Create downloader Class Object\n");
+  printf ("downloader::downloader: Create downloader Class Object\n");
 #endif
   // empty
 }
@@ -44,7 +44,7 @@ downloader::downloader (daqSystem* system)
 downloader::~downloader (void)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("     Delete downloader Class Object\n");
+  printf ("downloader::~downloader: Delete downloader Class Object\n");
 #endif
   // empty
 }
@@ -52,36 +52,54 @@ downloader::~downloader (void)
 int
 downloader::action (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf ("downloader::action\n");
+#endif
   return CODA_DOWNLOAD_ACTION;
 }
 
 void
 downloader::executeItem (daqSubSystem* subsys)
 {
-  subsys->download ();
+#ifdef _TRACE_OBJECTS
+  printf("downloader::executeItem reached\n");fflush(stdout);
+#endif
+  subsys->download(); /* calls daqSubSystem::download() */
 }
 
 int
 downloader::failureState (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf ("downloader::failureState\n");
+#endif
   return CODA_CONFIGURED;
 }
 
 int
 downloader::successState (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf ("downloader::successState (returns CODA_DOWNLOADED)\n");
+#endif
   return CODA_DOWNLOADED;
 }
 
 int
 downloader::transitionState (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf ("downloader::transitionState\n");
+#endif
   return CODA_CONFIGURED;
 }
 
 int
 downloader::transitionTimeout (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf ("downloader::transitionTimeout\n");
+#endif
   if (!timeoutCache_) {
     char *cs[MAX_NUM_COMPONENTS];
 
@@ -97,6 +115,9 @@ downloader::transitionTimeout (void)
 void
 downloader::setupSuccess (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf ("downloader::setupSuccess\n");
+#endif
   transitioner::setupSuccess ();
   // check dynamic variable numbers, if it is 0, create them
   if (system_->run()->numDynamicVars () == 0)

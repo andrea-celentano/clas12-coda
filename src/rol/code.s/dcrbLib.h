@@ -1,41 +1,24 @@
 /******************************************************************************
 *
-*  fadcLib.h  - Driver library header file for readout of the JLAB 250MHz FLASH
-*                ADC using a VxWorks 5.5 or later based single board 
-*                computer.
+*  dcrbLib.h  - Driver library header file for readout of the dcrb boards
 *
-*  Author: David Abbott 
+*  Author: Ber Raydo
 *          Jefferson Lab Data Acquisition Group
-*          June 2007
-*
-*  Revision  1.0 - Initial Revision
-*                    - Supports up to 20 FADC boards in a Crate
-*                    - Programmed I/O and Block reads
-*
-*  Revision  1.1 - Updated for new firmware (0x0111 or later)
-*                  Supports FADC Signal Distribution Module
-*
-*  Revision  1.2 - Updated to support Internal (HITSUM) triggering
-*                  and Moller firmware revisions of the FADC
-*
-*  Revision  2.0 - Updated to support FADC V2.
-*
-*  SVN: $Rev: 517 $
 *
 */
 
 #ifndef __DCRBLIB__
 #define __DCRBLIB__
 
-#define DC_BOARD_ID       0x44435242
-#define DC_MAX_BOARDS             20
-#define DC_MAX_TDC_CHANNELS       96
-#define DC_MAX_DATA_PER_CHANNEL  512
-#define DC_MAX_A32_MEM      0x800000   /* 8 Meg */
-#define DC_MAX_A32MB_SIZE   0x800000  /*  8 MB */
-#define DC_VME_INT_LEVEL           3     
-#define DC_VME_INT_VEC          0xDC
-#define DC_MAX_DAC_VAL			 175
+#define DCRB_BOARD_ID       0x44435242
+#define DCRB_MAX_BOARDS             20
+#define DCRB_MAX_TDC_CHANNELS       96
+#define DCRB_MAX_DATA_PER_CHANNEL  512
+#define DCRB_MAX_A32_MEM      0x800000   /* 8 Meg */
+#define DCRB_MAX_A32MB_SIZE   0x800000  /*  8 MB */
+#define DCRB_VME_INT_LEVEL           3     
+#define DCRB_VME_INT_VEC          0xDC
+#define DCRB_MAX_DAC_VAL			 175
 
 
 struct dcrb_struct {
@@ -149,82 +132,82 @@ struct dcrb_data_struct {
   unsigned int err_status_int;
 };
 
-/* FADC Special Board IDs */
+/* DCRB Special Board IDs */
 
 /* Define ICap Bits */
-#define DC_ICAP_WRITE           0x10000
-#define DC_ICAP_CLK             0x20000
-#define DC_ICAP_CE              0x40000
+#define DCRB_ICAP_WRITE           0x10000
+#define DCRB_ICAP_CLK             0x20000
+#define DCRB_ICAP_CE              0x40000
 
 /* Define Init Flag bits for Clock Source */
-#define DC_SOURCE_INT         0x00
-#define DC_SOURCE_VXS         0x01
-#define DC_SOURCE_MASK        0x01
+#define DCRB_SOURCE_INT         0x00
+#define DCRB_SOURCE_VXS         0x01
+#define DCRB_SOURCE_MASK        0x01
 
 /* Define ClockCfg Bits */
-#define DC_REF_CLK_INTERNAL        0x0
-#define DC_REF_CLK_P0              0x1
-#define DC_REF_CLK_MASK            0x1
-#define DC_REF_CLK_RESET           0x2
-#define DC_TDC_CLK_LOCKED          0x4
-#define DC_VME_CLK_LOCKED          0x8
+#define DCRB_REF_CLK_INTERNAL        0x0
+#define DCRB_REF_CLK_P0              0x1
+#define DCRB_REF_CLK_MASK            0x1
+#define DCRB_REF_CLK_RESET           0x2
+#define DCRB_TDC_CLK_LOCKED          0x4
+#define DCRB_VME_CLK_LOCKED          0x8
 
-#define DC_TRIG_P0                0x11
-#define DC_TRIG_P0_SYNC           0x01
-#define DC_TRIG_VME               0x08
-#define DC_SYNC_P0               0x400
-#define DC_SYNC_VME              0x800
-#define DC_TRIG_MASK              0x1F
-#define DC_SYNC_MASK            0x1F00
+#define DCRB_TRIG_P0                0x11
+#define DCRB_TRIG_P0_SYNC           0x01
+#define DCRB_TRIG_VME               0x08
+#define DCRB_SYNC_P0               0x400
+#define DCRB_SYNC_VME              0x800
+#define DCRB_TRIG_MASK              0x1F
+#define DCRB_SYNC_MASK            0x1F00
 
-#define DC_ENABLE_BLKLVL_INT      0x40000
-#define DC_ENABLE_BERR               0x01
-#define DC_ENABLE_MULTIBLOCK    0x2000000
-#define DC_FIRST_BOARD          0x4000000
-#define DC_LAST_BOARD           0x8000000
+#define DCRB_ENABLE_BLKLVL_INT      0x40000
+#define DCRB_ENABLE_BERR               0x01
+#define DCRB_ENABLE_MULTIBLOCK    0x2000000
+#define DCRB_FIRST_BOARD          0x4000000
+#define DCRB_LAST_BOARD           0x8000000
 
 /* Define Bit Masks */
-#define DC_VERSION_MASK        0x0000ffff
-#define DC_BOARD_MASK          0xffffffff
-#define DC_EVENT_COUNT_MASK    0xffffff
-#define DC_BLOCK_COUNT_MASK    0xfffff
-#define DC_BLOCK_LEVEL_MASK    0x7ff
-#define DC_INT_ENABLE_MASK     0x80000000
-#define DC_INT_VEC_MASK        0xff
-#define DC_INT_LEVEL_MASK      0x700
-#define DC_SLOT_ID_MASK        0xf800
+#define DCRB_VERSION_MASK        0x0000ffff
+#define DCRB_BOARD_MASK          0xffffffff
+#define DCRB_EVENT_COUNT_MASK    0xffffff
+#define DCRB_BLOCK_COUNT_MASK    0xfffff
+#define DCRB_BLOCK_LEVEL_MASK    0x7ff
+#define DCRB_INT_ENABLE_MASK     0x80000000
+#define DCRB_INT_VEC_MASK        0xff
+#define DCRB_INT_LEVEL_MASK      0x700
+#define DCRB_SLOT_ID_MASK        0xf800
 
-#define DC_A32_ENABLE        0x1
-#define DC_AMB_ENABLE        0x2000000
-#define DC_A32_ADDR_MASK     0xff80   /* 8 MB chunks */
-#define DC_AMB_MIN_MASK      0xff80
-#define DC_AMB_MAX_MASK      0xff800000
+#define DCRB_A32_ENABLE        0x1
+#define DCRB_AMB_ENABLE        0x2000000
+#define DCRB_A32_ADDR_MASK     0xff80   /* 8 MB chunks */
+#define DCRB_AMB_MIN_MASK      0xff80
+#define DCRB_AMB_MAX_MASK      0xff800000
 
-#define DC_MAX_LOOKBACK    65535
-#define DC_MAX_WINDOW      65535
-#define DC_MAX_DEADTIME      255
-#define DC_DEFAULT_LOOKBACK 2000
-#define DC_DEFAULT_WINDOW   1000
-#define DC_DEFAULT_DEADTIEM   32
+#define DCRB_MAX_LOOKBACK    65535
+#define DCRB_MAX_WINDOW      65535
+#define DCRB_MAX_DEADTIME      255
+#define DCRB_DEFAULT_LOOKBACK 2000
+#define DCRB_DEFAULT_WINDOW   1000
+#define DCRB_DEFAULT_DEADTIEM   32
 
 /* Define ADC Data Types and Masks */
 
-#define DC_DATA_TYPE_DEFINE       0x80000000
-#define DC_DATA_TYPE_MASK         0x78000000
-#define DC_DATA_SLOT_MASK         0x07c00000
+#define DCRB_DATA_TYPE_DEFINE       0x80000000
+#define DCRB_DATA_TYPE_MASK         0x78000000
+#define DCRB_DATA_SLOT_MASK         0x07c00000
 
-#define DC_DATA_BLOCK_HEADER      0x00000000
-#define DC_DATA_BLOCK_TRAILER     0x08000000
-#define DC_DATA_EVENT_HEADER      0x10000000
-#define DC_DATA_TRIGGER_TIME      0x18000000
-#define DC_DATA_INVALID           0x70000000
-#define DC_DATA_FILLER            0x78000000
-#define DC_DUMMY_DATA             0xf800fafa
-#define DC_DATA_TDCEVT            0x40000000
+#define DCRB_DATA_BLOCK_HEADER      0x00000000
+#define DCRB_DATA_BLOCK_TRAILER     0x08000000
+#define DCRB_DATA_EVENT_HEADER      0x10000000
+#define DCRB_DATA_TRIGGER_TIME      0x18000000
+#define DCRB_DATA_INVALID           0x70000000
+#define DCRB_DATA_FILLER            0x78000000
+#define DCRB_DUMMY_DATA             0xf800fafa
+#define DCRB_DATA_TDCEVT            0x40000000
 
-#define DC_DATA_BLKNUM_MASK       0x0000003f
-#define DC_DATA_WRDCNT_MASK       0x003fffff
-#define DC_DATA_TRIGNUM_MASK      0x07ffffff
+#define DCRB_DATA_BLKNUM_MASK       0x0000003f
+#define DCRB_DATA_WRDCNT_MASK       0x003fffff
+#define DCRB_DATA_TRIGNUM_MASK      0x07ffffff
 
 #define FLASH_CMD_WRPAGE			0x02
 #define FLASH_CMD_RD				0x03
@@ -242,45 +225,50 @@ struct dcrb_data_struct {
 #define FLASH_MFG_ATMEL				0x1F
 #define FLASH_DEVID_AT45DB642D		0x2800
 
+
+#define FNLEN     128       /* length of config. file name */
+#define STRLEN    250       /* length of str_tmp */
+#define ROCLEN     80       /* length of ROC_name */
+
 /* Function Prototypes */
 
-STATUS dcInit (UINT32 addr, UINT32 addr_inc, int ndc, int iFlag);
+STATUS dcrbInit (UINT32 addr, UINT32 addr_inc, int ndcrb, int iFlag);
 int dcrbHardReset(int id);
-int dcSetClockSource(int id, int clkSrc);
-void dcStatus(int id, int sflag);
-void dcGStatus(int sflag);
-int dcSetProcMode(int id, unsigned int lookBack, unsigned int windowWidth, unsigned int deadTime);
-void dcGSetProcMode(unsigned int lookBack, unsigned int windowWidth, unsigned int deadTime);
-int dcReadBlock(int id, volatile UINT32 *data, int nwrds, int rflag);
-int dcReadBlockStatus(int id, volatile UINT32 *data, int nwrds, int rflag);
-int dcPrintBlock(int id, int rflag);
-void dcClear(int id);
-void dcReset(int id, int iFlag);
-void dcChanDisable(int id, unsigned int cmask0, unsigned int cmask1, unsigned int cmask2);
-void dcTrig(int id);
-void dcGTrig();
-void dcSync(int id);
-int dcDready(int id, int dflag);
-int dcBready(int id);
-unsigned int dcGBready();
-unsigned int dcScanMask();
-int dcBusyLevel(int id, unsigned int val, int bflag);
-int dcBusy(int id);
-void dcEnableSoftTrig(int id);
-void dcGEnableSoftTrig();
-void dcEnableSoftSync(int id);
-void dcEnableBusError(int id);
-void dcGEnableBusError();
-void dcDisableBusError(int id);
-void dcEnableMultiBlock();
-void dcDisableMultiBlock();
-int dcSetBlockLevel(int id, int level);
-void dcGSetBlockLevel(int level);
-int dcSetDAC(int id, unsigned int dvalue);
-void dcGSetDAC(unsigned int dvalue);
-int dcSetCalMask(int id, unsigned int dce_mask, unsigned fce_mask);
-void dcGSetCalMask(unsigned int dce_mask, unsigned fce_mask);
-void dcDataDecode(unsigned int data);
-void dcGFirmwareUpdateVerify(const char *filename);
+int dcrbSetClockSource(int id, int clkSrc);
+void dcrbStatus(int id, int sflag);
+void dcrbGStatus(int sflag);
+int dcrbSetProcMode(int id, unsigned int lookBack, unsigned int windowWidth, unsigned int deadTime);
+void dcrbGSetProcMode(unsigned int lookBack, unsigned int windowWidth, unsigned int deadTime);
+int dcrbReadBlock(int id, volatile UINT32 *data, int nwrds, int rflag);
+int dcrbReadBlockStatus(int id, volatile UINT32 *data, int nwrds, int rflag);
+int dcrbPrintBlock(int id, int rflag);
+void dcrbClear(int id);
+void dcrbReset(int id, int iFlag);
+void dcrbChanDisable(int id, unsigned int cmask0, unsigned int cmask1, unsigned int cmask2);
+void dcrbTrig(int id);
+void dcrbGTrig();
+void dcrbSync(int id);
+int dcrbDready(int id, int dflag);
+int dcrbBready(int id);
+unsigned int dcrbGBready();
+unsigned int dcrbScanMask();
+int dcrbBusyLevel(int id, unsigned int val, int bflag);
+int dcrbBusy(int id);
+void dcrbEnableSoftTrig(int id);
+void dcrbGEnableSoftTrig();
+void dcrbEnableSoftSync(int id);
+void dcrbEnableBusError(int id);
+void dcrbGEnableBusError();
+void dcrbDisableBusError(int id);
+void dcrbEnableMultiBlock();
+void dcrbDisableMultiBlock();
+int dcrbSetBlockLevel(int id, int level);
+void dcrbGSetBlockLevel(int level);
+int dcrbSetDAC(int id, unsigned int dvalue);
+void dcrbGSetDAC(unsigned int dvalue);
+int dcrbSetCalMask(int id, unsigned int dce_mask, unsigned fce_mask);
+void dcrbGSetCalMask(unsigned int dce_mask, unsigned fce_mask);
+void dcrbDataDecode(unsigned int data);
+void dcrbGFirmwareUpdateVerify(const char *filename);
 
 #endif /* __DCRBLIB__ */

@@ -312,6 +312,7 @@ rcRunTypeDialog::parseConfigFile(char *fname)
   char *clonparms;
   char *expid;
   char *ch, *ptr;
+  int nargs;
 
   clonparms = getenv("CLON_PARMS");
 
@@ -346,14 +347,14 @@ rcRunTypeDialog::parseConfigFile(char *fname)
 
   while ((ch = fgets(str_tmp, STRLEN, fin)) != NULL)
   {
-    sscanf (str_tmp, "%s %s", keyword, filename);
+    nargs = sscanf (str_tmp, "%s %s", keyword, filename);
 
 	/*
     printf("keyword >%s<\n",keyword);
 	*/
 
     /* Start parsing real config inputs */
-    if(strcmp(keyword,"include")==0 || strcmp(keyword,"INCLUDE")==0)
+	if(nargs==2 && (strcmp(keyword,"include")==0 || strcmp(keyword,"INCLUDE")==0) )
     {
 
       if(strlen(filename)!=0) /* filename specified */

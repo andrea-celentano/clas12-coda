@@ -139,19 +139,22 @@ gtpttest(int code)
   {
     /*printf("gtpttest: befor gtpBReady()\n");fflush(stdout);*/
 #ifdef POLLING_GTP
-    val = gtpBReady();
+	val = gtpBReady();
 #else
-    val = gtpWaitForInt();
+	if(gtpWaitForInt())
+		val = gtpBReady();
 #endif
     /*printf("gtpttest: after gtpBReady(): val=%d\n",val);fflush(stdout);*/
 
     if(val > 0)
     {
+      syncFlag = gtpGetSyncEventFlag();
       return(1);
     }
     else
     {
       /*usleep(1000);*/
+      syncFlag = 0;
       return(0);
     }
   }

@@ -1,0 +1,521 @@
+
+/* rol1.c - UNIX first readout list (polling mode) */
+
+#define DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+
+#include <sys/types.h>
+#ifndef VXWORKS
+#include <sys/time.h>
+#endif
+
+#include "circbuf.h"
+#include "dxm.h"
+
+/*****************************/
+/* former 'crl' control keys */
+
+/* readout list ROL1 */
+#define ROL_NAME__ "DPM"
+
+/* polling */
+#define POLLING_MODE
+
+
+/* name used by loader */
+#define INIT_NAME dpm__init
+
+#include "rol.h"
+
+void usrtrig(unsigned long, unsigned long);
+void usrtrig_done();
+
+/* test readout */
+#include "DPM_source.h"
+#include "ControlCmdMem.h"
+
+ControlCmdMemory *smem;
+char confFileFeb[256];
+
+/************************/
+/************************/
+
+#include "coda.h"
+#include "tt.h"
+
+static char rcname[5];
+
+
+#define TIMERL_VAR \
+  static hrtime_t startTim, stopTim, dTim; \
+  static int nTim; \
+  static hrtime_t Tim, rmsTim, minTim=10000000, maxTim, normTim=1
+
+#define TIMERL_START \
+{ \
+  startTim = gethrtime(); \
+}
+
+#define TIMERL_STOP(whentoprint_macros,histid_macros) \
+{ \
+  stopTim = gethrtime(); \
+  if(stopTim > startTim) \
+  { \
+    nTim ++; \
+    dTim = stopTim - startTim; \
+    /*if(histid_macros >= 0)   \
+    { \
+      uthfill(histi, histid_macros, (int)(dTim/normTim), 0, 1); \
+    }*/														\
+    Tim += dTim; \
+    rmsTim += dTim*dTim; \
+    minTim = minTim < dTim ? minTim : dTim; \
+    maxTim = maxTim > dTim ? maxTim : dTim; \
+    /*logMsg("good: %d %ud %ud -> %d\n",nTim,startTim,stopTim,Tim,5,6);*/ \
+    if(nTim == whentoprint_macros) \
+    { \
+      logMsg("timer: %7llu microsec (min=%7llu max=%7llu rms**2=%7llu)\n", \
+                Tim/nTim/normTim,minTim/normTim,maxTim/normTim, \
+                ABS(rmsTim/nTim-Tim*Tim/nTim/nTim)/normTim/normTim,5,6); \
+      nTim = Tim = 0; \
+    } \
+  } \
+  else \
+  { \
+    /*logMsg("bad:  %d %ud %ud -> %d\n",nTim,startTim,stopTim,Tim,5,6);*/ \
+  } \
+}
+
+
+
+/* for compatibility with hps1.c */
+int
+getTdcTypes(int *typebyslot)
+{
+  return(0);
+}
+int
+getTdcSlotNumbers(int *slotnumbers)
+{
+  return(0);
+}
+
+
+
+/*
+long decrement;
+extern long nevent;
+*/
+
+static void
+__download()
+{
+
+#ifdef POLLING_MODE
+  rol->poll = 1;
+#else
+  rol->poll = 0;
+#endif
+
+  printf("\n>>>>>>>>>>>>>>> ROCID=%d, CLASSID=%d <<<<<<<<<<<<<<<<\n\n",rol->pid,rol->classid);
+  printf("CONFFILE >%s<\n\n",rol->confFile);
+  // In the future the config file here points to an expanded HPS config 
+  // file that we have access to from all RCEs. To simulate that I put the 
+  // config on /mnt/host now. This default file will be used unless something 
+  // is explicitely seleected in the RC. 
+  // /Pelle
+  char* confFilePtr;
+  int status=0;
+  /*
+FEB_CONFIG_FILE /mnt/host/daq/config/rce_config.xml
+  strcpy(rol->confFile,
+  */
+
+  if(strlen(rol->confFile)>0 && strcmp(rol->confFile,"none")!=0) {
+     confFilePtr = rol->confFile;
+  } else {
+
+/*sergey: replace '/usr/clas12/release/0.2' with CLAS env var */
+strcpy(rol->confFile,"/usr/clas12/release/0.2/slac_svt/svtdaq/daq/config/clasdev.cnf");
+confFilePtr = rol->confFile;
+
+	/*
+     fprintf(stderr,"Failed to find config file\n");
+     exit(1);
+	*/
+  }
+  // Extract the file path to the xml config file
+  // If in the end the file is expanded we will not need this but 
+  // just make sure that we only read out xml part of the expanded file.
+  // /Pelle
+  status = getFebConfigFilePath(confFilePtr,confFileFeb,256);
+  if(strlen(confFileFeb)>0) {
+     printf("Got FEB config file: %s\n",confFileFeb);
+  } else {
+     printf("No FEB config file extracted!?\n");        
+     exit(1);
+  }
+ 
+  /* Flag if this is a charge injection run */
+  chargeInjFlag = getCalFlag(confFileFeb);
+ 
+  /* Clear some global variables etc for a clean start */
+  CTRIGINIT;
+
+  /* init trig source TEST */
+  DPM_INIT;
+  /*CDOINIT(TIPRIMARY,TIR_SOURCE);*/
+
+  // Open DMA
+  myfd = open("/dev/axi_stream_dma_0",O_RDWR | O_NONBLOCK);
+  if ( myfd < 0 ) printf("Failed to open DMA device\n");
+  else printf ("Opened DMA device\n");
+
+  // Open control shared memory, assume server is running as root
+  if ( controlCmdOpenAndMap ( &smem, "hps", 1, 0)  < 0 ) 
+     printf("Failed to open shared memory\n");
+  else 
+     printf ("Opened shared memory\n");
+
+  // Send download command to daq server
+  printf("Set state to download\n");
+  controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetRunState", "Download");
+  if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+     printf ("Timeout waiting for daq response\n");
+     exit(1);
+  }
+
+  printf("INFO: User Download 1 Executed\n");
+
+  return;
+}
+
+
+static void
+__prestart()
+{
+  unsigned long jj, adc_id, sl;
+  char *env;
+  char buffer[1024*1024];
+
+  *(rol->nevents) = 0;
+
+  /* Register a sync trigger source */
+#ifdef POLLING_MODE
+  CTRIGRSS(DPM, 1, usrtrig, usrtrig_done);
+#else
+  CTRIGRSA(DPM, 1, usrtrig, usrtrig_done);
+#endif
+
+  /* not needed here ??? */
+  rol->poll = 1;
+
+  lastTime  = 0;
+  trigCount = 0;
+  lastCount = 0;
+  lastSize  = 0;
+  ackTrig   = 0;
+
+  sprintf(rcname,"RC%02d",rol->pid);
+  printf("rcname >%4.4s<\n",rcname);
+
+  // CONFIG
+  uint hitsPerApv    = 1;
+  uint numApv        = 5;
+  uint numHybrids    = 3;
+  uint bytesPerEvent = 16;
+  uint bufferCnt     = 5;
+
+  int count = 0;
+
+  while (axisRead(myfd,buffer,1024*1024,0,0,0) > 0 ) count++;
+  printf("Flushed %i buffers\n",count);
+
+  // If config was written previsouly it is overwritten with the config file extracted 
+  // from coda here. //Pelle
+  printf("Set configuration from %s\n",confFileFeb);
+  controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "ReadXmlFile", confFileFeb);
+  if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+     printf ("Timeout waiting for daq response\n");
+     exit(1);
+  }
+
+  char rocIdStr[10];
+  sprintf(rocIdStr,"%i",rol->pid);
+  printf("Setting rocId to %s\n",rocIdStr);
+  controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_SET_CONFIG, "RocId",rocIdStr);
+  if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+     printf ("Timeout waiting for daq response\n");
+     exit(1);
+  }
+
+  printf("Set state to prestart\n");
+  controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetRunState", "Prestart");
+  if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+     printf ("Timeout waiting for daq response\n");
+     exit(1);
+  }
+
+  printf("INFO: User Prestart 1 executed\n");
+
+  /* from parser (do we need that in rol2 ???) */
+  *(rol->nevents) = 0;
+  rol->recNb = 0;
+
+  return;
+}
+
+static void
+__end()
+{
+  int ii, total_count, rem_count;
+
+  CDODISABLE(DPM,1,0);
+
+  // Send command to daq server
+  printf("Set state to end\n");
+  controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetRunState", "End");
+  if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+     printf ("Timeout waiting for daq response\n");
+     exit(1);
+  }
+
+  printf("INFO: User End 1 Executed\n");
+
+  return;
+}
+
+static void
+__pause()
+{
+  CDODISABLE(DPM,1,0);
+
+  // Send command to daq server
+  printf("Set state to pause\n");
+  controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetRunState", "Pause");
+  if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+     printf ("Timeout waiting for daq response\n");
+     exit(1);
+  }
+
+  printf("INFO: User Pause 1 Executed\n");
+
+  return;
+}
+
+static void
+__go()
+{
+  char *env;
+
+  printf("INFO: User Go 1 Enabling\n");
+  CDOENABLE(DPM,1,1);
+  printf("INFO: User Go 1 Enabled\n");
+
+  // Send command to daq server
+  printf("Set state to go\n");
+  controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetRunState", "Go");
+  if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+     printf ("Timeout waiting for daq response\n");
+     exit(1);
+  }
+
+  printf("INFO: User Go 1 Executed\n");
+
+  lastTime  = 0;
+
+  // Enable data
+
+  return;
+}
+
+void
+usrtrig(unsigned long EVTYPE, unsigned long EVSOURCE)
+{
+  int len, ii;
+  int nwords, lenout;
+  TIMERL_VAR;
+
+  rol->dabufp = (long *) 0;
+
+TIMERL_START;
+
+
+
+/*
+SOFTWARE: word0=0,  word1=0x00010e04
+HARDWARE: word0=11, word1=0x00fd9104
+lastSize=48 (nwords=12)
+len=13
+*/
+
+
+
+
+/*
+  DATA [  0] 0x0000000b (11)
+  DATA [  1] 0x00fd6101 (16605441)
+  DATA [  2] 0x00000005 (5)
+  DATA [  3] 0xe10a0100 (-519438080)
+  DATA [  4] 0xfd010003 (-50266109)
+  DATA [  5] 0x00000001 (1)
+  DATA [  6] 0x9175d461 (-1854548895)
+  DATA [  7] 0x00000001 (1)
+  DATA [  8] 0x00000003 (3)
+  DATA [  9] 0x00030100 (196864)
+  DATA [ 10] 0x01001611 (16782865)
+  DATA [ 11] 0x00000000 (0)
+lastSize=48 (nwords=12)
+len=11
+
+  DATA [  0] 0x0000000b (11)
+  DATA [  1] 0x00fd0102 (16580866)
+  DATA [  2] 0x00000005 (5)
+  DATA [  3] 0xe10a0100 (-519438080)
+  DATA [  4] 0xfd010003 (-50266109)
+  DATA [  5] 0x00000002 (2)
+  DATA [  6] 0xf8a2d901 (-123545343)
+  DATA [  7] 0x00000001 (1)
+  DATA [  8] 0x00000003 (3)
+  DATA [  9] 0x00030100 (196864)
+  DATA [ 10] 0x01001612 (16782866)
+  DATA [ 11] 0x00000000 (0)
+lastSize=48 (nwords=12)
+len=11
+
+  DATA [  0] 0x0000000b (11)
+  DATA [  1] 0x00fd7603 (16610819)
+  DATA [  2] 0x00000005 (5)
+  DATA [  3] 0xe10a0100 (-519438080)
+  DATA [  4] 0xfd010003 (-50266109)
+  DATA [  5] 0x00000003 (3)
+  DATA [  6] 0x1e4a3276 (508179062)
+  DATA [  7] 0x00000002 (2)
+  DATA [  8] 0x00000003 (3)
+  DATA [  9] 0x00030100 (196864)
+  DATA [ 10] 0x01001613 (16782867)
+  DATA [ 11] 0x00000000 (0)
+lastSize=48 (nwords=12)
+len=11
+
+  DATA [  0] 0x0000000b (11)
+  DATA [  1] 0x00fdd304 (16634628)
+  DATA [  2] 0x00000005 (5)
+  DATA [  3] 0xe10a0100 (-519438080)
+  DATA [  4] 0xfd010003 (-50266109)
+  DATA [  5] 0x00000004 (4)
+  DATA [  6] 0x716038d3 (1902131411)
+  DATA [  7] 0x00000002 (2)
+  DATA [  8] 0x00000003 (3)
+  DATA [  9] 0x00030100 (196864)
+  DATA [ 10] 0x01001614 (16782868)
+  DATA [ 11] 0x00000000 (0)
+lastSize=48 (nwords=12)
+len=11
+
+INFO: User End 1 Executed
+  DATA [  0] 0x00000000 (0)
+  DATA [  1] 0x00000000 (0)
+lastSize=8 (nwords=2)
+dabufp[0] = 0x00000001 (1)
+dabufp[1] = 0x00000000 (0)
+len=1
+
+*/
+
+
+
+
+#ifdef MY_FRAG_HEADER
+  CEOPEN(EVTYPE, BT_BANKS);
+  printf("SOFTWARE: word0=%d, word1=0x%08x\n",*(rol->dabufp-2),*(rol->dabufp-1));
+#else
+  CEOPEN1;
+#endif
+
+
+
+
+  // Invalid buffer
+  if(rol->dabufp == NULL) printf("ERROR rol->dabufp is NULL -- Event lost\n");
+  else
+  {
+	//BANKOPEN(0xe113,1,rol->pid);
+
+    int ret = axisRead(myfd,rol->dabufp,1024*1024,0,0,0);
+
+for(ii=0; ii<ret/4; ii++) printf("  DATA [%3d] 0x%08x (%d)\n",ii,rol->dabufp[ii],rol->dabufp[ii]);
+
+    if(ret > 0) rol->dabufp += ret/4;
+    lastSize = ret;
+    nwords = ret/4;
+
+printf("lastSize=%d (nwords=%d)\n",lastSize,nwords);
+
+    //BANKCLOSE;
+  }
+
+
+
+
+  CECLOSE;
+
+printf("len=%d\n",len);
+
+  lenout = nwords;
+#ifdef MY_FRAG_HEADER
+  lenout += 2;
+#endif
+
+  rol->user_storage[0] = lenout; /*total length */
+
+  rol->dabufp[lenout] = 2; /*for compatibility with new ROC2; will be redefined to the actual number events in block*/
+
+  rol->user_storage[1] = 2; /* report the number of events */
+
+
+
+
+
+TIMERL_STOP(10000,1000+rol->pid);
+
+  ackTrig = 1;
+  return;
+}
+  
+void
+usrtrig_done()
+{
+
+  return;
+}  
+
+void
+__done()
+{
+  if (ackTrig) {
+     axisReadAck(myfd); // Ack
+     ackTrig =  0;
+  }
+
+  /* from parser */
+  poolEmpty = 0; /* global Done, Buffers have been freed */
+
+  return;
+}
+  
+static void
+__status()
+{
+  return;
+}  
+
+

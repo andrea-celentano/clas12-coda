@@ -38,7 +38,7 @@ graphNode::graphNode (int st)
 :state_ (st), color_ (TRG_WHITE), linkToParent_ (0), parent_ (0)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create graphNode Class Object\n");
+  printf ("graphNode::graphNode: Create graphNode Class Object\n");
 #endif
   // empty
 }
@@ -46,7 +46,7 @@ graphNode::graphNode (int st)
 graphNode::~graphNode (void)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Delete graphNode Class Object\n");
+  printf ("graphNode::~graphNode: Delete graphNode Class Object\n");
 #endif
   // empty
 }
@@ -143,23 +143,28 @@ transitionGraph::~transitionGraph (void)
   printf ("Delete transitionGraph Class Object\n");
 #endif
 
-  for (i = 0; i < size_; i++) {
+  for (i = 0; i < size_; i++)
+  {
     codaSlistIterator ite (adjLists_[i]);
     adjNode *adjnode = 0;
 
-    for (ite.init(); !ite; ++ite) {
+    for (ite.init(); !ite; ++ite)
+    {
       adjnode = (adjNode *)ite();
       delete adjnode;
     }
   }
   
-  for (i = 0; i < size_; i++)
-    delete nodes_[i];
+  for (i=0; i<size_; i++) delete nodes_[i];
 }
 
 void
 transitionGraph::constructGraph (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("transitionGraph::constructGraph\n");
+#endif
+
   int i = 0;
 
   graphNode* dormant = new graphNode (CODA_DORMANT);
@@ -180,9 +185,11 @@ transitionGraph::constructGraph (void)
   i = 0;
   adjNode* node1 = 0;
   adjNode* node = 0;
+
   // adjcency list for dormant node
   adjNode* adjdormant = new adjNode (0, *dormant);
   node = new adjNode ((void *)system_->booter_, *booted);
+
   // add always add to header
   adjLists_[i].add ((void *)node);
   adjLists_[i++].add ((void *)adjdormant);		    
@@ -230,7 +237,8 @@ transitionGraph::listRef (graphNode* node)
 {
   adjNode* fnode = 0;
   graphNode *gnode = 0;
-  for (int i = 0; i < size_; i++) {
+  for (int i = 0; i < size_; i++)
+  {
     fnode = (adjNode *)adjLists_[i].firstElement ();
     gnode = &(fnode->node ());
     if (node->state () == gnode->state ()) 
@@ -243,7 +251,8 @@ transitionGraph::listRef (int state)
 {
   adjNode*   fnode = 0;
   graphNode* gnode = 0;
-  for (int i = 0; i < size_; i++) {
+  for (int i = 0; i < size_; i++)
+  {
     fnode = (adjNode *)adjLists_[i].firstElement ();
     gnode = &(fnode->node());
     if (state == gnode->state ())
@@ -254,7 +263,8 @@ transitionGraph::listRef (int state)
 void
 transitionGraph::cleanup (void)
 {
-  for (int i = 0; i < size_; i++) {
+  for (int i = 0; i < size_; i++)
+  {
     nodes_[i]->color (TRG_WHITE);
     nodes_[i]->linkToParent (0);
     nodes_[i]->parent (0);
@@ -262,37 +272,46 @@ transitionGraph::cleanup (void)
 }
 
 int
-transitionGraph::DFS (int istate, int fstate, 
-		      graphNode* &src, graphNode* &dest)
+transitionGraph::DFS (int istate, int fstate, graphNode* &src, graphNode* &dest)
 {
   int found = 0;
   int i;
 
-  for (i = 0; i < size_; i++) {
-    if (istate == nodes_[i]->state()){
+  for (i=0; i<size_; i++)
+  {
+    if (istate == nodes_[i]->state())
+    {
       found = 1;
       break;
     }
   }
-  if (!found) {
+
+  if (!found)
+  {
     src = 0;
     dest = 0;
     return CODA_ERROR;
   }
+
   found = 0;
   graphNode* source = nodes_[i];
       
-  for (i = 0; i < size_; i++) {
-    if (fstate == nodes_[i]->state()){
+  for (i=0; i<size_; i++)
+  {
+    if (fstate == nodes_[i]->state())
+    {
       found = 1;
       break;
     }
   }
-  if (!found) {
+
+  if (!found)
+  {
     src = 0;
     dest = 0;
     return CODA_ERROR;
   }
+
   found = 0;
   graphNode* des = nodes_[i];
 
@@ -315,15 +334,18 @@ transitionGraph::DFS_VISIT (graphNode* u, graphNode* des, int& status)
   codaSlistIterator ite (list);
   adjNode* v = 0;
 
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     v = (adjNode *)ite ();
     graphNode& vref = v->node();
-    if (vref.color () == TRG_WHITE) {
+    if (vref.color () == TRG_WHITE)
+    {
       vref.linkToParent (v->traner ());
       vref.parent (u);
-      if (des->state () == vref.state ()) {
-	status = CODA_SUCCESS;
-	break;
+      if (des->state () == vref.state ())
+      {
+	    status = CODA_SUCCESS;
+	    break;
       }
       DFS_VISIT (&vref, des, status);
     }
@@ -336,10 +358,15 @@ transitionGraph::printPath (graphNode *source, graphNode *dest)
 {
   graphNode *node;
 
-  printf ("destination is %d\n",dest->state());
+#ifdef _TRACE_OBJECTS
+  printf ("transitionGraph::printPath: destination is %d\n",dest->state());
+#endif
   node = dest;
-  while (node != 0) {
-    printf ("Link to %d\n", node->state ());
+  while (node != 0)
+  {
+#ifdef _TRACE_OBJECTS
+    printf ("  transitionGraph::printPath: Link to %d\n", node->state ());
+#endif
     node = node->parent ();
   }
 }

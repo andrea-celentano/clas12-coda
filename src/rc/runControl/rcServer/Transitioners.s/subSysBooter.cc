@@ -28,7 +28,7 @@ subSysBooter::subSysBooter (daqSubSystem* subsys)
 :subSysTransitioner (subsys)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("    Create subSysBooter Class Object\n");
+  printf ("subSysBooter::subSysBooter: Create subSysBooter Class Object\n");
 #endif
   // empty
 }
@@ -36,7 +36,7 @@ subSysBooter::subSysBooter (daqSubSystem* subsys)
 subSysBooter::~subSysBooter (void)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("    Delete subSysBooter Class Object\n");
+  printf ("subSysBooter::~subSysBooter: Delete subSysBooter Class Object\n");
 #endif
   // empty
 }
@@ -50,6 +50,9 @@ subSysBooter::action (void) const
 void
 subSysBooter::executeItem (daqComponent* comp)
 {
+#ifdef _TRACE_OBJECTS
+  printf("subSysBooter::executeItem reached\n");fflush(stdout);
+#endif
   comp->boot ();
 }
 

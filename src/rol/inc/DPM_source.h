@@ -13,21 +13,16 @@ static int DPM_isAsync;
 static unsigned long DPM_prescale = 1;
 static unsigned long DPM_count = 0;
 
-static int              myfd;
-static unsigned int *   map;
+static int myfd;
 
 #include<time.h>
-
-static unsigned int pollCount;
+#include<AxiStreamDma.h>
 
 static time_t lastTime;
 static time_t trigCount;
-static time_t ackTrig;
 static time_t lastCount;
-static unsigned int     lastSize;
-
-#define MEM_MAP_BASE 0xA0010000
-#define MEM_MAP_SIZE 0x00002000
+static unsigned int lastSize;
+static unsigned int ackTrig;
 
 /*
 struct vme_ts {
@@ -113,13 +108,6 @@ dpmttype(int code)
 static int 
 dpmttest(int code)
 {
-
-   if ( pollCount < 10 ) {
-      printf("Startup Polling\n");
-      usleep(1000);
-   }
-   pollCount++;
-
    time_t currTime;
    time(&currTime);
    if ( currTime != lastTime )
@@ -129,13 +117,14 @@ dpmttest(int code)
       lastCount = trigCount;
    }
 
-   char c;
-   if ( read(myfd,&c,1) > 0 ) {
+   if ( axisReadReady(myfd) ) {
       trigCount++;
       return(1);
    }
    else return(0);
 }
+
+
 
 
 /* define CODA readout list specific routines/definitions */

@@ -1,0 +1,90 @@
+
+see daqSystem::download !!!
+
+
+
+
+CLASSES =========================================================
+
+netComponent::daqComponent
+daqComponent::daqTarget
+
+
+
+TRANSITIONS =====================================================
+
+netComponent::configure
+netComponent::download
+.....................
+
+1. Set starting state (DA_CONFIGURING, DA_DOWNLOADING etc)
+
+
+2. Send command to component to do transition
+
+
+  codaDaConfigure
+  codaDaDownload
+
+3. Wait until status changed to desired one (DA_CONFIGURED, DA_DOWNLOADED)
+
+  transitionFinished
+  NOTE: booter, configurer and resetter have they own transitionFinished functions, others use transitioner::transitionFinished
+
+
+
+
+
+
+
+
+
+
+
+
+
+transitioner::doTransition (void)
+  |
+  | ............
+  |
+  | loop over active list (ER,EB,... ???)
+  |--> executeItem(subsys); // for corresponding transition (executeItem(boot) ???
+
+       subSysBooter::executeItem                                             subSysDownloader::executeItem
+       netComponent::boot                                                    netComponent::download
+        |->codaDaCreate reached                                               |
+            |-> codaDaReport reached                                          |->codaDaCompSetState reached
+        |        |->DB select: >SELECT state FROM process WHERE name='ER20'<  |
+        |           (codaDaReport: name>ER20< state>downloaded<)              |
+        |                                                                     |
+        |->transformState (CODA_BOOTED, CODA_BOOTED, status_)                 |
+        |    if (status_ == CODA_SUCCESS) 'booted ok'/'boot failed'           |
+        |-> codaDaBoot reached (name >ER20<)                                  |->codaDaDownload
+              DB select: >SELECT inuse FROM process WHERE name='ER20'<        |    DB select: >SELECT inuse FROM process WHERE name='ER20'<
+              DB select: >SELECT host FROM process WHERE name='ER20'<         |    DB select: >SELECT host FROM process WHERE name='ER20'<
+              hostnamee=>clondaq5< portnum=5002                               |    hostnamee=>clondaq5< portnum=5002
+              Sending 4 bytes: boot                                           |    Sending 13 bytes: download HPS5
+                                                                              |->transformState(CODA_DOWNLOADING, CODA_DOWNLOADED, status_)
+                                                                                   if(status_ == CODA_SUCCESS) 'underway...'/'failed'
+
+       transitioner::doTransition ==> executeItem called,                          transitioner::doTransition ==> executeItem called,
+                        transition started, now checking it's status                       transition started, now checking it's status
+         transitioner::transitionBusy reached                                  transitioner::transitionBusy reached
+         transitioner::transitionBusy - next 'ite'                             transitioner::transitionBusy - next 'ite'
+            netComponent::state() reached                                           >> daqSubSystem::state() reached, netComponent::state() reached
+          |->booter::subSystemState reached, returns 2                          |->transitioner::subSystemState returns 5
+         transitioner::transitionBusy returns 0                                 |    downloader::successState (returns CODA_DOWNLOADED)
+         transitioner::title                                                    |->transitioner::transitionFinished reached
+                                                                                |    transitioner::transitionBusy returns 1, still not finished (names_ >ER<)
+                                                                                |   transitioner::doTransition ==> 'transitionBusy' returns 'busy'
+                                                                                |     transitioner::timerCallback 16
+                                                                                |     transitioner::transitionBusy reached
+                                                                                |transitioner::transitionBusy - next 'ite'
+                                                                                    >> daqSubSystem::state() trached, netComponent::state() reached
+                                                                                |    transitioner::subSystemState returns 6
+                                                                                |   downloader::successState (returns CODA_DOWNLOADED)
+                                                                                |->transitioner::transitionFinished reached
+                                                                                  transitioner::transitionBusy returns 0
+                                                                             transitioner::doTransition reached
+                                                                             transitioner::title
+                                                                             downloader::action

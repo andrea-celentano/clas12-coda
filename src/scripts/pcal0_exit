@@ -54,8 +54,8 @@ echo "                 ER_pcal done"
 stop_proc -n $host_name -p xterm -match "runcontrol_pcal" -s 0
 echo "                 runcontrol_pcal done"
 
-stop_proc -n $host_name -p xterm -match "CRATE_pcalvme" -s 0
-echo "                 CRATE_pcalvme done"
+##stop_proc -n $host_name -p xterm -match "CRATE_pcalvme" -s 0
+##echo "                 CRATE_pcalvme done"
 
 stop_proc -n $host_name -p xterm -match "CRATE_pcal0" -s 0
 echo "                 CRATE_pcal0 done"

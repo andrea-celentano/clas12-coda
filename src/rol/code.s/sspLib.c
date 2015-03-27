@@ -40,8 +40,9 @@
 #include <stdio.h> 
 #include <string.h> 
  
-#include "sspLib.h" 
- 
+#include "sspLib.h"
+#include "xxxConfig.h"
+
 #ifdef VXWORKS 
 #define SYNC()		{ __asm__ volatile("eieio"); __asm__ volatile("sync"); } 
 #endif 
@@ -315,7 +316,9 @@ sspInit(unsigned int addr, unsigned int addr_inc, int nfind, int iFlag)
 	  /* Check that it is a ssp */ 
 	  if(rdata != SSP_CFG_BOARDID) 
 	  { 
+#ifdef DEBUG
 	    printf(" WARN: For board at 0x%x, Invalid Board ID: 0x%x\n", (UINT32) laddr_inc-sspA24Offset, rdata); 
+#endif
 	    continue; 
 	  } 
 	  else  
@@ -499,8 +502,6 @@ sspInit(unsigned int addr, unsigned int addr_inc, int nfind, int iFlag)
 
 	}	 
   } 
-
-
 
 
   printf("sspInit: found %d SSPs\n",nSSP);
@@ -2833,7 +2834,7 @@ int sspHps_GetSinglesEnableEmin(int id, int n)
   val = (sspReadReg(&pSSP[id]->HpsSingles[n].Ctrl) & 0x00000001) >> 0;
   SSPUNLOCK; 
  
-  return OK; 
+  return val;
 }
 
 int sspHps_GetSinglesEnableEmax(int id, int n)
@@ -4310,6 +4311,18 @@ sspGetWindowOffset(int id)
   return(ret);
 }
 
+int sspDisablePrescalers(int id)
+{
+  int i;
+  if(id==0) id=sspSL[0]; 
+
+  for(i = 0; i < 7; i++)
+  {
+    vmeWrite32(&pSSP[id]->HpsSingles[0].Prescale[i], 0x1F210000);
+    vmeWrite32(&pSSP[id]->HpsSingles[1].Prescale[i], 0x1F210000);
+  }
+}
+
 int
 sspDownloadAll()
 {
@@ -4318,6 +4331,9 @@ sspDownloadAll()
   /*for(ii=0; ii<nssp; ii++) sspReset(ii);*/
   for(ii=0; ii<nSSP; ii++)
   {
+    /* Disable hps prescalers */
+    sspDisablePrescalers(sspSL[ii]);
+
     /* the number of events per block */
     sspSetBlockLevel(sspSL[ii], block_level);
 
@@ -4382,9 +4398,16 @@ int
 sspConfig(char *fname)
 {
   int res;
+  char *string; /*dummy, will not be used*/
 
-  /* set defaults */
-  sspInitGlobals();
+  if(strlen(fname) > 0) /* filename specified  - upload initial settings from the hardware */
+  {
+    sspUploadAll(string, 0);
+  }
+  else /* filename not specified  - set defaults */
+  {
+    sspInitGlobals();
+  }
 
   /* read config file */
   if( (res = sspReadConfigFile(fname)) < 0 ) return(res);
@@ -4452,19 +4475,6 @@ sspMon(int slot)
 
 
 
-#define ADD_TO_STRING \
-  len1 = strlen(str); \
-  len2 = strlen(sss); \
-  if((len1+len2) < length) strcat(str,sss); \
-  else \
-  { \
-    str[len1+1] = ' '; \
-    str[len1+2] = ' '; \
-    str[len1+3] = ' '; \
-    len1 = ((len1+3)/4)*4; \
-    return(len1); \
-  }
-
 /* upload setting from all found DSC2s */
 int
 sspUploadAll(char *string, int length)
@@ -4476,61 +4486,103 @@ sspUploadAll(char *string, int length)
   unsigned short bypMask;
   unsigned short channels[8];
 
-  str = string;
-  str[0] = '\0';
   for(kk=0; kk<nSSP; kk++)
   {
     slot = sspSlot(kk);
+	bus_error = sspGetBusError(slot);
+	block_level = sspGetBlockLevel(slot);
+	window_width = sspGetWindowWidth(slot);
+	window_offset = sspGetWindowOffset(slot);
+	for(i=0; i<2; i++)
+	{
+	  singles_emin[i] = sspHps_GetSinglesEmin(slot,i);
+	  singles_emin_en[i] = sspHps_GetSinglesEnableEmin(slot, i);
+      singles_emax[i] = sspHps_GetSinglesEmax(slot,i);
+	  singles_emax_en[i] = sspHps_GetSinglesEnableEmax(slot, i);
+      singles_nmin[i] = sspHps_GetSinglesNHitsmin(slot,i);
+	  singles_nmin_en[i] = sspHps_GetSinglesEnableNmin(slot, i);
+	}
 
-    sprintf(sss,"SSP_SLOT %d\n",slot); ADD_TO_STRING;
-    sprintf(sss,"SSP_BERR %d\n",sspGetBusError(slot)); ADD_TO_STRING;
-    sprintf(sss,"SSP_BLOCK_LEVEL %d\n",sspGetBlockLevel(slot)); ADD_TO_STRING;
-    sprintf(sss,"SSP_W_WIDTH %d\n",sspGetWindowWidth(slot)); ADD_TO_STRING;
-    sprintf(sss,"SSP_W_OFFSET %d\n",sspGetWindowOffset(slot)); ADD_TO_STRING;
-	 
-	 for(i = 0; i < 2; i++)
-	 {
-      sprintf(sss,"SSP_HPS_SINGLES_EMIN %d %d %d\n",i,sspHps_GetSinglesEmin(slot,i),sspHps_GetSinglesEnableEmin(slot, i)); ADD_TO_STRING;
-      sprintf(sss,"SSP_HPS_SINGLES_EMAX %d %d %d\n",i,sspHps_GetSinglesEmax(slot,i),sspHps_GetSinglesEnableEmax(slot, i)); ADD_TO_STRING;
-      sprintf(sss,"SSP_HPS_SINGLES_NMIN %d %d %d\n",i,sspHps_GetSinglesNHitsmin(slot,i),sspHps_GetSinglesEnableNmin(slot, i)); ADD_TO_STRING;
-	 }
-	 
-    sprintf(sss,"SSP_HPS_LATENCY %d\n",sspHps_GetLatency(slot)); ADD_TO_STRING;
-    sprintf(sss,"SSP_HPS_COSMIC_TIMECOINCIDENCE %d\n",sspHps_GetCosmicTimeCoincidence(slot)); ADD_TO_STRING;
-    sprintf(sss,"SSP_HPS_COSMIC_PATTERNCOINCIDENCE %d\n",sspHps_GetCosmicCoincidencePattern(slot)); ADD_TO_STRING;
-	 
-	 for(i = 0; i < 2; i++)
-	 {
-      sprintf(sss,"SSP_HPS_PAIRS_CLUSTERDELAY %d %d\n",i,sspHps_GetPairsClusterDelay(slot, i)); ADD_TO_STRING;
-		sprintf(sss,"SSP_HPS_PAIRS_TIMECOINCIDENCE %d %d\n",i,sspHps_GetPairsTimeCoincidence(slot,i)); ADD_TO_STRING;
-      sprintf(sss,"SSP_HPS_PAIRS_EMIN %d %d\n",i,sspHps_GetPairsEmin(slot,i)); ADD_TO_STRING;
-      sprintf(sss,"SSP_HPS_PAIRS_EMAX %d %d\n",i,sspHps_GetPairsEmax(slot,i)); ADD_TO_STRING;
-      sprintf(sss,"SSP_HPS_PAIRS_NMIN %d %d\n",i,sspHps_GetPairsNHitsmin(slot,i)); ADD_TO_STRING;
-      sprintf(sss,"SSP_HPS_PAIRS_SUMMAX_MIN %d %d %d %d\n",i,sspHps_GetPairsSummax(slot,i),sspHps_GetPairsSummin(slot,i),sspHps_GetPairsEnableSum(slot, i)); ADD_TO_STRING;
-      sprintf(sss,"SSP_HPS_PAIRS_DIFFMAX %d %d %d\n",i,sspHps_GetPairsDiffmax(slot,i),sspHps_GetPairsEnableDiff(slot,i)); ADD_TO_STRING;
-      sprintf(sss,"SSP_HPS_PAIRS_COPLANARITY %d %d %d\n",i,sspHps_GetPairsCoplanarTolerance(slot,i),sspHps_GetPairsEnableCoplanar(slot,i)); ADD_TO_STRING;
-      sprintf(sss,"SSP_HPS_PAIRS_ENERGYDIST %d %7.3f %d %d\n",i,sspHps_GetPairsEDFactor(slot,i),sspHps_GetPairsEDmin(slot,i),sspHps_GetPairsEnableED(slot,i)); ADD_TO_STRING;
-	 }
-				
-    sprintf(sss,"SSP_HPS_PULSER %d\n",(int)sspGetPulserFreq(slot)); ADD_TO_STRING;
+    trigger_latency =sspHps_GetLatency(slot);
+	cosmic_timecoincidence = sspHps_GetCosmicTimeCoincidence(slot);
+	cosmic_pattern = sspHps_GetCosmicCoincidencePattern(slot);
+
+	for(i=0; i<2; i++)
+	{
+pairs_clusterdelay[i] = sspHps_GetPairsClusterDelay(slot, i);
+	  pairs_timecoincidence[i] = sspHps_GetPairsTimeCoincidence(slot,i);
+	  pairs_emin[i] = sspHps_GetPairsEmin(slot,i);
+	  pairs_emax[i]= sspHps_GetPairsEmax(slot,i);
+	  pairs_nmin[i] = sspHps_GetPairsNHitsmin(slot,i);
+      pairs_summax[i] = sspHps_GetPairsSummax(slot,i);
+	  pairs_summin[i] = sspHps_GetPairsSummin(slot,i);
+	  pairs_summax_en[i] = sspHps_GetPairsEnableSum(slot, i);
+      pairs_diffmax[i] = sspHps_GetPairsDiffmax(slot,i);
+	  pairs_diffmax_en[i] = sspHps_GetPairsEnableDiff(slot,i);
+      pairs_coplanartolerance[i] = sspHps_GetPairsCoplanarTolerance(slot,i);
+	  pairs_coplanartolerance_en[i] = sspHps_GetPairsEnableCoplanar(slot,i);
+      pairs_edfactor[i] = sspHps_GetPairsEDFactor(slot,i);
+	  pairs_edmin[i] = sspHps_GetPairsEDmin(slot,i);
+	  pairs_ed_en[i] = sspHps_GetPairsEnableED(slot,i);
+	}
+
+	pulser_freq = (int)sspGetPulserFreq(slot);
+
     for(i = SD_SRC_P2_LVDSOUT0; i <= SD_SRC_P2_LVDSOUT7; i++)
-	 {
-      sprintf(sss,"SSP_HPS_SET_IO_SRC %d %d\n",i,sspGetIOSrc(slot, i, 0)); ADD_TO_STRING;
-	 }
-
-    /*
-    sprintf(sss,"DSC2_WIDTH %d %d\n",dsc2GetPulseWidth(slot,1),dsc2GetPulseWidth(slot,2));
-    ADD_TO_STRING;
-	*/
+	{
+	  ssp_io_mux[i] = sspGetIOSrc(slot, i, 0);
+	}
   }
 
-  len1 = strlen(str);
-  str[len1+1] = ' ';
-  str[len1+2] = ' ';
-  str[len1+3] = ' ';
-  len1 = ((len1+3)/4)*4;
 
-  return(len1);
+  if(length)
+  {
+    str = string;
+    str[0] = '\0';
+    for(kk=0; kk<nSSP; kk++)
+    {
+      slot = sspSlot(kk);
+
+      sprintf(sss,"SSP_SLOT %d\n",slot); ADD_TO_STRING;
+
+      sprintf(sss,"SSP_BERR %d\n",bus_error); ADD_TO_STRING;
+      sprintf(sss,"SSP_BLOCK_LEVEL %d\n",block_level); ADD_TO_STRING;
+      sprintf(sss,"SSP_W_WIDTH %d\n",window_width); ADD_TO_STRING;
+      sprintf(sss,"SSP_W_OFFSET %d\n",window_offset); ADD_TO_STRING;
+	 
+	  for(i = 0; i < 2; i++)
+	  {
+        sprintf(sss,"SSP_HPS_SINGLES_EMIN %d %d %d\n",i,singles_emin[i],singles_emin_en[i]); ADD_TO_STRING;
+        sprintf(sss,"SSP_HPS_SINGLES_EMAX %d %d %d\n",i,singles_emax[i],singles_emax_en[i]); ADD_TO_STRING;
+        sprintf(sss,"SSP_HPS_SINGLES_NMIN %d %d %d\n",i,singles_nmin[i],singles_nmin_en[i]); ADD_TO_STRING;
+	  }
+
+      sprintf(sss,"SSP_HPS_LATENCY %d\n",trigger_latency); ADD_TO_STRING;
+      sprintf(sss,"SSP_HPS_COSMIC_TIMECOINCIDENCE %d\n",cosmic_timecoincidence); ADD_TO_STRING;
+      sprintf(sss,"SSP_HPS_COSMIC_PATTERNCOINCIDENCE %d\n",cosmic_pattern); ADD_TO_STRING;
+
+	  for(i = 0; i < 2; i++)
+	  {
+        sprintf(sss,"SSP_HPS_PAIRS_CLUSTERDELAY %d %d\n",i,pairs_clusterdelay[i]); ADD_TO_STRING;
+	    sprintf(sss,"SSP_HPS_PAIRS_TIMECOINCIDENCE %d %d\n",i,pairs_timecoincidence[i]); ADD_TO_STRING;
+        sprintf(sss,"SSP_HPS_PAIRS_EMIN %d %d\n",i,pairs_emin[i]); ADD_TO_STRING;
+        sprintf(sss,"SSP_HPS_PAIRS_EMAX %d %d\n",i,pairs_emax[i]); ADD_TO_STRING;
+        sprintf(sss,"SSP_HPS_PAIRS_NMIN %d %d\n",i,pairs_nmin[i]); ADD_TO_STRING;
+        sprintf(sss,"SSP_HPS_PAIRS_SUMMAX_MIN %d %d %d %d\n",i,pairs_summax[i],pairs_summin[i],pairs_summax_en[i]); ADD_TO_STRING;
+        sprintf(sss,"SSP_HPS_PAIRS_DIFFMAX %d %d %d\n",i,pairs_diffmax[i],pairs_diffmax_en[i]); ADD_TO_STRING;
+        sprintf(sss,"SSP_HPS_PAIRS_COPLANARITY %d %d %d\n",i,pairs_coplanartolerance[i],pairs_coplanartolerance_en[i]); ADD_TO_STRING;
+        sprintf(sss,"SSP_HPS_PAIRS_ENERGYDIST %d %7.3f %d %d\n",i,pairs_edfactor[i],pairs_edmin[i],pairs_ed_en[i]); ADD_TO_STRING;
+	  }
+      sprintf(sss,"SSP_HPS_PULSER %d\n",pulser_freq); ADD_TO_STRING;
+      for(i = SD_SRC_P2_LVDSOUT0; i <= SD_SRC_P2_LVDSOUT7; i++)
+	  {
+        sprintf(sss,"SSP_HPS_SET_IO_SRC %d %d\n",i,ssp_io_mux[i]); ADD_TO_STRING;
+	  }
+    }
+
+    CLOSE_STRING;
+  }
+
 }
 
 

@@ -109,10 +109,12 @@ typedef struct
   /* 0x0018-0x001B */ volatile unsigned int ClusterEmin;
   /* 0x001C-0x001F */ volatile unsigned int ClusterEmax;
   /* 0x0020-0x0023 */ volatile unsigned int ClusterNHitsmin;
-  /* 0x0024-0x007F */          unsigned int Reserved1[(0x0080-0x0024)/4];
+  /* 0x0024-0x002F */          unsigned int Reserved1[(0x0030-0x0024)/4];
+  /* 0x0030-0x004B */ volatile unsigned int Prescale[7];
+  /* 0x004C-0x007F */          unsigned int Reserved2[(0x0080-0x004C)/4];
   /* 0x0080-0x0083 */ volatile unsigned int ScalerSinglesPass;
   /* 0x0084-0x0087 */ volatile unsigned int ScalerSinglesTot;
-  /* 0x0088-0x00FF */          unsigned int Reserved2[(0x0100-0x0088)/4];
+  /* 0x0088-0x00FF */          unsigned int Reserved3[(0x0100-0x0088)/4];
 } Hps_regs;
 
 /* HPS Cluster Peripheral */

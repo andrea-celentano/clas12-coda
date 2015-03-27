@@ -11,6 +11,7 @@ extern "C" {
 #include <mysql/mysql.h> /* use standard mysql header(s) */
 #endif
 
+MYSQL *dbConnectFull(const char *host, const char *database, char *user, char *passwd);
 MYSQL *dbConnect(const char *host, const char *database);
 void dbDisconnect(MYSQL *mysql);
 int  dbGetInt(MYSQL *mysql, char *str, int *value);

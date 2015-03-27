@@ -343,6 +343,19 @@ abcReadPeds(int rocid)
 
 #endif
 
+
+int
+getTdcTypes(int *typebyslot)
+{
+  return(0);
+}
+
+int
+getTdcSlotNumbers(int *slotnumbers)
+{
+  return(0);
+}
+
 static void
 __download()
 {
@@ -1045,10 +1058,13 @@ TIMERL_START;
     tiSetOutputPort(1,0,0,0);
 
     /* Grab the data from the TI */
+vmeBusLock();
     len = tiReadBlock(tdcbuf,900>>2,1);
+vmeBusUnlock();
     if(len<=0)
     {
-      /*printf("TIreadout : No data or error, len = %d\n",len)*/;
+      printf("ERROR in tiReadBlock : No data or error, len = %d\n",len);
+      sleep(1);
     }
     else
     {
@@ -1059,6 +1075,10 @@ TIMERL_START;
 	  */
       /* *rol->dabufp++ = LSWAP(tdcbuf[jj]);*/
 
+      BANKOPEN(0xe10A,1,rol->pid);
+      for(jj=0; jj<len; jj++) *rol->dabufp++ = tdcbuf[jj];
+      BANKCLOSE;
+	  
     }
 
     /* Turn off all output ports */
@@ -1107,27 +1127,10 @@ TIMERL_START;
 
 
 
-
-
-
-
-
-
-goto a234;
-#ifdef TI_MASTER
-	nwords = sspReadFifo(sspbuf);	
-    sspbuf[7] = time(0);
-	/*
-    printf("sspbuf[%2d]: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-      nwords,sspbuf[0],sspbuf[1],sspbuf[2],sspbuf[3],sspbuf[4],sspbuf[5],sspbuf[6]);
-	*/
-#endif
-a234:
-
-
-
       if(stat>0)
 	  {
+        BANKOPEN(0xe109,1,rol->pid);
+
         FA_SLOT = faSlot(0);
         if(FADC_ROFLAG==2)
         {
@@ -1147,15 +1150,11 @@ a234:
  	      /*printf("actual: 0x%08x 0x%08x 0x%08x\n",pMemBase,uMemBase,mSize);*/
  /*->1us*/
  
-
-goto a345;
-#ifdef TI_MASTER
-          for(jjj=0; jjj<NSSP; jjj++) *rol->dabufp++ = sspbuf[jjj];
-#endif
-a345:
  
  /*25us->*/
+vmeBusLock();
  	      dCnt = faReadBlock(FA_SLOT,rol->dabufp,500000/*MAXFADCWORDS*/,FADC_ROFLAG);
+vmeBusUnlock();
           rol->dabufp += dCnt;
  /*->25us*/
 		  /*  
@@ -1171,7 +1170,9 @@ a345:
           printf("hbtest1: Starting DMA\n");fflush(stdout);
 #endif
 
+vmeBusLock();
 	      dCnt = faReadBlock(FA_SLOT,tdcbuf,500000/*MAXFADCWORDS*/,FADC_ROFLAG);
+vmeBusUnlock();
 
 #ifdef DEBUG
           printf("hbtest1: Finished DMA, dCnt=%d\n",dCnt);fflush(stdout);
@@ -1193,20 +1194,18 @@ a345:
             mSize = 0x100000;
             usrChangeVmeDmaMemory(pMemBase, uMemBase, mSize);
 
-goto a3456;
-#ifdef TI_MASTER
-            /* report ssp data before first fadc board */
-            if(jj==0) for(jjj=0; jjj<NSSP; jjj++) *rol->dabufp++ = sspbuf[jjj];
-#endif
-a3456:
 
+vmeBusLock();
 	        len = faReadBlock(faSlot(jj),rol->dabufp,10000/*MAXFADCWORDS*/,FADC_ROFLAG);
+vmeBusUnlock();
             rol->dabufp += len;
             dCnt += len;
 
             usrRestoreVmeDmaMemory();
 #else
+vmeBusLock();
 	        len = faReadBlock(faSlot(jj),&tdcbuf[dCnt],10000/*MAXFADCWORDS*/,FADC_ROFLAG);
+vmeBusUnlock();
             dCnt += len;
 #endif
 #ifdef DEBUG
@@ -1224,15 +1223,11 @@ a3456:
 	    {
 #ifndef DMA_TO_BIGBUF
 
-goto a4321;
-#ifdef TI_MASTER
-          for(jjj=0; jjj<NSSP; jjj++) *rol->dabufp++ = sspbuf[jjj];
-#endif
-a4321:
-
           for(jj=0; jj<dCnt; jj++) *rol->dabufp++ = tdcbuf[jj];
 #endif
 	    }
+
+        BANKCLOSE;
 	  }
       else 
 	  {

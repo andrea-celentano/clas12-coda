@@ -19,9 +19,6 @@ public:
 
 		TGTab *pTabs;
 
-#pragma warning("need to get this done through SetParameter")
-		A32BaseAddr = 0x08000000;
-
 		TGCompositeFrame *tFrame;
 		AddFrame(pTabs = new TGTab(this), new TGLayoutHints(kLHintsBottom | kLHintsRight | kLHintsExpandX | kLHintsExpandY));
 		tFrame = pTabs->AddTab("NoisePlots");	tFrame->AddFrame(new DCRB_NoisePlots(tFrame, this), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));

@@ -518,12 +518,8 @@ codaExit()
   rocp->async_roc_flag = 1;
   */
 
+  codaEnd(); /*need it to 'end' hardware by doing what usually done in 'end' transinion*/
 
-
-  /* SERGEY: ??? do rols_loop_exit = 1; instead ??? */
-  /*
-  codaEnd();
-  */
   rols_loop_exit = 1;
   ii = 6;
   while(rols_loop_exit)
@@ -651,6 +647,32 @@ int listSplit1(char *list, int flag,
 /* for example: ../dac/tcpClient croctest10 download\(\"test_ts2\"\)" */
 
 int
+codaInit(char *confname)
+{
+  int res;
+
+  TRANSITION_LOCK;
+  if(codaUpdateStatus("configuring") != CODA_OK)
+  {
+    TRANSITION_UNLOCK;
+    return(CODA_ERROR);
+  }
+
+  res = UDP_start();
+  if(res < 0) return(CODA_ERROR);
+
+  if(codaUpdateStatus("configured") != CODA_OK)
+  {
+    TRANSITION_UNLOCK;
+    return(CODA_ERROR);
+  }
+
+  TRANSITION_UNLOCK;
+
+  return(CODA_OK);
+}
+
+int
 codaDownload(char *confname)
 {
   objClass object = localobject;
@@ -686,7 +708,8 @@ codaDownload(char *confname)
 
   getConfFile(configname, confFile, 255);
 
-  UDP_start();
+  res = UDP_start();
+  if(res < 0) return(CODA_ERROR);
 
   /* update status again: UDP loop was just restarted so it does
 	 not sends any messages at that point */
@@ -1250,65 +1273,6 @@ printf("DB command >%s<\n",tmpp);
 }
 
 
-	
-
-/* read whole text file */
-char *
-loadwholefile(char *file, int *size)
-{
-  FILE *fp;
-  int res, nbytes;
-  char *buffer;
-
-  fp = fopen(file,"rb");
-  if(!fp)
-  {
-    printf("loadwholefile: error opening file\n");
-	return(NULL);
-  }
-
-  /* obtain the value of the file position indicator in the end of file */
-  fseek(fp,0L,SEEK_END);
-  nbytes = ftell(fp);
-  rewind(fp);
-
-  /* allocate memory for entire content */
-  buffer = calloc(1,nbytes+5);
-  if(!buffer)
-  {
-    fclose(fp);
-    printf("loadwholefile: memory alloc fails\n");
-    return(NULL);
-  }
-
-  /* fill end of buffer with \004 */
-  buffer[nbytes-2] = '\004';
-  buffer[nbytes-1] = '\004';
-  buffer[nbytes+0] = '\004';
-  buffer[nbytes+1] = '\004';
-  buffer[nbytes+2] = '\004';
-  buffer[nbytes+3] = '\004';
-  buffer[nbytes+4] = '\004';
-
-  /* copy the file into the buffer */
-  res = fread(buffer,nbytes,1,fp);
-  if(res != 1)
-  {
-    fclose(fp);
-    free(buffer);
-    printf("loadwholefile: entire read fails, res=%d\n",res);
-    return(NULL);
-  }
-
-  /* buffer is a string contains the whole text */
-  *size = (nbytes+4)/4; /* align to 4-byte boundary and return #words */
-  fclose(fp);
-
-  printf("loadwholefile: nbytes=%d, *size=%d\n",nbytes,*size);
-
-  return(buffer);
-}
-
 /******************************************************************************
  *
  * This routine informs the EB of state changes in a particular ROC
@@ -1341,7 +1305,7 @@ informEB(objClass object, ulong mTy, ulong mA, ulong mB)
   len = 5; /* full bank length in words */
 
 
-#define INSERT_CONFIG_FILE
+#undef INSERT_CONFIG_FILE
 
   /* if TS/Standalone and Prestart, insert run confFile */
 #ifdef INSERT_CONFIG_FILE
@@ -1716,9 +1680,10 @@ codaEnd()
   {
     if(rolP->inited)
     {
-      printf("codaEnd: calling ROL1's end\n");fflush(stdout);
       rolP->daproc = DA_END_PROC;
+      printf("codaEnd: calling ROL1's end (0x%08x)\n",(*rolP->rol_code));fflush(stdout);
       (*rolP->rol_code) (rolP);
+      printf("codaEnd: finished ROL1's end\n");fflush(stdout);
     }
   }
 
@@ -1770,6 +1735,12 @@ printf("ERROR_ENDING ...\n");fflush(stdout);
   printf("codaEnd: unlocking\n");fflush(stdout);
   TRANSITION_UNLOCK;
   printf("codaEnd: done\n");fflush(stdout);
+
+  /*
+  printf("codaEnd: give a time to readout the rest ...\n");fflush(stdout);
+  sleep(2);
+  printf("codaEnd: now exits\n");fflush(stdout);
+  */
 
   return(CODA_OK);
 }
@@ -2170,7 +2141,6 @@ else bb_cleanup(&bignet.gbigin);
         Don't poll if we have no free buffers ('pool->list.c' is # of event bufs) */
         if(rolP->poll/* && rolP->pool->list.c*/)
         {
-          rolP->daproc = DA_POLL_PROC;
           setHeartBeat(HB_ROL,21,5);
 #ifdef Linux_vme
 #ifdef NEW_ROC
@@ -2178,9 +2148,14 @@ else bb_cleanup(&bignet.gbigin);
           dabufp_physmembase = bb_get_physmembase(&gbigDMA);
 #endif
 #endif
+
+TRANSITION_LOCK;
+          rolP->daproc = DA_POLL_PROC;
 	      /* printf("11: befor ROL1\n");fflush(stdout);*/
           (*rolP->rol_code) (rolP); /* pseudo-trigger cdopoll */
 	      /* printf("11: after ROL1\n");fflush(stdout);*/
+TRANSITION_UNLOCK;
+
           setHeartBeat(HB_ROL,22,5);
         }
 
@@ -2199,10 +2174,12 @@ else bb_cleanup(&bignet.gbigin);
           SENDBUFFER_UNLOCK;
           /*printf("ROLS_LOOP UNLOCKed\n");fflush(stdout);*/
 		  /* call done only if writing was successful !!!???*/
+          setHeartBeat(HB_ROL,23,5);
+TRANSITION_LOCK;
           rolP->daproc = DA_DONE_PROC;
           rolP->doDone = 0;
-          setHeartBeat(HB_ROL,23,5);
           (*rolP->rol_code) (rolP);
+TRANSITION_UNLOCK;
           setHeartBeat(HB_ROL,24,5);
 		}
       }
@@ -2356,7 +2333,7 @@ else bb_cleanup(&bignet.gbigin);
     /* make sure we have the last event in the output buffer */
     if(/*rocp->last_event*/last_event_check < object->nevents)
     {
-      printf("coda_roc: in DA_ENDING last event=%d nevents=%d\n",
+      printf("coda_roc: DA_ENDING last event=%d nevents=%d\n",
 			 /*rocp->last_event*/last_event_check,object->nevents);
       TRANSITION_UNLOCK;
       break;

@@ -35,6 +35,8 @@ DSC2_TRGDIGITAL   40  64    <- board digital TRG output: width (ns), delay (ns)
 
 DSC2_CH_TRGDIGITAL   0   40  64    <- channel digital TRG output: channel#, width (ns), delay (ns)
 
+DSC2_ENABLE_DAQ_READOUT 3   <- enables readout by daq and inhibits readout by tcpserver from slot #
+
 */
 
 #if defined(VXWORKS) || defined(Linux_vme)
@@ -53,12 +55,19 @@ DSC2_CH_TRGDIGITAL   0   40  64    <- channel digital TRG output: channel#, widt
 
 #include "dsc2Lib.h"
 #include "dsc2Config.h"
+#include "xxxConfig.h"
 
 
 /* Global variables */
 static int active;
 
 static int Ndsc = 0;                        /* Number of DSCs in Crate */
+
+static int Ndsc_daq = 0;                       /* Number of DSCs for daq scalers readout */
+static int dscID_daq[DSC_MAX_BOARDS+1];        /* array of slot numbers for daq scalers readout */
+
+static int Ndsc_tcp = 0;                       /* Number of DSCs for tcpserver's scalers readout */
+static int dscID_tcp[DSC_MAX_BOARDS+1];        /* array of slot numbers for tcpserver's scalers readout */
 
 #undef DEBUG
 
@@ -78,8 +87,86 @@ static UINT32  ChannelMask[NBOARD];
 static UINT32  ORMask[NBOARD];
 static int     TRGDigitalWidth [NBOARD][NCHAN];
 static int     TRGDigitalDelay [NBOARD][NCHAN];
+static UINT16  bypMask;
+static int     scalerRefPrescale[NBOARD];
+static int     scalerFlags[NBOARD];
+
+static int     DAQReadoutMask[NBOARD];
 
 
+
+/******************************************************************/
+/* functions to get info about slots set for daq- and tcp-readout */
+
+int
+dsc2GetNdsc_daq()
+{
+  return(Ndsc_daq);
+}
+
+int
+dsc2Slot_daq(unsigned int id)
+{
+  if(id>=Ndsc_daq)
+  {
+    printf("%s: ERROR: Index (%d) >= dsc2s set for daq readout (%d).\n",__FUNCTION__,id,Ndsc_daq);
+    return(ERROR);
+  }
+
+  return(dscID_daq[id]);
+}
+
+int
+dsc2Id_daq(unsigned int slot)
+{
+  int id;
+
+  for(id=0; id<Ndsc_daq; id++)
+  {
+    if(dscID_daq[id]==slot)
+	{
+      return(id);
+	}
+  }
+
+  printf("%s: ERROR: dsc2 in slot %d does not exist or not set for daq readout\n",__FUNCTION__,slot);
+  return(ERROR);
+}
+
+int
+dsc2GetNdsc_tcp()
+{
+  return(Ndsc_tcp);
+}
+
+int
+dsc2Slot_tcp(unsigned int id)
+{
+  if(id>=Ndsc_tcp)
+  {
+    printf("%s: ERROR: Index (%d) >= dsc2s set for tcpserver readout (%d).\n",__FUNCTION__,id,Ndsc_tcp);
+    return(ERROR);
+  }
+
+  return(dscID_tcp[id]);
+}
+
+int
+dsc2Id_tcp(unsigned int slot)
+{
+  int id;
+
+  for(id=0; id<Ndsc_tcp; id++)
+  {
+    if(dscID_tcp[id]==slot)
+	{
+      return(id);
+	}
+  }
+
+  printf("%s: ERROR: dsc2 in slot %d does not exist or not set for tcpserver readout\n",__FUNCTION__,slot);
+  return(ERROR);
+}
 
 
 /*****************************************************************************/
@@ -96,18 +183,27 @@ dsc2Config("")
 dsc2Mon(0)
 */
 
+
 /* main function, have to be called after dsc2Init() */
 int
 dsc2Config(char *fname)
 {
   int res;
-
-  /* set defaults */
-  dsc2InitGlobals();
+  char *string; /*dummy, will not be used*/
 
   /* dsc2Init() must be called by now; get the number of boards from there */
   Ndsc = dsc2GetNdsc();
+
   printf("dsc2Config: Ndsc=%d\n",Ndsc);
+
+  if(strlen(fname) > 0) /* filename specified  - upload initial settings from the hardware */
+  {
+    dsc2UploadAll(string, 0);
+  }
+  else /* filename not specified  - set defaults */
+  {
+    dsc2InitGlobals();
+  }
 
   /* read config file */
   if( (res = dsc2ReadConfigFile(fname)) < 0 ) return(res);
@@ -134,7 +230,11 @@ dsc2InitGlobals()
     ORMask[ii] = 0xffffffff;
     for(jj=0; jj<NCHAN; jj++) TRGDigitalWidth [ii][jj] = 0;
     for(jj=0; jj<NCHAN; jj++) TRGDigitalDelay [ii][jj] = 0;
+
+    scalerRefPrescale[ii] = 0;
+    scalerFlags[ii] = DSC_SCALERCFG_RESET_AUTO;
   }
+
 }
 
 
@@ -339,6 +439,41 @@ dsc2ReadConfigFile(char *filename)
         for(slot=slot1; slot<slot2; slot++) TRGDigitalDelay[slot][chan] = i2;
       }
 
+      else if(active && ((strcmp(keyword,"DSC2_ENABLE_DAQ_READOUT") == 0) && (kk >= 0)))
+      {
+        sscanf (str_tmp, "%*s %d", &slot);
+        if((slot<2) || (slot>=21))
+        {
+          printf("\nReadConfigFile: Wrong slot number, %d\n\n",slot);
+          return(-6);
+        }
+        DAQReadoutMask[slot] = 1;
+      }
+
+      else if(active && ((strcmp(keyword,"DSC2_SCALER_REFPRESCALE") == 0) && (kk >= 0)))
+	  {
+        sscanf (str_tmp, "%*s %d", &i1);
+        if(i1<1 || i1>65535)
+		{
+          printf("\nReadConfigFile: Wrong scaler reference prescale %d, must be between 1 and 65535\n\n",i1);
+          return(-7);
+        }
+        for(slot=slot1; slot<slot2; slot++) scalerRefPrescale[slot] = i1-1;
+      }
+
+      else if(active && ((strcmp(keyword,"DSC2_SCALER_FLAGS") == 0) && (kk >= 0)))
+	  {
+        sscanf (str_tmp, "%*s %d", &i1);
+        if(i1<0 || i1>2)
+		{
+          printf("\nReadConfigFile: Wrong scaler flags %d, must be between 0 and 2\n\n",i1);
+          return(-7);
+        }
+        for(slot=slot1; slot<slot2; slot++) scalerFlags[slot] = i1;
+      }
+
+
+
       else
       {
         ; /* unknown key - do nothing */
@@ -354,6 +489,7 @@ dsc2ReadConfigFile(char *filename)
     }
   }
   fclose(fd);
+
 
 #ifdef DEBUG
   Ndsc = dsc2GetNdsc();
@@ -375,6 +511,8 @@ dsc2ReadConfigFile(char *filename)
       printf("      chan=%2d, TRGDigitalWidth=%d, TRGDigitalDelay=%d\n",
            jj,TRGDigitalWidth[slot][jj],TRGDigitalDelay[slot][jj]);
 	}
+    printf("   scalerRefPrescale=%d\n",scalerRefPrescale[slot]);
+    printf("   scalerFlags=%d\n",scalerFlags[slot]);
   }
 #endif
 
@@ -390,7 +528,6 @@ dsc2DownloadAll()
 {
   int slot, chan, kk;
   UINT16 selMask;
-  UINT16 bypMask;
 
   Ndsc = dsc2GetNdsc();
   for(kk=0; kk<Ndsc; kk++)
@@ -421,8 +558,28 @@ dsc2DownloadAll()
 	}
 	/*printf("[%2d] setup 0x%04x\n",slot,bypMask);*/
     dsc2SetTRGOutSource(slot, selMask, bypMask);
-
+    dsc2SetScalerConfigRefPrescale(slot, scalerRefPrescale[slot]);
+    dsc2SetScalerConfigFlags(slot, scalerFlags[slot]);
   }
+
+
+  /* fills two additional arrays: for scalers daq readout, and for scalers tcpserver readout */
+  Ndsc_daq = 0;
+  Ndsc_tcp = 0;
+  for(kk=0; kk<Ndsc; kk++)
+  {
+    slot = dsc2Slot(kk);
+
+    if(DAQReadoutMask[slot])
+	{
+      dscID_daq[Ndsc_daq++] = slot;
+	}
+    else
+	{
+      dscID_tcp[Ndsc_tcp++] = slot;
+	}
+  }
+
   return(0);
 }
 
@@ -433,7 +590,6 @@ void
 dsc2Mon(int slot)
 {
   int id, start, end, kk, jj;
-  UINT16 bypMask;
 
   Ndsc = dsc2GetNdsc();
   if(slot==0)
@@ -478,26 +634,37 @@ dsc2Mon(int slot)
 	      jj, dsc2GetTRGOutWidth(slot,jj));
 	  }
     }
+    printf("   scalerRefPrescale=%d\n",scalerRefPrescale[slot]);
+    printf("   scalerFlags=%d\n",scalerFlags[slot]);
     printf("\n");
   }
+
+  if(Ndsc_daq)
+  {
+    printf("Following %d slots are set for daq readout:\n");
+  }
+  else
+  {
+    printf("There are no daq readout slots\n");
+    for(jj=0; jj<Ndsc_daq; jj++) printf(" %d",dscID_daq[jj]);
+    printf("\n");
+  }
+
+  if(Ndsc_tcp)
+  {
+    printf("Following %d slots are set for tcpserver readout:\n");
+    for(jj=0; jj<Ndsc_tcp; jj++) printf(" %d",dscID_tcp[jj]);
+    printf("\n");
+  }
+  else
+  {
+    printf("There are no tcpserver readout slots\n");
+  }
+
 }
 
 
 
-
-
-#define ADD_TO_STRING \
-  len1 = strlen(str); \
-  len2 = strlen(sss); \
-  if((len1+len2) < length) strcat(str,sss); \
-  else \
-  { \
-    str[len1+1] = ' '; \
-    str[len1+2] = ' '; \
-    str[len1+3] = ' '; \
-    len1 = ((len1+3)/4)*4; \
-    return(len1); \
-  }
 
 /* upload setting from all found DSC2s */
 int
@@ -507,88 +674,114 @@ dsc2UploadAll(char *string, int length)
   char *str, sss[1024];
   unsigned int tmp, val[NCHAN], val1[NCHAN];
   unsigned short sval[NCHAN];
-  unsigned short bypMask;
 
-  str = string;
-  str[0] = '\0';
   Ndsc = dsc2GetNdsc();
   for(kk=0; kk<Ndsc; kk++)
   {
     slot = dsc2Slot(kk);
 
-    sprintf(sss,"DSC2_SLOT %d\n",slot);
-    ADD_TO_STRING;
+	TDCWidth[slot] = dsc2GetPulseWidth(slot,1);
+    TRGWidth[slot] = dsc2GetPulseWidth(slot,2);
 
-    sprintf(sss,"DSC2_WIDTH %d %d\n",dsc2GetPulseWidth(slot,1),dsc2GetPulseWidth(slot,2));
-    ADD_TO_STRING;
+    ChannelMask[slot] = dsc2GetChannelMask(slot,1),
+    ChannelMask[slot] |= (dsc2GetChannelMask(slot,2) << 16),
 
-    tmp = dsc2GetChannelMask(slot, 1),
-    sprintf(sss,"DSC2_TDCMASK");
-    ADD_TO_STRING;
-    for(jj=0; jj<NCHAN; jj++)
-	{
-      sprintf(sss," %d",(tmp>>(15-jj))&0x1);
-      ADD_TO_STRING;
-    }
-    sprintf(sss,"\n");
-    ADD_TO_STRING;
-
-    tmp = dsc2GetChannelORMask(slot, 1);
-    sprintf(sss,"DSC2_TDCORMASK");
-    ADD_TO_STRING;
-    for(jj=0; jj<NCHAN; jj++)
-	{
-      sprintf(sss," %d",(tmp>>(15-jj))&0x1);
-      ADD_TO_STRING;
-    }
-    sprintf(sss,"\n");
-    ADD_TO_STRING;
-
-    tmp = dsc2GetChannelMask(slot, 2),
-    sprintf(sss,"DSC2_TRGMASK");
-    ADD_TO_STRING;
-    for(jj=0; jj<NCHAN; jj++)
-	{
-      sprintf(sss," %d",(tmp>>(15-jj))&0x1);
-      ADD_TO_STRING;
-    }
-    sprintf(sss,"\n");
-    ADD_TO_STRING;
-
-    tmp = dsc2GetChannelORMask(slot, 2);
-    sprintf(sss,"DSC2_TRGORMASK");
-    ADD_TO_STRING;
-    for(jj=0; jj<NCHAN; jj++)
-	{
-      sprintf(sss," %d",(tmp>>(15-jj))&0x1);
-      ADD_TO_STRING;
-    }
-    sprintf(sss,"\n");
-    ADD_TO_STRING;
+    ORMask[slot] = dsc2GetChannelORMask(slot,1);
+    ORMask[slot] |= (dsc2GetChannelORMask(slot,2) << 16);
 
     for(jj=0; jj<NCHAN; jj++)
     {
-      sprintf(sss,"DSC2_CH_THRESHOLD %d %d %d\n",jj,dsc2GetThreshold(slot,jj,1),dsc2GetThreshold(slot,jj,2));
-      ADD_TO_STRING;
-    }
+      TDCThreshold[slot][jj] = dsc2GetThreshold(slot,jj,1);
+      TRGThreshold[slot][jj] = dsc2GetThreshold(slot,jj,2);
+
+      TRGDigitalDelay[slot][jj] = dsc2GetTRGOutDelay(slot,jj);
+      TRGDigitalWidth[slot][jj] = dsc2GetTRGOutWidth(slot,jj);
+	}
 
     bypMask = dsc2GetTRGOutSource(slot,1);
-    for(jj=0;jj<NCHAN;jj++)
-    {
-      if( (bypMask&(1<<jj))==0 )
-	  {
-        sprintf(sss,"DSC2_CH_TRGDIGITAL %d %d %d\n",jj,dsc2GetTRGOutDelay(slot,jj),dsc2GetTRGOutWidth(slot,jj));
-	  }
-    }
+
+    scalerRefPrescale[slot] = dsc2GetScalerConfigRefPrescale(slot);
+    scalerFlags[slot] = dsc2GetScalerConfigFlags(slot);
   }
 
-  len1 = strlen(str);
-  str[len1+1] = ' ';
-  str[len1+2] = ' ';
-  str[len1+3] = ' ';
-  len1 = ((len1+3)/4)*4;
+  if(length)
+  {
+    str = string;
+    str[0] = '\0';
 
-  return(len1);
+    for(kk=0; kk<Ndsc; kk++)
+    {
+      slot = dsc2Slot(kk);
+      sprintf(sss,"DSC2_SLOT %d\n",slot);
+      ADD_TO_STRING;
+
+      sprintf(sss,"DSC2_WIDTH %d %d\n",TDCWidth[slot],TRGWidth[slot]);
+      ADD_TO_STRING;
+
+      sprintf(sss,"DSC2_TDCMASK");
+      ADD_TO_STRING;
+      for(jj=0; jj<NCHAN; jj++)
+	  {
+        sprintf(sss," %d",(ChannelMask[slot]>>(15-jj))&0x1);
+        ADD_TO_STRING;
+      }
+      sprintf(sss,"\n");
+      ADD_TO_STRING;
+
+      sprintf(sss,"DSC2_TDCORMASK");
+      ADD_TO_STRING;
+      for(jj=0; jj<NCHAN; jj++)
+	  {
+        sprintf(sss," %d",(ORMask[slot]>>(15-jj))&0x1);
+        ADD_TO_STRING;
+      }
+      sprintf(sss,"\n");
+      ADD_TO_STRING;
+
+      sprintf(sss,"DSC2_TRGMASK");
+      ADD_TO_STRING;
+      for(jj=0; jj<NCHAN; jj++)
+	  {
+        sprintf(sss," %d",((ChannelMask[slot]>>16)>>(15-jj))&0x1);
+        ADD_TO_STRING;
+      }
+      sprintf(sss,"\n");
+      ADD_TO_STRING;
+
+      sprintf(sss,"DSC2_TRGORMASK");
+      ADD_TO_STRING;
+      for(jj=0; jj<NCHAN; jj++)
+	  {
+        sprintf(sss," %d",((ORMask[slot]>>16)>>(15-jj))&0x1);
+        ADD_TO_STRING;
+      }
+      sprintf(sss,"\n");
+      ADD_TO_STRING;
+
+      for(jj=0; jj<NCHAN; jj++)
+      {
+        sprintf(sss,"DSC2_CH_THRESHOLD %d %d %d\n",jj,TDCThreshold[slot][jj],TRGThreshold[slot][jj]);
+        ADD_TO_STRING;
+      }
+
+      for(jj=0;jj<NCHAN;jj++)
+      {
+        if( (bypMask&(1<<jj))==0 )
+	    {
+          sprintf(sss,"DSC2_CH_TRGDIGITAL %d %d %d\n",jj,TRGDigitalDelay[slot][jj],TRGDigitalWidth[slot][jj]);
+	    }
+      }
+
+      sprintf(sss,"DSC2_SCALER_REFPRESCALE %d\n",scalerRefPrescale[slot]+1);
+      ADD_TO_STRING;
+
+      sprintf(sss,"DSC2_SCALER_FLAGS %d\n",scalerFlags[slot]);
+      ADD_TO_STRING;
+	}
+
+    CLOSE_STRING;
+  }
+
 }
 
 

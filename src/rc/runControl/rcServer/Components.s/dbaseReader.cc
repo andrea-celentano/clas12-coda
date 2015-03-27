@@ -907,7 +907,8 @@ dbaseReader::getPriorities (void)
   reporter->cmsglog (CMSGLOG_INFO1,"Parsing priority table ......\n");
   ::sprintf (qstring, "select * from %s", DBASE_PRIORITY_TABLE);
 
-  if (::mysql_query (dbaseSock_, qstring) != 0) {
+  if (::mysql_query (dbaseSock_, qstring) != 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("list all priorities error: %s\n", mysql_error(dbaseSock_));
 #endif
@@ -915,14 +916,16 @@ dbaseReader::getPriorities (void)
 
     if (reconnectMysql () == CODA_ERROR)
       return CODA_ERROR;
-    if (::mysql_query (dbaseSock_, qstring ) != 0 ) {
+    if (::mysql_query (dbaseSock_, qstring ) != 0 )
+    {
       reporter->cmsglog (CMSGLOG_ERROR,"Can't read priority table: %s\n", mysql_error(dbaseSock_));
       return CODA_ERROR;
     }
   }
 
   MYSQL_RES *res = mysql_store_result(dbaseSock_);
-  if (!res) {
+  if (!res)
+  {
 #ifdef _CODA_DEBUG
     printf ("list all priorities error: %s\n", mysql_error(dbaseSock_));
 #endif
@@ -932,7 +935,8 @@ dbaseReader::getPriorities (void)
   
   // get every row of the priority table
   MYSQL_ROW row;
-  while ((row = mysql_fetch_row (res))) {
+  while ((row = mysql_fetch_row (res)))
+  {
     compFactory_->subSystemPriority (row[0], atoi (row[1]));
     reporter->cmsglog (CMSGLOG_INFO1,"Subsystem %s has default priority of %s\n",
 			     row[0], row[1]);

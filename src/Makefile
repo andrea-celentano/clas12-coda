@@ -7,11 +7,11 @@ MAKE = gmake
 all:
 	cd scripts;                          $(MAKE) install
 	- cd rcscripts;                      $(MAKE) install
-	- cd evio-4.0;                       $(MAKE)
-	- cd evio-4.0;                       $(MAKE) install
-	- cd et-12.0;                        $(MAKE)
-	- cd et-12.0;                        $(MAKE) ulib
-	- cd et-12.0;                        $(MAKE) install
+	- cd evio-4.3;                       $(MAKE)
+	- cd evio-4.3;                       $(MAKE) install
+	- cd et-14.0;                        $(MAKE)
+	- cd et-14.0;                        $(MAKE) ulib
+	- cd et-14.0;                        $(MAKE) install
 #	- cd bosio;                          $(MAKE)
 #	- cd bosio;                          $(MAKE) install
 	- cd mysql4.1.20;                    $(MAKE)
@@ -40,8 +40,8 @@ all:
 clean:
 	cd scripts;                          $(MAKE) clean
 	- cd rcscripts;                      $(MAKE) clean
-	- cd evio-4.0;                       $(MAKE) clean
-	- cd et-12.0;                        $(MAKE) clean
+	- cd evio-4.3;                       $(MAKE) clean
+	- cd et-14.0;                        $(MAKE) clean
 	- cd bosio;                          $(MAKE) clean
 	- cd mysql4.1.20;                    $(MAKE) clean
 	- cd codatcl1.0;                     $(MAKE) clean
@@ -97,11 +97,11 @@ cleanvxworks:
 arm:
 	cd mysql4.1.20;                      make
 	- cd mysql4.1.20;                    make install 
-	- cd evio-4.0;                       make
-	- cd evio-4.0;                       make install
-	- cd et-12.0;                        make
-	- cd et-12.0;                        make ulib
-	- cd et-12.0;                        make install
+	- cd evio-4.3;                       make
+	- cd evio-4.3;                       make install
+	- cd et-14.0;                        make
+	- cd et-14.0;                        make ulib
+	- cd et-14.0;                        make install
 	- cd codatt;                         make lib
 	- cd codatt;                         make shlib
 	- cd codatt;                         make install 
@@ -114,8 +114,8 @@ arm:
 
 cleanarm:
 	cd mysql4.1.20;                      make clean   
-	- cd evio-4.0;                       make clean
-	- cd et-12.0;                        make clean
+	- cd evio-4.3;                       make clean
+	- cd et-14.0;                        make clean
 	- cd codatt;                         make clean   
 	- cd dac;                            make clean   
 	- cd rol;                            make clean   
@@ -123,9 +123,9 @@ cleanarm:
 nios:
 	cd mysql4.1.20;                      $(MAKE) all     NIOS
 	- cd mysql4.1.20;                    $(MAKE) install NIOS
-	- cd evio-4.0;                       $(MAKE) lib     NIOS
-	- cd evio-4.0;                       $(MAKE) shlib   NIOS
-	- cd evio-4.0;                       $(MAKE) install NIOS
+	- cd evio-4.3;                       $(MAKE) lib     NIOS
+	- cd evio-4.3;                       $(MAKE) shlib   NIOS
+	- cd evio-4.3;                       $(MAKE) install NIOS
 #	- cd codatt;                         $(MAKE) all     NIOS
 #	- cd codatt;                         $(MAKE) install NIOS
 #	- cd dac;                            $(MAKE) all     NIOS
@@ -140,7 +140,7 @@ nios:
 
 cleannios:
 	cd mysql4.1.20;                      $(MAKE) clean   NIOS
-	- cd evio-4.0;                       $(MAKE) clean   NIOS
+	- cd evio-4.3;                       $(MAKE) clean   NIOS
 #	- cd codatt;                         $(MAKE) clean   NIOS
 	- cd dac;                            $(MAKE) clean   NIOS
 	- cd rol;                            $(MAKE) clean   NIOS

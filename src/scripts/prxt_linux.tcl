@@ -10,6 +10,6 @@ expect clon
 puts $roc
 send "ssh $roc\r"
 send "\r"
-send "coda_roc -s clasprod -o \"$roc ROC\" -i \r"
+send "coda_roc -s clashps -o \"$roc ROC\" \r"
 send "\r"
 interact

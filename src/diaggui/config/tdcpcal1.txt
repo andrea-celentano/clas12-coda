@@ -2,12 +2,8 @@
 # Trigger System Configuration Setup for 12GeV Test Stand #
 ###########################################################
 
-HOSTNAME hps1gtp
-	MODULE MOD_TYPE_GTP_HPS	0x00000000
-ENDHOST
-
-HOSTNAME hps2gtp
-	MODULE MOD_TYPE_GTP_HPS	0x00000000
+HOSTNAME tdcpcal1
+        MODULE MOD_TYPE_TID             0x00A80000      # SLOT 21
 ENDHOST
 
 ###########################################################

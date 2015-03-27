@@ -50,23 +50,27 @@ extern int codaDaPrestart   (char* name, int rn, int rt);
 extern int codaDaEnd        (char* name, int special);
 extern int codaDaPause      (char* name, int mask);
 extern int codaDaGo         (char* name, int mask);
-extern int codaDaConfigure  (char* name, int type);
+
+/*extern int codaDaConfigure  (char* name, int type);*/
+extern int codaDaConfigure  (char* name, char *);
+
 extern int codaDaReset      (char* name);
 extern int codaDaTerminate  (char* name);
 extern int codaDaReport     (char* name, int how);
 extern int codaDaReadInt    (char* name, char* attr, long* value);
 extern int codaDaWriteInt   (char* name, char* attr, long* value);
 extern int codaDaZap        (char* name);
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
 // functions related to itcl coda daq component
 extern int codaCreateDaComp (char* name);
 extern int codaDeleteDaComp (char* name);
+
 extern int codaDaCompConfigure (char* name);
+extern int codaDaBoot (char* name);
+
 extern int codaDaCompSetState  (char* name, int state);
 extern int codaAskComponent (char *command, char **res);
-#endif
 
 extern int compTimeOut;
 
 #endif
-  

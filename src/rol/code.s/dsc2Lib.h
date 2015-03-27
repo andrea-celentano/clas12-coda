@@ -42,7 +42,7 @@ typedef struct dsc_struct
   /* 0x0000 */ volatile unsigned int threshold[16];
   /* 0x0040 */ volatile unsigned int trgOut[16];
   /* 0x0080 */ volatile unsigned int pulsewidth;
-  /* 0x0084 */ volatile unsigned int reserved0[(0x0088-0x0084)/4];
+  /* 0x0084 */ volatile unsigned int scalerCfg;
   /* 0x0088 */ volatile unsigned int chEnable;
   /* 0x008C */ volatile unsigned int orMask;
   /* 0x0090 */ volatile unsigned int delay;
@@ -214,6 +214,15 @@ typedef struct dsc_struct
 #define DSC_DATA_TYPE_FILLER          15
 #define DSC_DATA_FILLER               (DSC_DATA_TYPE_FILLER<<27)
 
+#define DSC_SCALERCFG_FLAGS_MASK      0x3
+#define DSC_SCALERCFG_ALLOW_OVF       0x1
+#define DSC_SCALERCFG_RESET_AUTO      0x2
+
+#define DSC_SCALERCFG_RESET_A         0x4
+#define DSC_SCALERCFG_RESET_B         0x8
+
+#define DSC_SCALERCFG_REFPRESCALE_MASK  0xFFFF0000
+#define DSC_SCALERCFG_REFPRESCALE_SHIFT 16
 
 /* Function Prototypes */
 int dsc2GetNdsc();
@@ -257,5 +266,13 @@ int  dsc2ReadScalers(unsigned int id, volatile unsigned int *data, int nwrds, in
 int  dsc2PrintScalers(unsigned int id, int rflag);
 int  dsc2PrintScalerRates(unsigned int id, int rflag);
 int  dsc2SetPulseWidthAll(unsigned short tdcVal, unsigned short trgVal, unsigned short trgoutVal);
-int  dsc2SetThresholdAll(unsigned short tdcVal, unsigned short trgVal);
+
+int dsc2SetScalerConfigRefPrescale(unsigned int id, int refprescale);
+int dsc2GetScalerConfigRefPrescale(unsigned int id);
+int dsc2SetScalerConfigFlags(unsigned int id, int rflag);
+int dsc2GetScalerConfigFlags(unsigned int id);
+
+int dsc2ResetScalersGroupA(unsigned int id);
+int dsc2ResetScalersGroupB(unsigned int id);
+
 #endif /* __DSC2__ */

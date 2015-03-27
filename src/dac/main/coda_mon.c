@@ -199,6 +199,12 @@ MON_constructor()
 /*********************************************************/
 
 int
+codaInit(char *confname)
+{
+  return(0);
+}
+
+int
 codaDownload(char *conf)
 {
   objClass object = localobject;

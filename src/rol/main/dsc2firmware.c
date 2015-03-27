@@ -4,7 +4,7 @@
 /* UNIX version usage:
 
   cd $CLON_PARMS/firmwares
-  dsc2firmware vmeDSC_firmware_v1_c.bin
+  dsc2firmware vmeDSC_firmware_v1_e.bin
 
 VXWORKS:
 

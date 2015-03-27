@@ -53,7 +53,7 @@ $cmlog_freq   = 0;     # hours
 $mail_freq    = 24;    # hours
 $window_freq  = 3;     # hours
 $wait_time    = 30;    # seconds
-$delay        = 600;   # seconds
+$delay        = 60;   # seconds
 $debug        = 0;
 
 $host = `uname -n`;
@@ -62,8 +62,8 @@ $log_file     = "$CLON_LOG/processes/ipc_procmon_" . substr($host,4,2) .".txt";
 
 # decode command line args
 $line=join(" ",@ARGV);
-if($line =~ s/-h//i){die "\n usage:\n   ipc_process_monitor [-a project] [-p proc_list] [-s sleep_time] [-w wait_time]\n".
-			 "                       [-c cmlog_freq] [-m mail_freq] [-wf window_freq] [-delay delay] [-debug] \n\n";};
+if($line =~ s/-h//i){die "\n usage:\n   ipc_process_monitor [-a project] [-p proc_list] [-l log_file] [-s sleep_time]\n".
+			 "                       [-w wait_time] [-c cmlog_freq] [-m mail_freq] [-wf window_freq] [-delay delay] [-debug] \n\n";};
 ($project      =   $1) if ($line =~ s/-a\s*(\S*)//i);
 ($proc_list    =   $1) if ($line =~ s/-p\s*(\S*)//i);
 ($log_file     =   $1) if ($line =~ s/-l\s*(\S*)//i);
@@ -141,28 +141,34 @@ while(1==1) {
 	    $last_status=$dbmarray{"status\_$proc\_$flag"};
 	    $last_cmlogerr=$dbmarray{"cmlogerr\_$proc\_$flag"};
 	    if($debug!=0) {
-		warn "error_msg: procmon $facility $proc $class $severity $status ".
+		warn "error_msg -a $project procmon $facility \"$proc\" $class $severity $status ".
 		    "$code \"$text\"\n";
 
 	    } elsif (((($flag/1000)%10)==0)||(($now-$last_ok)>=$delay)) {
 
+#        warn "bla_bad ?\n";
 		if(($flag%10)!=0) {         # alarm system
+#            warn "bla_bad ..\n";
 		    if(($severity!=$last_status)||(($now-$last_cmlogerr)>=($cmlog_freq*3600-120))) {
 			$dbmarray{"status\_$proc\_$flag"}=$severity;
 			$dbmarray{"cmlogerr\_$proc\_$flag"}=$now;
-			system("error_msg procmon $facility \"$proc\" $class ".
+#            warn "bla_bad !\n";
+			system("error_msg -a $project procmon $facility \"$proc\" $class ".
 			       "$severity $status $code \"$text\"");
 		    }
 		}
-		
-		if((($flag/10)%10)!=0) {    # mail
-		    $last_mail=$dbmarray{"mail\_$proc\_$flag"};
-		    if(($now-$last_mail)>=($mail_freq*3600-120)){
-			$dbmarray{"mail\_$proc\_$flag"}=$now;
-			system("echo \"$text\" | mailx -s \"Process monitor:  missing process: ".
-			       "$proc\" $addr");
-		    }
-		}
+	
+#
+#sergey: temporary
+#	
+#		if((($flag/10)%10)!=0) {    # mail
+#		    $last_mail=$dbmarray{"mail\_$proc\_$flag"};
+#		    if(($now-$last_mail)>=($mail_freq*3600-120)){
+#			$dbmarray{"mail\_$proc\_$flag"}=$now;
+#			system("echo \"$text\" | mailx -s \"Process monitor:  missing process: ".
+#			       "$proc\" $addr");
+#		    }
+#		}
 
 		if((($flag/100)%10)!=0) {   # alarm window 
 		    $last_window=$dbmarray{"window\_$proc\_$flag"};
@@ -187,9 +193,11 @@ while(1==1) {
 	    if( ($facility eq "clonalarm") && ($code>0) &&
 	       (($last_status!=0)||(($now-$last_cmlogok)>=($cmlog_freq*3600-120))) ) {
 		if($debug!=0) {
-		    warn "class $class, code $code, proc $proc state reset\n";
+		    warn "error_msg -a $project procmon $facility \"$proc\" ".
+			   "$class 0 INFO $code \"$text\"\n";
 		} else {
-		    system("error_msg procmon $facility \"$proc\" ".
+#            warn "bla_good\n";
+		    system("error_msg -a $project procmon $facility \"$proc\" ".
 			   "$class 0 INFO $code \"$text\"");
 		    $dbmarray{"cmlogok\_$proc\_$flag"}=$now;
 		}

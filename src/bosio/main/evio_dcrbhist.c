@@ -618,8 +618,8 @@ main(int argc, char **argv)
 
 
       /*dcrb*/
-      ind1 = evNlink(buf, 20, 0xe105, 1, &nbytes);
-      if(ind1 <= 0) ind1 = evNlink(buf, 21, 0xe105, 1, &nbytes);
+      ind1 = evNlink(buf, 42, 0xe105, 42, &nbytes);
+      if(ind1 <= 0) ind1 = evNlink(buf, 42, 0xe105, 42, &nbytes);
       if(ind1 > 0)
       {
         int half,chip,chan,bco,tdc,tdcref,chan1,edge,nw;

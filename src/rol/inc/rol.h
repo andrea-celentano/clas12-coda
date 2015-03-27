@@ -239,6 +239,7 @@ extern pthread_mutex_t sendbuffer_lock;
    keep pointer to length of bank in GblTopBp for length adjustment 
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 /* get current pointer in the big buffer and fill CODA header info */ 
+/* called in rol1: CEOPEN(EVTYPE, BT_BANKS)*/
 #define CEOPEN(bnum, btype) \
 { \
 dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise following loop will think there is an event */ \
@@ -317,7 +318,8 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     } \
     oldevnb = dabufp[1] & 0xff; \
     ev_type = (dabufp[1] >> 16) & 0xff; \
-    if((ev_type >= 0) && (ev_type < 16)) \
+    /*if((ev_type >= 0) && (ev_type < 16))*/ \
+    if( (ev_type < EV_SYNC) || (ev_type >= (EV_SYNC+16)) )	\
     { \
 	  /*rocp->last_event++;*/ /* Increment Physics Events processed */ \
       last_event_check ++; \
@@ -370,6 +372,62 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
   /***************/ \
   /***************/ \
 }
+
+
+#define CECLOSE1 \
+{ \
+  int nw = 0; \
+  while(nw < nwords) \
+  { \
+	/*printf("CECLOSE1: fragment header: %d 0x%08x\n",dabufp[0],dabufp[1]);*/ \
+    len = dabufp[0]; \
+    if(len > 0)	   \
+    { \
+      static int oldevnb = 0; \
+      int newevnb; \
+      int ev_type; \
+      if(len > NWBOS) logMsg("CECLOSE1: ===> ERROR: len = %d (NWBOS=%d)\n",len,NWBOS,3,4,5,6); \
+      newevnb = dabufp[1] & 0xff; \
+      if(newevnb < oldevnb) \
+      { \
+        newevnb += 256; \
+	  } \
+      if(newevnb - oldevnb != 1) \
+      { \
+        logMsg("CECLOSE1: dabufp[0] = 0x%08x (%d)\n",dabufp[0],dabufp[0],3,4,5,6);	\
+        logMsg("CECLOSE1: dabufp[1] = 0x%08x (%d)\n",dabufp[1],dabufp[1],3,4,5,6);	\
+      } \
+      oldevnb = dabufp[1] & 0xff; \
+      ev_type = (dabufp[1] >> 16) & 0xff; \
+      if( (ev_type < EV_SYNC) || (ev_type >= (EV_SYNC+16)) )	\
+      { \
+        last_event_check ++; \
+      } \
+      dabufp += (len+1);       /* set pointer .. to the next event */ \
+      dataInBuf += (len+1)<<2; /* set pointer .. to the next event */ \
+      g_events_in_buffer++;    /* increment event counter in buffer */ \
+      if(dataInBuf > (tsendBufSize - SEND_BUF_MARGIN)) \
+      { \
+        clear_to_send = 1; \
+      } \
+    } \
+    else if(len < 0) \
+    { \
+      logMsg("CECLOSE1: ERROR: len = %d\n",len,2,3,4,5,6);	\
+      sleep(1); \
+    } \
+    else /* len == 0 - it was no event in this pooling iteration */ \
+    { \
+      logMsg("CECLOSE1: SHOULD NEVER BE HERE: len = %d\n",len,2,3,4,5,6);	\
+      sleep(1); \
+    } \
+    nw += (len+1); \
+  } \
+}
+
+
+
+
 
 
 /* rol1: following 2 macros called from rol1 to create banks inside bank-of-banks created by CEOPEN */
@@ -695,6 +753,9 @@ cdodispatch(unsigned int theType)
 {
   dispatch_busy = 1;
   (*(rol->nevents))++;
+
+  /*printf("cdodispatch: increment 'nevents to %d\n",*(rol->nevents));*/
+
   /*UNLOCKINTS;?????*/
   (*trigRtns)(theType, Tcode);
   /*LOCKINTS;?????*/
@@ -793,6 +854,8 @@ extern "C"
 /*static-error in dlsym*/ void
 INIT_NAME(rolParam rolp)
 {
+  /*printf("INIT_NAME: rolp->daproc=%d\n",rolp->daproc);*/
+
   if( (rolp->daproc != DA_DONE_PROC) && (rolp->daproc != DA_POLL_PROC) )
   {
     logMsg("INIT_NAME: INFO: rolp->daproc = %d\n",rolp->daproc,2,3,4,5,6);

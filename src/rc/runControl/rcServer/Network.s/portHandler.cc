@@ -153,7 +153,7 @@ portHandler::get_handle (void) const
 }
 
 
-/* Sergey: main UDP listener !!! */
+/* Sergey: main UDP listener; in particular updates 'daqComponent::daqTarget::state_' */
 
 int
 portHandler::handle_input (int)
@@ -164,9 +164,9 @@ portHandler::handle_input (int)
   char      exptname[MAX_STRING_LEN];
   char      brdrecvbuf[128];
   daqSystem& system = daqrun_->system();
-  daqComponent *comp;
+  daqComponent *comp; /* */
 
-  //printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! portHandler::handle_input reached\n");
+  /*printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! portHandler::handle_input reached\n");*/
 
 #ifdef _CODA_DEBUG
   //printf("!!! portHandler::handle_input reached\n");
@@ -217,9 +217,6 @@ portHandler::handle_input (int)
           //printf("portHandler: found %s nevents is %d state %d\n",comp->title(),daqrun_->eventNumber(),comp->state());
           //printf("portHandler: requested status is %s\n",status);
 
-
-
-
           /************************************/
 		  /* Sergey: get 'status' from DB !!! */
           /************************************
@@ -230,9 +227,6 @@ portHandler::handle_input (int)
           ************************************/
           /************************************/
           /************************************/
-
-
-
 
           if(::strcmp      (status, "dormant") == 0)     theState = CODA_DORMANT;
           else if(::strcmp (status, "booting") == 0)     theState = CODA_BOOTING;
@@ -250,6 +244,7 @@ portHandler::handle_input (int)
           else if(::strcmp (status, "resetting") == 0)   theState = CODA_RESETTING;
           else printf("portHandler: ERROR: unknown transaction !!!\n");
 
+          /* sergey: calls daqTarget::setState(), it sets variable 'state_' used in various places to check component status */
           comp->setState(theState);
 
           daqData* serverData = 0;

@@ -147,7 +147,8 @@ daqSubSystem::firstEnabledComp (void)
   daqComponent *comp = 0;
 
   int found = 0;
-  for (ite.init (); !ite; ++ite) {
+  for (ite.init (); !ite; ++ite)
+  {
     comp = (daqComponent *)ite ();
     if (comp->enabled ())
       return comp;
@@ -162,14 +163,19 @@ daqSubSystem::removeComponent (char *compName)
   daqComponent *comp = 0;
 
   int found = 0;
-  for (ite.init (); !ite; ++ite) {
+
+  for (ite.init (); !ite; ++ite)
+  {
     comp = (daqComponent *)ite ();
-    if (::strcmp (comp->title(), compName) == 0) {
+    if (::strcmp (comp->title(), compName) == 0)
+    {
       found = 1;
       break;
     }
   }
-  if (found) {
+
+  if (found)
+  {
     compList_.remove ((void *)comp);
     return CODA_SUCCESS;
   }
@@ -198,14 +204,22 @@ daqSubSystem::removeAllComponents (void)
   return CODA_SUCCESS;
 }
 
+
+
+/* sergey: set it to 'pri' if DB order required, for opposite order set to '-pri' */
+
 void
 daqSubSystem::setDefaultPriority (int pri)
 {
   // clean up all elements first
-  for (int i = 0; i < CODA_NUM_ACTIONS; i++)
-    priorities_[i] = 0;
+  for (int i=0; i<CODA_NUM_ACTIONS; i++) priorities_[i] = 0;
   
   priorities_[CODA_BOOT_ACTION] = pri;
+
+#ifdef NEW_STUFF
+  priorities_[CODA_CONFIGURE_ACTION] = -pri;
+#endif
+
   priorities_[CODA_DOWNLOAD_ACTION] = pri;
   priorities_[CODA_PRESTART_ACTION] = pri;
   priorities_[CODA_GO_ACTION] = pri;
@@ -219,7 +233,8 @@ daqSubSystem::setPriority (int action, int pri)
 {
   if (action < CODA_CONNECT_ACTION && action > CODA_TERMINATE_ACTION)
     status_ = CODA_ERROR;
-  else {
+  else
+  {
     priorities_[action] = pri;
     status_ = CODA_SUCCESS;
   }
@@ -228,11 +243,13 @@ daqSubSystem::setPriority (int action, int pri)
 void
 daqSubSystem::priorityByAction (int action)
 {
-  if (action < CODA_CONNECT_ACTION && action > CODA_TERMINATE_ACTION) {
+  if (action < CODA_CONNECT_ACTION && action > CODA_TERMINATE_ACTION)
+  {
     status_ = CODA_ERROR;
     priority_ = 0;
   }
-  else {
+  else
+  {
     priority_ = priorities_[action];
     status_ = CODA_SUCCESS;
   }
@@ -298,15 +315,6 @@ daqSubSystem::disableAll (void)
 }
 
 int
-daqSubSystem::boot (void)
-{
-  summaryState_ = CODA_DORMANT;
-  if (booter_ == 0)
-    booter_ = new subSysBooter (this);
-  return doTransition (booter_);
-}
-
-int
 daqSubSystem::terminate (void)
 {
   summaryState_ = CODA_TERMINATING;
@@ -330,9 +338,28 @@ daqSubSystem::abort (int wanted)
   doTransition (aborter_);
 }
 
+
+
+
+int
+daqSubSystem::boot (void)
+{
+#ifdef _TRACE_OBJECTS
+  printf("daqSubSystem::boot\n");fflush(stdout);
+#endif
+  summaryState_ = CODA_DORMANT;
+  if (booter_ == 0)
+    booter_ = new subSysBooter (this);
+  return doTransition (booter_);
+}
+
 int
 daqSubSystem::configure (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("daqSubSystem::configure reached\n");fflush(stdout);
+#endif
+
   summaryState_ = CODA_BOOTED;
   if (configurer_ == 0)
     configurer_ = new subSysConfigurer (this);
@@ -342,7 +369,15 @@ daqSubSystem::configure (void)
 int
 daqSubSystem::download (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("daqSubSystem::download reached\n");fflush(stdout);
+#endif
+
+  /*sergey: CODA_BOOTED ???
   summaryState_ = CODA_CONFIGURED;
+  */
+  summaryState_ = CODA_CONFIGURED;
+
   if (downloader_ == 0)
     downloader_ = new subSysDownloader (this);
   return doTransition (downloader_);
@@ -369,6 +404,9 @@ daqSubSystem::pause (void)
 int
 daqSubSystem::prestart (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("daqSubSystem::prestart\n");fflush(stdout);
+#endif
   summaryState_ = CODA_DOWNLOADED;
   if (prestarter_ == 0)
     prestarter_ = new subSysPrestarter (this);
@@ -403,7 +441,7 @@ daqSubSystem::reset (void)
 }
 
 
-// Sergey: ...
+/* Sergey: check component state; calls netComponent::state() */
 int
 daqSubSystem::state(void)
 {
@@ -414,6 +452,9 @@ daqSubSystem::state(void)
   int res = 0;
   int compState;
 
+#ifdef _TRACE_OBJECTS
+  printf("daqSubSystem::state() reached\n");
+#endif
   if(enabled())
   {
     codaSlistIterator ite (compList_);
@@ -424,7 +465,14 @@ daqSubSystem::state(void)
       comp = (daqComponent *) ite();
       if( comp->enabled () )
       {
-        compState = comp->state();
+#ifdef _TRACE_OBJECTS
+		printf("daqSubSystem::state(): calling comp->state()\n");
+#endif
+        compState = comp->state(); /* calls netComponent::state() ?? */
+#ifdef _TRACE_OBJECTS
+		printf("daqSubSystem::state(): called comp->state()\n");
+#endif
+        /* if discnnected and not allowed to autoboot */
         if(compState == CODA_DISCONNECTED && !comp->autoBoot ())
         {
           // not connected and this component does not need to
@@ -435,6 +483,7 @@ daqSubSystem::state(void)
                             comp->title ());
           return compState;
         }
+
         if(!someItems)
         {
           targetState = compState;
@@ -444,6 +493,7 @@ daqSubSystem::state(void)
         {
           if(compState != targetState) inconsistent = 1;
         }
+
       }
     }
     if(!someItems)
@@ -489,6 +539,9 @@ daqSubSystem::transitioner (void)
 int
 daqSubSystem::doTransition (subSysTransitioner *tran)
 {
+#ifdef _TRACE_OBJECTS
+  printf("daqSubSystem::doTransition reached\n");
+#endif
   currTransitioner_ = tran;
   status_ = currTransitioner_->execute ();
   return status_;
@@ -510,7 +563,8 @@ daqSubSystem::bootState (void)
   int res = 0;
   int compState;
 
-  if (enabled ()) {
+  if (enabled ())
+  {
     codaSlistIterator ite (compList_);
     daqComponent* comp = 0;
     

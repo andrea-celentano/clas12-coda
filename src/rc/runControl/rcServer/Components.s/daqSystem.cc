@@ -120,14 +120,15 @@ daqSystem::~daqSystem (void)
 void
 daqSystem::abort (int wanted)
 {
-	codaSlistIterator ite (subsystems_);
-	daqSubSystem* subsys = 0;
+  codaSlistIterator ite (subsystems_);
+  daqSubSystem* subsys = 0;
 
-	for (ite.init (); !ite; ++ite) {
-		subsys = (daqSubSystem *)ite ();
-		subsys->abort (wanted);
-	}
-	setState (wanted);
+  for (ite.init (); !ite; ++ite)
+  {
+	subsys = (daqSubSystem *)ite ();
+	subsys->abort (wanted);
+  }
+  setState (wanted);
 }
 
 int
@@ -448,45 +449,100 @@ daqSystem::autostart (void)
 }
 
 int
-daqSystem::boot (void)
-{
-	booter_->execute ();
-	return CODA_SUCCESS;
-}
-
-int
 daqSystem::terminate (void)
 {
 	terminater_->execute ();
 	return CODA_SUCCESS;
 }
 
-int
-daqSystem::configure (void)
-{
-	codaSlistIterator ite (subsystems_);
-	daqSubSystem* subsys = 0;
 
-	for (ite.init(); !ite; ++ite) {
-		subsys = (daqSubSystem *) ite ();
-		// check configuration information to do disable/enable a sub system
-		subsys->enableRun ();
-	}
-	configurer_->execute ();
+
+
+
+int
+daqSystem::boot(void)
+{
+#ifdef _TRACE_OBJECTS
+  printf("daqSystem::boot reached\n");
+#endif
+	booter_->execute();
 	return CODA_SUCCESS;
 }
 
 int
-daqSystem::download (void)
+daqSystem::configure(void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("daqSystem::configure reached\n");fflush(stdout);
+#endif
+  codaSlistIterator ite (subsystems_);
+  daqSubSystem* subsys = 0;
+
+  for (ite.init(); !ite; ++ite)
+  {
+	subsys = (daqSubSystem *) ite ();
+    // check configuration information to do disable/enable a sub system
+	subsys->enableRun ();
+  }
+
+  configurer_->execute ();
+  return CODA_SUCCESS;
+}
+
+
+/* sergey: executes all transitions between DA_DORMANT and DA_DOWNLOADED ??? */
+int
+daqSystem::download(void)
+{
+#ifdef _TRACE_OBJECTS
+  printf("daqSystem::download reached\n");fflush(stdout);
+#endif
+
+
+#ifdef NEW_STUFF
+
+/*
 	autoTransition (DA_DORMANT, DA_DOWNLOADED);
+*/
+
+/*fails immideatelly
+	autoTransition (DA_DOWNLOADING, DA_DOWNLOADED);
+*/
+
+/* does not send actual Download command, just waiting in Download completion 
+downloader_->execute();
+*/
+
+/*cannot do that: all 3 transitions will be started at once
+booter_->execute();
+configurer_->execute();
+downloader_->execute();
+*/
+
+
+  /*booter_->execute();*/
+  downloader_->execute();
+
+#else
+
+  autoTransition (DA_DORMANT, DA_DOWNLOADED);
+
+#endif
+
 	return CODA_SUCCESS;
 }
 
 int
-daqSystem::go (void)
+daqSystem::prestart(void)
 {
-	activater_->execute ();
+	prestarter_->execute();
+	return CODA_SUCCESS;
+}
+
+int
+daqSystem::go(void)
+{
+	activater_->execute();
 	return CODA_SUCCESS;
 }
 
@@ -506,13 +562,6 @@ daqSystem::resume (void)
   printf("Calling rcResume script.\n");
   //  status = system("");
   return CODA_SUCCESS;  
-}
-
-int
-daqSystem::prestart (void)
-{
-	prestarter_->execute ();
-	return CODA_SUCCESS;
 }
 
 int
@@ -536,39 +585,50 @@ daqSystem::reset (void)
 	return CODA_SUCCESS;  
 }
 
+/* sergey: executes transitions from 'istate' to 'fstate' ??? */
 int
 daqSystem::autoTransition (int istate, int fstate)
 {
-	int status = CODA_SUCCESS;
+#ifdef _TRACE_OBJECTS
+  printf("daqSystem::autoTransition\n");
+#endif
+  int status = CODA_SUCCESS;
 
-	if (istate == fstate)
-		status = CODA_ERROR;
-	if (istate < CODA_LOW_STATE || istate > CODA_HIGH_STATE)
-		status = CODA_ERROR;
-	if (fstate < CODA_LOW_STATE || fstate > CODA_HIGH_STATE)
-		status = CODA_ERROR;
+  if (istate == fstate) status = CODA_ERROR;
+  if (istate < CODA_LOW_STATE || istate > CODA_HIGH_STATE) status = CODA_ERROR;
+  if (fstate < CODA_LOW_STATE || fstate > CODA_HIGH_STATE) status = CODA_ERROR;
 
-	if (status == CODA_SUCCESS) {
-		graphNode *source;
-		graphNode *dest;
-		if (stateGraph_->DFS (istate, fstate, source, dest) == CODA_SUCCESS) {
-			compTransitioner tran;
-			graphNode *node = dest;
-			while (node != source) {
-				transitioner *tr = (transitioner *)node->linkToParent ();
-				// add one transitioner to the beginning of the list
-				tran.addTransitioner (tr);
-				node = node->parent ();
-			}
-			tran.execute ();
-		}
-		else {
-			status = CODA_ERROR;
-		}
+  if (status == CODA_SUCCESS)
+  {
+	graphNode *source;
+	graphNode *dest;
+	if (stateGraph_->DFS (istate, fstate, source, dest) == CODA_SUCCESS)
+    {
+	  /*sergey: some prints*/
+	  stateGraph_->printPath(source, dest);
+
+	  compTransitioner tran;
+	  graphNode *node = dest;
+	  while (node != source)
+      {
+		transitioner *tr = (transitioner *)node->linkToParent ();
+		/* add one transitioner to the beginning of the list */
+		tran.addTransitioner (tr);
+		node = node->parent ();
+	  }
+	  tran.execute ();
 	}
-	if (status != CODA_SUCCESS) // send command result back to daq run
-		run_->cmdFinalResult (status);
-	return status;
+	else
+    {
+	  status = CODA_ERROR;
+	}
+  }
+  if (status != CODA_SUCCESS) // send command result back to daq run
+  {
+	run_->cmdFinalResult (status);
+  }
+
+  return status;
 }
 
 int

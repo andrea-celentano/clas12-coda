@@ -42,11 +42,11 @@ public:
 				pSliderUpdateTime->Associate(this);
 				
 		AddFrame(pFrame = new TGHorizontalFrame(this), new TGLayoutHints(kLHintsExpandX | kLHintsTop));
-			pFrame->AddFrame(pLabelThreshold = new TGLabel(pFrame, new TGString("DACThreshold (default):")), new TGLayoutHints(kLHintsCenterY | kLHintsLeft));
+			pFrame->AddFrame(pLabelThreshold = new TGLabel(pFrame, new TGString(Form("DACThreshold (unknown):", GetThreshold()))), new TGLayoutHints(kLHintsCenterY | kLHintsLeft));
 			pFrame->AddFrame(pSliderThreshold = new TGHSlider(pFrame, 100, kSlider1 | kScaleBoth, SDR_THRESHOLD), new TGLayoutHints(kLHintsExpandX | kLHintsCenterY | kLHintsLeft));
 				pSliderThreshold->SetRange(0, THRESHOLD_MAX);
 //				pSliderUpdateTime->SetEnabled(kFALSE);
-				pSliderThreshold->SetPosition(5);
+				pSliderThreshold->SetPosition(0);
 				pSliderThreshold->Associate(this);			
 
 		AddFrame(pFrame = new TGHorizontalFrame(this), new TGLayoutHints(kLHintsExpandX | kLHintsTop));
@@ -165,6 +165,10 @@ public:
 		else
 			return kFALSE;
 
+		int thr = GetThreshold();
+		pLabelThreshold->SetText(Form("DACThreshold (%dmV):", thr));
+		pSliderThreshold->SetPosition(thr);
+				
 		return kTRUE;
 	}
 
@@ -272,6 +276,22 @@ public:
 			if(pRegs[i])
 				pM->WriteReg32(&pRegs[i]->DACConfig, ((unsigned int)val * 24489360)>>18);
 		}
+	}
+
+	unsigned int GetThreshold()
+	{
+		unsigned int val = 0;
+		
+		for(int i = 0; i < MAX_DCRB_NUM; i++)
+		{
+			if(pRegs[i])
+			{
+				val = pM->ReadReg32(&pRegs[i]->DACConfig);
+				val = (val<<18) / 24489360;
+				printf("%d: GetThreshold() = %dmV\n", i, val);
+			}
+		}
+		return val;
 	}
 
 	void SetLocalTest(Bool_t en)

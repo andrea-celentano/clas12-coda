@@ -29,7 +29,7 @@ configurer::configurer (daqSystem* system)
 :transitioner (system)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("     Create configurer Class Object\n");
+  printf ("configurer::configurer: Create configurer Class Object\n");
 #endif
   // empty
 }
@@ -37,45 +37,72 @@ configurer::configurer (daqSystem* system)
 configurer::~configurer (void)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("     Delete configurer Class Object\n");
+  printf ("configurer::~configurer: Delete configurer Class Object\n");
 #endif
   // empty
 }
 
+
+
 int
 configurer::transitionFinished (int fstate, int successState)
 {
+#ifdef _TRACE_OBJECTS
+  printf("configurer::transitionFinished reached, returns (%d == %d)\n",fstate,successState);
+#endif
+
+#ifdef NEW_STUFF
+  /*sergey: do the same as transitioner::transitionFinished */
+  return(fstate == successState);
+#else
   if (fstate != CODA_DISCONNECTED)
     return 1;
   return 0;
+#endif
 }
+
 
 int
 configurer::action (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("configurer::action\n");
+#endif
   return CODA_CONFIGURE_ACTION;
 }
 
 void
 configurer::executeItem (daqSubSystem* subsys)
 {
+#ifdef _TRACE_OBJECTS
+  printf("configurer::executeItem reached\n");fflush(stdout);
+#endif
   subsys->configure ();
 }
 
 int
 configurer::failureState (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("configurer::failureState\n");
+#endif
   return CODA_BOOTED;
 }
 
 int
 configurer::successState (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("configurer::successState (CODA_CONFIGURED)\n");
+#endif
   return CODA_CONFIGURED;
 }
 
 int
 configurer::transitionState (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("configurer::transitionState\n");
+#endif
   return CODA_BOOTED;
 }

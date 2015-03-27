@@ -13,16 +13,7 @@ static int DTM_isAsync;
 static unsigned long DTM_prescale = 1;
 static unsigned long DTM_count = 0;
 
-static unsigned int *   map;
-static unsigned int     trigCount;
-static unsigned int     lastCount;
-
 #include <time.h>
-static time_t lastTime;
-static unsigned int pollCount;
-
-#define MEM_MAP_BASE 0xA0010000
-#define MEM_MAP_SIZE 0x00002000
 
 /*
 struct vme_ts {

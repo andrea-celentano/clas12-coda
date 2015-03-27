@@ -51,7 +51,7 @@ booter::booter (daqSystem* system)
 :transitioner (system), timeoutCache_(0)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("     Create booter Class Object\n");
+  printf ("booter::booter: Create booter Class Object\n");
 #endif
   // empty
 }
@@ -59,7 +59,7 @@ booter::booter (daqSystem* system)
 booter::~booter (void)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("     Delete booter Class Object\n");
+  printf ("booter::booter: Delete booter Class Object\n");
 #endif
   // empty
 }
@@ -128,6 +128,11 @@ booter::setupSuccess (void)
 int
 booter::subSystemState (daqSubSystem* subsys)
 {
-  return subsys->bootState ();
+  int tmp;
+  tmp = subsys->bootState();
+#ifdef _TRACE_OBJECTS
+  printf("booter::subSystemState reached, returns %d\n",tmp);
+#endif
+  return tmp;
 }
   

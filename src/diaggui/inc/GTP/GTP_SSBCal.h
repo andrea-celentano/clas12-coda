@@ -145,8 +145,6 @@ public:
 	
 	virtual Bool_t ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
 	{
-		int v;
-
 		if((GET_MSG(msg) == kC_TEXTENTRY) && (GET_SUBMSG(msg) == kTE_TEXTCHANGED))
 		{
 			switch(parm1)

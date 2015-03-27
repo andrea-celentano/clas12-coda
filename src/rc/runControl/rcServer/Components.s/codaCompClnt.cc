@@ -80,9 +80,9 @@
 #include <daqState.h>
 
 
-/***************************************/
-/***************************************/
-/* Sergey: tcpClient as DP replacement */
+/************************************************/
+/************************************************/
+/* Sergey: tcpClient as DP (dp_ask) replacement */
 
 
 /* tcpClient.c - TCP client example */ 
@@ -268,7 +268,7 @@ codaDaCreate(char *name, int version, int id, char *type, char *host, int interv
   char res[1000];
 
 #ifdef DEBUG_MSGS
-  printf("codaDaCreate reached\n");
+  printf("codaDaCreate reached for %s\n",name);
 #endif
 
   // codaDaReport second arg is 1 means "really ask"
@@ -298,17 +298,66 @@ codaDaCreate(char *name, int version, int id, char *type, char *host, int interv
 int
 codaDaConnect(char *name, int version, int id, char *type, char *host)
 {
-printf("codaDaConnect reached\n");
-exit(0);
+#ifdef DEBUG_MSGS
+  printf("codaDaConnect reached\n");
+#endif
+  exit(0);
   return(CODA_BOOTED);
 }
 
 int
 codaDaRemove(char *name)
 {
-printf("codaDaRemove reached\n");
-exit(0);
+#ifdef DEBUG_MSGS
+  printf("codaDaRemove reached\n");
+#endif
+  exit(0);
   return(CODA_DORMANT);
+}
+
+
+ /*sergey*/
+int
+codaDaBoot(char* name)
+{
+#ifdef DEBUG_MSGS
+  printf("codaDaBoot reached (name >%s<)\n",name);fflush(stdout);
+#endif
+  /*
+  int status = 0;
+  char temp [CODA_SCRIPT_LENGTH];
+
+  status = tcpClient(name,"boot");
+
+  return(status);
+  */
+  return CODA_SUCCESS;
+}
+
+/* sergey: was never called, using to send Configure transition command */
+int
+codaDaConfigure(char *name, char *param)
+{
+  int status = 0;
+  char temp[CODA_SCRIPT_LENGTH];
+
+#ifdef DEBUG_MSGS
+  printf("codaDaConfigure reached\n");fflush(stdout);
+#endif
+
+  sprintf(temp,"configure %s",param);
+  status = tcpClient(name,temp);
+
+  printf("CONFCONFCONFCONFCONFCONFCONFCONFCONFCONF\n");
+
+  if(status == CODA_SUCCESS)
+  {
+    return(CODA_CONFIGURING);
+  }
+  else
+  {
+    return(CODA_DORMANT);
+  }
 }
 
 int
@@ -318,14 +367,12 @@ codaDaDownload(char *name, char *paramL)
   char temp[CODA_SCRIPT_LENGTH];
 
 #ifdef DEBUG_MSGS
-  printf("codaDaDownload reached\n");
+  printf("codaCompClnt::codaDaDownload reached\n");fflush(stdout);
 #endif
-
   sprintf(temp,"download %s",paramL);
   status = tcpClient(name,temp);
 
-/* give component time to update DB with new status ! 
-sleep(1);*/
+  printf("DOWNLOADDOWNLOADDOWNLOADDOWNLOADDOWNLOAD\n");
 
   if(status == CODA_SUCCESS)
   {
@@ -418,8 +465,10 @@ codaAskComponent(char *command, char **res)
   *res = result;
 
   strcpy(temp,command);
-printf("codaAskComponent >%s<\n",temp);
-exit(0);
+#ifdef DEBUG_MSGS
+  printf("codaAskComponent >%s<\n",temp);
+#endif
+  exit(0);
   strtok(temp," ");
 
   printf("codaAskComponent: do not know howto ..\n");
@@ -427,13 +476,6 @@ exit(0);
   return(status);
 }
 
-int
-codaDaConfigure(char *name, int type)
-{
-printf("codaDaConfigure reached\n");
-exit(0);
-  return(CODA_CONFIGURED);
-}
 
 int
 codaDaReset(char *name)
@@ -449,8 +491,10 @@ codaDaReset(char *name)
 int
 codaDaTerminate(char *name)
 {
-printf("codaDaTerminate reached\n");
-exit(0);
+#ifdef DEBUG_MSGS
+  printf("codaDaTerminate reached\n");
+#endif
+  exit(0);
 
   return(codaDaReset(name));
 }
@@ -461,8 +505,10 @@ codaDaZap(char *name)
   int status = 0;
   char temp [CODA_SCRIPT_LENGTH];
 
-printf("codaDaZap reached\n");
-exit(0);
+#ifdef DEBUG_MSGS
+  printf("codaDaZap reached\n");
+#endif
+  exit(0);
 
   sprintf (temp, "dp_after 1000 %s zap", name);
   printf("codaDaZap: do not know howto ..\n");
@@ -480,14 +526,13 @@ codaDaReport(char *name, int how)
   char tmp[1000];
 
 #ifdef DEBUG_MSGS
-  printf("codaDaReport reached\n");
+  printf("codaDaReport reached for %s\n",name);
 #endif
-
   /* get component status from DB */
   dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
   sprintf(tmp,"SELECT state FROM process WHERE name='%s'",name);
 #ifdef DEBUG_MSGS
-  printf("DB select: >%s<\n",tmp);
+  printf("codaDaReport: DB select: >%s<\n",tmp);
 #endif
   if(dbGetStr(dbsock, tmp, res)==ERROR) status = CODA_ERROR;
   else                                  status = CODA_SUCCESS;
@@ -496,7 +541,6 @@ codaDaReport(char *name, int how)
 #ifdef DEBUG_MSGS
   printf("codaDaReport: name>%s< state>%s<\n",name,res);
 #endif
-
   if(status == CODA_SUCCESS)
   {
 /*
@@ -509,52 +553,27 @@ codaDaReport(char *name, int how)
     printf(" Seconds , cmd result is %s\n",res2);
 #endif
 */
-    if (::strcmp (res, "dormant") == 0) {
-      return CODA_DORMANT;
-    }
-    else if (::strcmp (res, "booting") == 0) {
-      return CODA_BOOTING;
-    }
-    else if (::strcmp (res, "booted") == 0) {
-      return CODA_BOOTED;
-    }
-    else if (::strcmp (res, "configuring") == 0) {
-      return CODA_CONFIGURING;
-    }
-    else if (::strcmp (res, "configured") == 0) {
-      return CODA_CONFIGURED;
-    }
-    else if (::strcmp (res, "downloading") == 0) {
-      return CODA_DOWNLOADING;
-    }														  
-    else if (::strcmp (res, "downloaded") == 0) {
-      return CODA_DOWNLOADED;
-    }
-    else if (::strcmp (res, "prestarting") == 0) {
-      return CODA_PRESTARTING;
-    }
-    else if (::strcmp (res, "paused") == 0) {
-      return CODA_PAUSED;
-    }
-    else if (::strcmp (res, "activating") == 0) {
-      return CODA_ACTIVATING;
-    }
-    else if (::strcmp (res, "active") == 0) {
-      return CODA_ACTIVE;
-    }
-    else if (::strcmp (res, "ending") == 0) {
-      return CODA_ENDING;
-    }
-    else if (::strcmp (res, "prestarted") == 0) {
-      return CODA_PRESTARTED;
-    }
-    else if (::strcmp (res, "resetting") == 0) {
-      return CODA_RESETTING;
-    }
+    if (::strcmp (res, "dormant") == 0)          return CODA_DORMANT;
+    else if (::strcmp (res, "booting") == 0)     return CODA_BOOTING;
+    else if (::strcmp (res, "booted") == 0)      return CODA_BOOTED;
+    else if (::strcmp (res, "configuring") == 0) return CODA_CONFIGURING;
+    else if (::strcmp (res, "configured") == 0)  return CODA_CONFIGURED;
+    else if (::strcmp (res, "downloading") == 0) return CODA_DOWNLOADING;
+    else if (::strcmp (res, "downloaded") == 0)  return CODA_DOWNLOADED;
+    else if (::strcmp (res, "prestarting") == 0) return CODA_PRESTARTING;
+    else if (::strcmp (res, "paused") == 0)      return CODA_PAUSED;
+    else if (::strcmp (res, "activating") == 0)  return CODA_ACTIVATING;
+    else if (::strcmp (res, "active") == 0)      return CODA_ACTIVE;
+    else if (::strcmp (res, "ending") == 0)      return CODA_ENDING;
+    else if (::strcmp (res, "prestarted") == 0)  return CODA_PRESTARTED;
+    else if (::strcmp (res, "resetting") == 0)   return CODA_RESETTING;
   }
-  else if (status == -5) {
+  else if (status == -5)
+  {
     return CODA_BUSY;
-  } else {
+  }
+  else
+  {
     return CODA_DISCONNECTED;
   }
 }
@@ -566,8 +585,10 @@ codaDaReport2 (char* name)
   char temp [CODA_SCRIPT_LENGTH];
   char res[1000];
 
-printf("codaDaReport2 reached\n");
-exit(0);
+#ifdef DEBUG_MSGS
+  printf("codaDaReport2 reached\n");
+#endif
+  exit(0);
 
   sprintf (temp, "%s status", name);
   printf("codaDaReport: do not know howto .. (2)\n");
@@ -676,11 +697,6 @@ codaDeleteDaComp (char* name)
   return CODA_SUCCESS;
 }
 
-int
-codaDaCompConfigure (char* name)
-{
-  return CODA_SUCCESS;
-}
 
 int
 codaDaCompSetState (char* name, int st)
@@ -691,4 +707,16 @@ codaDaCompSetState (char* name, int st)
 #endif
   return CODA_SUCCESS;
 }
+
+
+
+int
+codaDaCompConfigure (char* name)
+{
+#ifdef DEBUG_MSGS
+  printf("codaCompClnt::codaDaCompConfigure reached (name >%s<)\n",name);fflush(stdout);
+#endif
+  return CODA_SUCCESS;
+}
+
 

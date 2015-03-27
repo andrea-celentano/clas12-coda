@@ -18,6 +18,23 @@
 #ifndef _CODA_DA_H
 #define	_CODA_DA_H
 
+
+
+
+
+/* sergey: some general switches */
+
+
+/* restore old spec events type coding: prestart=17, go=18, end=20 etc */
+/* remove highest bit from type to make special event type like it was before: prestart 145->17 etc */
+#define RESTORE_OLD_SPEC_EVENT_CODING
+
+
+
+
+
+
+
 #ifndef FALSE
 #define FALSE 0
 #endif
@@ -31,14 +48,13 @@
 #include <stdio.h>
 #include <strings.h>
 #include <sys/types.h>
-#include <errno.h>
-#include <sys/uio.h>
-#include <netinet/in.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/uio.h>
+#include <errno.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <sys/time.h>
 
 #include "et.h"
 
@@ -58,11 +74,20 @@
 #define TCP_ON 1
 #define LOCK_STEP 2
 
+#define EV_OFFSET   0x80
+
+#define EV_SYNC     (16+EV_OFFSET)
+#define EV_PRESTART (17+EV_OFFSET)
+#define EV_GO       (18+EV_OFFSET)
+#define EV_PAUSE    (19+EV_OFFSET)
+#define EV_END      (20+EV_OFFSET)
+/*
 #define EV_SYNC     16
 #define EV_PRESTART 17
 #define EV_GO       18
 #define EV_PAUSE    19
 #define EV_END      20
+*/
 
 #define EV_BANK_HDR  0x00000100
 #define EV_BAD       0x10000000

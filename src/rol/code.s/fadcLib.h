@@ -353,6 +353,8 @@ struct fadc_sdc_struct {
 #define FA_INT_LEVEL_MASK      0x700
 #define FA_SLOT_ID_MASK        0x1f0000
 #define FA_DAC_VALUE_MASK      0x0fff
+#define FA_THR_VALUE_MASK      0x0fff
+#define FA_THR_IGNORE_MASK     0x8000
 
 #define FA_REF_CLK_SEL_MASK        0x7
 #define FA_TRIG_SEL_MASK          0x70
@@ -724,6 +726,9 @@ int faSetChannelGain(int id, unsigned int chan, float gain);
 float faGetChannelGain(int id, unsigned int chan);
 
 int faGLoadChannelPedestals(char *fname, int updateThresholds);
+
+int faThresholdIgnore(int id, unsigned short chmask);
+unsigned int faGetThresholdIgnoreMask(int id);
 
 typedef struct
 {

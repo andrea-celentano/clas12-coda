@@ -161,7 +161,7 @@ public:
 	
 	void UpdateScalers()
 	{
-		int i, j, k;
+		int i, j;
 		unsigned int scalers[MAX_FADC_NUM][16];
 		unsigned int refscalers[MAX_FADC_NUM];
 

@@ -28,7 +28,7 @@ subSysConfigurer::subSysConfigurer (daqSubSystem* subsys)
 :subSysTransitioner (subsys)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("    Create subSysConfigurer Class Object\n");
+  printf ("subSysConfigurer::subSysConfigurer: Create subSysConfigurer Class Object\n");
 #endif
   // empty
 }
@@ -36,7 +36,7 @@ subSysConfigurer::subSysConfigurer (daqSubSystem* subsys)
 subSysConfigurer::~subSysConfigurer (void)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("    Delete subSysConfigurer Class Object\n");
+  printf ("subSysConfigurer::~subSysConfigurer: Delete subSysConfigurer Class Object\n");
 #endif
   // empty
 }
@@ -50,6 +50,9 @@ subSysConfigurer::action (void) const
 void
 subSysConfigurer::executeItem (daqComponent* comp)
 {
+#ifdef _TRACE_OBJECTS
+  printf("subSysConfigurer::executeItem reached\n");fflush(stdout);
+#endif
   comp->configure ();
 }
 

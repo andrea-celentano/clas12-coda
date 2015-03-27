@@ -72,9 +72,12 @@ daqActions::actionString (int action) const
 const int
 daqActions::action (char *string) const
 {
-  for (int i = 0; i < CODA_NUM_ACTIONS; i++) {
+  for (int i=0; i<CODA_NUM_ACTIONS; i++)
+  {
     if (::strcasecmp (actions_[i].string_, string) == 0)
+	{
       return actions_[i].action_;
+	}
   }
   return CODA_ERROR;
 }

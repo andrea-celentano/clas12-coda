@@ -9,6 +9,8 @@
 #include <string.h>
 #include "vscmLib.h"
 
+#undef DEBUG
+
 #ifdef VXWORKS
 /*
 #include "dmainit.h"
@@ -150,8 +152,6 @@ vscmConfigDownload(int id, char *fname)
     }
     else {
       sscanf(str,"%30s", keyword);
-      printf("[%d] keyword >%s<\n",id,keyword);
-
 /*0        0        20*/
 /*
       if (!strcmp(keyword,"VSCM_MAX_TRIGGER_NUM")) {
@@ -162,7 +162,6 @@ vscmConfigDownload(int id, char *fname)
       }
 */
       if (!strcmp(keyword,"VSCM_CLOCK_EXTERNAL")) {
-        printf("[%d] External clock\n",id);
         vmeWrite32(&VSCMpr[id]->ClockCfg, 3); /* sets clock */
         vmeWrite32(&VSCMpr[id]->ClockCfg, 1); /* release reset */
         vscmFifoClear(id);
@@ -171,7 +170,6 @@ vscmConfigDownload(int id, char *fname)
       }
 
       else if (!strcmp(keyword,"VSCM_CLOCK_INTERNAL")) {
-        printf("[%d] Internal clock\n",id);
         vmeWrite32(&VSCMpr[id]->ClockCfg, 2); /* sets clock */
         vmeWrite32(&VSCMpr[id]->ClockCfg, 0); /* release reset */
         vscmFifoClear(id);
@@ -235,7 +233,6 @@ vscmConfigDownload(int id, char *fname)
                 keyword, charval[0], charval[1], charval[2]);
         nval = 3;
         VAL_DECODER;
-        printf("Window: %d %d %d for slot %d\n",val[0],val[1],val[2],id);
         vscmSetTriggerWindow(id, val[0],val[1],val[2]);
       }
       else
@@ -264,7 +261,6 @@ vscmConfigDownload(int id, char *fname)
 }
 
 /*******************/
-
 
 void
 fssrInternalPulserEnable(int id, int chip)
@@ -1622,7 +1618,7 @@ vscmGBReady()
 int
 vscmGetSerial(int id)
 {
-  char buf[3];
+  unsigned char buf[3];
   int i, mode;
 
   if (vscmIsNotInit(&id, __func__))
@@ -1724,10 +1720,7 @@ vscmSetPulserRate(int id, uint32_t freq)
     window *= bcoFreq;
     trig_rate_limit = 50000000 / (16 * (1 + window / bcoFreq));
     if (freq > trig_rate_limit) {
-      logMsg("INFO: %s: Raised Pulser Period from %u ns ", \
-              __func__, periodCycles); 
       periodCycles = (int)((1.0 / trig_rate_limit) / 8.0e-9) + 0.5;
-      logMsg("to %u ns\n", periodCycles);
     }
   }
 
@@ -1812,7 +1805,7 @@ void
 vscmPulserStop(int id)
 {
   if (vscmIsNotInit(&id, __func__))
-    return
+    return;
 
   vmeWrite32(&VSCMpr[id]->PulserN, 0);
 }
@@ -2016,8 +2009,10 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
       {
         if (rdata != VSCM_BOARD_ID)
         {
+#ifdef DEBUG
           logMsg("ERROR: %s: For board at %p, Invalid Board ID: %p\n",
                   __func__, (void *)vreg, (void *)rdata);
+#endif
           break;
         }
         boardID = vmeRead32(&vreg->Geo) & 0x1F;
@@ -2129,14 +2124,12 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
 
       if((flag&0x1)==0)
 	  {
-        printf("External clock\n");
         /* get clock from switch slot B (2,0-int, 3,1-ext)*/
         vmeWrite32(&VSCMpr[boardID]->ClockCfg, 3); /* sets clock */
         vmeWrite32(&VSCMpr[boardID]->ClockCfg, 1); /* release reset */
 	  }
 	  else
 	  {
-        printf("Internal clock\n");
         /* get clock from switch slot B (2,0-int, 3,1-ext)*/
         vmeWrite32(&VSCMpr[boardID]->ClockCfg, 2); /* sets clock */
         vmeWrite32(&VSCMpr[boardID]->ClockCfg, 0); /* release reset */

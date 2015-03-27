@@ -114,7 +114,7 @@ extern "C" int gethostname (char*, int);
 daqRunType::daqRunType (void)
 :type_ (0), number_ (-1), inuse_ (0), cat_ (0)
 {
-#ifdef _TRACE_OBJECTS
+#ifdef _CODA_DEBUG
 	printf ("Create daqRunType Class Object\n");
 #endif
 	// empty
@@ -123,7 +123,7 @@ daqRunType::daqRunType (void)
 daqRunType::daqRunType (char* type, int number, int inuse, char* cat)
 :number_ (number), inuse_ (inuse)
 {
-#ifdef _TRACE_OBJECTS
+#ifdef _CODA_DEBUG
 	printf ("Create daqRunType Class Object\n");
 #endif
 	type_ = new char[::strlen (type) + 1];
@@ -139,7 +139,7 @@ daqRunType::daqRunType (char* type, int number, int inuse, char* cat)
 
 daqRunType::~daqRunType (void)
 {
-#ifdef _TRACE_OBJECTS
+#ifdef _CODA_DEBUG
 	printf ("Delete daqRunType Class Object\n");
 #endif
 	if (type_)
@@ -151,7 +151,7 @@ daqRunType::~daqRunType (void)
 daqRunType::daqRunType (const daqRunType& type)
 :number_ (type.number_), inuse_ (type.inuse_)
 {
-#ifdef _TRACE_OBJECTS
+#ifdef _CODA_DEBUG
 	printf ("Create daqRunType Class Object\n");
 #endif
 	if (type.type_) {
@@ -212,7 +212,7 @@ daqRun::daqRun (char* dbase, char* ename, int expid, char* msqlhost)
  numtypes_ (0), numDvars_ (0), locked_ (0), cmdBuffer (), netMan_ (0),
  port_ (0)
 {
-#ifdef _TRACE_OBJECTS
+#ifdef _CODA_DEBUG
   printf ("    Create daqRun Class Objects\n");
 #endif
   dbasename_ = new char[::strlen (dbase) + 1];
@@ -246,7 +246,7 @@ daqRun::daqRun (char* dbase, char* ename, int expid, char* msqlhost)
 
 daqRun::~daqRun (void)
 {
-#ifdef _TRACE_OBJECTS
+#ifdef _CODA_DEBUG
 	printf ("    Delete daqRun Class Objects\n");
 #endif
 	delete []exptname_;
@@ -310,24 +310,35 @@ daqRun::preConfigure (char *type)
 int
 daqRun::configure (char *type)
 {
+#ifdef _CODA_DEBUG
+  printf("daqRun::configure reached\n");fflush(stdout);
+#endif
 	system_.configure ();
+
 	// setup all enabled components name
 	setAllCompNames ();
+
 	// setup all components' auto boot information
 	setAllCompBootInfo ();
+
 	// setup all components' monitored parameters
 	setAllMonitorParms ();
+
 	// do not setup all dynamic variables since they are
 	// not avialable until downloaded
 
 	// free char of type
 	delete []type;
+
 	return CODA_SUCCESS;
 }
 
 int
 daqRun::download (void)
 {
+#ifdef _CODA_DEBUG
+  printf("daqRun::download reached\n");fflush(stdout);
+#endif
 	return system_.download ();
 }
 
@@ -1523,18 +1534,27 @@ daqRun::showdata (void)
 int
 daqRun::locked (void) const
 {
+#ifdef _CODA_DEBUG
+  printf("daqRun::locked: returns %d\n");
+#endif
 	return locked_;
 }
 
 void
 daqRun::lock (void)
 {
+#ifdef _CODA_DEBUG
+  printf("daqRun::lock\n");
+#endif
 	locked_ = 1;
 }
 
 void
 daqRun::unlock (void)
 {
+#ifdef _CODA_DEBUG
+  printf("daqRun::unlock\n");
+#endif
 	locked_ = 0;
 }
 
@@ -1566,6 +1586,10 @@ daqRun::cmdFinalResult (int success)
 	// has to insert something into the comdBuffer ahead of time.
 	// Invariant: number of commands == number of commands in the buffer
 	// --jie chen 6/17/96
+
+#ifdef _CODA_DEBUG
+  printf("daqRun::cmdFinalResult: locked_=%d\n",locked_);
+#endif
 #ifndef _CENTERLINE
     assert (locked_);               // must be locked at this moment
     assert (!cmdBuffer.isEmpty ()); // command buffer cannot be empty
@@ -1585,7 +1609,8 @@ daqRun::cmdFinalResult (int success)
 	unlock ();
 
 	// check whether there are more commands pending, if yes, process them
-	if (!cmdBuffer.isEmpty ()) {
+	if (!cmdBuffer.isEmpty ())
+    {
 		item = cmdBuffer.removeCmd ();
 		int type = item->cmsg->type ();
 		rcMsg *msg = item->cmsg;
@@ -1607,9 +1632,11 @@ daqRun::processCommand (rccIO* chan, int command, rcMsg* cmsg)
 	daqNetData *res = 0;
 
 
-//printf("daqRun::processCommand command %d\n",command);
-
-	if (locked_) {
+#ifdef _CODA_DEBUG
+	printf("daqRun::processCommand command %d, locked_=%d\n",command,locked_);
+#endif
+	if (locked_)
+    {
 		cmdBuffer.insertCmd (chan, cmsg);
 		return 0;
 	}
@@ -1668,7 +1695,11 @@ daqRun::processCommand (rccIO* chan, int command, rcMsg* cmsg)
 			delete []session;
 		}
 		break;
+
 	  case DACONFIGURE:
+#ifdef _CODA_DEBUG
+        printf("daqRun::processCommand (configure)\n");fflush(stdout);
+#endif
 		{
 			daqNetData ndata = (daqNetData)(*cmsg);
 
@@ -1693,6 +1724,7 @@ daqRun::processCommand (rccIO* chan, int command, rcMsg* cmsg)
 			}
 		}
 		break;
+
 	  case DACHANGE_STATE:
 		{
 			daqNetData ndata = (daqNetData)(*cmsg);
@@ -1711,57 +1743,70 @@ daqRun::processCommand (rccIO* chan, int command, rcMsg* cmsg)
 			return 0;
 		}
 		break;
+
 	  case DADOWNLOAD:
+#ifdef _CODA_DEBUG
+		printf("daqRun::processCommand %d (download)\n",cmd);fflush(stdout);
+#endif
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = download ();
 		return 0;
 		break;
+
 	  case DAPRESTART:
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = prestart ();
 		return 0;
 		break;
+
 	  case DAGO:
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = go ();
 		return 0;
 		break;
+
 	  case DAEND:
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = end ();
 		return 0;
 		break;
+
 	  case DAPAUSE:
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = pause ();
 		return 0;
 		break;
+
 	  case DAABORT:
 		abort (CODA_CONFIGURED);
 		res = new daqNetData(exptname_,"command",status);  
 		break;
+
 	  case DATERMINATE:
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = reset ();
 		return 0;
 		break;
+
 	  case DARESET:
 		cmdBuffer.insertCmd (chan, cmsg);
 		status = reset ();
 		return 0;
 		break;
+
 	  case DATEST:
 		{
-			for (int i = 0; i < 10; i++)
-				sleep (1);
+		  for (int i = 0; i < 10; i++) sleep (1);
 		}
 		res = new daqNetData(exptname_,"command",status);
 		break;
+
 	  case DADISCONNECT:
 		// close this socket
 		status = CODA_ERROR;
 		sendCallback = 0;
 		break;
+
 	  case DAZAP: 
 		// if there is only one client connected to this server, kill the server
 		// else do nothing
@@ -1785,25 +1830,31 @@ daqRun::processCommand (rccIO* chan, int command, rcMsg* cmsg)
 		}
 		sendCallback = 0;
 		break;
+
 	  default:
 		status = CODA_ERROR;
 		res = new daqNetData(exptname_,"command",status);
 		break;
 	}
 
-	if (sendCallback == 1) {
+
+
+	if (sendCallback == 1)
+    {
 		chan->sendResult (command, *res, cmsg->reqId ());
 		unlock ();
 		delete cmsg;
 		delete res;
 	}
-	else {
+	else
+    {
 		unlock ();
 		delete cmsg;
 	}  
 
 	// check if command buffer is empty, if not, processing
-	if (!cmdBuffer.isEmpty ()) {
+	if (!cmdBuffer.isEmpty ())
+    {
 		lock ();
 		rcCmdBufItem *item = cmdBuffer.removeCmd ();
 		int type = item->cmsg->type ();

@@ -14,12 +14,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
 #include "gtpLib.h"
+#include "xxxConfig.h"
 
 static int active;
 
 static Gtp_regs *pGtpRegPtr;
 static int fdGtpMem = 0; 
+
+static int gtpSyncEventFlag;
+
 
 static fd_set read_fds, write_fds, except_fds;
 struct timeval timeout;
@@ -78,6 +83,20 @@ gtpGetRegsPtr()
 
   return (Gtp_regs *)pGtp;
 }
+
+
+
+
+int
+gtpGetBlockLevel()
+{
+  /* Request block level setting from TI over TiGtp link */
+  gtpWrite32(&pGtpRegPtr->TiGtp.LinkCtrl, 0x1);
+  usleep(10000);
+
+  return(gtpRead32(&pGtpRegPtr->TiGtp.BlockLength));
+}
+
 
 /*
   void gtpSetClock(int mode)
@@ -465,9 +484,24 @@ gtpTiGtpFifoReset()
 {
   gtpWrite32(&pGtpRegPtr->TiGtp.FifoCtrl, 0x1);
   gtpWrite32(&pGtpRegPtr->TiGtp.FifoCtrl, 0x0);
-  
+  gtpWrite32(&pGtpRegPtr->TiGtp.LinkCtrl, 0x4); /* clear sync flag */
+
   gtpClearIntData();
 }
+
+void
+gtpTiStatus()
+{
+  int status[2];
+
+  status[0] = gtpRead32(&pGtpRegPtr->TiGtp.FifoLenStatus);
+  status[1] = gtpRead32(&pGtpRegPtr->TiGtp.FifoDataStatus);
+  status[2] = gtpRead32(&pGtpRegPtr->TiGtp.LinkStatus);
+
+  printf("GTP: SyncFlag = %d, Fifo Length = %d(0x%08x), Data Status = 0x%08x, Link Status = 0x%08x\n",
+		 status[0]>>31, status[0] & 0x7FFFFFFF,status[0] & 0x7FFFFFFF,status[1],status[2]);
+}
+
 
 int
 gtpReadBlock(volatile unsigned int *data, int nwrds, int rflag)
@@ -480,10 +514,10 @@ gtpReadBlock(volatile unsigned int *data, int nwrds, int rflag)
     return;
   }
 
-  status1 = gtpRead32(&pGtpRegPtr->TiGtp.FifoLenStatus);
+  status1 = gtpRead32(&pGtpRegPtr->TiGtp.FifoLenStatus) & 0x7FFFFFFF; /* bit 31 is sync flag */
   status2 = gtpRead32(&pGtpRegPtr->TiGtp.FifoDataStatus);
   len = gtpRead32(&pGtpRegPtr->TiGtp.FifoLen);
-len++; /* TEMPORARY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+  /*len++;*/ /* TEMPORARY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
   if(len > nwrds)
   {
     printf("gtpReadBlock ERROR: output buffer length %d words is not enough (need %d words)\n",nwrds,len);
@@ -502,17 +536,46 @@ len++; /* TEMPORARY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
 unsigned int
 gtpBReady()
 {
-  int result;
+  unsigned int blockBuffer, rval;
+  int gtpSyncEventReceived;
 
   if(pGtpRegPtr == NULL) {
     printf("gtpBReady: ERROR: GTP not initialized\n");
     return;
   }
 
-  if( gtpRead32(&pGtpRegPtr->TiGtp.FifoLenStatus) & 0x1FF) return(1);
+  blockBuffer = gtpRead32(&pGtpRegPtr->TiGtp.FifoLenStatus);
 
-  return(0);
+  rval = blockBuffer & 0x1FF;
+  gtpSyncEventReceived = (blockBuffer>>31) & 0x1;
+
+  if( (rval==1) && (gtpSyncEventReceived) )
+  {
+    gtpSyncEventFlag = 1;
+    gtpWrite32(&pGtpRegPtr->TiGtp.LinkCtrl, 0x4); /* clear sync flag */
+  }
+  else
+    gtpSyncEventFlag = 0;
+
+  return(rval);
 }
+
+
+
+
+int
+gtpGetSyncEventFlag()
+{
+  int rval=0;
+  
+  rval = gtpSyncEventFlag;
+
+  return rval;
+}
+
+
+
+
 
 void
 gtpClearIntData()
@@ -756,9 +819,16 @@ int
 gtpConfig(char *fname)
 {
   int res;
+  char *string; /*dummy, will not be used*/
 
-  /* set defaults */
-  gtpInitGlobals();
+  if(strlen(fname) > 0) /* filename specified  - upload initial settings from the hardware */
+  {
+    gtpUploadAll(string, 0);
+  }
+  else /* filename not specified  - set defaults */
+  {
+    gtpInitGlobals();
+  }
 
   /* read config file */
   if( (res = gtpReadConfigFile(fname)) < 0 ) return(res);
@@ -789,19 +859,6 @@ gtpMon(int slot)
 
 
 
-#define ADD_TO_STRING \
-  len1 = strlen(str); \
-  len2 = strlen(sss); \
-  if((len1+len2) < length) strcat(str,sss); \
-  else \
-  { \
-    str[len1+1] = ' '; \
-    str[len1+2] = ' '; \
-    str[len1+3] = ' '; \
-    len1 = ((len1+3)/4)*4; \
-    return(len1); \
-  }
-
 /* upload setting from all found DSC2s */
 int
 gtpUploadAll(char *string, int length)
@@ -813,22 +870,29 @@ gtpUploadAll(char *string, int length)
   unsigned short bypMask;
   unsigned short channels[8];
 
-  str = string;
-  str[0] = '\0';
-  sprintf(sss,"GTP_CLUSTER_PULSE_COIN %d %d\n", gtpGetHpsPulseCoincidenceBefore(), gtpGetHpsPulseCoincidenceAfter()); ADD_TO_STRING;
-  sprintf(sss,"GTP_CLUSTER_PULSE_THRESHOLD %d\n", gtpGetHpsPulseThreshold()); ADD_TO_STRING;
+  gtp.ClusterPulseCoincidenceBefore = gtpGetHpsPulseCoincidenceBefore();
+  gtp.ClusterPulseCoincidenceAfter = gtpGetHpsPulseCoincidenceAfter();
+  gtp.ClusterPulseThreshold = gtpGetHpsPulseThreshold();
 
-  len1 = strlen(str);
-  str[len1+1] = ' ';
-  str[len1+2] = ' ';
-  str[len1+3] = ' ';
-  len1 = ((len1+3)/4)*4;
+  if(length)
+  {
+    str = string;
+    str[0] = '\0';
 
-  return(len1);
+    sprintf(sss,"GTP_CLUSTER_PULSE_COIN %d %d\n", gtp.ClusterPulseCoincidenceBefore, gtp.ClusterPulseCoincidenceAfter); ADD_TO_STRING;
+    sprintf(sss,"GTP_CLUSTER_PULSE_THRESHOLD %d\n", gtp.ClusterPulseThreshold); ADD_TO_STRING;
+
+    CLOSE_STRING;
+  }
 }
 
-
-
+int
+gtpUploadAllPrint()
+{
+  char str[1025];
+  gtpUploadAll(str, 1024);
+  printf("%s",str);
+}
 
 
 #else /* dummy version*/
@@ -840,3 +904,5 @@ gtpLib_dummy()
 }
 
 #endif
+
+

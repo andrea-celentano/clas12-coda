@@ -28,6 +28,7 @@ TI_BUFFER_LEVEL 1                              # 0 - pipeline mode, 1 - ROC Lock
 #endif
 
 #include "tiLib.h"
+#include "xxxConfig.h"
 
 #define FNLEN     128       /* length of config. file name */
 #define STRLEN    250       /* length of str_tmp */
@@ -49,9 +50,16 @@ int
 tiConfig(char *fname)
 {
   int res;
+  char *string; /*dummy, will not be used*/
 
-  /* set defaults */
-  tiInitGlobals();
+  if(strlen(fname) > 0) /* filename specified  - upload initial settings from the hardware */
+  {
+    tiUploadAll(string, 0);
+  }
+  else /* filename not specified  - set defaults */
+  {
+    tiInitGlobals();
+  }
 
   /* read config file */
   if( (res = tiReadConfigFile(fname)) < 0 ) return(res);
@@ -246,7 +254,7 @@ tiDownloadAll()
   tiDisableVXSSignals();
   */
 
-  for(ii=0; ii<nslave; ii++) tiAddSlave(slave_list[ii]);
+  /*for(ii=0; ii<nslave; ii++) tiAddSlave(slave_list[ii]); done automatically in ROL1 */
   for(ii=0; ii<6; ii++) tiSetInputPrescale(ii+1,input_prescale[ii]);
 
   tiSetFiberDelay(delay, offset);
@@ -265,19 +273,14 @@ tiMon(int slot)
 }
 
 
-
-#define ADD_TO_STRING \
-  len1 = strlen(str); \
-  len2 = strlen(sss); \
-  if((len1+len2) < length) strcat(str,sss); \
-  else \
-  { \
-    str[len1+1] = ' '; \
-    str[len1+2] = ' '; \
-    str[len1+3] = ' '; \
-    len1 = ((len1+3)/4)*4; \
-    return(len1); \
-  }
+/*
+static int is_slave;
+static nslave, slave_list[MAXSLAVES];
+static unsigned int delay, offset;
+static int block_level;
+static int buffer_level;
+static int input_prescale[6];
+*/
 
 /* upload setting from all found DSC2s */
 int
@@ -291,9 +294,8 @@ tiUploadAll(char *string, int length)
   unsigned short bypMask;
   unsigned short channels[8];
 
-  str = string;
-  str[0] = '\0';
 
+  nslave = 0;
   connectedfibers = tiGetConnectedFiberMask();
   if(connectedfibers>0)
   {
@@ -301,31 +303,44 @@ tiUploadAll(char *string, int length)
 	{
 	  if( connectedfibers & (1<<ifiber) )
 	  {
-        sprintf(sss,"TI_ADD_SLAVE %d\n",ifiber+1);
-        ADD_TO_STRING;
+        slave_list[nslave++] = ifiber+1;
 	  }
     }
   }
-
-  sprintf(sss,"TI_BLOCK_LEVEL %d\n",tiGetCurrentBlockLevel());
-  ADD_TO_STRING;
-
-  sprintf(sss,"TI_BUFFER_LEVEL %d\n",tiGetBlockBufferLevel());
-  ADD_TO_STRING;
-
+  block_level = tiGetCurrentBlockLevel();
+  buffer_level = tiGetBlockBufferLevel();
   for(ii = 0; ii < 6; ii++)
   {
-    sprintf(sss,"TI_INPUT_PRESCALE %d %d\n",ii,tiGetInputPrescale(ii));
-    ADD_TO_STRING;
+    input_prescale[ii] = tiGetInputPrescale(ii+1);
   }
 
-  len1 = strlen(str);
-  str[len1+1] = ' ';
-  str[len1+2] = ' ';
-  str[len1+3] = ' ';
-  len1 = ((len1+3)/4)*4;
 
-  return(len1);
+  if(length)
+  {
+    str = string;
+    str[0] = '\0';
+
+	for(ii=0; ii<nslave; ii++)
+	{
+      sprintf(sss,"TI_ADD_SLAVE %d\n",slave_list[ii]);
+      ADD_TO_STRING;
+    }
+
+    sprintf(sss,"TI_BLOCK_LEVEL %d\n",block_level);
+    ADD_TO_STRING;
+
+    sprintf(sss,"TI_BUFFER_LEVEL %d\n",buffer_level);
+    ADD_TO_STRING;
+
+    for(ii = 0; ii < 6; ii++)
+    {
+      sprintf(sss,"TI_INPUT_PRESCALE %d %d\n",ii+1,input_prescale[ii]);
+      ADD_TO_STRING;
+    }
+
+    CLOSE_STRING;
+  }
+
 }
 
 

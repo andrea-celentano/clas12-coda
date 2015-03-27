@@ -1081,8 +1081,11 @@ if(mynev>MYNEV)
   printf("return lenout=%d\n**********************\n\n",lenout);
 #endif
 
+rol->user_storage[0] = lenout;
 
   CPEXIT;
+
+rol->user_storage[1] = 1; /* report the number of events */
 
   return;
 }

@@ -11,6 +11,7 @@ coda_eb()
 
 #else
 
+
 /*#define DEBUG*/
 
 #define MAX_NODES 300
@@ -31,7 +32,7 @@ coda_eb()
 #include "CODA_format.h"
 #include "libdb.h"
 
-static char confFile[256];
+/*static*/ char confFile[256];
 
 void *handle_build();
 
@@ -43,6 +44,11 @@ static int chunk = 100; /* 100; MUST BE LESS THEN NCHUNKMAX !!! */
 #define CODA_ERROR 1
 #define CODA_OK 0
 
+#define SOFT_TRIG_FIX_EB \
+  /*printf("befor: typ=%d\n",typ);*/ \
+  if(typ==253) typ=0x41; \
+  if(typ==254) typ=0x42; \
+  /*printf("after: typ=%d\n",typ)*/
 
 
 #define MAXBUF 100000
@@ -425,7 +431,6 @@ tmpUpdateStatistics()
 
 
 
-
 /********************************************************************
  handle_build : This is the main routine of the "Build thread" it is
                 executed as a detached thread.
@@ -446,7 +451,10 @@ handle_build(trArg arg)
   DATA_DESC *desc1, desc2;
   int types[MAX_ROCS];
   unsigned int *evptr[MAX_ROCS][NCHUNKMAX];
-  unsigned int fragment_mask, skip_mask, sync_mask, type_mask;
+
+unsigned int fragment_mask, skip_mask, sync_mask;
+WORD128 type_mask;
+
   int current_evnb;
   int current_evty;
   int current_sync;
@@ -517,7 +525,9 @@ handle_build(trArg arg)
   }
   fragment_mask = 0;
   sync_mask = 0;
-  type_mask = 0;
+
+  Clear128(&type_mask);
+
   skip_mask = 0;
   current_evty = -1;
   current_evnb = -1;
@@ -609,7 +619,7 @@ start2 = gethrtime();
       nevents2put++;
       neventsfree--;
 
-      desc2.type = 20;
+      desc2.type = EV_END;
       desc2.time = time(NULL);
       desc2.rocs[0] = 0;
       desc2.evnb = object->nevents;
@@ -683,7 +693,6 @@ printf("[%1d] .. done\n",id);fflush(stdout);
 
 
 
-
     /******************
     * ROC LOOP STARTS *
     ******************/
@@ -747,6 +756,7 @@ id,idin,nevbuf,nphys,evptr[0][0][1]&0xff);
         time1 = 0;
         nevchun = 0;
       }
+
 
 
       if(nevbuf == -1)
@@ -826,9 +836,11 @@ data_unlock(ebp);
         desc1->ievbuf = 0;
       }
 
+
     }
     /* end of getting new chunk of events */
     /**************************************/
+
 
 
 
@@ -846,12 +858,13 @@ data_unlock(ebp);
       EVENT_DECODE_FRAG should still behave itself and return a descriptor */
       temp = data = desc1->soe;
       typ = (data[1] >> 16) & 0xff;       /* Temp storage of type info */
+      SOFT_TRIG_FIX_EB;
       issync = (data[1] >> 24) & 0x01;    /* Temp storage of sync info */
-      if(typ < 16) /* physics event */
+      if( (typ < EV_SYNC) || (typ >= (EV_SYNC+16)) ) /* physics event */
       {
         CODA_decode_frag(&temp,desc1);
       }
-      else if((typ >= 16) && (typ < 32)) /* special event */
+      else if( (typ >= EV_SYNC) && (typ < (EV_SYNC+16)) ) /* special event */
       {
         CODA_decode_spec(&temp,desc1);
 
@@ -872,7 +885,7 @@ data_unlock(ebp);
         we obtained first 'End' event from some ROC, loop over other ROCs
         and for every ROC skip non-End events until 'End' event obtained */
 
-        if(typ==20)
+        if(typ==EV_END)
         {
           if(ebp->ending==1)
           {
@@ -894,13 +907,12 @@ data_unlock(ebp);
         /*********************************************************************/
         /*********************************************************************/
 
-
-
         printf("handle_build: roc %d .. done.\n",roc); fflush(stdout);
       }
       else
       {
-        printf("[%1d] User Events are NOT supported (typ=%d) -exit.\n",id,typ);
+        /* should never come here */
+        printf("[%1d] Event type=%d is NOT supported - exit\n",id,typ);
         fflush(stdout);
         exit(0);
       }
@@ -934,8 +946,10 @@ exit(0);
         else if((current_evty != desc1->type) && (in_error == 0))
         {
           current_evtyerr ++;   /* Count type mismatches from first fragment */
-          type_mask |= (1<<desc1->rocid); /* Get mask of ROC IDs with mismatched
-                                            types */
+
+          /*type_mask |= (1<<desc1->rocid);*/ /* Get mask of ROC IDs with mismatched types */
+          SetBit128(&type_mask,desc1->rocid);
+                                            
           types[desc1->rocid] = desc1->type; /* Store type for each ROC */
         }
       }
@@ -1008,12 +1022,17 @@ exit(0);
 	  
       printf("ERROR: Event (Num %d) TYPE mismatch -- %d ROC Banks\n",
               current_evnb, current_evtyerr); fflush(stdout);
-      printf("   (ID Mask =0x%08x) differ from selected build type = %d\n",
-              type_mask, current_evty); fflush(stdout);
+
+      printf("  (ID Mask: ");
+      Print128(&type_mask);
+
+      printf("  differ from selected build type = %d\n",current_evty); fflush(stdout);
+
       printf("  Event Type Mismatch info:\n"); fflush(stdout);
       for(ix=0; ix<MAX_ROCS; ix++)
       {
-        if(type_mask&(1<<ix))
+        if( CheckBit128(&type_mask,ix) != 0)
+	    /*if(type_mask&(1<<ix))*/
         {
           printf("    ROC ID = %d   Type = %d\n",ix,types[ix]);
           fflush(stdout);
@@ -1041,8 +1060,8 @@ exit(0);
 
     /* cleanup ... and reserve space */
     fragment_mask = skip_mask = 0;
-    type_mask = sync_mask = 0;
-
+    sync_mask = 0;
+    Clear128(&type_mask);
 
 
     /* then set 'soe' pointer and update event counters */
@@ -1052,7 +1071,7 @@ exit(0);
     neventsfree--;
 
     /* if physics event, reserve space for the event header and event 'ID bank' */
-    if(current_evty < 16)
+    if( (current_evty < EV_SYNC) || (current_evty >= (EV_SYNC+16)) )
     {
       CODA_reserv_head(&dabufp, &desc2);
 	  total_length += (2*4); /* increment total_length */
@@ -1062,6 +1081,7 @@ exit(0);
       object->nevents++;
       desc2.evnb = object->nevents;
       desc2.type = current_evty;
+
       desc2.syncev = current_sync;
       desc2.err[1] = current_syncerr;
     }
@@ -1071,7 +1091,7 @@ exit(0);
 
     /********************************************/
     /* if physics event, check length and build */
-    if(current_evty < 16)
+    if( (current_evty < EV_SYNC) || (current_evty >= (EV_SYNC+16)) )
     {
       /* if event too big, ignore it */
       if(total_length > et_eventsize)
@@ -1104,6 +1124,7 @@ exit(0); /* should we ignore and try to recover ??? */
           dabufp += (cur_val->length >> 2);
 
           desc2.user[2] = desc1->user[2]; /*sergey: preserve contentType as it came from ROC (was always set to 1)*/
+          desc2.user[3] = desc1->user[3]; /*sergey: preserve syncFlag as it came from ROC */
 
           desc2.rocid = bank;
           /*printf("desc2.rocid=%d\n",desc2.rocid);*/
@@ -1114,7 +1135,7 @@ exit(0); /* should we ignore and try to recover ??? */
 
 
     }
-    else if((current_evty >= 16) && (current_evty < 32))      /* Control events - need no building */
+    else if( (current_evty >= EV_SYNC) && (current_evty < (EV_SYNC+16)) )      /* Control events - need no building */
     {
       printf("[%1d] Got control event fragments type = %d  node_ix=%d\n",id,current_evty,node_ix); fflush(stdout);
       for(indx=0; indx<node_ix; indx++)
@@ -1125,11 +1146,10 @@ exit(0); /* should we ignore and try to recover ??? */
         {
           /* handle control event; if 'End' set appropriate flags */
 
-          if(desc1->type > 31)       ctype = "User event";
-          else if(desc1->type == 17) ctype = "prestart";
-          else if(desc1->type == 18) ctype = "go";
-          else if(desc1->type == 19) ctype = "pause";
-          else if(desc1->type == 20) ctype = "end";  
+          if(desc1->type == EV_PRESTART)   ctype = "prestart";
+          else if(desc1->type == EV_GO)    ctype = "go";
+          else if(desc1->type == EV_PAUSE) ctype = "pause";
+          else if(desc1->type == EV_END)   ctype = "end";  
           if( IFZERO128(&ebp->ctl_mask)==1 )
           {
             ebp->cur_cntl = desc1->type;
@@ -1138,11 +1158,10 @@ exit(0); /* should we ignore and try to recover ??? */
           {
             if(ebp->cur_cntl != desc1->type)
             {
-              if(ebp->cur_cntl > 31)       dtype = "User";
-              else if(ebp->cur_cntl == 17) dtype = "prestart";
-              else if(ebp->cur_cntl == 18) dtype = "go";
-              else if(ebp->cur_cntl == 19) dtype = "pause";
-              else if(ebp->cur_cntl == 20) dtype = "end";
+              if(ebp->cur_cntl == EV_PRESTART)   dtype = "prestart";
+              else if(ebp->cur_cntl == EV_GO)    dtype = "go";
+              else if(ebp->cur_cntl == EV_PAUSE) dtype = "pause";
+              else if(ebp->cur_cntl == EV_END)   dtype = "end";
               printf(", %s %s != %s ",(*ebp->roc_stream[ebp->roc_nb[desc1->rocid]])->name,ctype,dtype);
             }
           }
@@ -1165,7 +1184,7 @@ exit(0); /* should we ignore and try to recover ??? */
 
             CODA_encode_spec(&dabufp,desc1);
 
-            if(desc1->type == 20)
+            if(desc1->type == EV_END)
             {
               ebp->ended = 1;
               ebp->end_event_done = 1;
@@ -1184,10 +1203,12 @@ exit(0); /* should we ignore and try to recover ??? */
 
     /* resync */
     node_ix = 0;
-    if(current_evty < 16) /* if physics event */
+    if((current_evty < EV_SYNC) || (current_evty >= (EV_SYNC+16)) ) /* if physics event */
     {
       desc2.user[1] = 0;
 
+      /* reserv for following 2 made in opposite order, so CODA_encode_head creates <event ..>
+      and CODA_encode_desc creates <bank content="uint32" ...> */
       CODA_encode_desc(&dabufp, &desc2); /* fills event 'ID bank' reserved above by CODA_reserv_desc */
       CODA_encode_head(&dabufp, &desc2); /* fills event header reserved above by CODA_reserv_head */
     }
@@ -1222,12 +1243,24 @@ exit(0); /* should we ignore and try to recover ??? */
 
 output_event:
 
-if(ebp->end_event_done) printf("[%1d] output_event 1\n",id);fflush(stdout);
+    if(ebp->end_event_done) printf("[%1d] output_event 1\n",id);fflush(stdout);
 
     /* if nothing wrong with ET system, output events */
     if(et_reinit == 0 && ebp->end_event_done == 0)
     {
       /* fill ET control words */
+
+#ifdef RESTORE_OLD_SPEC_EVENT_CODING
+	  /*printf("desc2.type befor = 0x%04x\n",desc2.type);*/
+      if(desc2.type>=0x80) desc2.type = desc2.type & 0x7F; /*spec event - remove bit 7*/
+      else desc2.type = desc2.type | 0x80 | desc2.user[3]; /*phys event - add bit 7, and sync bit*/
+	  /*printf("desc2.type after = 0x%04x\n",desc2.type);*/
+	  /*
+	  if(desc2.user[3]) printf("coda_ebc: syncFlag detected (0x%08x), desc2.type = 0x%08x\n",
+							   desc2.user[3],desc2.type);
+	  */
+#endif
+
       etevents[nevents2put-1]->control[0] = desc2.type;
 
       /*etevents[nevents2put-1]->control[1] = ebp->roc_mask; 128bit will not fit !!!*/
@@ -1292,7 +1325,7 @@ if(++nevtime2 == NPROF2)
         if(neventsfree < 1) neventsfree = 0;
       }
     }
-if(ebp->end_event_done) printf("[%1d] output_event 2\n",id);fflush(stdout);
+    if(ebp->end_event_done) printf("[%1d] output_event 2\n",id);fflush(stdout);
 
     current_evty = -1;
     current_sync = 0;
@@ -1715,7 +1748,23 @@ deb_destructor()
 
 
 
+int
+codaInit(char *confname)
+{
+  if(codaUpdateStatus("configuring") != CODA_OK)
+  {
+    return(CODA_ERROR);
+  }
 
+  UDP_start();
+
+  if(codaUpdateStatus("configured") != CODA_OK)
+  {
+    return(CODA_ERROR);
+  }
+
+  return(CODA_OK);
+}
 
 
 
@@ -1731,9 +1780,8 @@ codaDownload(char *confname)
   char listArgv[LISTARGV1][LISTARGV2];
   MYSQL *dbsock;
 
-
-/* swap following ??? */
   UDP_start();
+
   tcpState = DA_DOWNLOADING;
   if(codaUpdateStatus("downloading") != CODA_OK) return(CODA_ERROR);
 
@@ -2217,8 +2265,6 @@ static trArg args[NTHREADMAX];
   /* get 'inuse' ROCs from DB */
   /****************************/
 
-  /* maybe better check for EB5:... in 'output' field ??? */
-
   /* get all rows with 'inuse'='yes' */
   /*sprintf(tmp,"SELECT name,outputs,inuse FROM %s WHERE inuse='yes'",configname);*/
   sprintf(tmp,"SELECT name,outputs,inuse FROM %s",configname);
@@ -2388,7 +2434,7 @@ codaGo()
 
 
 /* called ad 'End' transition; building thread must receive 'end'
-command INDEPENDENTLY (through event type 20 or error condition)
+command INDEPENDENTLY (through event type EV_END or error condition)
 and polling_routine will see it and end, so here we just waiting
 for 'downloaded'; if it is not happeded during ... sec, we will
 force end (TO DO) */

@@ -24,6 +24,9 @@ ifeq ("$(OSTYPE)","SunOS")
   CFLAGS = -g -KPIC -mt -DSunOS -DOSTYPE="SunOS"
 endif
 
+
+###CLON_FLAGS += -DNEW_STUFF
+
 CLON_FLAGS += -I./src.s -I./include -I../Variables/src.s -I../Common/src.s  -IComponents.s \
 	-I./pixmaps -I$(CODA)/common/include -I../../cg/cg.s -I../../motif/include \
 	-I../../sace3.1/include -I../../XmHTML-1.1.4/include $(X11INCDIR)

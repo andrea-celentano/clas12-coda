@@ -1,3 +1,14 @@
+
+/* hps1
+
+net_thread:  waiting=    280    sending=      0 microsec per event (nev=728)
+setHeartError: 0 >sys 0, mask 21<
+WARN: HeartBeat[0]: heartbeat=1426780246(1426780246) heartmask=21
+UDP_cancel: cancel >inf:hps1 sys 0, mask 21<
+UDP_cancel: cancel >inf:hps1 sys 0, mask 21<
+wait: request in progress
+*/
+
 /* hps1.c */
 
 #if defined(VXWORKS) || defined(Linux_vme)
@@ -18,9 +29,11 @@ coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 /* hps1.c - first readout list for VXS crates with FADC250 and new TI */
 
 #define USE_FADC250
+#define USE_DSC2
 #define USE_V1190
 #define USE_SSP
 #define USE_VSCM
+#define USE_DC
 
 
 /* if event rate goes higher then 10kHz, with random triggers we have wrong
@@ -29,7 +42,6 @@ around that problem temporary patches were applied - until fixed (Sergey) */
 #define SLOTWORKAROUND
 
 #undef DEBUG
-
 
 
 #include <stdio.h>
@@ -195,7 +207,7 @@ titest1()
 */
 static int tdctypebyslot[NBOARDS];
 static int error_flag[NBOARDS];
-static int ndsc2;
+static int ndsc2=0, ndsc2_daq=0;
 static int ntdcs;
 
 static unsigned int NBsubtract = 9; /*same for v1190 and v1290 ?*/
@@ -226,8 +238,18 @@ getTdcSlotNumbers(int *slotnumbers)
 */
 
 
+#ifdef USE_DC
+#include "dcLib.h"
+extern int ndc;                     /* Number of DCs in Crate */
+static int DC_SLOT, islot;
+static int DC_ROFLAG = 1;           /* 0-noDMA, 1-board-by-board DMA, 2-chainedDMA */
 
+/* for the calculation of maximum data words in the block transfer */
+static unsigned int MAXDCWORDS = 10000;
+static unsigned int MAXTIDWORDS  = 0;
 
+static unsigned int dcSlotMask; /* bit=slot (starting from 0) */
+#endif
 
 #ifdef USE_SSP
 static unsigned int sspSlotMask = 0; /* bit=slot (starting from 0) */
@@ -310,6 +332,8 @@ __download()
   unsigned short iflag;
   int fadc_mode = 1, iFlag = 0;
   int ich, NSA, NSB;
+  unsigned int maxA32Address;
+  unsigned int fadcA32Address = 0x09000000;
 
 #endif
 #ifdef POLLING_MODE
@@ -344,7 +368,9 @@ __download()
 
 #ifndef TI_SLAVE
   /* TS 1-6 create physics trigger, no sync event pin, no trigger 2 */
+vmeBusLock();
   tiLoadTriggerTable(3);
+vmeBusUnlock();
 #endif
 
 
@@ -357,14 +383,18 @@ __download()
   tiSetTriggerHoldoff(1,5,0);   /* No more than 1 trigger within 80 ns */
   tiSetTriggerHoldoff(4,41,0);  /* No more than 4 triggers within 656 ns */
 #endif
+vmeBusLock();
   tiSetTriggerHoldoff(1,10,0);   /* No more than 1 trigger within 160 ns */
   tiSetTriggerHoldoff(2,20,1);  /* No more than 2 triggers within 10000 ns */
+vmeBusUnlock();
 
 
 
 
   /* set wide pulse */
+vmeBusLock();
   tiSetSyncDelayWidth(1,127,1);
+vmeBusUnlock();
 
   usrVmeDmaSetConfig(2,5,1); /*A32,2eSST,267MB/s*/
   /*usrVmeDmaSetConfig(2,5,0);*/ /*A32,2eSST,160MB/s*/
@@ -393,45 +423,39 @@ if(rol->pid==58)
   /* USER code here */
 
 
-#ifdef USE_V1190
-  
+#ifdef USE_DSC2
+  printf("DSC2 Download() starts =========================\n");
+
+#ifndef VXWORKS
+  vmeSetQuietFlag(1); /* skip the errors associated with BUS Errors */
+#endif
+vmeBusLock();
   dsc2Init(0x100000,0x80000,16,0);
+vmeBusUnlock();
+#ifndef VXWORKS
+  vmeSetQuietFlag(0); /* Turn the error statements back on */
+#endif
+
   ndsc2 = dsc2GetNdsc();
-  if(ndsc2>0) dsc2Config(DSC2_CONF_FILE);
-
-  ntdcs = tdc1190Init(0x11100000,0x80000,20,0);
-  if(ntdcs>0) tdc1190Config(TDC_CONF_FILE);
-
-  /* set block level based on current TI setting */
-  printf("Set TDC block level to %d\n",block_level);
-  for(ii=0; ii<ntdcs; ii++)
+  if(ndsc2>0)
   {
-    tdc1190SetBLTEventNumber(ii, block_level);
+    DSC2_READ_CONF_FILE;
+    maxA32Address = dsc2GetA32MaxAddress();
+    fadcA32Address = maxA32Address + FA_MAX_A32_MEM;
+    ndsc2_daq = dsc2GetNdsc_daq();
   }
-
-  for(ii=0; ii<ntdcs; ii++)
+  else
   {
-    slot = tdc1190Slot(ii);
-    tdctypebyslot[slot] = tdc1190Type(ii);
-    printf(">>> id=%d slot=%d type=%d\n",ii,slot,tdctypebyslot[slot]);
+    ndsc2_daq = 0;
   }
-
-
-#ifdef SLOTWORKAROUND
-  for(ii=0; ii<ntdcs; ii++)
-  {
-    slot = tdc1190GetGeoAddress(ii);
-	slotnums[ii] = slot;
-    printf("[%d] slot %d\n",ii,slotnums[ii]);
-  }
+  printf("dsc2: %d boards set to be readout by daq\n",ndsc2_daq);
+  printf("DSC2 Download() ends =========================\n\n");
 #endif
 
-
-
-#endif
 
 
 #ifdef USE_FADC250
+  printf("FADC250 Download() starts =========================\n");
 
   /* Here, we assume that the addresses of each board were set according
    to their geographical address (slot number): on FADC250 it must be set by jumpers,
@@ -509,7 +533,11 @@ v1190: 0x11xx0000, where xx follows the same scheme as FADCs
 #ifndef VXWORKS
   vmeSetQuietFlag(1); /* skip the errors associated with BUS Errors */
 #endif
+
+  faSetA32BaseAddress(fadcA32Address);
+vmeBusLock();
   faInit((unsigned int)(3<<19),(1<<19),NFADC,iFlag); /* start from 0x00180000, increment 0x00080000 */
+vmeBusUnlock();
 
   faGetMinA32MB(0);
   faGetMaxA32MB(0);
@@ -521,33 +549,13 @@ v1190: 0x11xx0000, where xx follows the same scheme as FADCs
 
   if(nfadc>0)
   {
-
-    /* Calculate the maximum number of words per block transfer (assuming Pulse mode)
-     *   MAX = NFADC * block_level * (EvHeader + TrigTime*2 + Pulse*2*chan) 
-     *         + 2*32 (words for byte alignment) 
-     */
-    MAXFADCWORDS = NFADC * block_level * (1+2+100/*FADC_WINDOW_WIDTH*/*16) + 2*32;
-  
-    printf("**************************************************\n");
-    printf("* Calculated MAX FADC words per block = %d\n",MAXFADCWORDS);
-    printf("**************************************************\n");
-
-    /* Check these numbers, compared to our buffer size.. */
-    if( (MAXFADCWORDS+MAXTIWORDS)*4 > MAX_EVENT_LENGTH )
-    {
-      printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-      printf(" WARNING.  Event buffer size is smaller than the expected data size\n");
-      printf("     Increase the size of MAX_EVENT_LENGTH and recompile!\n");
-      printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-    }
-
     if(nfadc==1) FADC_ROFLAG = 1; /*no chainedDMA if one board only*/
 
     if(FADC_ROFLAG==2) faEnableMultiBlock(1);
     else faDisableMultiBlock();
 
     /* configure all modules based on config file */
-    fadc250Config(FADC_CONF_FILE);
+    FADC_READ_CONF_FILE;
 
     /* Additional Configuration for each module */
     fadcSlotMask=0;
@@ -555,35 +563,42 @@ v1190: 0x11xx0000, where xx follows the same scheme as FADCs
     {
       FA_SLOT = faSlot(id);      /* Grab the current module's slot number */
       fadcSlotMask |= (1<<FA_SLOT); /* Add it to the mask */
-      printf("=======================> fadcSlotMask=0x%08x\n",fadcSlotMask);
+      printf("=======================> fadcSlotMask=0x%08x",fadcSlotMask);
 
 	  {
         unsigned int PL, PTW, NSB, NSA, NP;
+vmeBusLock();
         faGetProcMode(FA_SLOT, &fadc_mode, &PL, &PTW, &NSB, &NSA, &NP);
-        printf("slot %d, fadc_mode=%d\n",FA_SLOT,fadc_mode);
+vmeBusUnlock();
+        printf(", slot %d, fadc_mode=%d\n",FA_SLOT,fadc_mode);
 	  }
 
       /* Bus errors to terminate block transfers (preferred) */
+vmeBusLock();
       faEnableBusError(FA_SLOT);
-
-      /* Set the Block level */
-      faSetBlockLevel(FA_SLOT, block_level);
+vmeBusUnlock();
 
 #ifdef NEW
       /*****************/
       /*trigger-related*/
+vmeBusLock();
       faResetMGT(FA_SLOT,1);
+vmeBusUnlock();
 #endif
 
 	  /*****************/
 	  /*****************/
     }
 
+
     /* 1) Load FADC pedestals from file for trigger path.
        2) Offset FADC threshold for each channel based on pedestal for both readout and trigger */
+vmeBusLock();
     faGLoadChannelPedestals(getFadcPedsFilename(rol->pid), 1);
+vmeBusUnlock();
 
     /* read back and print trigger pedestals */
+/*
     printf("\n\nTrigger pedestals readback\n");
     for(id=0; id<nfadc; id++) 
     {
@@ -594,7 +609,7 @@ v1190: 0x11xx0000, where xx follows the same scheme as FADCs
       }
     }
     printf("\n\n");
-
+*/
   }
 
 
@@ -634,29 +649,30 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
   BERR count (from module) = 0
 */
 
-
-
-
   /***************************************
    *   SD SETUP
    ***************************************/
+vmeBusLock();
   sdInit(1);   /* Initialize the SD library */
   sdSetActiveVmeSlots(fadcSlotMask); /* Use the fadcSlotMask to configure the SD */
   sdStatus();
+vmeBusUnlock();
+
+  printf("FADC250 Download() ends =========================\n\n");
 #endif
 
 
 #ifdef USE_VSCM
-
-  printf("\n\n\n");
+  printf("VSCM Download() starts =========================\n");
 #ifndef VXWORKS
   vmeSetQuietFlag(1); /* skip the errors associated with BUS Errors */
 #endif
+vmeBusLock();
   nvscm1 = vscmInit((unsigned int)(3<<19),(1<<19),20,0);
+vmeBusUnlock();
 #ifndef VXWORKS
   vmeSetQuietFlag(0); /* Turn the error statements back on */
 #endif
-  printf("\n\n\n");
 
   if(VSCM_ROFLAG==2 && nvscm1==1) VSCM_ROFLAG = 1; /*no chainedDMA if one board only*/
   /*
@@ -669,11 +685,80 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
   {
     slot = vscmSlot(ii);      /* Grab the current module's slot number */
     vscmSlotMask |= (1<<slot); /* Add it to the mask */
-    vscmSetBlockLevel(slot, block_level);
   }
 
+  printf("VSCM Download() ends =========================\n\n");
 #endif
 
+
+
+
+#ifdef USE_DC
+  printf("DC Download() starts =========================\n");
+
+#ifndef VXWORKS
+  vmeSetQuietFlag(1); /* skip the errors associated with BUS Errors */
+#endif
+
+vmeBusLock();
+  ndc = dcInit((4<<19), 0x80000, 16, 7); /* 7 boards from slot 4, 7 boards from slot 13 */
+  if(ndc>0)
+  {
+    dcGSetDAC(/*20*/10); /* threshold in mV */
+    dcGSetCalMask(0,0x3f);
+    dcGSetProcMode(4000/*2000*/,4000/*2000*/,32);
+  }
+vmeBusUnlock();
+
+#ifndef VXWORKS
+  vmeSetQuietFlag(0); /* Turn the error statements back on */
+#endif
+
+  if(ndc==1) DC_ROFLAG = 1; /*no chainedDMA if one board only*/
+  if((ndc>0) && (DC_ROFLAG==2)) dcEnableMultiBlock(1);
+  else if(ndc>0) dcDisableMultiBlock();
+
+  /* Additional Configuration for each module */
+  dcSlotMask=0;
+  for(ii=0; ii<ndc; ii++) 
+  {
+    DC_SLOT = dcSlot(ii);      /* Grab the current module's slot number */
+    dcSlotMask |= (1<<DC_SLOT); /* Add it to the mask */
+	printf("=======================> dcSlotMask=0x%08x\n",dcSlotMask);
+
+  }
+
+
+  /* DC stuff */
+
+  for(id=0; id<ndc; id++) 
+  {
+    DC_SLOT = dcSlot(id);
+vmeBusLock();
+    dcTriggerPulseWidth(DC_SLOT, 8000);
+	dcLinkReset(DC_SLOT);
+vmeBusUnlock();
+
+    /* will try to reset 5 times */
+    for(ii=0; ii<5; ii++)
+	{
+      if(dcLinkStatus(DC_SLOT)) break;
+	  printf("Reseting link at slot %d\n",DC_SLOT);
+vmeBusLock();
+      dcLinkReset(DC_SLOT);
+vmeBusUnlock();
+	}
+  }
+
+
+  for(id=0; id<ndc; id++)
+  {
+    DC_SLOT = dcSlot(id);
+    if(dcLinkStatus(DC_SLOT)) printf("Link at slot %d is UP\n",DC_SLOT);
+    else printf("Link at slot %d is DOWN\n",DC_SLOT);
+  }
+  printf("DC Download() ends =========================\n\n");
+#endif
 
 
 
@@ -708,10 +793,12 @@ __prestart()
   CTRIGRSA(TIPRIMARY, TIR_SOURCE, usrtrig, usrtrig_done);
 #endif
 
+  printf(">>>>>>>>>> next_block_level = %d, block_level = %d, use next_block_level\n",next_block_level,block_level);
+  block_level = next_block_level;
+
+
   sprintf(rcname,"RC%02d",rol->pid);
   printf("rcname >%4.4s<\n",rcname);
-
-
 
 
 
@@ -722,7 +809,9 @@ __prestart()
   /*       it is the same fiber and busy has higher priority                */
 
 #ifndef TI_SLAVE
+vmeBusLock();
   tiSetBusySource(TI_BUSY_LOOPBACK,0);
+vmeBusUnlock();
 #endif
 
 
@@ -731,42 +820,104 @@ __prestart()
   if(nfadc>0)
   {
     printf("Set BUSY from SWB for FADCs\n");
+vmeBusLock();
     tiSetBusySource(TI_BUSY_SWB,0);
+vmeBusUnlock();
   }
 #endif
 
+
 #ifdef USE_V1190
+  printf("V1190 Prestart() starts =========================\n");
+
+vmeBusLock();
+  ntdcs = tdc1190Init(0x11100000,0x80000,20,0);
+vmeBusUnlock();
+  if(ntdcs>0) TDC_READ_CONF_FILE;
+
+  for(ii=0; ii<ntdcs; ii++)
+  {
+    slot = tdc1190Slot(ii);
+    tdctypebyslot[slot] = tdc1190Type(ii);
+    printf(">>> id=%d slot=%d type=%d\n",ii,slot,tdctypebyslot[slot]);
+  }
+
+
+#ifdef SLOTWORKAROUND
+  for(ii=0; ii<ntdcs; ii++)
+  {
+vmeBusLock();
+    slot = tdc1190GetGeoAddress(ii);
+vmeBusUnlock();
+	slotnums[ii] = slot;
+    printf("[%d] slot %d\n",ii,slotnums[ii]);
+  }
+#endif
+
+
   /* if TDCs are present, set busy from P2 */
   if(ntdcs>0)
   {
     printf("Set BUSY from P2 for TDCs\n");
+vmeBusLock();
     tiSetBusySource(TI_BUSY_P2,0);
+vmeBusUnlock();
   }
+
+  for(ii=0; ii<ntdcs; ii++)
+  {
+vmeBusLock();
+    tdc1190Clear(ii);
+vmeBusUnlock();
+    error_flag[ii] = 0;
+  }
+
+  printf("V1190 Prestart() ends =========================\n\n");
 #endif
 
+
+
 #ifdef USE_VSCM
+  printf("VSCM Prestart() start =========================\n");
+
   /* if VSCMs are present, set busy from SD board */
   if(nvscm1>0)
   {
     printf("Set BUSY from SWB for FADCs\n");
+vmeBusLock();
     tiSetBusySource(TI_BUSY_SWB,0);
+vmeBusUnlock();
 
     printf("vscmPrestart ...\n"); fflush(stdout);
     vscmPrestart("VSCMConfig.txt");
     printf("vscmPrestart done\n"); fflush(stdout);
   }
+
+  printf("VSCM Prestart() ends =========================\n\n");
 #endif
 
 
 
   /*********************************************************/
   /* hps only, busy from trigger board and ack mask for it */
-/*
-  tiSetBusySource(TI_BUSY_SWA,0);
-*/
+  
+  /*  
+  if(rol->pid==37||rol->pid==39)
+  {
+    tiSetBusySource(TI_BUSY_SWA,0);
+    tiAddRocSWA();
+  }
+  else
+  {
+    tiRemoveRocSWA();
+  }
+  */
 
-/*tiAddRocSWA();*/
+
+  /*
 tiRemoveRocSWA();
+  */
+
 
 
 
@@ -774,12 +925,15 @@ tiRemoveRocSWA();
   /*****************************************************************/
 
 #ifdef USE_FADC250
+  printf("FADC250 Prestart() starts =========================\n");
 
   /* Program/Init VME Modules Here */
   for(id=0; id<nfadc; id++)
   {
     FA_SLOT = faSlot(id);
+vmeBusLock();
     faSetClockSource(FA_SLOT,2);
+vmeBusUnlock();
   }
 
   sleep(1);
@@ -787,42 +941,49 @@ tiRemoveRocSWA();
   for(id=0; id<nfadc; id++)
   {
     FA_SLOT = faSlot(id);
+vmeBusLock();
     faSoftReset(FA_SLOT,0); /*0-soft reset, 1-soft clear*/
+vmeBusUnlock();
 
 #ifdef NEW
     if(!faGetMGTChannelStatus(FA_SLOT))
     {
+vmeBusLock();
       faResetMGT(FA_SLOT,1);
       faResetMGT(FA_SLOT,0);
+vmeBusUnlock();
     }
 #endif
 
+vmeBusLock();
     faResetToken(FA_SLOT);
     faResetTriggerCount(FA_SLOT);
     faStatus(FA_SLOT,0);
     faPrintThreshold(FA_SLOT);
+vmeBusUnlock();
   }
-
-
-  tiStatus(1);
 
   /*  Enable FADC */
   for(id=0; id<nfadc; id++) 
   {
     FA_SLOT = faSlot(id);
     /*faSetMGTTestMode(FA_SLOT,0);*/
-    faSetBlockLevel(FA_SLOT,block_level); /* done above !!??*/
     /*faChanDisable(FA_SLOT,0xffff);enabled in download*/
+vmeBusLock();
     faEnable(FA_SLOT,0,0);
+vmeBusUnlock();
   }
 
+  faGStatus(0);
 
+  printf("FADC250 Prestart() ends =========================\n\n");
   sleep(2);
 #endif
 
 
 
 #ifdef USE_SSP
+  printf("SSP Prestart() starts =========================\n");
 
  /*****************
   *   SSP SETUP - must do sspInit() after master TI clock is stable, so do it in Prestart
@@ -835,13 +996,15 @@ tiRemoveRocSWA();
   iFlag |= SSP_INIT_GTP_FIBER_ENABLE_MASK; /* Enable all fiber port data to GTP */
   /*iFlag|= SSP_INIT_NO_INIT;*/ /* does not configure SSPs, just set pointers */
   nssp=0;
+vmeBusLock();
   nssp = sspInit(0, 0, 0, iFlag); /* Scan for, and initialize all SSPs in crate */
+vmeBusUnlock();
   printf("hps1: found %d SSPs (using iFlag=0x%08x)\n",nssp,iFlag);
 
 
   if(nssp>0)
   {
-    sspConfig(SSP_CONF_FILE);
+    SSP_READ_CONF_FILE;
     sspSlotMask=0;
     for(id=0; id<nssp; id++)
     {
@@ -855,53 +1018,61 @@ tiRemoveRocSWA();
       /* SSP Status */
       /*sspPrintHpsScalers(sspSlot(id));*/
       sspPrintHpsConfig(sspSlot(id));
-
-      /* Set the Block level (always use TI block level !) */
-      sspSetBlockLevel(sspSlot(id), block_level);
-      sspGetBlockLevel(sspSlot(id));
     }
   }
 
+  printf("SSP Prestart() ends =========================\n\n");
 #endif /* USE_SSP */
+
 
 
 
   /* USER code here */
   /******************/
 
+vmeBusLock();
   tiIntDisable();
+vmeBusUnlock();
 
 
-#ifdef USE_V1190
-
+#ifdef USE_DSC2
+  printf("DSC2 Prestart() starts =========================\n");
   /* dsc2 configuration */
-  if(ntdcs>0) dsc2Config(DSC2_CONF_FILE);
-
-  for(ii=0; ii<ntdcs; ii++)
-  {
-    tdc1190Clear(ii);
-    error_flag[ii] = 0;
-  }
+  if(ndsc2>0) DSC2_READ_CONF_FILE;
+  printf("DSC2 Prestart() ends =========================\n\n");
 #endif
+
 
   /* master and standalone crates, NOT slave */
 #ifndef TI_SLAVE
 
   sleep(1);
+vmeBusLock();
   tiSyncReset(1);
+vmeBusUnlock();
   sleep(1);
+vmeBusLock();
   tiSyncReset(1);
+vmeBusUnlock();
   sleep(1);
 
-  if(tiGetSyncResetRequest())
+vmeBusLock();
+  ret = tiGetSyncResetRequest();
+vmeBusUnlock();
+  if(ret)
   {
     printf("ERROR: syncrequest still ON after tiSyncReset(); trying again\n");
     sleep(1);
+vmeBusLock();
     tiSyncReset(1);
+vmeBusUnlock();
     sleep(1);
   }
 
-  if(tiGetSyncResetRequest())
+vmeBusLock();
+  ret = tiGetSyncResetRequest();
+vmeBusUnlock();
+  if(ret)
   {
     printf("ERROR: syncrequest still ON after tiSyncReset(); try 'tcpClient <rocname> tiSyncReset'\n");
   }
@@ -915,23 +1086,73 @@ tiRemoveRocSWA();
 
 #endif
 
+/* set block level in all boards where it is needed;
+   it will overwrite any previous block level settings */
 
-
-if(rol->pid==46)
-{
-  ret = v851Init(0xd000,0);
-  if(ret < 0)
+#ifdef TI_SLAVE /* assume that for master and standalone TIs block level is set from config file */.
+vmeBusLock();
+  tiSetBlockLevel(block_level);
+vmeBusUnlock();
+#endif
+#ifdef USE_V1190
+  for(ii=0; ii<ntdcs; ii++)
   {
-    printf("WARN: cannot find v851 generator\n");
+vmeBusLock();
+    tdc1190SetBLTEventNumber(ii, block_level);
+vmeBusUnlock();
   }
-  else
+#endif
+#ifdef USE_FADC250
+    /* Calculate the maximum number of words per block transfer (assuming Pulse mode)
+     *   MAX = NFADC * block_level * (EvHeader + TrigTime*2 + Pulse*2*chan) 
+     *         + 2*32 (words for byte alignment) 
+     */
+    MAXFADCWORDS = NFADC * block_level * (1+2+100/*FADC_WINDOW_WIDTH*/*16) + 2*32;
+  
+    printf("**************************************************\n");
+    printf("* Calculated MAX FADC words per block = %d\n",MAXFADCWORDS);
+    printf("**************************************************\n");
+
+    /* Check these numbers, compared to our buffer size.. */
+    if( (MAXFADCWORDS+MAXTIWORDS)*4 > MAX_EVENT_LENGTH )
+    {
+      printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+      printf(" WARNING.  Event buffer size is smaller than the expected data size\n");
+      printf("     Increase the size of MAX_EVENT_LENGTH and recompile!\n");
+      printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+    }
+
+    for(id=0; id<nfadc; id++) 
+    {
+      slot = faSlot(id);
+vmeBusLock();
+      faSetBlockLevel(slot, block_level);
+vmeBusUnlock();
+    }
+#endif
+#ifdef USE_VSCM
+  for(ii=0; ii<nvscm1; ii++)
   {
-    v851_start(200000);
+    slot = vscmSlot(ii);
+vmeBusLock();
+    vscmSetBlockLevel(slot, block_level);
+vmeBusUnlock();
   }
-}
+#endif
+#ifdef USE_SSP
+  for(id=0; id<nssp; id++)
+  {
+    slot = sspSlot(id);
+vmeBusLock();
+    sspSetBlockLevel(slot, block_level);
+    sspGetBlockLevel(slot);
+vmeBusUnlock();
+  }
+#endif
 
-
-
+vmeBusLock();
+  tiStatus(1);
+vmeBusUnlock();
 
   printf("INFO: Prestart1 Executed\n");fflush(stdout);
 
@@ -948,20 +1169,29 @@ __end()
   int blocksLeft=0;
   int id;
 
+  printf("\n\nINFO: End1 Reached\n");fflush(stdout);
+
   CDODISABLE(TIPRIMARY,TIR_SOURCE,0);
 
   /* Before disconnecting... wait for blocks to be emptied */
+vmeBusLock();
   blocksLeft = tiBReady();
+vmeBusUnlock();
+  printf(">>>>>>>>>>>>>>>>>>>>>>> %d blocks left on the TI\n",blocksLeft);fflush(stdout);
   if(blocksLeft)
   {
-    printf("... end:  Blocks left on the TI (%d)\n",blocksLeft);
-    while(iwait < 100)
+    printf(">>>>>>>>>>>>>>>>>>>>>>> before while ... %d blocks left on the TI\n",blocksLeft);fflush(stdout);
+    while(iwait < 10)
 	{
+      taskDelay(10);
 	  if(blocksLeft <= 0) break;
+vmeBusLock();
 	  blocksLeft = tiBReady();
+      printf(">>>>>>>>>>>>>>>>>>>>>>> inside while ... %d blocks left on the TI\n",blocksLeft);fflush(stdout);
+vmeBusUnlock();
 	  iwait++;
 	}
-    printf("... end:  Blocks left on the TI (%d)\n",blocksLeft);
+    printf(">>>>>>>>>>>>>>>>>>>>>>> after while ... %d blocks left on the TI\n",blocksLeft);fflush(stdout);
   }
 
 
@@ -970,18 +1200,26 @@ __end()
   for(id=0; id<nfadc; id++) 
   {
     FA_SLOT = faSlot(id);
+vmeBusLock();
     faDisable(FA_SLOT,0);
     faStatus(FA_SLOT,0);
+vmeBusUnlock();
   }
+
+vmeBusLock();
   sdStatus();
+vmeBusUnlock();
 #endif
 
+vmeBusLock();
   tiStatus(1);
+vmeBusUnlock();
 
-  logMsg("INFO: User End Executed\n",1,2,3,4,5,6);
+  printf("INFO: End1 Executed\n\n\n");fflush(stdout);
 
   return;
 }
+
 
 static void
 __pause()
@@ -991,6 +1229,7 @@ __pause()
   
 } /*end pause */
 
+
 static void
 __go()
 {
@@ -998,6 +1237,12 @@ __go()
 
   logMsg("INFO: Entering Go 1\n",1,2,3,4,5,6);
 
+#ifndef TI_SLAVE
+  /* set sync event interval (in blocks) */
+vmeBusLock();
+  tiSetSyncEventInterval(10000);
+vmeBusUnlock();
+#endif
 
 #ifdef USE_FADC250
 
@@ -1019,7 +1264,9 @@ __go()
 #ifdef USE_V1190
   for(jj=0; jj<ntdcs; jj++)
   {
+vmeBusLock();
     tdc1190Clear(jj);
+vmeBusUnlock();
     error_flag[jj] = 0;
   }
   taskDelay(100);
@@ -1033,7 +1280,9 @@ __go()
   {
     for(jj=0; jj<8; jj++)
     {
+vmeBusLock();
       fssrSCR(vscmSlot(ii), jj);
+vmeBusUnlock();
 	}
   }
 
@@ -1043,14 +1292,18 @@ __go()
 	for(ii=0; ii<nvscm1; ii++)
     {
 	  slot = vscmSlot(ii);
+vmeBusLock();
       vscmResetToken(slot);
+vmeBusUnlock();
 	}
   }
 
 	for(ii=0; ii<nvscm1; ii++)
     {
 	  slot = vscmSlot(ii);
+vmeBusLock();
 	  vscmStat(slot);
+vmeBusUnlock();
 	}
 
 
@@ -1068,8 +1321,28 @@ __go()
 
 #endif
 
+#ifdef USE_DC
 
+  for(ii=0; ii<ndc; ii++)
+  {
+    DC_SLOT = dcSlot(ii);
+vmeBusLock();
+    dcClear(DC_SLOT);
+vmeBusUnlock();
+  }
 
+#endif
+
+#ifdef USE_DSC@
+  for(ii=0; ii<ndsc2_daq; ii++)
+  {
+    slot = dsc2Slot(ii);
+vmeBusLock();
+    dsc2ResetScalersGroupA(slot);
+    dsc2ResetScalersGroupB(slot);
+vmeBusUnlock();
+  }
+#endif
 
   /* always clear exceptions */
   jlabgefClearException(1);
@@ -1089,12 +1362,12 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   unsigned int *tdcbuf_save, *tdc;
   unsigned int *dabufp1, *dabufp2;
   int njjloops, slot;
+  int nwords;
 #ifndef VXWORKS
   TIMERL_VAR;
 #endif
 #ifdef USE_FADC250
   unsigned int datascan, mask;
-  int nwords;
   unsigned short *dabufp16, *dabufp16_save;
   int id;
   int dCnt, idata;
@@ -1112,8 +1385,12 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 #ifdef DMA_TO_BIGBUF
   unsigned int pMemBase, uMemBase, mSize;
 #endif
+  char *chptr, *chptr0;
 
   /*printf("EVTYPE=%d syncFlag=%d\n",EVTYPE,syncFlag);*/
+
+
+  if(syncFlag) printf("EVTYPE=%d syncFlag=%d\n",EVTYPE,syncFlag);
 
   rol->dabufp = (int *) 0;
 
@@ -1123,6 +1400,7 @@ usleep(100);
   /*
   sleep(1);
   */
+
 
 
   CEOPEN(EVTYPE, BT_BANKS); /* reformatted on CODA_format.c !!! */
@@ -1353,6 +1631,10 @@ vmeBusUnlock();
         FA_SLOT = faSlot(0);
         if(FADC_ROFLAG==2)
         {
+
+
+
+
 #ifdef DMA_TO_BIGBUF
  		  /*
           printf("dabufp_usermembase=0x%08x\n",dabufp_usermembase);
@@ -1399,9 +1681,16 @@ vmeBusUnlock();
 #endif
 
 #endif
+
+
+
         }
         else
 		{
+
+
+
+
           for(jj=0; jj<nfadc; jj++)
 		  {
 #ifdef DEBUG
@@ -1434,7 +1723,15 @@ vmeBusUnlock();
             for(jjj=0; jjj<len; jjj++) printf(" [%3d]  0x%08x\n",jjj,tdcbuf[(dCnt-len)+jjj]);
 #endif
 		  }
+
+
+
+
 	    }
+
+
+
+
 
 	    if(dCnt<=0)
 	    {
@@ -1681,25 +1978,187 @@ vmeBusUnlock();
 
 
 
-#if 1
+#ifdef USE_DC
 
-  /* create HEAD bank if master and standalone crates, NOT slave */
+
+
+    /* Configure Block Type... temp fix for 2eSST trouble with token passing */
+    tdcbuf = tdcbuf_save;
+    dCnt=0;
+    if(ndc != 0)
+    {
+      stat = 0;
+      for(itime=0; itime<100000; itime++) 
+	  {
+vmeBusLock();
+	    gbready = dcGBready();
+vmeBusUnlock();
+	    stat = (gbready == dcSlotMask);
+	    if (stat>0) 
+	    {
+          printf("expected mask 0x%08x, got 0x%08x\n",dcSlotMask,gbready);
+	      break;
+	    }
+	  }
+      if(stat==0) printf("dc not ready !!!\n");
+
+
+      if(stat>0)
+	  {
+        BANKOPEN(0xe105,1,rol->pid);
+
+        DC_SLOT = dcSlot(0);
+        if(DC_ROFLAG==2)
+        {
+#ifdef DMA_TO_BIGBUF
+          uMemBase = dabufp_usermembase;
+          pMemBase = dabufp_physmembase;
+          mSize = 0x100000;
+          usrChangeVmeDmaMemory(pMemBase, uMemBase, mSize);
+ 
+          usrVmeDmaMemory(&pMemBase, &uMemBase, &mSize);
+ 
+vmeBusLock();
+ 	      dCnt = faReadBlock(DC_SLOT,rol->dabufp,MAXDCWORDS,DC_ROFLAG);
+vmeBusUnlock();
+          rol->dabufp += dCnt;
+          usrRestoreVmeDmaMemory();
+#else
+vmeBusLock();
+	      dCnt = faReadBlock(DC_SLOT,tdcbuf,MAXDCWORDS,DC_ROFLAG);
+vmeBusUnlock();
+#endif
+        }
+        else
+		{
+          for(jj=0; jj<ndc; jj++)
+	      {
+            DC_SLOT = dcSlot(jj);
+	        /*dcPrintScalers(DC_SLOT);*/
+#ifdef DMA_TO_BIGBUF
+            uMemBase = dabufp_usermembase;
+            pMemBase = dabufp_physmembase;
+            mSize = 0x100000;
+            usrChangeVmeDmaMemory(pMemBase, uMemBase, mSize);
+
+vmeBusLock();
+            len = dcReadBlock(DC_SLOT, rol->dabufp, MAXDCWORDS, DC_ROFLAG);
+vmeBusUnlock();
+/*#ifdef DEBUG*/
+            printf("DC: slot=%d, nw=%d, data-> 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			  DC_SLOT,len,LSWAP(rol->dabufp[0]),LSWAP(rol->dabufp[1]),LSWAP(rol->dabufp[2]),
+			  LSWAP(rol->dabufp[3]),LSWAP(rol->dabufp[4]),LSWAP(rol->dabufp[5]),LSWAP(rol->dabufp[6]));
+/*#endif*/
+            rol->dabufp += len;
+            dCnt += len;
+
+            usrRestoreVmeDmaMemory();
+#else
+vmeBusLock();
+            len = dcReadBlock(DC_SLOT, &tdcbuf[dCnt], MAXDCWORDS, DC_ROFLAG);
+vmeBusUnlock();
+/*#ifdef DEBUG*/
+            printf("DC: slot=%d, nw=%d, data-> 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			  DC_SLOT,len,LSWAP(tdcbuf[dCnt+0]),LSWAP(tdcbuf[dCnt+1]),LSWAP(tdcbuf[dCnt+2]),
+              LSWAP(tdcbuf[dCnt+3]),LSWAP(tdcbuf[dCnt+4]),LSWAP(tdcbuf[dCnt+5]),LSWAP(tdcbuf[dCnt+6]));
+/*#endif*/
+            dCnt += len;
+#endif
+	      }
+		}
+
+	    if(dCnt<=0)
+	    {
+	      printf("DC: No data or error.  dCnt = %d\n",dCnt);
+          dCnt=0;
+	    }
+        else
+	    {
+#ifndef DMA_TO_BIGBUF
+          for(jj=0; jj<dCnt; jj++) *rol->dabufp++ = tdcbuf[jj];
+#endif
+	    }
+
+        BANKCLOSE;
+	  }
+	  else
+	  {
+	    printf ("DCs: no events   stat=%d  intcount = %d   gbready = 0x%08x  dcSlotMask = 0x%08x\n",
+		  stat,tiGetIntCount(),gbready,dcSlotMask);
+        printf("Missing slots:");
+        for(jj=1; jj<21; jj++)
+		{
+          mask = 1<<jj;
+          if((dcSlotMask&mask) && !(gbready&mask)) printf("%3d",jj);
+		}
+        printf("\n");
+	  }
+
+      /* Reset the Token */
+      if(DC_ROFLAG==2)
+	  {
+	    for(islot=0; islot<ndc; islot++)
+	    {
+	      DC_SLOT = dcSlot(islot);
+vmeBusLock();
+	      /*dcResetToken(DC_SLOT);not implemented yet !!!!!!!!!!*/
+vmeBusUnlock();
+	    }
+	  }
+
+    }
+
+#endif /*USE_DC*/
+
+
+
+
+
 #ifndef TI_SLAVE
 
-	event_number = (EVENT_NUMBER) * block_level;
+  /* create HEAD bank if master and standalone crates, NOT slave */
 
-    BANKOPEN(0xe10F,1,0);
-    *rol->dabufp ++ = 0; /*version  number */
-    *rol->dabufp ++ = LSWAP(RUN_NUMBER); /*run  number */
-    *rol->dabufp ++ = LSWAP(event_number); /*event number */
-    *rol->dabufp ++ = LSWAP(time(0)); /*event unix time */
-    *rol->dabufp ++ = LSWAP(EVTYPE); /*event type */
+	event_number = (EVENT_NUMBER) * block_level - block_level;
+
+    BANKOPEN(0xe112,1,0);
+
+	dabufp1 = rol->dabufp;
+
+    *rol->dabufp ++ = LSWAP((0x10<<27)+block_level); /*block header*/
+
+    for(ii=0; ii<block_level; ii++)
+	{
+      event_number ++;
+	  /*
+	  printf(">>>>>>>>>>>>> %d %d\n",(EVENT_NUMBER),event_number);
+      sleep(1);
+	  */
+      *rol->dabufp ++ = LSWAP((0x12<<27)+(event_number&0x7FFFFFF)); /*event header*/
+
+      nwords = 5; /* UPDATE THAT IF THE NUMBER OF WORDS CHANGED BELOW !!! */
+      *rol->dabufp ++ = LSWAP((0x14<<27)+nwords); /*head data*/
+      *rol->dabufp ++ = 0; /*version  number */
+      *rol->dabufp ++ = LSWAP(RUN_NUMBER); /*run  number */
+      *rol->dabufp ++ = LSWAP(event_number); /*event number */
+      if(ii==(block_level-1))
+	  {
+        *rol->dabufp ++ = LSWAP(time(0)); /*event unix time */
+        *rol->dabufp ++ = LSWAP(EVTYPE); /*event type */
+	  }
+      else
+	  {
+        *rol->dabufp ++ = 0;
+        *rol->dabufp ++ = 0;
+	  }
+	}
+
+    nwords = ((int)rol->dabufp-(int)dabufp1)/4+1;
+
+    *rol->dabufp ++ = LSWAP((0x11<<27)+nwords); /*block trailer*/
+
     BANKCLOSE;
 
 #endif
-
-#endif
-
 
 
 
@@ -1710,69 +2169,166 @@ TIMERL_STOP(100000/block_level,1000+rol->pid);
 
 
 
-#if 1
-    /* read boards settings and create bank */
-    if( ((*(rol->nevents))%(100000/block_level)) == 1 )
+
+    /* read boards configurations */
+    if(syncFlag==1 || EVENT_NUMBER==1)
     {
       BANKOPEN(0xe10E,3,rol->pid);
+      chptr = chptr0 =(char *)rol->dabufp;
+      nbytes = 0;
 
-	  /*
+      /* add one 'return' to make evio2xml output nicer */
+      *chptr++ = '\n';
+      nbytes ++;
+
 vmeBusLock();
-      len = tiUploadAll((char *)rol->dabufp, 10000);
+      len = tiUploadAll(chptr, 10000);
 vmeBusUnlock();
-      printf("len=%d\n",len);
-      printf(">%s<\n",(char *)rol->dabufp);
-      rol->dabufp += (len/4);
-	  */
+      /*printf("\nTI len=%d\n",len);
+      printf(">%s<\n",chptr);*/
+      chptr += len;
+      nbytes += len;
+
 
 #ifdef USE_FADC250
       if(nfadc>0)
       {
 vmeBusLock();
-        len = fadc250UploadAll((char *)rol->dabufp, 10000);
+        len = fadc250UploadAll(chptr, 10000);
 vmeBusUnlock();
-        /*printf("%s\n",(char *)rol->dabufp);*/
-        rol->dabufp += len/4;
+        /*printf("\nFADC len=%d\n",len);
+        printf("%s\n",chptr);*/
+        chptr += len;
+        nbytes += len;
 	  }
 #endif
 
+#ifdef USE_V1190
 	  /*
 	  if(ntdcs>0)
 	  {
 vmeBusLock();
-        len = tdc1190UploadAll((char *)rol->dabufp, 10000);
+        len = tdc1190UploadAll(chptr, 10000);
 vmeBusUnlock();
-        printf("%s\n",(char *)rol->dabufp);
-        rol->dabufp += len/4;
+        printf("\nTDC len=%d\n",len);
+        printf("%s\n",chptr);
+        chptr += len;
+        nbytes += len;
 	  }
 	  */
+#endif
 
-	  /*
+#ifdef USE_DSC2
 	  if(ndsc2>0)
 	  {
 vmeBusLock();
-        len = dsc2UploadAll((char *)rol->dabufp, 10000);
+        len = dsc2UploadAll(chptr, 10000);
 vmeBusUnlock();
-        printf("%s\n",(char *)rol->dabufp);
-        rol->dabufp += len/4;
+        /*printf("\nDSC2 len=%d\n",len);
+        printf("%s\n",chptr);*/
+        chptr += len;
+        nbytes += len;
 	  }
-	  */
+#endif
+
 
 #ifdef USE_SSP
       if(nssp>0)
       {
 vmeBusLock();
-        len = sspUploadAll((char *)rol->dabufp, 10000);
+        len = sspUploadAll(chptr, 10000);
 vmeBusUnlock();
-        /*printf("%s\n",(char *)rol->dabufp);*/
-        rol->dabufp += len/4;
+        /*printf("\nSSP len=%d\n",len);
+        printf("%s\n",chptr);*/
+        chptr += len;
+        nbytes += len;
 	  }
 #endif
 
+	  /* temporary for crates with GTP */
+      if(rol->pid==37||rol->pid==39)
+	  {
+#define TEXT_STR  1000
+        char *roc;
+        int  ii, kk, stt = 0;
+        char result[TEXT_STR];      /* string for messages from tcpClientCmd */
+        char exename[200];          /* command to be executed by tcpServer */
+
+        if(rol->pid==37) roc = "hps1gtp";
+        else             roc = "hps2gtp";
+
+        sprintf(exename,"gtpUploadAllPrint()");
+
+        /*printf("gtptest1: roc >%s< exename >%s<\n",roc,exename);*/
+
+        memset(result,0,TEXT_STR);
+        tcpClientCmd(roc, exename, result);
+
+        len = strlen(result) - 2; /* 'result' has 2 extra chars in the end we do not want ????? */
+        /*printf("gtptest1: len=%d, >%s<",len,result);*/
+
+        strncpy(chptr,result,len);
+        chptr += len;
+        nbytes += len;
+	  }
+
+
+      /* 'nbytes' does not includes end_of_string ! */
+      chptr[0] = '\n';
+      chptr[1] = '\n';
+      chptr[2] = '\n';
+      chptr[3] = '\n';
+      nbytes = (((nbytes+1)+3)/4)*4;
+      chptr0[nbytes-1] = '\0';
+
+      nwords = nbytes/4;
+      rol->dabufp += nwords;
+
       BANKCLOSE;
     }
-#endif
+
+
+
+
+
+
+
+
+
+
+
+
 	
+
+
+    /* read scaler(s) */
+    if(syncFlag==1 || EVENT_NUMBER==1)
+    {
+#ifdef USE_DSC2
+	  /*printf("ndsc2_daq=%d\n",ndsc2_daq);*/
+	  if(ndsc2_daq>0)
+	  {
+      BANKOPEN(0xe115,1,rol->pid);
+      for(jj=0; jj<ndsc2_daq; jj++)
+      {
+        slot = dsc2Slot_daq(jj);
+vmeBusLock();
+        /* in following argument 4 set to 0xFF means latch and read everything, 0x3F - do not latch and read everything */
+        nwords = dsc2ReadScalers(slot, tdcbuf, 0x10000, 0xFF, 1);
+        /*printf("nwords=%d, nwords = 0x%08x 0x%08x 0x%08x 0x%08x\n",nwords,tdcbuf[0],tdcbuf[1],tdcbuf[2],tdcbuf[3]);*/
+vmeBusUnlock();
+        /* unlike other boards, dcs2 scaler readout already swapped in 'dsc2ReadScalers', so swap it back, because
+        hps2.c expects big-endian format*/
+        for(ii=0; ii<nwords; ii++) *rol->dabufp ++ = LSWAP(tdcbuf[ii]);
+      }
+      BANKCLOSE;
+	  }
+#endif      
+	}
+
+
+
+
 
 
 #if 0

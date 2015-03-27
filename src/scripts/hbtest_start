@@ -35,7 +35,7 @@ set ET_comp  = 'et_start -n 2000 -s 500000 -f /tmp/et_sys_clashbtest'
 set EB_comp  = 'coda_ebc -s clashbtest -o "EB21 CDEB" '
 set ER_comp  = 'coda_erc -s clashbtest -o "ER21 ER" '
 set RC_comp  = 'runcontrol -s clashbtest -cedit -dbedit'
-set XT1_comp  = 'coda_roc_gef -s clashbtest -o "hbtest3 ROC" '
+set XT1_comp  = 'coda_roc_gef -s clashbtest -o "highbtest3 ROC" '
 
 
 echo ""
@@ -55,11 +55,11 @@ set ypos  = `expr $ypos + $yinc`
 set color = "-bg yellow -fg black -sb -sl 5000"
 set tmp   = `xterm $RC_t $color $geom$ypos -e $RC $RC_comp >& /dev/null &`
 
-#echo " Start connection to CRATE_hbtest3"
-#set ypos  = `expr $ypos + $yinc`
-#set geom  = "-geometry 70x12+$xpos+"
-#set color = "-sb -sl 5000 -bg lightgreen -fg black"
-#set tmp   = `xterm $XT1_t $color $geom$ypos -e $XT $XT1_comp >& /dev/null &`
+echo " Start connection to CRATE_hbtest3"
+set ypos  = `expr $ypos + $yinc`
+set geom  = "-geometry 70x12+$xpos+"
+set color = "-sb -sl 5000 -bg lightgreen -fg black"
+set tmp   = `xterm $XT1_t $color $geom$ypos -e $XT $XT1_comp >& /dev/null &`
 
 
 echo ""

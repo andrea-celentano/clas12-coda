@@ -227,8 +227,9 @@ restartLinux:
 
 		if((status=evRead(handle,buf,maxbufbytes)) == EOF)
 		{
+          /*printf("reopen data file >%s<\n",filename);*/
           status = evClose(handle);
-          status = evOpen("./bigfile","r",&handle);
+          status = evOpen(filename,"r",&handle);
 		  status=evRead(handle,buf,maxbufbytes);
 		}
 

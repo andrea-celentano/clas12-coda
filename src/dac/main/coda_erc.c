@@ -11,6 +11,7 @@ coda_er()
 
 #else
 
+
 /*---------------------------------------------------------------------------*
  *  Copyright (c) 1991, 1992  Southeastern Universities Research Association,*
  *                            Continuous Electron Beam Accelerator Facility  *
@@ -49,6 +50,14 @@ coda_er()
 #include "rc.h"
 #include "da.h"
 #include "libdb.h"
+
+#ifdef RESTORE_OLD_SPEC_EVENT_CODING
+#define EV_ER_PRESTART (EV_PRESTART-0x80)
+#define EV_ER_END (EV_END-0x80)
+#else
+#define EV_ER_PRESTART EV_PRESTART
+#define EV_ER_END EV_END
+#endif
 
 #ifndef TRUE
 #define TRUE 1
@@ -384,8 +393,14 @@ gotControlEvent(et_event **pe, int size)
 {
     int i;
     
-    for (i=0; i<size; i++) {
-      if ((pe[i]->control[0] == 17) || (pe[i]->control[0] == 20)) {
+    for (i=0; i<size; i++)
+    {
+	  /*
+if(pe[i]->control[0] & 0x40) printf("coda_ebc: syncFlag detected, control[0]=0x%08x\n",pe[i]->control[0]);
+	  */
+
+      if ((pe[i]->control[0] == EV_ER_PRESTART) || (pe[i]->control[0] == EV_ER_END))
+      {
         return 1;
       }
     }
@@ -476,7 +491,7 @@ outputEvents(ERp erp, et_event **pe, int start, int stop)
 int 
 CODA_write_event(ERp erp)
 {
-  const int prestartEvent=17, endEvent=20, true=1, false=0;
+  const int prestartEvent=EV_ER_PRESTART, endEvent=EV_ER_END, true=1, false=0;
   int status1, status2;
   int nevents=0, i, ii, status, len, done=false, start, stop;
   et_event *pe[ET_EVENT_ARRAY_SIZE];
@@ -624,6 +639,23 @@ CODA_write_event(ERp erp)
 /*********************************************************/
 
 
+int
+codaInit(char *conf)
+{
+  if(codaUpdateStatus("configuring") != CODA_OK)
+  {
+    return(CODA_ERROR);
+  }
+
+  UDP_start();
+
+  if(codaUpdateStatus("configured") != CODA_OK)
+  {
+    return(CODA_ERROR);
+  }
+
+  return(CODA_OK);
+}
 
 
 int
@@ -656,6 +688,7 @@ codaDownload(char *conf)
   strcpy(configname,conf); /* Sergey: save CODA configuration name */
 
   UDP_start();
+
   tcpState = DA_DOWNLOADING;
   if(codaUpdateStatus("downloading") != ER_OK) return(ER_ERROR);
 

@@ -49,6 +49,7 @@ typedef void (*VOIDFUNCPTR) ();
 */
 
 #include "tdc1190.h"
+#include "xxxConfig.h"
 
 
 /* Prototype of Common Initialization of Modules */
@@ -1244,9 +1245,16 @@ int
 tdc1290Config(char *fname)
 {
   int res;
+  char *string; /*dummy, will not be used*/
 
-  /* set defaults */
-  tdc1290InitGlobals();
+  if(strlen(fname) > 0) /* filename specified  - upload initial settings from the hardware */
+  {
+    tdc1290UploadAll(string, 0);
+  }
+  else /* filename not specified  - set defaults */
+  {
+    tdc1290InitGlobals();
+  }
 
   /* read config file */
   if( (res = tdc1290ReadConfigFile(fname)) < 0 ) return(res);
@@ -1340,22 +1348,7 @@ tdc1290Mon(int slot)
 
 
 
-
-
-#define ADD_TO_STRING \
-  len1 = strlen(str); \
-  len2 = strlen(sss); \
-  if((len1+len2) < length) strcat(str,sss); \
-  else \
-  { \
-    str[len1+1] = ' '; \
-    str[len1+2] = ' '; \
-    str[len1+3] = ' '; \
-    len1 = ((len1+3)/4)*4; \
-    return(len1); \
-  }
-
-/* upload setting from all found DSC2s */
+/* upload setting from all found TDCs */
 int
 tdc1290UploadAll(char *string, int length)
 {
@@ -1366,69 +1359,89 @@ tdc1290UploadAll(char *string, int length)
   unsigned short bypMask;
   unsigned short channels[8];
 
-  str = string;
-  str[0] = '\0';
+
   for(kk=0; kk<Nc1190; kk++)
   {
-    slot = tdc1190Slot(kk);
+	berr_fifo = tdc1190GetEventFifo(kk);
+	blt_Events = tdc1190GetBLTEventNumber(kk);
 
-    sprintf(sss,"TDC1190_SLOT %d\n",slot);
-    ADD_TO_STRING;
+	n_Hits = tdc1190GetMaxNumberOfHitsPerEvent(kk);
 
-    sprintf(sss,"TDC1190_BERR_FIFO %d\n",tdc1190GetEventFifo(kk));
-    ADD_TO_STRING;
-	
-    sprintf(sss,"TDC1190_BLT_EVENTS %d\n",tdc1190GetBLTEventNumber(kk));
-    ADD_TO_STRING;
-
-    sprintf(sss,"TDC1190_N_HITS %d\n",tdc1190GetMaxNumberOfHitsPerEvent(kk));
-    ADD_TO_STRING;
-
-    sprintf(sss,"TDC1190_ALMOSTFULL %d\n",tdc1190GetAlmostFullLevel(kk));
-    ADD_TO_STRING;
-
-    sprintf(sss,"TDC1190_OUT_PROG %d\n",tdc1190GetOutProg(kk));
-    ADD_TO_STRING;
-
-    sprintf(sss,"TDC1190_W_WIDTH %d # not fron hardware\n",window_width);
-    ADD_TO_STRING;
-
-    sprintf(sss,"TDC1190_W_OFFSET %d # not fron hardware\n",window_offset);
-    ADD_TO_STRING;
-
-    sprintf(sss,"TDC1190_W_EXTRA %d # not fron hardware\n",window_extra);
-    ADD_TO_STRING;
-
-    sprintf(sss,"TDC1190_W_REJECT %d # not fron hardware\n",window_reject);
-    ADD_TO_STRING;
-
-    sprintf(sss,"TDC1190_EDGE %d\n",tdc1190ReadEdgeDetectionConfig(kk));
-    ADD_TO_STRING;
+	almostFullLevel = tdc1190GetAlmostFullLevel(kk);
+	outProgControl = tdc1190GetOutProg(kk);
+	tdc[kk].edge = tdc1190ReadEdgeDetectionConfig(kk);
 
     tdc1190GetChannels(kk, channels);
     if(use1190[kk] == 1) nnn = 8;
     else                 nnn = 2;
     for(ii=0; ii<nnn; ii++)
 	{
-      sprintf(sss,"TDC1190_MASK%1d",ii+1);
-      ADD_TO_STRING;
       for(jj=0; jj<16; jj++)
 	  {
-        sprintf(sss," %d",(channels[ii]>>jj)&0x1);
-        ADD_TO_STRING;
+		tdc[kk].mask[ii] = (channels[ii]>>jj)&0x1;
 	  }
-      sprintf(sss,"\n");
-      ADD_TO_STRING;
 	}
   }
 
-  len1 = strlen(str);
-  str[len1+1] = ' ';
-  str[len1+2] = ' ';
-  str[len1+3] = ' ';
-  len1 = ((len1+3)/4)*4;
+  if(length)
+  {
+    str = string;
+    str[0] = '\0';
+    for(kk=0; kk<Nc1190; kk++)
+    {
+      slot = tdc1190Slot(kk);
 
-  return(len1);
+      sprintf(sss,"TDC1190_SLOT %d\n",slot);
+      ADD_TO_STRING;
+
+      sprintf(sss,"TDC1190_BERR_FIFO %d\n",berr_fifo);
+      ADD_TO_STRING;
+
+      sprintf(sss,"TDC1190_BLT_EVENTS %d\n",blt_Events);
+      ADD_TO_STRING;
+
+      sprintf(sss,"TDC1190_N_HITS %d\n",n_Hits);
+      ADD_TO_STRING;
+
+      sprintf(sss,"TDC1190_ALMOSTFULL %d\n",almostFullLevel);
+      ADD_TO_STRING;
+
+      sprintf(sss,"TDC1190_OUT_PROG %d\n",outProgControl);
+      ADD_TO_STRING;
+
+      sprintf(sss,"TDC1190_W_WIDTH %d # not from hardware\n",window_width);
+      ADD_TO_STRING;
+
+      sprintf(sss,"TDC1190_W_OFFSET %d # not from hardware\n",window_offset);
+      ADD_TO_STRING;
+
+      sprintf(sss,"TDC1190_W_EXTRA %d # not from hardware\n",window_extra);
+      ADD_TO_STRING;
+
+      sprintf(sss,"TDC1190_W_REJECT %d # not from hardware\n",window_reject);
+      ADD_TO_STRING;
+
+      sprintf(sss,"TDC1190_EDGE %d\n",tdc[kk].edge);
+      ADD_TO_STRING;
+
+      if(use1190[kk] == 1) nnn = 8;
+      else                 nnn = 2;
+      for(ii=0; ii<nnn; ii++)
+	  {
+        sprintf(sss,"TDC1190_MASK%1d",ii+1);
+        ADD_TO_STRING;
+        for(jj=0; jj<16; jj++)
+	    {
+          sprintf(sss," %d",(tdc[kk].mask[ii]>>jj)&0x1); /* NEET CHECK !!!!!!!!!!!!!!!!!! */
+          ADD_TO_STRING;
+	    }
+        sprintf(sss,"\n");
+        ADD_TO_STRING;
+	  }
+    }
+
+    CLOSE_STRING;
+  }
 }
 
 
@@ -1441,6 +1454,26 @@ tdc1190UploadAll(char *string, int length)
 {
   return(tdc1290UploadAll(string, length));
 }
+
+
+
+int
+tdc1190UploadAllPrint()
+{
+  char str[1025];
+  tdc1190UploadAll(str, 1024);
+  printf("%s",str);
+}
+
+int
+tdc1290UploadAllPrint()
+{
+  char str[1025];
+  tdc1290UploadAll(str, 1024);
+  printf("%s",str);
+}
+
+
 
 
 
@@ -1638,48 +1671,49 @@ tdc1190ReadMicro(int id, UINT16 *data, int nwords)
   CHECKID(id);
 
   LOCK_1190;
- retry:
+
+retry:
 
   mstatus = vmeRead16(&(c1190p[id]->microHandshake)) & V1190_MICRO_READOK;
   if(kk > 10)
-    {
-      printf("-> ReadMicro: mstatus=%d (0x%x)\n",mstatus,
+  {
+    printf("-> ReadMicro: mstatus=%d (0x%x)\n",mstatus,
 	     vmeRead16(&(c1190p[id]->microHandshake)));
-    }
+  }
   if(mstatus)
-    {
-      for(ii=0; ii<nwords; ii++)
+  {
+    for(ii=0; ii<nwords; ii++)
 	{
 	  jj=0;
-	  while(!(vmeRead16(&(c1190p[id]->microHandshake)) & V1190_MICRO_READOK))
-	    {
-	      jj++;
-	      if(jj>20)
+	  while(!( vmeRead16(&(c1190p[id]->microHandshake)) & V1190_MICRO_READOK))
+	  {
+	    jj++;
+	    if(jj>20)
 		{
 		  logMsg("tdc1190ReadMicro: ERROR1: Read Status not OK (read %d)\n",
 			 ii,0,0,0,0,0);
 		  UNLOCK_1190;
 		  return(ERROR);
 		}
-	    }
+	  }
 	  data[ii] = vmeRead16(&(c1190p[id]->microReg));
 	}
-    }
+  }
   else
-    {
-      kk++;
-      if(kk>=20)
+  {
+    kk++;
+    if(kk>=20)
 	{
 	  logMsg("tdc1190ReadMicro: ERROR2: Read Status not OK\n",0,0,0,0,0,0);
 	  UNLOCK_1190;
 	  return(ERROR);
 	}
-      else
+    else
 	{
 	  taskDelay(10);
 	  goto retry;
 	}
-    }
+  }
 
   if(kk > 10) printf("-> ReadMicro: kk=%d\n",kk);
   UNLOCK_1190;
@@ -1703,7 +1737,8 @@ tdc1190WriteMicro(int id, UINT16 data)
   CHECKID(id);
 
   LOCK_1190;
- retry:
+
+retry:
 
   mstatus = vmeRead16(&(c1190p[id]->microHandshake)) & V1190_MICRO_WRITEOK;
 

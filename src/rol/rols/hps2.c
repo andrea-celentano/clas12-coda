@@ -26,6 +26,7 @@
 #undef DEBUG2 /*TDC*/
 #undef DEBUG3 /*SSP*/
 #undef DEBUG4 /*VSCM*/
+#undef DEBUG5 /*HEAD*/
 
 
 #define ROL_NAME__ "HPS2"
@@ -284,7 +285,7 @@ rol2trig(int a, int b)
   int a_channel_old;
   int npedsamples;
   int error;
-  int ndnv;
+  int ndnv, nw;
   char errmsg[256];
   unsigned int *StartOfBank;
   char *ch;
@@ -321,7 +322,6 @@ rol2trig(int a, int b)
 #endif
 
   mynev ++; /* needed by ttfa.c */
-
 
 #ifdef MODE7
   /* clean up pulse arrays */
@@ -861,6 +861,9 @@ lenE[jj][nB][nE[nB]] - event length in words
       a_slot_prev = -1;
       have_time_stamp = 1;
       nB[jj]=0; /*cleanup block counter*/
+	  /*
+	  if(lenin != 8) printf("lenin=%d (index=%d)\n",lenin,ii);
+	  */
       while(ii<lenin)
       {
 #ifdef DEBUG1
@@ -1014,7 +1017,15 @@ lenE[jj][nB][nE[nB]] - event length in words
         }
         else
 		{
-          printf("UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
+          printf("TI UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
+		  {
+			int jjj;
+		    printf("\n   Previous stuff\n");
+            for(jjj=ii-20; jjj<ii; jjj++) printf("          [%3d][%3d] 0x%08x\n",jjj,ii,datain[jjj]);
+            for(jjj=ii; jjj<ii+10; jjj++) printf("           [%3d][%3d] 0x%08x\n",jjj,ii,datain[jjj]);
+		    printf("   End Of Previous stuff\n");fflush(stdout);
+		    exit(0);
+		  }
           ii++;
 		}
 
@@ -1510,13 +1521,143 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
         }
         else
 		{
-          printf("UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
+          printf("SSP UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
           ii++;
 		}
 
 	  } /* while() */
 
 	} /* else if(0xe10C) */
+
+
+
+
+
+
+
+
+
+    else if(banktag[jj] == 0xe112) /* HEAD bank raw format */
+	{
+      banknum = rol->pid;
+
+#ifdef DEBUG5
+      printf("\nFIRST PASS HEAD bank\n\n");
+#endif
+
+      error = 0;
+      ii=0;
+      printing=1;
+      nB[jj]=0; /*cleanup block counter*/
+      while(ii<lenin)
+      {
+#ifdef DEBUG5
+        printf("[%5d] 0x%08x (lenin=%d)\n",ii,datain[ii],lenin);
+#endif
+        if( ((datain[ii]>>27)&0x1F) == 0x10) /*block header*/
+        {
+          a_nevents = (datain[ii]&0xFF);
+#ifdef DEBUG5
+	      printf("[%3d] BLOCK HEADER: nevents %d\n",ii,a_nevents);
+          printf(">>> update iB and nB\n");
+#endif
+          nB[jj]++;                  /*increment block counter*/
+          iB[jj][nB[jj]-1] = ii;     /*remember block start index*/
+          sB[jj][nB[jj]-1] = 0;      /*slot number not used here*/
+          nE[jj][nB[jj]-1] = 0;      /*cleanup event counter in current block*/
+
+#ifdef DEBUG5
+		  printf("0xe10c: jj=%d nB[jj]=%d\n",jj,nB[jj]);
+#endif
+
+	      ii++;
+        }
+        else if( ((datain[ii]>>27)&0x1F) == 0x11) /*block trailer*/
+        {
+          a_nwords = (datain[ii]&0x3FFFFF);
+#ifdef DEBUG5
+	      printf("[%3d] BLOCK TRAILER: nwords %d\n",ii,a_nwords);
+          printf(">>> data check\n");
+#endif
+
+          /*"close" previous event if any*/
+          k = nB[jj]-1; /*current block index*/
+          if(nE[jj][k] > 0)
+	      {
+            m = nE[jj][k]-1; /*current event number*/
+            lenE[jj][k][m] = ii-iE[jj][k][m]; /*#words in current event*/
+	      }
+
+          if(a_nwords != ( (ii-iB[jj][nB[jj]-1]+1)) )
+          {
+            error ++;
+            if(printing)
+            {
+              printf("[%3d][%3d] ERROR2 in HEAD raw data: trailer #words=%d != actual #words=%d)\n",
+					 mynev,ii,a_nwords,ii-iB[jj][nB[jj]-1]+1);
+              printing=0;
+	        }
+          }
+
+	      ii++;
+        }
+
+        else if( ((datain[ii]>>27)&0x1F) == 0x12) /*event header*/
+        {
+          a_triggernumber = (datain[ii]&0x7FFFFFF);
+#ifdef DEBUG5
+	      printf("[%3d] EVENT HEADER: trigger number %d\n",ii,
+				 a_triggernumber);
+          printf(">>> update iE and nE\n");
+#endif
+
+          /*"close" previous event if any*/
+          k = nB[jj]-1; /*current block index*/
+          if(nE[jj][k] > 0)
+	      {
+            m = nE[jj][k]-1; /*current event number*/
+            lenE[jj][k][m] = ii-iE[jj][k][m]; /*#words in current event*/
+	      }
+
+          /*"open" next event*/
+          nE[jj][k]++; /*increment event counter in current block*/
+          m = nE[jj][k]-1; /*current event number*/
+          iE[jj][k][m]=ii; /*remember event start index*/
+
+	      ii++;
+        }
+
+        else if( ((datain[ii]>>27)&0x1F) == 0x14) /*head data*/
+        {
+          nw = (datain[ii]&0xFF);
+#ifdef DEBUG5
+	      printf("[%3d] head bank has %d data words\n",ii,nw);
+#endif
+	      ii++;
+          iii=0;
+          while( iii<nw && ii<lenin ) /*get all data words*/
+	      {
+#ifdef DEBUG5
+            printf("   [%3d][%3d]: %d\n",ii,iii,datain[ii]);
+#endif
+            iii++;
+            ii++;
+	      }
+        }
+
+        else
+		{
+          printf("PASS1 HEAD UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
+          ii++;
+		}
+
+	  } /* while() */
+
+	} /* else if(0xe112) */
+
+
+
+
 
 
 
@@ -1788,7 +1929,6 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
     {
 
       datain = bankdata[jj];
-      /*lenin = banknw[jj];*/
 
 #ifdef DEBUG
       printf("iev=%d jj=%d nB=%d\n",iev,jj,nB[jj]);
@@ -2801,7 +2941,7 @@ if(a_pulsenumber == 0)
             }
             else
 		    {
-              printf("UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
+              printf("SSP UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
               ii++;
 		    }
 
@@ -2817,10 +2957,73 @@ if(a_pulsenumber == 0)
 
 
 
+      else if(banktag[jj] == 0xe112) /* HEAD bank raw format */
+	  {
 
+        banknum = iev; /*rol->pid;*/
 
+#ifdef DEBUG5
+		printf("\n\nSECOND PASS HEAD\n");
+#endif
+        for(ibl=0; ibl<nB[jj]; ibl++) /*loop over blocks*/
+        {
+#ifdef DEBUG5
+          printf("\n\n\n0xe10C: Block %d, Event %2d, event index %2d, event lenght %2d\n",
+            ibl,iev,iE[jj][ibl][iev],lenE[jj][ibl][iev]);
+#endif
 
+          CPOPEN(0xe10F,1,banknum);
 
+          ii = iE[jj][ibl][iev];
+          rlen = ii + lenE[jj][ibl][iev];
+          while(ii<rlen)
+          {
+#ifdef DEBUG5
+            printf("[%5d] 0x%08x (rlen=%d)\n",ii,datain[ii],rlen);
+#endif
+			
+            if( ((datain[ii]>>27)&0x1F) == 0x12) /*event header*/
+			{
+              a_triggernumber = (datain[ii]&0x7FFFFFF);
+#ifdef DEBUG5
+		      printf("[%3d] EVENT HEADER, a_triggernumber = %d\n",ii,a_triggernumber);
+#endif
+		      ii++;
+			}
+
+            else if( ((datain[ii]>>27)&0x1F) == 0x14) /*head bank data*/
+            {
+              nw = (datain[ii]&0xFF);
+#ifdef DEBUG5
+	          printf("[%3d] head bank has %d data words\n",ii,nw);
+#endif
+	          ii++;
+              iii=0;
+              while( iii<nw ) /*get all data words*/
+	          {
+#ifdef DEBUG5
+                printf("   [%3d][%3d]: %d\n",ii,iii,datain[ii]);
+#endif
+                *dataout ++ = datain[ii];
+                b08 += 4;
+                iii++;
+                ii++;
+	          }
+            }
+
+            else
+		    {
+              printf("PASS2 HEAD UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
+              ii++;
+		    }
+
+	      } /* while() */
+
+          CPCLOSE;
+
+        } /* loop over blocks */
+
+	  } /* HEAD bank raw format */
 
 
 
@@ -3008,21 +3211,7 @@ if(a_pulsenumber == 0)
 
 
 
-
-
-
-
     } /* loop over banks  */
-
-
-
-
-
-
-	/* create HEAD bank here ??????? */
-
-
-
 
 
 
@@ -3059,7 +3248,23 @@ if(a_pulsenumber == 0)
     header[0] = lenev - 1;
     header[1] = rol->dabufpi[1];
 
-	/*printf("HEADER: tag=%d typ=%d num=%d\n",(header[1]>>16)&0xFF,(header[1]>>8)&0xFF,header[1]&0xFF);*/
+    /* header created by CEOPEN macros (see rol.h) */
+
+    /* event type obtained from TI board have to be recorded into fragment header - event builder need it */
+/*TEMP while(a_event_type>15) a_event_type --; TEMP*/
+    header[1] = (header[1]&0xFF00FFFF) + (a_event_type<<16);
+
+
+    /* time stamp obtained from TI board have to be recorded into fragment header - event builder need it */
+    header[1] = (header[1]&0xFFFF00FF) + ((a_timestamp_l&0xFF)<<8);
+
+
+    /* event number obtained from TI board have to be recorded into fragment header - event builder need it */
+    header[1] = (header[1]&0xFFFFFF00) + (a_event_number_l&0xFF);
+/*
+	printf("HEADER: sync_flag=%d event_type=%d bank_type=%d event_number=%d\n",
+      (header[1]>>24)&0xFF,(header[1]>>16)&0xFF,(header[1]>>8)&0xFF,header[1]&0xFF);
+*/
 
   /*printf("(%d) header[0]=0x%08x (0x%08x)\n",iev,header[0],lenev - 1);*/
   /*printf("(%d) header[1]=0x%08x (0x%08x)\n",iev,header[1],rol->dabufpi[1]);*/
@@ -3090,6 +3295,8 @@ if(a_pulsenumber == 0)
   printf("return lenout=%d\n**********************\n\n",lenout);
 #endif
 
+
+
 /*
 if(lenout>2) printf("return lenout=%d\n**********************\n\n",lenout);
 */
@@ -3106,6 +3313,13 @@ if(lenout>2) printf("return lenout=%d\n**********************\n\n",lenout);
   /*printf("return lenout=%d\n**********************\n\n",lenout);*/
 
 /*printf("--> %d %d\n",rol->user_storage[0],rol->user_storage[1]);*/
+
+
+  /* print output buffer
+  dataout = (unsigned int *)(rol->dabufp);
+  printf("lenout=%d\n",lenout);
+  for(ii=0; ii<lenout; ii++) printf("  DATA [%3d] 0x%08x (%d)\n",ii,dataout[ii],dataout[ii]);
+  */
 
   return;
 }
@@ -3131,3 +3345,18 @@ __status()
 {
   return;
 }  
+
+/*hps12 buring crash:
+top - 17:36:34 up 5 days,  3:47,  1 user,  load average: 3.48, 1.20, 0
+Tasks: 185 total,   3 running, 182 sleeping,   0 stopped,   0 zombie
+Cpu(s):  3.3%us,  1.1%sy,  0.0%ni, 95.5%id,  0.0%wa,  0.0%hi,  0.0%si,
+Mem:   8221276k total,   363480k used,  7857796k free,        0k buffe
+Swap:        0k total,        0k used,        0k free,   182572k cache
+
+  PID USER      PR  NI  VIRT  RES  SHR S %CPU %MEM    TIME+  COMMAND  
+ 8497 clasrun   19   0  5700 1428  516 R 100.0  0.0   0:04.84 csh     
+ 8496 clasrun   18   0  5708 1440  516 S 98.1  0.0   0:03.24 csh      
+ 8584 clasrun   18   0  2448 1000  732 R 80.2  0.0   0:05.15 top      
+ 3597 clasrun   18   0 1826m 2232  764 S 62.3  0.0   1:14.17 DiagGuiSe
+ 3211 root      17   0 12848 1300  560 S 25.4  0.0   0:31.02 pcscd    
+*/

@@ -75,6 +75,123 @@ gethostbyname(const char *hostName)
 #endif
 
 
+MYSQL *
+dbConnectFull(const char *host, const char *database, char *user, char *passwd)
+{
+  MYSQL *mysql;
+  int iattempts, nattempts = 5;
+
+  unsigned int port = 0;
+  const char *unix_socket = "";
+  unsigned long client_flag = 0;
+
+  char dbaseServerHost[128];   /* database server host name */
+  char db[128]; /* normally comes from EXPID, add 'daq_' */
+
+#ifdef DEBUG
+  printf("INFO(dbConnect1): befor lock\n");fflush(stdout);
+#endif
+  DBLOCK;
+#ifdef DEBUG
+  printf("INFO(dbConnect1): after lock\n");fflush(stdout);
+#endif
+
+  iattempts=0;
+
+tryagain:
+
+  if(iattempts > nattempts)
+  {
+    printf("dbConnect: cannot connect after %d attempts - severe ERROR\n",iattempts);
+    return(NULL);
+  }
+
+  iattempts ++;
+
+#ifdef DEBUG
+printf("INFO(dbConnect1): errno=%d\n",errno);
+perror("INFO(dbConnect1)");
+#endif
+
+  if(strlen(host) > 0)
+  {
+    strncpy (dbaseServerHost, host, sizeof (dbaseServerHost));
+#ifdef DEBUG
+    printf("dbConnect INFO: use host >%s<\n",dbaseServerHost);
+#endif
+  }
+  else
+  {
+    printf("dbConnect WARN: host is not specified, use 'clondb1'\n");
+    strncpy (dbaseServerHost, "clondb1", sizeof (dbaseServerHost));
+  }
+  sprintf (db, "%s",database);
+#ifdef DEBUG
+  printf("dbConnect: host >%s<, database >%s<\n",dbaseServerHost,db);
+#endif
+  /*initialize MYSQL structure; use 'mysql_options'*/
+  mysql = mysql_init(NULL);
+#ifdef DEBUG
+  printf("dbConnect: after mysql_init mysql=0x%08x\n",mysql);
+#endif
+  if(mysql == NULL) return(NULL);
+
+  /* connect to database */
+
+#ifdef DEBUG
+  printf("dbConnect: connecting: mysql=0x%08x dbaseServerHost=>%s< user=>%s< passwd=>%s<\n",
+                              mysql,
+                              dbaseServerHost,
+                              user,
+                              passwd);
+  printf("dbConnect: connecting: db=>%s< port=%d unix_socket=>%s< flag=%d\n",
+                              db,
+                              port,
+                              unix_socket,
+                              client_flag);
+#endif
+
+  /*
+  sleep(1);
+  printf("1 sec\n");
+  */
+  mysql = mysql_real_connect( mysql,
+                              dbaseServerHost,
+                              user,
+                              passwd,
+                              db,
+                              port,
+                              unix_socket,
+                              client_flag);
+  /*
+  sleep(2);
+  printf("2 sec\n");
+  */
+#ifdef DEBUG
+  printf("dbConnect: after mysql_real_connect mysql=0x%08x\n",mysql);
+printf("INFO(dbConnect9): errno=%d\n",errno);
+perror("INFO(dbConnect9)");
+#endif
+
+  if(mysql==NULL)
+  {
+    printf("dbConnect: trying host >%s< database >%s<\n",dbaseServerHost,db);
+    printf("dbConnect: attempt %d failed, trying again\n",iattempts);
+#ifdef VXWORKS
+    taskDelay(sysClkRateGet()*3);
+#else
+    sleep(3);
+#endif
+    goto tryagain;
+  }
+
+#ifdef DEBUG
+  printf("dbConnect: connected to host >%s< database >%s<\n",dbaseServerHost,database);
+#endif
+
+  return(mysql);
+}
+
 
 
 MYSQL *

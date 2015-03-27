@@ -5,7 +5,33 @@
 #include "ModuleFrame.h"
 #include "RootHeader.h"
 
-#define UDPATETIME_MAX			60
+#define UDPATETIME_MAX							60
+
+#define SSP_HPS_TRIG_INFO_S0_TOTAL			0.0
+#define SSP_HPS_TRIG_INFO_S0_PASS			1.0
+#define SSP_HPS_TRIG_INFO_S0_TI				2.0
+#define SSP_HPS_TRIG_INFO_S1_TOTAL			3.0
+#define SSP_HPS_TRIG_INFO_S1_PASS			4.0
+#define SSP_HPS_TRIG_INFO_S1_TI				5.0
+#define SSP_HPS_TRIG_INFO_P0_TOTAL			6.0
+#define SSP_HPS_TRIG_INFO_P0_SUMPASS		7.0
+#define SSP_HPS_TRIG_INFO_P0_DIFPASS		8.0
+#define SSP_HPS_TRIG_INFO_P0_EDPASS			9.0
+#define SSP_HPS_TRIG_INFO_P0_COPPASS		10.0
+#define SSP_HPS_TRIG_INFO_P0_PASS			11.0
+#define SSP_HPS_TRIG_INFO_P0_TI				12.0
+#define SSP_HPS_TRIG_INFO_P1_TOTAL			13.0
+#define SSP_HPS_TRIG_INFO_P1_SUMPASS		14.0
+#define SSP_HPS_TRIG_INFO_P1_DIFPASS		15.0
+#define SSP_HPS_TRIG_INFO_P1_EDPASS			16.0
+#define SSP_HPS_TRIG_INFO_P1_COPPASS		17.0
+#define SSP_HPS_TRIG_INFO_P1_PASS			18.0
+#define SSP_HPS_TRIG_INFO_P1_TI				19.0
+#define SSP_HPS_TRIG_INFO_LED					20.0
+#define SSP_HPS_TRIG_INFO_COSMIC				21.0
+#define SSP_HPS_TRIG_INFO_LED_COSMIC_TI	22.0
+#define SSP_HPS_TRIG_INFO_PULSER_TI			23.0
+#define SSP_HPS_TRIG_INFO_L1A					24.0
 
 class SSP_HPS_TrgHist	: public TGCompositeFrame
 {
@@ -23,6 +49,7 @@ public:
 		AddFrame(pTF1 = new TGHorizontalFrame(this), new TGLayoutHints(kLHintsExpandX | kLHintsTop));
 			pTF1->AddFrame(pButtonNormalize = new TGTextButton(pTF1, new TGHotString("Normalize")), new TGLayoutHints(kLHintsCenterY | kLHintsLeft));
 				pButtonNormalize->AllowStayDown(kTRUE);
+				pButtonNormalize->SetDown(kTRUE);
 			pTF1->AddFrame(pButtonAutoUpdate = new TGTextButton(pTF1, new TGHotString("Update Mode: Manual"), BTN_AUTOUPDATE), new TGLayoutHints(kLHintsCenterY | kLHintsLeft));
 				pButtonAutoUpdate->SetWidth(80);
 				pButtonAutoUpdate->SetEnabled(kTRUE);
@@ -33,35 +60,54 @@ public:
 			pTF1->AddFrame(pSliderUpdateTime = new TGHSlider(pTF1, 100, kSlider1 | kScaleBoth, SDR_UPDATETIME), new TGLayoutHints(kLHintsExpandX | kLHintsCenterY | kLHintsLeft));
 				pSliderUpdateTime->SetRange(0, UDPATETIME_MAX);
 //				pSliderUpdateTime->SetEnabled(kFALSE);
-				pSliderUpdateTime->SetPosition(5);
+				pSliderUpdateTime->SetPosition(1);
 				pSliderUpdateTime->Associate(this);
 
-		AddFrame(pCanvasRates = new TRootEmbeddedCanvas("c1", this, 1300, 125));//, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
-				
+//		AddFrame(pCanvasRates = new TRootEmbeddedCanvas("c1", this, 1300, 125));//, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+/*
 		TGCanvas *pTGCanvas;
 		AddFrame(pTGCanvas = new TGCanvas(this), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 			pTGCanvas->SetContainer(pTF1 = new TGVerticalFrame(pTGCanvas->GetViewPort()));
 				pTF1->AddFrame(pCanvas = new TRootEmbeddedCanvas("c1", pTF1, 1300, 2300));//, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+*/
+
+		// Use a resizable frame instead of viewport
+		AddFrame(pCanvas = new TRootEmbeddedCanvas("c1", this, 1300, 2300), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
 		gStyle->SetPalette(1, NULL);
 
-		pCanvas->GetCanvas()->Divide(1,4);
+		pCanvas->GetCanvas()->Divide(1,3);
+
+		//////////////////////////////////		
+		// Trigger Info Canvas
+		//////////////////////////////////		
+		const char *trigger_info_bins[] = {
+			"S0_Total", "S0_Pass", "S0_TI",
+			"S1_Total", "S1_Pass", "S1_TI",
+			"P0_Total", "P0_SumPass", "P0_DifPass", "P0_EDPass", "P0_CopPass", "P0_Pass", "P0_TI",
+			"P1_Total", "P1_SumPass", "P1_DifPass", "P1_EDPass", "P1_CopPass", "P1_Pass", "P1_TI",
+			"LED", "COSMIC", "LED_COSMIC_TI",
+			"PULSER_TI",
+			"L1A"
+		};
 
 		pCanvas->GetCanvas()->cd(1);
-		pHistLatency = new TH1I("ClusterLatency", "ClusterLatency", 1024, 0.0, 4.0*1024.0);
-		pHistLatency->GetXaxis()->SetTitle("Latency(ns)");
-		pHistLatency->GetXaxis()->SetRangeUser(0.0, 4096.0);
-		pHistLatency->GetYaxis()->SetTitle("Counts");
-		pHistLatency->GetYaxis()->CenterTitle();
-		pHistLatency->SetLineColor(kBlue);
-		//pHistLatency->SetStats(0);
-		pHistLatency->Draw();
-		//pLegend = new TLegend(0.8,0.8,0.9,0.9);
-		//pLegend->AddEntry(pHistLatency, "GTP Clusters");
-		//pLegend->Draw();
+		pCanvas->GetCanvas()->cd(1)->SetLogy(1);
+		pHistTriggerInfo = new TH1F("Trigger Info", "Trigger Info;;Hz", sizeof(trigger_info_bins)/sizeof(trigger_info_bins[0]), 0.0, (double)sizeof(trigger_info_bins)/sizeof(trigger_info_bins[0]));
+		pHistTriggerInfo->SetLineColor(kBlack);
+		pHistTriggerInfo->SetFillColor(kBlue);
+		pHistTriggerInfo->SetNdivisions(sizeof(trigger_info_bins)/sizeof(trigger_info_bins[0]));
+		pHistTriggerInfo->SetStats(0);
+		for(int i = 0; i < (int)(sizeof(trigger_info_bins)/sizeof(trigger_info_bins[0])); i++)
+			pHistTriggerInfo->GetXaxis()->SetBinLabel(i+1, trigger_info_bins[i]);
+		pHistTriggerInfo->Draw("B TEXT");
 
+		//////////////////////////////////		
+		// Cluster Position Canvas
+		//////////////////////////////////		
 		pCanvas->GetCanvas()->cd(2);
-		pHistPosition = new TH2I("ClusterPosition", "ClusterPosition;X;Y", 46, -22.0, 24.0, 11, -5.0, 6.0);
+		pCanvas->GetCanvas()->cd(2)->SetLogz(1);
+		pHistPosition = new TH2F("ClusterPosition", "ClusterPosition;X;Y", 46, -22.0, 24.0, 11, -5.0, 6.0);
 		pHistPosition->SetStats(0);
 		pHistPosition->GetXaxis()->CenterLabels();
 		pHistPosition->GetXaxis()->SetNdivisions(46, kFALSE);
@@ -69,7 +115,8 @@ public:
 		pHistPosition->GetYaxis()->CenterLabels();
 		pHistPosition->GetYaxis()->SetNdivisions(11, kFALSE);
 		pHistPosition->GetYaxis()->SetTickLength(1);
-		pHistPosition->Draw("COLZTEXT");
+//		pHistPosition->Draw("COLZTEXT");
+		pHistPosition->Draw("COLZ");
 
 		int x = 23;
 		for(int n = 1; n <= 46; n++)
@@ -79,8 +126,14 @@ public:
 			if(x == 0) x--;
 		}
 		
-		pCanvas->GetCanvas()->cd(3);
-		pHistEnergy = new TH1I("ClusterEnergy", "ClusterEnergy", 1024, 0.0, 8.0*1024.0);
+		//////////////////////////////////		
+		// Cluster Energy, NHits, Latency Canvas
+		//////////////////////////////////		
+		pCanvas->GetCanvas()->cd(3)->Divide(3,1);
+		
+		pCanvas->GetCanvas()->cd(3)->cd(1);
+		pCanvas->GetCanvas()->cd(3)->cd(1)->SetLogy(1);
+		pHistEnergy = new TH1F("ClusterEnergy", "ClusterEnergy", 1024, 0.0, 8.0*1024.0);
 		pHistEnergy->GetXaxis()->SetTitle("Energy(MeV)");
 		pHistEnergy->GetXaxis()->SetRangeUser(0.0, 8192.0);
 		pHistEnergy->GetYaxis()->SetTitle("Counts");
@@ -92,8 +145,9 @@ public:
 		//pLegend->AddEntry(pHistEnergy, "GTP Clusters");
 		//pLegend->Draw();
 
-		pCanvas->GetCanvas()->cd(4);
-		pHistNHits = new TH1I("ClusterNHits", "ClusterNHits", 9, 0.0, 9.0);
+		pCanvas->GetCanvas()->cd(3)->cd(2);
+		pCanvas->GetCanvas()->cd(3)->cd(2)->SetLogy(1);
+		pHistNHits = new TH1F("ClusterNHits", "ClusterNHits", 9, 0.0, 9.0);
 		pHistNHits->GetXaxis()->SetTitle("NHits");
 		pHistNHits->GetXaxis()->SetRangeUser(0.0, 9.0);
 		pHistNHits->GetXaxis()->CenterLabels();
@@ -106,6 +160,21 @@ public:
 		//pLegend->AddEntry(pHistNHits, "GTP Clusters");
 		//pLegend->Draw();
 
+		pCanvas->GetCanvas()->cd(3)->cd(3);
+		pCanvas->GetCanvas()->cd(3)->cd(3)->SetLogy(1);
+		pHistLatency = new TH1F("ClusterLatency", "ClusterLatency", 1024, 0.0, 4.0*1024.0);
+		pHistLatency->GetXaxis()->SetTitle("Latency(ns)");
+		pHistLatency->GetXaxis()->SetRangeUser(0.0, 4096.0);
+		pHistLatency->GetYaxis()->SetTitle("Counts");
+		pHistLatency->GetYaxis()->CenterTitle();
+		pHistLatency->SetLineColor(kBlue);
+		//pHistLatency->SetStats(0);
+		pHistLatency->Draw();
+		//pLegend = new TLegend(0.8,0.8,0.9,0.9);
+		//pLegend->AddEntry(pHistLatency, "GTP Clusters");
+		//pLegend->Draw();
+
+		pCanvas->GetCanvas()->cd();
 		pCanvas->GetCanvas()->Modified();
 		pCanvas->GetCanvas()->Update();
 
@@ -155,6 +224,10 @@ public:
 
 		HpsScaler_Cosmic			= (volatile unsigned int *)((int)pM->BaseAddr + 0x0B2C);
 		HpsScaler_Led				= (volatile unsigned int *)((int)pM->BaseAddr + 0x0B1C);
+
+		Ti_reset						= (volatile unsigned int *)((int)0x00A80100);
+		Ti_LiveTime					= (volatile unsigned int *)((int)0x00A800A8);
+		Ti_BusyTime					= (volatile unsigned int *)((int)0x00A800AC);
 
 		inst++;
 	}
@@ -226,10 +299,8 @@ public:
 
 		pM->BlkReadReg32(HpsCluster_HistLatency, buf, 1024, CRATE_MSG_FLAGS_NOADRINC);
 		
-		pCanvas->GetCanvas()->cd(1);
+		pCanvas->GetCanvas()->cd(3)->cd(3);
 		pHistLatency->Reset();
-
-		pCanvas->GetCanvas()->SetLogy(1);
 
 		if(normalize)
 			pHistLatency->GetYaxis()->SetTitle("Hz");
@@ -238,16 +309,11 @@ public:
 		
 		for(int i = 0; i < 1024; i++)
 		{
-			if(normalize)
-			{
-				float val = (float)buf[i] * scale;
-				buf[i] = (int)val;
-			}
+			float val = (float)buf[i];
 
-			if(buf[i] > 0x80000000)
-				pHistLatency->Fill(4*i, 0x7FFFFFFF);
-			else
-				pHistLatency->Fill(4*i, buf[i]);
+			if(normalize) val *= scale;
+
+			pHistLatency->Fill(4*i, val);
 		}
 
 		pCanvas->GetCanvas()->Modified();
@@ -288,7 +354,7 @@ public:
         ttM.SetTextColor(kRed);
     }
 
-    unsigned int max=0;
+		float max=0.0;
 		
 		pM->BlkReadReg32(HpsCluster_HistPosition, buf, 1024, CRATE_MSG_FLAGS_NOADRINC);
 
@@ -296,22 +362,14 @@ public:
 		pHistPosition->SetMinimum(0);
 		pHistPosition->Reset();
 
-		pCanvas->GetCanvas()->SetLogz(1);
-
 		int x, y;
 		for(int i = 0; i < 1024; i++)
 		{
-			if(normalize)
-			{
-				float val = (float)buf[i] * scale;
-				buf[i] = (int)val;
-			}
+			float val = (float)buf[i];
 
-			if(buf[i] > max)
-				max = buf[i];
+			if(normalize) val *= scale;
 
-			if(buf[i] > 0x80000000)
-				buf[i] = 0x7FFFFFFF;
+			if(val > max) max = val;
 
 			x = (i>>0) & 0x3F;
 			y = (i>>6) & 0xF;
@@ -319,12 +377,10 @@ public:
 			if(x & 0x20) x |= 0xFFFFFFC0;
 			if(y & 0x08) y |= 0xFFFFFFF0;
 
-			if(y > 0)
-				rate_top += buf[i];
-			else
-				rate_bot += buf[i];
+			if(y > 0)	rate_top += val;
+			else			rate_bot += val;
 
-			pHistPosition->Fill(x, y, buf[i]);
+			pHistPosition->Fill(x, y, val);
 		}
 
     bb.DrawBox(-9+0.05,-1,0,1.97);
@@ -386,10 +442,8 @@ public:
 
 		pM->BlkReadReg32(HpsCluster_HistEnergy, buf, 1024, CRATE_MSG_FLAGS_NOADRINC);
 		
-		pCanvas->GetCanvas()->cd(3);
+		pCanvas->GetCanvas()->cd(3)->cd(1);
 		pHistEnergy->Reset();
-
-		pCanvas->GetCanvas()->SetLogy(1);
 
 		if(normalize)
 			pHistEnergy->GetYaxis()->SetTitle("Hz");
@@ -398,16 +452,11 @@ public:
 		
 		for(int i = 0; i < 1024; i++)
 		{
-			if(normalize)
-			{
-				float val = (float)buf[i] * scale;
-				buf[i] = (int)val;
-			}
+			float val = (float)buf[i];
 
-			if(buf[i] > 0x80000000)
-				pHistEnergy->Fill(8*i, 0x7FFFFFFF);
-			else
-				pHistEnergy->Fill(8*i, buf[i]);
+			if(normalize) val *= scale;
+
+			pHistEnergy->Fill(8*i, val);
 		}
 
 		pCanvas->GetCanvas()->Modified();
@@ -420,10 +469,8 @@ public:
 
 		pM->BlkReadReg32(HpsCluster_HistNHits, buf, 16, CRATE_MSG_FLAGS_NOADRINC);
 		
-		pCanvas->GetCanvas()->cd(4);
+		pCanvas->GetCanvas()->cd(3)->cd(2);
 		pHistNHits->Reset();
-
-		pCanvas->GetCanvas()->SetLogy(1);
 
 		if(normalize)
 			pHistNHits->GetYaxis()->SetTitle("Hz");
@@ -432,16 +479,11 @@ public:
 		
 		for(int i = 0; i < 16; i++)
 		{
-			if(normalize)
-			{
-				float val = (float)buf[i] * scale;
-				buf[i] = (int)val;
-			}
-			
-			if(buf[i] > 0x80000000)
-				pHistNHits->Fill(i, 0x7FFFFFFF);
-			else
-				pHistNHits->Fill(i, buf[i]);
+			float val = (float)buf[i];
+
+			if(normalize) val *= scale;
+
+			pHistNHits->Fill(i, val);
 		}
 
 		pCanvas->GetCanvas()->Modified();
@@ -450,56 +492,70 @@ public:
 
 	void UpdateScalers(Bool_t normalize)
 	{
-		float singles_pass[2], singles_tot[2];
-		float pairs_pass[2], pairs_sumpass[2], pairs_diffpass[2];
-		float pairs_edpass[2], pairs_coplanarpass[2], pairs_triggerpass[2];
-		float trig1, busy, busycycles, p2lvdsout[6], trigbusy[6];
-		float led, cosmic;
-		float ref, sysclk;
+		double singles_pass[2], singles_tot[2];
+		double pairs_pass[2], pairs_sumpass[2], pairs_diffpass[2];
+		double pairs_edpass[2], pairs_coplanarpass[2], pairs_triggerpass[2];
+		double trig1, busy, busycycles, p2lvdsout[6], trigbusy[6];
+		double led, cosmic;
+		double ref, sysclk;
+		static unsigned int ti_live_last = 0, ti_busy_last = 0;
+		unsigned int ti_live, ti_busy;
+		unsigned int ti_live_delta, ti_busy_delta;
+		double ti_dead_time;
 
+		pM->WriteReg32(Ti_reset, 1<<24);
+
+		ti_live = pM->ReadReg32(Ti_LiveTime);
+		ti_live_delta = ti_live - ti_live_last;
+		ti_live_last = ti_live;
+
+		ti_busy = pM->ReadReg32(Ti_BusyTime);
+		ti_busy_delta = ti_busy - ti_busy_last;
+		ti_busy_last = ti_busy;
+
+		ti_dead_time = 100.0 * ((double)ti_busy_delta) / ((double)(ti_busy_delta+ti_live_delta));
+		
 		pM->WriteReg32(HpsScaler_Disable, 1);
-		singles_pass[0] = (float)pM->ReadReg32(HpsSingles0_Pass);
-		singles_tot[0] = (float)pM->ReadReg32(HpsSingles0_Tot);
-		singles_pass[1] = (float)pM->ReadReg32(HpsSingles1_Pass);
-		singles_tot[1] = (float)pM->ReadReg32(HpsSingles1_Tot);
-		pairs_pass[0] = (float)pM->ReadReg32(HpsPairs0_Pass);
-		pairs_sumpass[0] = (float)pM->ReadReg32(HpsPairs0_SumPass);
-		pairs_diffpass[0] = (float)pM->ReadReg32(HpsPairs0_DiffPass);
-		pairs_edpass[0] = (float)pM->ReadReg32(HpsPairs0_EDPass);
-		pairs_coplanarpass[0] = (float)pM->ReadReg32(HpsPairs0_CoplanarPass);
-		pairs_triggerpass[0] = (float)pM->ReadReg32(HpsPairs0_TriggerPass);
-		pairs_pass[1] = (float)pM->ReadReg32(HpsPairs1_Pass);
-		pairs_sumpass[1] = (float)pM->ReadReg32(HpsPairs1_SumPass);
-		pairs_diffpass[1] = (float)pM->ReadReg32(HpsPairs1_DiffPass);
-		pairs_edpass[1] = (float)pM->ReadReg32(HpsPairs1_EDPass);
-		pairs_coplanarpass[1] = (float)pM->ReadReg32(HpsPairs1_CoplanarPass);
-		pairs_triggerpass[1] = (float)pM->ReadReg32(HpsPairs1_TriggerPass);
+		singles_pass[0] = (double)pM->ReadReg32(HpsSingles0_Pass);
+		singles_tot[0] = (double)pM->ReadReg32(HpsSingles0_Tot);
+		singles_pass[1] = (double)pM->ReadReg32(HpsSingles1_Pass);
+		singles_tot[1] = (double)pM->ReadReg32(HpsSingles1_Tot);
+		pairs_pass[0] = (double)pM->ReadReg32(HpsPairs0_Pass);
+		pairs_sumpass[0] = (double)pM->ReadReg32(HpsPairs0_SumPass);
+		pairs_diffpass[0] = (double)pM->ReadReg32(HpsPairs0_DiffPass);
+		pairs_edpass[0] = (double)pM->ReadReg32(HpsPairs0_EDPass);
+		pairs_coplanarpass[0] = (double)pM->ReadReg32(HpsPairs0_CoplanarPass);
+		pairs_triggerpass[0] = (double)pM->ReadReg32(HpsPairs0_TriggerPass);
+		pairs_pass[1] = (double)pM->ReadReg32(HpsPairs1_Pass);
+		pairs_sumpass[1] = (double)pM->ReadReg32(HpsPairs1_SumPass);
+		pairs_diffpass[1] = (double)pM->ReadReg32(HpsPairs1_DiffPass);
+		pairs_edpass[1] = (double)pM->ReadReg32(HpsPairs1_EDPass);
+		pairs_coplanarpass[1] = (double)pM->ReadReg32(HpsPairs1_CoplanarPass);
+		pairs_triggerpass[1] = (double)pM->ReadReg32(HpsPairs1_TriggerPass);
 		
-		trig1 = (float)pM->ReadReg32(HpsScaler_Trig1);
-		busy = (float)pM->ReadReg32(HpsScaler_Busy);
-		busycycles = (float)pM->ReadReg32(HpsScaler_BusyCycles);
-		p2lvdsout[0] = (float)pM->ReadReg32(HpsScaler_P2LVDSOut0);
-		p2lvdsout[1] = (float)pM->ReadReg32(HpsScaler_P2LVDSOut1);
-		p2lvdsout[2] = (float)pM->ReadReg32(HpsScaler_P2LVDSOut2);
-		p2lvdsout[3] = (float)pM->ReadReg32(HpsScaler_P2LVDSOut3);
-		p2lvdsout[4] = (float)pM->ReadReg32(HpsScaler_P2LVDSOut4);
-		p2lvdsout[5] = (float)pM->ReadReg32(HpsScaler_P2LVDSOut5);
-		trigbusy[0] = (float)pM->ReadReg32(HpsScaler_TrigBusy0);
-		trigbusy[1] = (float)pM->ReadReg32(HpsScaler_TrigBusy1);
-		trigbusy[2] = (float)pM->ReadReg32(HpsScaler_TrigBusy2);
-		trigbusy[3] = (float)pM->ReadReg32(HpsScaler_TrigBusy3);
-		trigbusy[4] = (float)pM->ReadReg32(HpsScaler_TrigBusy4);
-		trigbusy[5] = (float)pM->ReadReg32(HpsScaler_TrigBusy5);
+		trig1 = (double)pM->ReadReg32(HpsScaler_Trig1);
+		busy = (double)pM->ReadReg32(HpsScaler_Busy);
+		busycycles = (double)pM->ReadReg32(HpsScaler_BusyCycles);
+		p2lvdsout[0] = (double)pM->ReadReg32(HpsScaler_P2LVDSOut0);
+		p2lvdsout[1] = (double)pM->ReadReg32(HpsScaler_P2LVDSOut1);
+		p2lvdsout[2] = (double)pM->ReadReg32(HpsScaler_P2LVDSOut2);
+		p2lvdsout[3] = (double)pM->ReadReg32(HpsScaler_P2LVDSOut3);
+		p2lvdsout[4] = (double)pM->ReadReg32(HpsScaler_P2LVDSOut4);
+		p2lvdsout[5] = (double)pM->ReadReg32(HpsScaler_P2LVDSOut5);
+		trigbusy[0] = (double)pM->ReadReg32(HpsScaler_TrigBusy0);
+		trigbusy[1] = (double)pM->ReadReg32(HpsScaler_TrigBusy1);
+		trigbusy[2] = (double)pM->ReadReg32(HpsScaler_TrigBusy2);
+		trigbusy[3] = (double)pM->ReadReg32(HpsScaler_TrigBusy3);
+		trigbusy[4] = (double)pM->ReadReg32(HpsScaler_TrigBusy4);
+		trigbusy[5] = (double)pM->ReadReg32(HpsScaler_TrigBusy5);
 		
-		led = (float)pM->ReadReg32(HpsScaler_Led);
-		cosmic = (float)pM->ReadReg32(HpsScaler_Cosmic);
+		led = (double)pM->ReadReg32(HpsScaler_Led);
+		cosmic = (double)pM->ReadReg32(HpsScaler_Cosmic);
 	
-		sysclk = (float)pM->ReadReg32(HpsScaler_Sysclk50);
+		sysclk = (double)pM->ReadReg32(HpsScaler_Sysclk50);
 				
 		pM->WriteReg32(HpsScaler_Disable, 0);
 
-printf("busycycles=%f\n", busycycles);
-		
 		if(/*normalize && */(sysclk <= 0.0))
 		{
 			printf("Error: UpdateScalers() ref not valid - normalization will not be done\n");
@@ -507,7 +563,7 @@ printf("busycycles=%f\n", busycycles);
 		}
 		else
 		{
-			ref = 50.0E6 / sysclk;
+			ref = (50.0E6/501.0) / sysclk;
 
 			singles_pass[0] *= ref;
 			singles_tot[0] *= ref;
@@ -546,6 +602,40 @@ printf("busycycles=%f\n", busycycles);
 			cosmic *= ref;
 		}
 
+		pCanvas->GetCanvas()->cd(1);
+		pHistTriggerInfo->Reset();
+		pHistTriggerInfo->SetTitle(Form("Trigger Rate Info (DeadTime = %.1f%%)", ti_dead_time));
+
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_S0_TOTAL,			singles_tot[0]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_S0_PASS,			singles_pass[0]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_S0_TI,				p2lvdsout[0]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_S1_TOTAL,			singles_tot[1]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_S1_PASS,			singles_pass[1]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_S1_TI,				p2lvdsout[1]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P0_TOTAL, 		pairs_pass[0]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P0_SUMPASS, 		pairs_sumpass[0]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P0_DIFPASS,		pairs_diffpass[0]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P0_EDPASS,		pairs_edpass[0]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P0_COPPASS,		pairs_coplanarpass[0]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P0_PASS, 			pairs_triggerpass[0]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P0_TI,				p2lvdsout[2]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P1_TOTAL, 		pairs_pass[1]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P1_SUMPASS, 		pairs_sumpass[1]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P1_DIFPASS,		pairs_diffpass[1]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P1_EDPASS,		pairs_edpass[1]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P1_COPPASS,		pairs_coplanarpass[1]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P1_PASS, 			pairs_triggerpass[1]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_P1_TI,				p2lvdsout[3]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_LED,				led);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_COSMIC,			cosmic);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_LED_COSMIC_TI,	p2lvdsout[4]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_PULSER_TI,		p2lvdsout[5]);
+		pHistTriggerInfo->Fill(SSP_HPS_TRIG_INFO_L1A,				trig1);
+
+		pCanvas->GetCanvas()->Modified();
+		pCanvas->GetCanvas()->Update();
+
+/*
 		static bool called=0;
 
  		static TPaveText tt_col0(0.0,0.0,0.1,1.0,"NDC");
@@ -698,6 +788,7 @@ printf("busycycles=%f\n", busycycles);
 
 		pCanvasRates->GetCanvas()->Modified();
 		pCanvasRates->GetCanvas()->Update();
+*/
 	}
 
 	void UpdateHistogram(Bool_t bReadout = kTRUE)
@@ -783,6 +874,10 @@ private:
 	volatile unsigned int	*HpsScaler_TrigBusy5;
 	volatile unsigned int	*HpsScaler_Cosmic;
 	volatile unsigned int	*HpsScaler_Led;
+
+	volatile unsigned int	*Ti_LiveTime;
+	volatile unsigned int	*Ti_BusyTime;
+	volatile unsigned int	*Ti_reset;
 	
 	ModuleFrame				*pM;
 
@@ -791,10 +886,11 @@ private:
 	TRootEmbeddedCanvas	*pCanvas;
 	TRootEmbeddedCanvas	*pCanvasRates;
 
-	TH1I						*pHistLatency;
-	TH2I						*pHistPosition;
-	TH1I						*pHistEnergy;
-	TH1I						*pHistNHits;
+	TH1F						*pHistLatency;
+	TH2F						*pHistPosition;
+	TH1F						*pHistEnergy;
+	TH1F						*pHistNHits;
+	TH1F						*pHistTriggerInfo;
 
 	TGSlider					*pSliderUpdateTime;
 

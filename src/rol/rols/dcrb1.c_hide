@@ -492,11 +492,6 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 
   CEOPEN(EVTYPE, BT_BANKS);
 
-#ifdef USE_BOS
-  jw = rol->dabufp; 
-  jw[-2] = 1;
-#endif
-
   if((syncFlag<0)||(syncFlag>1))         /* illegal */
   {
     printf("Illegal1: syncFlag=%d EVTYPE=%d\n",syncFlag,EVTYPE);
@@ -519,16 +514,6 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   else           /* physics and physics_sync events */
   {
 
-
-#ifdef USE_BOS
-    /* for EVIO format, will dump raw data */
-    if((ind = bosMopen_(jw, rcname, 0, 1, 0)) <=0)
-    {
-      printf("bosMopen_ Error: %d\n",ind);
-    }
-    rol->dabufp += NHEAD;
-#endif
-
     tdcbuf_save = tdcbuf;
 
     /*************/
@@ -544,13 +529,16 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
     {
       printf("TIreadout : No data or error, len = %d\n",len);
     }
-#ifdef DEBUG
     else
     {
+#ifdef DEBUG
       printf("ti: len=%d\n",len);
       for(jj=0; jj<len; jj++) printf("ti[%2d] 0x%08x %d\n",jj,LSWAP(tdcbuf[jj]),LSWAP(tdcbuf[jj]));
-    }
 #endif
+      BANKOPEN(0xe10A,1,rol->pid);
+      for(jj=0; jj<len; jj++) *rol->dabufp++ = tdcbuf[jj];
+	  BANKCLOSE;
+    }
 
     /* Turn off all output ports
     tiSetOutputPort(0,0,0,0);
@@ -765,6 +753,10 @@ TIMERL_START;
 #endif
 
 
+
+
+
+
     /* Configure Block Type... temp fix for 2eSST trouble with token passing */
     tdcbuf = tdcbuf_save;
     dCnt=0;
@@ -773,7 +765,6 @@ TIMERL_START;
 
 
 
-/*COMMENT OUT FOLLOWING 'FOR' LOOP FOR SPEED UP !!!*/
       for(itime=0; itime<100000; itime++) 
 	  {
 	    gbready = dcGBready();
@@ -888,44 +879,6 @@ TIMERL_START;
 TIMERL_STOP(100000,1000+rol->pid);
 #endif
 
-
-
-#ifdef USE_BOS
-    blen = rol->dabufp - (int *)&jw[ind+1];
-#ifdef DEBUG
-    printf("rol1trig: len=%d\n",blen);
-#endif
-    if(blen == 0) /* no data - return pointer to the initial position */
-    {
-      rol->dabufp -= NHEAD;
-	  /* NEED TO CLOSE BANK !!?? */
-    }
-    else if(blen >= (MAX_EVENT_LENGTH/4))
-    {
-      logMsg("1ERROR: event too long, blen=%d, ind=%d\n",blen,ind,0,0,0,0);
-      logMsg(": %d %d 0x%x 0x%x\n",blen,ind,dabufp1,dabufp2,0,0);
-      tsleep(1); /* 1 = 0.01 sec */
-    }
-    else if(bosMclose_(jw,ind,1,blen) <= 0)
-    {
-      logMsg("2ERROR in bosMclose_ - space is not enough !!!\n",1,2,3,4,5,6);
-    }
-
-
-    /* for physics sync event, make sure all board buffers are empty */
-    if(syncFlag==1)
-    {
-      int scan_flag = 0;
-      unsigned short slot, nev16;
-
-	  /*
-	  if(scan_flag) logMsg("SYNC: scan_flag=0x%08x\n",scan_flag,2,3,4,5,6);
-	  */
-      ind2 = bosMopen_(jw,"PTRN",rol->pid,1,1);
-      jw[ind2+1] = SYNC_FLAG + scan_flag;
-      rol->dabufp += bosMclose_(jw,ind2,1,1);
-    }
-#endif
 
   }
 

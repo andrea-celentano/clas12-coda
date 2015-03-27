@@ -29,9 +29,10 @@ $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
 	./$(OSTYPE_MACHINE)/rol/fadc1_master.so \
 	./$(OSTYPE_MACHINE)/rol/fadc1_slave.so \
 	./$(OSTYPE_MACHINE)/rol/fadc1_1182.so \
-	./$(OSTYPE_MACHINE)/rol/dcrb1_master.so \
-	./$(OSTYPE_MACHINE)/rol/dcrb1_slave.so \
-	./$(OSTYPE_MACHINE)/rol/urol2_tt_testsetup.so
+	./$(OSTYPE_MACHINE)/rol/urol2_tt_testsetup.so 
+
+#	./$(OSTYPE_MACHINE)/rol/dcrb1_master.so \
+#	./$(OSTYPE_MACHINE)/rol/dcrb1_slave.so \
 
 
 ./$(OSTYPE_MACHINE)/rol/hps1_master.o : rols/hps1.c
@@ -102,7 +103,7 @@ ifeq ("$(OSTYPE)","VXWORKS")
   LIBNAMES +=
 else ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
   CLON_FLAGS += -I$(CODA)/Linux_armv7l/include
-  LIBNAMES +=
+  LIBNAMES += -lrt
 else ifeq ("$(OSTYPE_MACHINE)","Linux_nios2")
   CLON_FLAGS += -I$(CODA)/Linux_nios2/include
   LIBNAMES +=

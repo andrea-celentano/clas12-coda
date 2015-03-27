@@ -9,8 +9,17 @@ if ($1 == start) then
 #    echo "   alarm_browser disabled 1: sergey"
 #    echo ""
 
-# crashes on sparc clons, will run on clon04
-  ssh -n clon04 "(setenv DISPLAY clon03:0.2; alarm_browser -a $2 -u alarm_browser) >>& $CLON_LOG/run_log/alarm_browser.log &" &
+# run on CLON_DAQ but display on clonpc's
+##  ssh -n $CLON_DAQ "(setenv DISPLAY clonpc0:0.0; alarm_browser -a $2 -u alarm_browser) >>& $CLON_LOG/run_log/alarm_browser.log &" &
+
+#works
+#  alarm_browser -a $2 -u alarm_browser >>& $CLON_LOG/run_log/alarm_browser.log &
+
+  alarm_browser -a $2 -u alarm_browser >>& $CLON_LOG/run_log/alarm_browser.log &
+
+
+
+
 
 else if ($1 == stop) then
 

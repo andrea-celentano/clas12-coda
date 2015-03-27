@@ -65,15 +65,15 @@ public:
 			if(mode & TRACE_MODE_ANALOG)
 			{
 				for(int i = 0; i < sampleLen; i++)
-					pTraceData[i] = 100.0*r.Rndm();	// noise
+					pTraceData[i] = (int)(100.0*r.Rndm());	// noise
 
-				int n = 10.0*r.Rndm();	// number of pulses to generate
+				int n = (int)(10.0*r.Rndm());	// number of pulses to generate
 				while(n--)
 				{
 					double amp = 200.0*r.Rndm();	// pulse height
-					int t = sampleLen*r.Rndm();
+					int t = (int)(sampleLen*r.Rndm());
 					for(int i = 0; i < (sampleLen-t); i++)
-						pTraceData[t+i] += (double)i*amp*TMath::Exp(-(double)i/20.0);
+						pTraceData[t+i] += (int)((double)i*amp*TMath::Exp(-(double)i/20.0));
 				}
 
 				for(int i = 0; i < sampleLen; i++)
@@ -94,11 +94,11 @@ public:
 
 				for(int i = 0; i < bitCount; i++)
 				{
-					int n = 10.0*r.Rndm();	// number of pulses to generate
+					int n = (int)(10.0*r.Rndm());	// number of pulses to generate
 					while(n--)
 					{
-						int t = sampleLen*r.Rndm();
-						int w = 20.0*r.Rndm();
+						int t = (int)(sampleLen*r.Rndm());
+						int w = (int)(20.0*r.Rndm());
 						int p = t+w;
 						while(w--)
 						{
@@ -154,7 +154,7 @@ public:
 				w = SCOPE_PIXELS_PER_BIT;
 				h = ((double)pTraceData[i]-min)*scale+1.0;
 				x = i*SCOPE_PIXELS_PER_BIT;
-				y = GetHeight()-h;
+				y = GetHeight()-(int)h;
 				gc->SetForeground(0x008000);
 				gVirtualX->FillRectangle(fId, gc->GetGC(),x,y,w,(int)h);
 				gc->SetForeground(0x00F000);
@@ -658,7 +658,7 @@ public:
 //			printf("\n");
 			for(j = 0; j < ScopeConfig.sampleLen; j++)
 			{
-				int maskval;
+				int maskval = 0;
 
 				if( (ScopeConfig.traceDesc[i].mode & TRACE_MODE_MASK0) || (ScopeConfig.traceDesc[i].mode & TRACE_MODE_MASK1) )
 //				{

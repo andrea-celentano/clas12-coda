@@ -67,6 +67,7 @@ static int iTaskUDP;
 
 /* udp */
 static int udp_loop_exit;
+static int udp_loop_ready;
 static int udpsocket;
 static int udpport;
 static char udphost[128];
@@ -270,7 +271,65 @@ checkHeartBeats()
 /*******************************************************/
 /*******************************************************/
 
+/* read whole text file */
+char *
+loadwholefile(char *file, int *size)
+{
+  FILE *fp;
+  int res, nbytes;
+  char *buffer;
 
+  fp = fopen(file,"rb");
+  if(!fp)
+  {
+    printf("loadwholefile: error opening file\n");
+	return(NULL);
+  }
+
+  /* obtain the value of the file position indicator in the end of file */
+  fseek(fp,0L,SEEK_END);
+  nbytes = ftell(fp);
+  rewind(fp);
+
+  /* allocate memory for entire content */
+  buffer = calloc(1,nbytes+5);
+  if(!buffer)
+  {
+    fclose(fp);
+    printf("loadwholefile: memory alloc fails\n");
+    return(NULL);
+  }
+
+  /* fill end of buffer with \004 */
+  buffer[nbytes-2] = '\n';
+  buffer[nbytes-1] = '\n';
+  buffer[nbytes+0] = '\n';
+  buffer[nbytes+1] = '\n';
+  buffer[nbytes+2] = '\n';
+  buffer[nbytes+3] = '\n';
+  buffer[nbytes+4] = '\n';
+
+  /* copy the file into the buffer */
+  res = fread(buffer,nbytes,1,fp);
+  if(res != 1)
+  {
+    fclose(fp);
+    free(buffer);
+    printf("loadwholefile: entire read fails, res=%d\n",res);
+    return(NULL);
+  }
+
+  /* buffer is a string contains the whole text */
+  *size = (nbytes+4)/4; /* align to 4-byte boundary and return #words */
+  fclose(fp);
+
+  printf("loadwholefile: nbytes=%d, *size=%d\n",nbytes,*size);
+
+  return(buffer);
+}
+
+
+/*******************************************************/
 
 /* routine to dynamically load and unload readout list */
 
@@ -1620,14 +1679,31 @@ codaUpdateStatus(char *status)
     exit(0);
   }
 printf("codaUpdateStatus: dbConnect done\n");fflush(stdout);
+
+/* update state in 'process' table */
   sprintf(tmp,"UPDATE process SET state='%s' WHERE name='%s'",
     status,localobject->name);
-  printf("codaUpdateStatus: >%s<\n",tmp);
+  printf("codaUpdateStatus(table 'process'): >%s<\n",tmp);
   if(mysql_query(dbsock, tmp) != 0)
   {
-    printf("codaUpdateStatus: ERROR\n");
+    printf("codaUpdateStatus(table 'process'): ERROR\n");
     return(CODA_ERROR);
   }
+
+  /* if we are Event Builder, update 'log_name' in 'sessions' table,
+    use it to keep 'state' for external user's information */
+  if(!strcmp(localobject->className,"CDEB"))
+  {
+    sprintf(tmp,"UPDATE sessions SET log_name='%s' WHERE name='%s'",
+      status,session);
+    printf("codaUpdateStatus(table 'sessions'): >%s<\n",tmp);
+    if(mysql_query(dbsock, tmp) != 0)
+    {
+      printf("codaUpdateStatus(table 'sessions'): ERROR\n");
+      /*return(CODA_ERROR);*/
+    }
+  }
+
 printf("codaUpdateStatus: dbDisconnecting ..\n");fflush(stdout);
   dbDisconnect(dbsock);
 printf("codaUpdateStatus: dbDisconnect done\n");fflush(stdout);
@@ -1655,14 +1731,16 @@ UDP_loop()
   prctl(PR_SET_NAME,"coda_udp");
 #endif
 
+  udpsocket = UDP_establish(udphost, udpport);
+  printf("udpsocket=%d\n",udpsocket);
+
   printf("UDP_loop started\n");fflush(stdout);
   printf("UDP_loop started\n");fflush(stdout);
   printf("UDP_loop started\n");fflush(stdout);
   printf("UDP_loop started\n");fflush(stdout);
   printf("UDP_loop started\n");fflush(stdout);
 
-  udpsocket = UDP_establish(udphost, udpport);
-  printf("udpsocket=%d\n",udpsocket);
+  udp_loop_ready = 1;
 
   /* initialize heartbeats */
   resetHeartBeats();
@@ -1703,6 +1781,11 @@ UDP_start()
   printf("111\n");fflush(stdout);
 
   dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  if(dbsock==NULL)
+  {
+    printf("UDP_start: cannot connect to the database - exit\n");
+    exit(0);
+  }
 
   printf("112\n");fflush(stdout);
   sprintf(tmpp,"SELECT host FROM process WHERE name='%s'",session);
@@ -1725,11 +1808,12 @@ UDP_start()
   if(udp_loop_exit != -1)
   {
     udp_loop_exit = 1;
+    printf("UDP_start: exiting udp_loop\n");
 
     ii = 6;
     while(udp_loop_exit)
     {
-      printf("download: wait for udp_loop to exit ..\n");
+      printf("UDP_start: wait for udp_loop to exit ..\n");
       sleep(1);
       ii --;
       if(ii<0) break;
@@ -1737,7 +1821,7 @@ UDP_start()
 
     if(ii<0)
 	{
-      printf("WARN: cannot exit udp_loop gracefully, will kill it\n");
+      printf("UDP_start: WARN: cannot exit udp_loop gracefully, will kill it\n");
       /* TODO: delete udp_loop thread */
       sleep(1);
       udp_loop_exit = 0; /* to let new UDP_LOOP to start */
@@ -1750,6 +1834,7 @@ UDP_start()
 
 
   {
+    int iii;
     int res;
     pthread_t thread1;
     pthread_attr_t detached_attr;
@@ -1758,11 +1843,35 @@ UDP_start()
     pthread_attr_setdetachstate(&detached_attr, PTHREAD_CREATE_DETACHED);
     pthread_attr_setscope(&detached_attr, PTHREAD_SCOPE_SYSTEM);
 
+
+    udp_loop_ready = 0;
+    iii = 10;
+
     res = pthread_create( (unsigned int *) &thread1, &detached_attr,
 		   (void *(*)(void *)) UDP_loop, (void *) NULL);
 
-    printf("pthread_create returned %d\n",res);fflush(stdout);
-    perror("pthread_create");
+    printf("UDP_start: pthread_create returned %d\n",res);fflush(stdout);
+    perror("UDP_start: pthread_create");
+
+
+    while((udp_loop_ready==0) && (iii>0))
+	{
+      printf("UDP_start: waiting for udp_loop to start %d sec ...\n",iii);
+      sleep(1);
+      iii --;
+	}
+
+    if(udp_loop_ready) printf("UDP_start: udp_loop started\n");
+    else
+	{
+      printf("FATAL ERROR: UDP_start: udp_loop could not start !!!!!!!!!!!!\n");
+      printf("FATAL ERROR: UDP_start: udp_loop could not start !!!!!!!!!!!!\n");
+      printf("FATAL ERROR: UDP_start: udp_loop could not start !!!!!!!!!!!!\n");
+      printf("FATAL ERROR: UDP_start: udp_loop could not start !!!!!!!!!!!!\n");
+      printf("FATAL ERROR: UDP_start: udp_loop could not start !!!!!!!!!!!!\n");
+      return(-1);
+	}
+
   }
 
   return(0);
@@ -2232,6 +2341,7 @@ gethrtimetest()
 /**************************************************************************/
 
 /* following messages must be recognized:
+ init
  download
  prestart
  end
@@ -2246,6 +2356,7 @@ gethrtimetest()
      ./tcpClient EB5 'download test_ts2'
 */
 
+int codaInit(char *confname);
 int codaDownload(char *confname);
 int codaPrestart();
 int codaGo();
@@ -2297,7 +2408,28 @@ codaExecute(char *command)
   len = strlen(message);
   printf("codaExecute reached, message >%s<, len=%d\n",message,len);
 
-  if( !strncmp(message, "download", 8) )
+
+
+
+
+  if( !strncmp(message, "configure", 9) )
+  {
+    printf("codaExecute: 'configure' transition\n");
+
+    len1 = strlen("configure");
+    len = strlen(message);
+    for(i=len1; i<len; i++)
+    {
+      j = i;
+      if(message[j]!=' ') break; /* remove leading spaces */
+    }
+    strcpy(confname,(char *)&message[j]);
+    len = strlen(confname);
+    printf("--> confname >%s<, len=%d\n",confname,len);
+
+    codaInit(confname);
+  }
+  else if( !strncmp(message, "download", 8) )
   {
     printf("codaExecute: 'download' transition\n");
 

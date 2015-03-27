@@ -23,25 +23,28 @@
 */
 
 int
-main()
+main(int argc,char* argv[])
 {
   char *txt = "/usr/clas12/release/0.2/parms/trigger/clasdev.cnf";
+
+  if (argc>1) sprintf(txt,"%s",argv[1]);
+  printf(stderr,txt);//"\nReading %s ....\n\n",txt);
 
   fadc250Config(txt);
   tdc1190Config(txt);
   tiConfig(txt);
   dsc2Config(txt);
   sspConfig(txt);
-  /*gtpConfig(txt);*/
+  /*gtpConfig(txt); NIOS only*/
 
   exit(0);
 }
 
 #else
 
-main()
+main(int argc,char* argv[])
 {
-  return;
+  exit(0);
 }
 
 #endif

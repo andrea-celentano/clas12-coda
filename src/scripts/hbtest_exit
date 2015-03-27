@@ -15,8 +15,8 @@ endif
 echo " Stop ROCs"
 
 
-set aaa = `ssh -n hbtest3 ps -ef | grep coda_roc | awk '{print $2}'`
-ssh -n hbtest3 kill -9 $aaa
+set aaa = `ssh -n highbtest3 ps -ef | grep coda_roc | awk '{print $2}'`
+ssh -n highbtest3 kill -9 $aaa
 
 
 

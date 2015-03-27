@@ -40,8 +40,8 @@ daqTarget::daqTarget (char *title)
  prevState_ (CODA_DORMANT), status_ (CODA_SUCCESS), 
  overrideState_ (CODA_DISCONNECTED)
 {
-#ifdef _TRACE_OBEJCTS
-  printf ("    Create daqTarget class object\n");
+#ifdef _TRACE_OBJECTS
+  printf ("daqTarget::daqTarget: Create daqTarget class object\n");
 #endif
   // empty
   prevtime_ = time(0);
@@ -55,6 +55,7 @@ daqTarget::~daqTarget (void)
   // empty
 }
 
+/* called by portHandler every time message 'STA:' from particular component arrives */
 void
 daqTarget::setState (int newst)
 {
@@ -75,18 +76,20 @@ daqTarget::state (void)
 {
   if (time(0)	> prevtime_ + 30)
   {
-	printf("timeout checking state for %s\n",title_);
+	//printf("timeout checking state for %s\n",title_);
 	state_ = CODA_DISCONNECTED;
   }
+  //printf("daqTarget::state: state of %s is %d\n",title_, state_);
   return state_;
 }
 
 int
 daqTarget::state2 (void)
 {
-    if (time(0)	> prevtime_ + 30) {
-	  state_ = CODA_DISCONNECTED;
-	}
+  if (time(0)	> prevtime_ + 30)
+  {
+	state_ = CODA_DISCONNECTED;
+  }
   return state_;
 }
 

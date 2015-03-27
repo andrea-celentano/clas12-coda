@@ -125,10 +125,10 @@ public:
 
 		for(i = 0; i < 96; i++)
 		{
-			pHistThresholdHits[i]->SetBins(4*(1+maxThreshold-minThreshold), minThreshold, maxThreshold);
+			pHistThresholdHits[i]->SetBins(4*(int)(1.0+maxThreshold-minThreshold), minThreshold, maxThreshold);
 			pHistThresholdHits[i]->Clear();
 
-			pHistThresholdHitsDerivative[i]->SetBins(4*(1+maxThreshold-minThreshold), minThreshold, maxThreshold);;
+			pHistThresholdHitsDerivative[i]->SetBins(4*(int)(1.0+maxThreshold-minThreshold), minThreshold, maxThreshold);;
 			pHistThresholdHitsDerivative[i]->Clear();
 
 			pFuncThresholdHitsFit[i]->SetRange(minThreshold, maxThreshold);

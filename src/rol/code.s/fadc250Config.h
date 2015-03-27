@@ -31,7 +31,8 @@ typedef struct {
   unsigned int trigMask;
   unsigned int thr[NCHAN];
   unsigned int dac[NCHAN];
-  unsigned int ped[NCHAN];
+  float        ped[NCHAN];
+  unsigned int thrIgnoreMask;
   float gain[NCHAN];
 
 } FADC250_CONF;

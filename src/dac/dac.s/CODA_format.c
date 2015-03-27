@@ -23,10 +23,18 @@
 #include <stdio.h>
 #include <pthread.h>
 
+#include "da.h"
 #include "CODA_format.h"
 #include "circbuf.h"
 
+#define SOFT_TRIG_FIX \
+  /*printf("befor: desc->type=%d\n",desc->type);*/ \
+  if(desc->type==253) desc->type=0x3D; \
+  if(desc->type==254) desc->type=0x3E; \
+  /*printf("after: desc->type=%d\n",desc->type)*/
 
+
+extern char confFile[256]; /* defined in coda_ebc.c */
 
 /****************************************************************************************************/
 /* _decode_ functions decodes input banks headers and bump 'dabufp' pointers to the first data word */
@@ -39,13 +47,19 @@ CODA_decode_frag(unsigned long **datap, evDesc desc)
   desc->length = ((*datap)[0] - 1) << 2;
   desc->evnb   = (*datap)[1] & 0xff;
   desc->type   = ((*datap)[1] >> 16) & 0x00ff;
+  SOFT_TRIG_FIX;
   desc->fragments[0] = &(*datap)[2];
   desc->bankTag[0] = desc->rocid;
   desc->fragLen[0] = desc->length;
   desc->soe = *datap; /* remember start of event */
 
-  desc->user[2] = ((*datap)[1] >> 8) & 0x3f; /*sergey: store contentType*/
-
+  /* desc->user[2] = ((*datap)[1] >> 8) & 0x3f; sergey: store contentType*/
+  desc->user[2] = ((*datap)[1] >> 8) & 0xff; /*sergey: store timestamp*/
+  desc->user[3] = (((*datap)[1] >> 24) & 0x1) << 6; /*sergey: store syncFlag in bit 6*/
+  /*  
+  if(desc->user[3]) printf("CODA_decode_frag: syncFlag detected (0x%08x), event nuber %d type 0x%08x\n",
+						   desc->user[3],desc->evnb,desc->type);
+  */
   *datap += 2; /* CODA headers are two words */
 
   /* ??? fragment headers have a variable format and are hard to 
@@ -83,6 +97,7 @@ CODA_decode_spec(unsigned long **datap, evDesc desc)
 
   desc->length = ((*datap)[0] - 1) << 2;
   desc->type  = ((*datap)[1] >> 16) & 0x00ff;
+  SOFT_TRIG_FIX;
   marker = (*datap)[1] & 0xffff;
   desc->time = (*datap)[2];
 
@@ -94,7 +109,7 @@ desc->soe = *datap;
 
   switch(desc->type)
   {
-    case 16:
+    case EV_SYNC:
     {
       desc->syncev = (*datap)[3];
       desc->evnb = (*datap)[4];
@@ -102,7 +117,7 @@ desc->soe = *datap;
       break;
     }
  
-    case 17: 
+    case EV_PRESTART: 
     {
       desc->runnb = (*datap)[3];
       desc->runty = (*datap)[4];
@@ -126,78 +141,6 @@ desc->soe = *datap;
     return(ERROR);
   }  
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*NOT IN USE, MAY NEED LATER*/
-int 
-hide_CODA_decode_head(unsigned long **datap, evDesc desc)
-{
-  unsigned long marker;
-
-  /* The only usefull data here are the total event length and type */
-
-  desc->type   = ((*datap)[1] >> 16 ) & 0x00ff;
-
-  desc->length = ((*datap)[0] - 1) << 2;
-  marker = (*datap)[1] & 0xffff;
-
-  /* CODA headers are two long words */
-
-  *datap += 2;
-
-  /* CODA event header must have 0x10CC as low 16-bits */
-
-  if ( marker == 0x10CC )
-  {
-    return(OK);
-  }
-  else
-  {
-    return(ERROR);
-  }
-}
-
-/*NOT IN USE, MAY NEED LATER*/
-int 
-hide_CODA_decode_desc(unsigned long **datap, evDesc desc)
-{
-  unsigned long marker;
-
-  /* CODA event lengths are "non inclusive" i.e. don't include
-     the length itself */
-
-  marker = (*datap)[1];
-  desc->evnb = (*datap)[2];
- 
-  desc->type = (*datap)[3];
-  desc->err[1] = (*datap)[4];
-
-  *datap += 5;
-
-  if ( marker == 0xC0000100 ) {
-    return OK;
-  } else {
-    return ERROR;
-  }  
-}
-
-
-
-
-
-
-
 
 
 
@@ -245,32 +188,42 @@ CODA_reserv_frag(unsigned long **datap, evDesc desc)
 
 
 
-
-
-
-
-#define NEWNEW
-
-
 /*****************************************************************/
 /* _encode_ functions ... */
+
+
+/*
+create two banks for special event, for example:
+
+     <event format="evio" count="2" content="bank" data_type="0x10" tag="18" padding="0" num="204" length="7" ndata="5">
+        <bank content="uint32" data_type="0x1" tag="18" padding="0" num="204" length="5" ndata="3">
+               0x54efcc10              0              0 
+        </bank>
+     </event>
+
+ */
 
 int 
 CODA_encode_spec(unsigned long **datap, evDesc desc)
 {
-  int ii, nw;
+  int len, ii, nw, *ptr;
+  char *chbuf;
+  int len_in_words;
 
-#ifdef NEWNEW
-
+#ifdef RESTORE_OLD_SPEC_EVENT_CODING
+  (*datap)[1] = 0x10CC | ((desc->type & 0x7F) << 16);
+  (*datap)[3] = 0x01CC | ((desc->type & 0x7F) << 16);
+#else
   (*datap)[1] = 0x10CC | ((desc->type & 0x00ff) << 16);
-
   (*datap)[3] = 0x01CC | (desc->type << 16);
+#endif
+
   (*datap)[4] = desc->time;
 
 
   switch(desc->type)
   {
-    case 16:
+    case EV_SYNC:
     {
       (*datap)[2] = 5;
       (*datap)[5] = desc->syncev;
@@ -282,7 +235,7 @@ CODA_encode_spec(unsigned long **datap, evDesc desc)
       break;
     }
  
-    case 17: 
+    case EV_PRESTART: 
     {
 
       (*datap)[2] = 4;
@@ -292,21 +245,50 @@ CODA_encode_spec(unsigned long **datap, evDesc desc)
       (*datap)[0] = (*datap)[2] + 2;
 
 
-	  /* extra data in prestart bank (usually run config file contents */
+
+#define INSERT_CONFIG_FILE
+
+
+#ifdef INSERT_CONFIG_FILE
+
+      printf("confFile >%s<\n",confFile);
+      if( strncmp(confFile,"none",4) && strncmp(confFile,"NONE",4) )
+      {
+	    chbuf = loadwholefile(confFile, &len_in_words);
+        if(chbuf == NULL)
+	    {
+          printf("ERROR: coda_roc: cannot read conffile - does not insert it into data stream !!!\n");
+	    }
+        else
+	    {
+          /* bank header */
+          (*datap)[7] = len_in_words + 1;
+          (*datap)[8] = 0xe10E0300; /* bank tag '0xe100E', bank type is 'char', bank number is '0' */
+          /* bank data */
+          ptr = (int *)chbuf;
+          for(ii=0; ii<len_in_words; ii++) (*datap)[9+ii] = ptr[ii];
+          free(chbuf);
+          (*datap)[0] += (len_in_words + 2);
+	    }
+      }
+
+
+#endif
+
+	  /* extra data in prestart bank (usually run config file contents 
+	  printf("!!!!!!!! CODA_encode_spec: desc->length=%d\n",desc->length);
 	  if(desc->length > 12)
 	  {
         nw = ((desc->length-12)>>2);
 
         (*datap)[7] = nw + 1;
-        (*datap)[8] = 0x0300; /* bank type is 'char', bank number is '0' */
+        (*datap)[8] = 0x0300;
         for(ii=0; ii<nw; ii++) (*datap)[9+ii] = desc->soe[5+ii];
 
-        (*datap)[0] += nw+2;
+        (*datap)[0] += nw + 2;
 
 	  }
-
-
-
+*/
 
       break;
     }
@@ -323,53 +305,21 @@ CODA_encode_spec(unsigned long **datap, evDesc desc)
     }
   }
 
-
-
   desc->length = ((*datap)[0] + 1)<<2;
   *datap += ((*datap)[0] + 1);
-
-
-#else
-
-  (*datap)[1] = 0x01CC | (desc->type << 16);
-  (*datap)[2] = desc->time;
-
-
-  switch(desc->type)
-  {
-    case 16:
-    {
-      (*datap)[0] = 5;
-      (*datap)[3] = desc->syncev;
-      (*datap)[4] = desc->evnb;
-      (*datap)[5] = desc->err[1];
-      break;
-    }
- 
-    case 17: 
-    {
-      (*datap)[0] = 4;
-      (*datap)[3] = desc->runnb;
-      (*datap)[4] = desc->runty;
-      break;
-    }
-
-    default: 
-    {
-      (*datap)[0] = 4;
-      (*datap)[3] = 0;
-      (*datap)[4] = desc->evnb;
-      break;
-    }
-  }
-
-  desc->length = ((*datap)[0] + 1)<<2;
-  *datap += ((*datap)[0] + 1);
-
-#endif
-
 }
 
+
+
+
+
+
+/*
+create bank-of-banks header for every fragment (one fragment corresponds to one roc), for example:
+
+     <bank content="bank" data_type="0xe" tag="51" padding="0" num="1" length="7752" ndata="7750">
+
+*/
 int 
 CODA_encode_frag(unsigned long **datap, evDesc desc)
 {
@@ -377,7 +327,7 @@ CODA_encode_frag(unsigned long **datap, evDesc desc)
      the length itself */
 
   desc->frag_start[0] = *datap - desc->frag_start - 1;
-  desc->frag_start[1] = ((desc->rocid & 0xffff) << 16) | (desc->evnb & 0xff) | /*0x0100 sergey:*/(desc->user[2]<<8);
+  desc->frag_start[1] = ((desc->rocid & 0xffff) << 16) | 0x0e00 | (desc->evnb & 0xff);
   /*printf("CODA_encode_frag: 0x%08x %x\n",desc->frag_start[1],desc->user[2]);*/
 }
 
@@ -392,6 +342,39 @@ CODA_encode_frag(unsigned long **datap, evDesc desc)
 
 
 
+
+
+/*
+     <event format="evio" count="3" content="bank" data_type="0x10" tag="253" padding="0" num="204" length="10520" ndata="10518">
+ */
+int
+CODA_encode_head(unsigned long **datap, evDesc desc)
+{
+  /* CODA event lengths are "non inclusive" i.e. don't include
+     the length itself */
+
+  desc->head_start[0] = *datap - desc->head_start - 1;
+#ifdef RESTORE_OLD_SPEC_EVENT_CODING
+  desc->head_start[1] = 0x10CC | (( (desc->type & 0x007f) | 0x80 | desc->user[3]) << 16);
+  /*
+  if(desc->user[3]) printf("CODA_encode_head: syncFlag detected (0x%08x), desc->head_start[1] = 0x%08x\n",
+						   desc->user[3],desc->head_start[1]);
+  */
+#else
+  desc->head_start[1] = 0x10CC | ((desc->type & 0x00ff) << 16);
+#endif
+  desc->length = (*datap - desc->head_start)<<2;
+}
+
+
+
+
+
+/*
+   <bank content="uint32" data_type="0x1" tag="49152" padding="0" num="0" length="5" ndata="3">
+                 0x1           0x41              0 
+   </bank>  
+*/
 int
 CODA_encode_desc(unsigned long **datap, evDesc desc)
 {
@@ -401,19 +384,16 @@ CODA_encode_desc(unsigned long **datap, evDesc desc)
   desc->desc_start[0] = 4;
   desc->desc_start[1] = 0xC0000100;
   desc->desc_start[2] = desc->evnb;
+#ifdef RESTORE_OLD_SPEC_EVENT_CODING
+  desc->desc_start[3] = desc->type | 0x80 | desc->user[3];
+  /*
+  if(desc->user[3]) printf("CODA_encode_desc: syncFlag detected (0x%08x), desc->desc_start[3] = 0x%08x\n",
+						   desc->user[3],desc->desc_start[3]);
+  */
+#else
   desc->desc_start[3] = desc->type;
+#endif
   desc->desc_start[4] = desc->err[1];
-}
-
-int
-CODA_encode_head(unsigned long **datap, evDesc desc)
-{
-  /* CODA event lengths are "non inclusive" i.e. don't include
-     the length itself */
-
-  desc->head_start[0] = *datap - desc->head_start - 1;
-  desc->head_start[1] = 0x10CC | ((desc->type & 0x00ff) << 16);
-  desc->length = (*datap - desc->head_start)<<2;
 }
 
 

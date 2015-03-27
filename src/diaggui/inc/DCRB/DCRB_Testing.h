@@ -327,7 +327,7 @@ public:
 			if(pButtonTDCEnable->IsDown())
 			{
 				val = pM->ReadReg32(&pRegs->FifoEventCnt);
-				if(val != pNumEntryTestPulseCount->GetIntNumber())
+				if((int)val != pNumEntryTestPulseCount->GetIntNumber())
 				{
 					sprintf(buf, "Error: received %d events, but expected %ld", val, pNumEntryTestPulseCount->GetIntNumber());
 					pTextViewTesting->AddLine(buf);

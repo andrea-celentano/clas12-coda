@@ -35,7 +35,7 @@ compTransitioner::compTransitioner (void)
 :tranList_ (), trIte_ (tranList_)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create compTransitioner Class Object\n");
+  printf ("compTransitioner::compTransitioner: Create compTransitioner Class Object\n");
 #endif
   trIte_.init ();
 }
@@ -43,7 +43,7 @@ compTransitioner::compTransitioner (void)
 compTransitioner::~compTransitioner (void)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Delete compTransitioner Class Object\n");
+  printf ("compTransitioner::compTransitioner: Delete compTransitioner Class Object\n");
 #endif
   // empty
 }
@@ -51,21 +51,30 @@ compTransitioner::~compTransitioner (void)
 void
 compTransitioner::pendTransitioner (transitioner* tr)
 {
-  if (!tranList_.isEmpty ()) {
+#ifdef _TRACE_OBJECTS
+  printf("compTransitioner::pendTransitioner\n");
+#endif
+  if (!tranList_.isEmpty ())
+  {
     transitioner* current = (transitioner *) trIte_ ();
     trIte_.addAfter ((void *)tr);
     current->child (tr);
   }
   else
+  {
     trIte_.addAfter ((void *)tr);
+  }
   ++trIte_;
 }
 
 void
 compTransitioner::addTransitioner (transitioner* tr)
 {
-
-  if (!tranList_.isEmpty ()) {
+#ifdef _TRACE_OBJECTS
+  printf("compTransitioner::addTransitioner\n");
+#endif
+  if (!tranList_.isEmpty ())
+  {
     transitioner* next = (transitioner *)tranList_.firstElement ();
     tr->child (next);
     tranList_.add ((void *)tr);
@@ -79,7 +88,11 @@ compTransitioner::addTransitioner (transitioner* tr)
 void
 compTransitioner::execute (void)
 {
-  if (!tranList_.isEmpty ()) {
+#ifdef _TRACE_OBJECTS
+  printf("compTransitioner::execute\n");
+#endif
+  if (!tranList_.isEmpty ())
+  {
     transitioner* first = (transitioner *)tranList_.firstElement ();
     first->execute();
   }

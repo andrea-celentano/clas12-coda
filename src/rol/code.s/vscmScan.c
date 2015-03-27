@@ -109,6 +109,11 @@ fssrGainScan(int id, char *filename, \
     else
       printf("%s\n", reg27);
 
+    /* Set all discriminators  - start of loop*/
+    for (i = 0; i < 8; i++) {
+      fssrSetThreshold(id, ichip, i, base_thr + (i * 30));
+    }
+
     for (i = 0; i < (128 / chan_mult); i++)
     {
       start_thr = base_thr;
@@ -227,6 +232,12 @@ fssrGainScan(int id, char *filename, \
       fclose(fd);
     else
       printf("\n");
+
+    /* Set all discriminators  - end of loop*/
+    for (i = 0; i < 8; i++) {
+      fssrSetThreshold(id, ichip, i, base_thr + (i * 30));
+    }
+
   } /* End of Chip loop */
 
   free(data);
@@ -787,7 +798,7 @@ fssrDiffLineTest(int id, int chip)
   ref = fssrReadScalerRef(id, chip);
   // 70e6 = MCLK rate, 12.0 factor comes from using 1 output line
   if ((int)(res - ((double)ref / VSCM_SYS_CLK * (70e6 / 12.0))) != 0) {
-    printf("%sFAIL%s\n", "\x1B[1;31m", "\x1B[0m");
+    printf("%sFAIL%s {%d,%d}\n", "\x1B[1;31m", "\x1B[0m", id, chip);
     bad |= 1;
   }
   else
@@ -800,7 +811,7 @@ fssrDiffLineTest(int id, int chip)
   fssrMasterReset(id);
   fssrTransfer(id, chip, 3, FSSR_CMD_READ, 9, &res);
   if (res != 139) {
-    printf("%sFAIL%s\n", "\x1B[1;31m", "\x1B[0m");
+    printf("%sFAIL%s {%d,%d}\n", "\x1B[1;31m", "\x1B[0m", id, chip);
     bad |= 1;
   }
   else
@@ -826,7 +837,7 @@ fssrDiffLineTest(int id, int chip)
   if (res != 0) {
     tstat1 |= 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("0, got %d\n", res);
+    printf("0, got %d {%d,%d}\n", res, id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -844,7 +855,7 @@ fssrDiffLineTest(int id, int chip)
     res = fssrReadScalerGotHit(id, chip); 
     if ((res > 1005 || res < 995)) {
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("995<hits<1005, got %d\n", res);
+      printf("995<hits<1005, got %d {%d,%d}\n", res, id, chip);
       bad |= 1;
     }
     else
@@ -869,7 +880,7 @@ fssrDiffLineTest(int id, int chip)
   if (res != 0) {
     tstat1 |= 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("0, got %d\n", res);
+    printf("0, got %d {%d,%d}\n", res, id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) { 
@@ -887,7 +898,7 @@ fssrDiffLineTest(int id, int chip)
     res = fssrReadScalerCoreTalking(id, chip); 
     if ((res > 1005 || res < 995)) {
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("995<hits<1005, got %d\n", res);
+      printf("995<hits<1005, got %d {%d,%d}\n", res, id, chip);
       bad |= 1;
     }
     else
@@ -905,7 +916,7 @@ fssrDiffLineTest(int id, int chip)
   if (((res >> 20) & 0xC) != 4) {
     tstat1 = 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("4, got %d\n", ((res >> 20) & 0xC));
+    printf("4, got %d {%d,%d}\n", ((res >> 20) & 0xC), id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -916,7 +927,7 @@ fssrDiffLineTest(int id, int chip)
     res = fssrReadLastStatusWord(id, chip);
     if (((res >> 20) & 0xC) != 8) {
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("8, got %d\n", ((res >> 20) & 0xC));
+      printf("8, got %d {%d,%d}\n", ((res >> 20) & 0xC), id, chip);
       bad |= 1;
     }
     else
@@ -934,7 +945,7 @@ fssrDiffLineTest(int id, int chip)
   if (((res >> 16) & 6) != 0) {
     tstat1 = 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("0, got %d\n", ((res >> 16) & 6));
+    printf("0, got %d {%d, %d}\n", ((res >> 16) & 6), id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -944,7 +955,7 @@ fssrDiffLineTest(int id, int chip)
     res = fssrReadLastStatusWord(id, chip);
     if (((res >> 16) & 6) != 6) {
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("6, got %d\n", ((res >> 16) & 6));
+      printf("6, got %d {%d,%d}\n", ((res >> 16) & 6), id, chip);
       bad |= 1;
     }
     else
@@ -968,7 +979,7 @@ fssrDiffLineTest(int id, int chip)
   if (((res >> 18) & 0x31) != 16) {
     tstat1 = 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("16, got %d]", (res >> 18) & 0x31);
+    printf("16, got %d {%d,%d}]", (res >> 18) & 0x31, id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -980,7 +991,7 @@ fssrDiffLineTest(int id, int chip)
     res = fssrReadLastStatusWord(id, chip);
     if (((res >> 18) & 0x31) != 33) {
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("33, got %d]", (res >> 18) & 0x31);
+      printf("33, got %d {%d,%d}]", (res >> 18) & 0x31, id, chip);
       bad |= 1;
     }
     else
@@ -1017,7 +1028,7 @@ fssrDiffLineTest(int id, int chip)
   if (((res >> 12) & 0x1F) != 10) {
     tstat1 = 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("10, got %d]", (res >> 12) & 0x1F);
+    printf("10, got %d {%d,%d}]", (res >> 12) & 0x1F, id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -1036,7 +1047,7 @@ fssrDiffLineTest(int id, int chip)
     res = fssrReadLastDataWord(id, chip);
     if (((res >> 12) & 0x1F) != 21) {
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("21, got %d]\n", (res >> 12) & 0x1F);
+      printf("21, got %d {%d,%d}]\n", (res >> 12) & 0x1F, id, chip);
       bad |= 1;
     }
     else
@@ -1060,7 +1071,7 @@ fssrDiffLineTest(int id, int chip)
   if (((res >> 17) & 1) != 0) {
     tstat1 = 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("0, got %d]", (res >> 17) & 1);
+    printf("0, got %d {%d,%d}]", (res >> 17) & 1, id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -1072,7 +1083,7 @@ fssrDiffLineTest(int id, int chip)
     res = fssrReadLastStatusWord(id, chip);
     if (((res >> 17) & 1) != 1) {
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("1, got %d]\n", (res >> 17) & 1);
+      printf("1, got %d {%d,%d}]\n", (res >> 17) & 1, id, chip);
       bad |= 1;
     }
     else
@@ -1113,7 +1124,7 @@ fssrDiffLineTest(int id, int chip)
   if (((res >> 4) & 0xF0) != 0) {
     tstat1 = 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("0, got %d]\n", (res >> 4) & 0xF0);
+    printf("0, got %d {%d,%d}]\n", (res >> 4) & 0xF0, id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -1130,7 +1141,7 @@ fssrDiffLineTest(int id, int chip)
     if (((res >> 4) & 0xF0) != 80) {
       tstat2 = 1;
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("80, got %d]\n", (res >> 4) & 0xF0);
+      printf("80, got %d {%d,%d}]\n", (res >> 4) & 0xF0, id, chip);
       bad |= 1;
     }
     if (tstat2 == 0) {
@@ -1146,7 +1157,7 @@ fssrDiffLineTest(int id, int chip)
       res = fssrReadLastDataWord(id, chip);
       if (((res >> 4) & 0xF0) != 160) {
         printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-        printf("160, got %d]\n", (res >> 4) & 0xF0);
+        printf("160, got %d {%d,%d}]\n", (res >> 4) & 0xF0, id, chip);
         bad |= 1;
       }
       else
@@ -1171,7 +1182,7 @@ fssrDiffLineTest(int id, int chip)
   if (((res >> 18) & 0x31) != 16) {
     tstat1 = 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("16, got %d]", (res >> 18) & 0x31);
+    printf("16, got %d {%d,%d}]", (res >> 18) & 0x31, id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -1183,7 +1194,7 @@ fssrDiffLineTest(int id, int chip)
     res = fssrReadLastStatusWord(id, chip);
     if (((res >> 18) & 0x31) != 33) {
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("33, got %d]", (res >> 18) & 0x31);
+      printf("33, got %d {%d,%d}]", (res >> 18) & 0x31, id, chip);
       bad |= 1;
     }
     else
@@ -1224,7 +1235,7 @@ fssrDiffLineTest(int id, int chip)
   if ((((res >> 4) - 2) & 0xFC) != 0) {
     tstat1 = 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("0, got %d]", ((res >> 4) - 2) & 0xFC);
+    printf("0, got %d {%d,%d}]", ((res >> 4) - 2) & 0xFC, id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -1241,7 +1252,7 @@ fssrDiffLineTest(int id, int chip)
     if ((((res >> 4) - 2) & 0xFC) != 84) {
       tstat2 = 1;
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("84, got %d]", ((res >> 4) - 2) & 0xFC);
+      printf("84, got %d {%d,%d}]", ((res >> 4) - 2) & 0xFC, id, chip);
       bad |= 1;
     }
     if (tstat2 == 0) {
@@ -1257,7 +1268,7 @@ fssrDiffLineTest(int id, int chip)
       res = fssrReadLastDataWord(id, chip);
       if ((((res >> 4) - 2) & 0xFC) != 168) {
         printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-        printf("168, got %d]", ((res >> 4) - 2) & 0xFC);
+        printf("168, got %d {%d,%d}]", ((res >> 4) - 2) & 0xFC, id, chip);
         bad |= 1;
       }
       else
@@ -1300,7 +1311,7 @@ fssrDiffLineTest(int id, int chip)
   if ((((res >> 4) & 0xF) - 2) != 0) {
     tstat1 = 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("0, got %d]\n", ((res >> 4) & 0xF) - 2);
+    printf("0, got %d {%d,%d}]\n", ((res >> 4) & 0xF) - 2, id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -1317,7 +1328,7 @@ fssrDiffLineTest(int id, int chip)
     if ((((res >> 4) & 0xF) - 2) != 5) {
       tstat2 = 1;
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("5, got %d]\n", ((res >> 4) & 0xF) - 2);
+      printf("5, got %d {%d,%d}]\n", ((res >> 4) & 0xF) - 2, id, chip);
       bad |= 1;
     }
     if (tstat2 == 0) {
@@ -1333,7 +1344,7 @@ fssrDiffLineTest(int id, int chip)
       res = fssrReadLastDataWord(id, chip);
       if ((((res >> 4) & 0xF) - 2) != 10) {
         printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-        printf("10, got %d]\n", ((res >> 4) & 0xF) - 2);
+        printf("10, got %d {%d,%d}]\n", ((res >> 4) & 0xF) - 2, id, chip);
         bad |= 1;
       }
       else
@@ -1358,7 +1369,7 @@ fssrDiffLineTest(int id, int chip)
   if (((res >> 18) & 0x31) != 16) {
     tstat1 = 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("16, got %d]", (res >> 18) & 0x31);
+    printf("16, got %d {%d,%d}]", (res >> 18) & 0x31, id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -1370,7 +1381,7 @@ fssrDiffLineTest(int id, int chip)
     res = fssrReadLastStatusWord(id, chip);
     if (((res >> 18) & 0x31) != 33) {
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("33, got %d]", (res >> 18) & 0x31);
+      printf("33, got %d {%d,%d}]", (res >> 18) & 0x31, id, chip);
       bad |= 1;
     }
     else
@@ -1413,7 +1424,7 @@ fssrDiffLineTest(int id, int chip)
   if ((((res >> 4) & 0xFF) - 2) != 0) {
     tstat1 = 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("0, got %d]", ((res >> 4) & 0xFF - 2));
+    printf("0, got %d {%d,%d}]", ((res >> 4) & 0xFF - 2), id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -1430,7 +1441,7 @@ fssrDiffLineTest(int id, int chip)
     if ((((res >> 4) & 0xFF) - 2) != 85) {
       tstat2 = 1;
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("85, got %d]", ((res >> 4) & 0xFF - 2));
+      printf("85, got %d {%d,%d}]", ((res >> 4) & 0xFF - 2), id, chip);
       bad |= 1;
     }
     if (tstat2 == 0) {
@@ -1446,7 +1457,7 @@ fssrDiffLineTest(int id, int chip)
       res = fssrReadLastDataWord(id, chip);
       if ((((res >> 4) & 0xFF) - 2) != 170) {
         printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-        printf("170, got %d]", ((res >> 4) & 0xFF - 2));
+        printf("170, got %d {%d,%d}]", ((res >> 4) & 0xFF - 2), id, chip);
         bad |= 1;
       }
       else
@@ -1490,7 +1501,7 @@ fssrDiffLineTest(int id, int chip)
   if ((((res >> 4) - 2) & 0x3) != 0) {
     tstat1 = 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("0, got %d]", ((res >> 4) - 2) & 0x3);
+    printf("0, got %d {%d,%d}]", ((res >> 4) - 2) & 0x3, id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -1507,7 +1518,7 @@ fssrDiffLineTest(int id, int chip)
     if ((((res >> 4) - 2) & 0x3) != 1) {
       tstat2 = 1;
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("1, got %d]", ((res >> 4) - 2) & 0x3);
+      printf("1, got %d {%d,%d}]", ((res >> 4) - 2) & 0x3, id, chip);
       bad |= 1;
     }
     if (tstat2 == 0) {
@@ -1523,7 +1534,7 @@ fssrDiffLineTest(int id, int chip)
       res = fssrReadLastDataWord(id, chip);
       if ((((res >> 4) - 2) & 0x3) != 2) {
         printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-        printf("2, got %d]", ((res >> 4) - 2) & 0x3);
+        printf("2, got %d {%d,%d}]", ((res >> 4) - 2) & 0x3, id, chip);
         bad |= 1;
       }
       else
@@ -1566,7 +1577,7 @@ fssrDiffLineTest(int id, int chip)
   if (((res >> 1) & 7) != 0) {
     tstat1 = 1;
     printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-    printf("0, got %d]", (res >> 1) & 7);
+    printf("0, got %d {%d,%d}]", (res >> 1) & 7, id, chip);
     bad |= 1;
   }
   if (tstat1 == 0) {
@@ -1584,7 +1595,7 @@ fssrDiffLineTest(int id, int chip)
     res = fssrReadLastDataWord(id, chip);
     if (((res >> 1) & 7) != 7) {
       printf("%sFAIL%s - ", "\x1B[1;31m", "\x1B[0m");
-      printf("7, got %d]", (res >> 1) & 7);
+      printf("7, got %d {%d,%d}]", (res >> 1) & 7, id, chip);
       bad |= 1;
     }
     else
