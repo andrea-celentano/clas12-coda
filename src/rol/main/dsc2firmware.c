@@ -9,7 +9,7 @@
 VXWORKS:
 
   dsc2Init(0x100000,0x80000,16,0xc0000)
-  dsc2UpdateFirmwareAll("/usr/local/clas12/release/0.1/parms/firmwares/vmeDSC_firmware_v1_c.bin")
+  dsc2UpdateFirmwareAll("/usr/local/clas12/release/0.1/parms/firmwares/vmeDSC_firmware_v1_e.bin")
 
 */
 

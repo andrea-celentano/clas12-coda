@@ -26,13 +26,17 @@
 #if ppc_vme.boot was not loaded     ld < $CODA/src/rol/VXWORKS_ppc/obj/all_rocs.o
      ld < $CODA/src/rol/VXWORKS_ppc/bin/tiFirmwareUpdate
      cd "$CLON_PARMS/firmwares"
-     tiFirmwareUpdate(0x00A80000,"mti24.svf")
+     tiFirmwareUpdate(0x00A80000,"mti84.svf")
      tiFirmwareUpdate(0x00A80000,"fpgareload.svf")
 
   UNIX:
      cd $CLON_PARMS/firmwares
-     tiFirmwareUpdate 0x00A80000 mti74.svf
+     tiFirmwareUpdate 0x00A80000 mti91.svf
 ###     tiFirmwareUpdate 0x00A80000 fpgareload.svf
+*/
+
+/* serial number upgradeL
+     tiFirmwareUpdate 0x00A80000 mti84.svf 203
 */
 
 #include <stdio.h>
@@ -97,17 +101,26 @@ main(int argc, char *argv[])
 #else
   programName = argv[0];
 
+  BoardNumber = -1;
   if(argc<3)
-    {
-      printf(" ERROR: Must specify two arguments\n");
-      tiFirmwareUsage();
-      return(-1);
-    }
+  {
+    printf(" ERROR: Must specify two arguments\n");
+    tiFirmwareUsage();
+    return(-1);
+  }
   else
-    {
-      vme_addr = (unsigned int) strtoll(argv[1],NULL,16)&0xffffffff;
-      filename = argv[2];
-    }
+  {
+    vme_addr = (unsigned int) strtoll(argv[1],NULL,16)&0xffffffff;
+    filename = argv[2];
+  }
+
+  if(argc==4)
+  {
+    BoardNumber = atoi(argv[3]);
+    printf("\n WARNING: serial number will be overwritten, new serial number will be %d\n",BoardNumber);
+    printf(" WARNING: serial number will be overwritten, new serial number will be %d\n",BoardNumber);
+    printf(" WARNING: serial number will be overwritten, new serial number will be %d\n\n",BoardNumber);
+  }
 
   vmeSetQuietFlag(1);
   stat = vmeOpenDefaultWindows();
@@ -117,18 +130,21 @@ main(int argc, char *argv[])
 
   stat = tiEMInit(vme_addr);
   if(stat != OK)
-    {
-      printf("\n");
-      printf("*** Failed to initialize TI ***\nThis may indicate (either):\n");
-      printf("   a) an incorrect VME Address provided\n");
-      printf("   b) new firmware must be loaded at provided VME address\n");
-      printf("\n");
-      printf("Proceed with the update with the provided VME address?\n");
-    REPEAT:
-      printf(" (y/n): ");
-      inputchar = getchar();
+  {
+    printf("\n");
+    printf("*** Failed to initialize TI ***\nThis may indicate (either):\n");
+    printf("   a) an incorrect VME Address provided\n");
+    printf("   b) new firmware must be loaded at provided VME address\n");
+    printf("\n");
+    printf("Proceed with the update with the provided VME address?\n");
 
-      if((inputchar == 'n') || (inputchar == 'N'))
+
+REPEAT:
+
+    printf(" (y/n): ");
+    inputchar = getchar();
+
+    if((inputchar == 'n') || (inputchar == 'N'))
 	{
 	  printf("--- Exiting without update ---\n");
 	  goto CLOSE;
@@ -141,80 +157,83 @@ main(int argc, char *argv[])
 	{
 	  goto REPEAT;
 	}
-    }
+  }
 
   /* Read out the board serial number first */
   BoardSerialNumber = tiGetSerialNumber(NULL);
 
   /* Check if this board should be relabled as a TIMaster */
   if( ((BoardSerialNumber&0xF800)==0) && (tiMasterID(BoardSerialNumber)!=0) )
-    {
-      BoardSerialNumber |= tiMasterID(BoardSerialNumber);
-    }
+  {
+    BoardSerialNumber |= tiMasterID(BoardSerialNumber);
+  }
   
   if(BoardSerialNumber & 0xF800) /* TIMaster */
-    {
-      printf(" Board Serial Number from PROM usercode is: 0x%08x (TIM-%d  TI-%d) \n", 
+  {
+    printf(" Board Serial Number from PROM usercode is: 0x%08x (TIM-%d  TI-%d) \n", 
 	     BoardSerialNumber,
 	     (BoardSerialNumber&0xF000)>>12,
 	     BoardSerialNumber&0x7FF);
-    }
+  }
   else
-    {
-      printf(" Board Serial Number from PROM usercode is: 0x%08x (%d) \n", BoardSerialNumber,
+  {
+    printf(" Board Serial Number from PROM usercode is: 0x%08x (%d) \n", BoardSerialNumber,
 	     BoardSerialNumber&0xffff);
-    }
+  }
 
   firmwareInfo = tiGetFirmwareVersion();
   if(firmwareInfo>0)
-    {
-      printf("  User ID: 0x%x \tFirmware (version - revision): 0x%X - 0x%03X\n",
+  {
+    printf("  User ID: 0x%x \tFirmware (version - revision): 0x%X - 0x%03X\n",
 	     (firmwareInfo&0xFFFF0000)>>16, (firmwareInfo&0xF000)>>12, firmwareInfo&0xFFF);
-    }
+  }
   else
-    {
-      printf("  Error reading Firmware Version\n");
-    }
+  {
+    printf("  Error reading Firmware Version\n");
+  }
 
 
   /* Check the serial number and ask for input if necessary */
   /* Force this program to only work for TI (not TD or TS) */
   if (!((BoardSerialNumber&0xffff0000) == 0x71000000))
-    { 
+  {
+    if(BoardNumber<0)
+	{ 
       printf(" This TI has an invalid serial number (0x%08x)\n",BoardSerialNumber);
       printf (" Enter a new board number (0-4095), or -1 to quit: ");
-
       scanf("%d",&BoardNumber);
+	}
 
-      if(BoardNumber == -1)
+    if(BoardNumber == -1)
 	{
 	  printf("--- Exiting without update ---\n");
 	  goto CLOSE;
 	}
 
-      /* Add the TI board ID in the MSB */
-      BoardSerialNumber = 0x71000000 | (BoardNumber&0x7ff) | (tiMasterID(BoardNumber) & 0xF800);
-      if(BoardSerialNumber & 0xF800)
+    /* Add the TI board ID in the MSB */
+    BoardSerialNumber = 0x71000000 | (BoardNumber&0x7ff) | (tiMasterID(BoardNumber) & 0xF800);
+    if(BoardSerialNumber & 0xF800)
 	{ /* TIMaster */
 	  printf(" The board serial number will be set to: 0x%08x (TIM-%d  TI-%d)\n",
 		 BoardSerialNumber,
 		 (BoardSerialNumber&0xF800)>>12,
 		 BoardSerialNumber&0x7ff);
 	}
-      else
+    else
 	{
 	  printf(" The board serial number will be set to: 0x%08x (%d)\n",
-		 BoardSerialNumber,
-		 BoardSerialNumber&0x7ff);
+	  BoardSerialNumber,
+	  BoardSerialNumber&0x7ff);
 	}
-    }
-
+  }
 
   printf("Press y to load firmware (%s) to the TI via VME...\n",
 	 filename);
   printf("\t or n to quit without update\n");
 
- REPEAT2:
+
+REPEAT2:
+
   printf("(y/n): ");
   inputchar = getchar();
   
@@ -234,7 +253,8 @@ main(int argc, char *argv[])
 
   tiFirmwareEMload(filename);
 
- CLOSE:
+
+CLOSE:
 
 #ifndef VXWORKS
   vmeCloseDefaultWindows();

@@ -19,6 +19,7 @@
 
 #include "circbuf.h"
 #include "dxm.h"
+#include "roldpm.h"
 
 /*****************************/
 /* former 'crl' control keys */
@@ -43,8 +44,8 @@ void usrtrig_done();
 #include "ControlCmdMem.h"
 
 ControlCmdMemory *smem;
-char confFileFeb[256];
-char confFileThr[256];
+char confFileFeb[SVTDAQMAXSTRLEN];
+char confFileThr[SVTDAQMAXSTRLEN];
 
 /************************/
 /************************/
@@ -111,28 +112,39 @@ getTdcSlotNumbers(int *slotnumbers)
 
 
 
-// Get the xml configuration string from the DAQ
-int svtDaqReadConfig(const char* str) {
+// Get the xml string from the DAQ
+int svtDaqReadConfig(char* str, const char* type) {
    int len;
-   printf("svtDaqUpLoadAll called.\n");
-   str = controlCmdGetConfig( smem );
-   if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
-      printf ("Timeout waiting for daq response\n");
+   const char* configStr;
+   printf("svtDaqReadConfig: called.\n");
+   if(strcmp(type,"config")==0) {
+      printf("svtDaqReadConfig: read config\n",len);
+      configStr = controlCmdGetConfig( smem );
+   } else if (strcmp(type,"status")==0) {
+      printf("svtDaqReadConfig: read status\n",len);
+      configStr = controlCmdGetStatus( smem );
+   } else {
+      printf("svtDaqReadConfig: this type is not allowed\n");
       exit(1);
    }
-   if(str==NULL) {
+   if(configStr==NULL) {
       printf("Error getting string from control server!\n");
       exit(1);
    }
    // get the length not null character
-   len = strlen(str);
-   printf("svtDaqUpLoadAll got string at %p of strlen=%d.\n",str,len);
+   len = strlen(configStr);
+   //printf("svtDaqReadConfig: got string at %p of strlen=%d.\n",configStr,len);
+   //printf("\"%s\"\n",configStr);
+   strncpy(str,configStr,len);
+   printf("svtDaqReadConfig: copied string to %p with len=%d.\n",str,len);
+
    return len;
 }
+
  
 // Get the xml configuration string from the DAQ          
-int svtDaqUpLoadAll(char* chptr) {
-   printf("svtDaqUpLoadAll called with chptr=%p.\n",chptr);
+int svtDaqUploadAll(char* chptr, const char* type) {
+   printf("svtDaqUploadAll called with chptr=%p.\n",chptr);
 
    int nbytes;
    int len;
@@ -144,8 +156,8 @@ int svtDaqUpLoadAll(char* chptr) {
           
    /* read the actual string from the daq */
    /* this do not include null character */
-   len = svtDaqReadConfig((const char*) chptr);
-   printf("cfg len=%d\n",len);
+   len = svtDaqReadConfig(chptr, type);
+   //printf("cfg strlen=%d\n",len);
    //printf(">%s<\n",chptr);
 
    // increment pointers
@@ -166,6 +178,58 @@ int svtDaqUpLoadAll(char* chptr) {
        
 
 
+int getSvtSyncFlag(int* startOfSvtBank, int nw, int** pLastEv) {
+   int debug_local = 0;
+   if(debug_local!=0) printf("getSvtSyncFlag : startOfSvtBank %p\n", startOfSvtBank);
+   int* pCurEv;
+   int* pLastEvLoop;
+   int nEv;
+   int len;
+   int evNumber;
+   int evType;
+   int syncFlag;
+   int syncFlagEv;
+   syncFlagEv = 0;
+   pCurEv = startOfSvtBank;
+   nEv = 0;
+   while(nEv < nw) {
+      len = pCurEv[0];
+      if( len > 0 ) {
+         evNumber = pCurEv[1] & 0xff;
+         evType = (pCurEv[1] >> 16) & 0xff;
+         syncFlag = (pCurEv[1] >> 24);
+         if(syncFlag!=0) {
+            if(debug_local!=0) {
+               printf("getSvtSyncFlag : found sync flag on pCurEv %p (startOfSvtBank at %p)\n", pCurEv, startOfSvtBank);
+               //printf("getSvtSyncFlag :pCurEv[0] 0x%x pCurEv[1] 0x%x evNumber %d (0x%x) evType %d syncFlag %d\n",pCurEv[0], pCurEv[1], evNumber, evNumber, evType, syncFlag);
+            }
+            syncFlagEv = syncFlagEv + 1;
+         }
+
+         pLastEvLoop = pCurEv;
+         pCurEv += (len+1);
+
+
+      }else if(len < 0) {
+         printf("getSvtSyncFlag : ERROR: len = %d\n",len);	
+         exit(1);
+      }                                                             
+      else {                                                                 
+         printf("getSvtSyncFlag : SHOULD NEVER BE HERE: len = %d\n",len);
+         exit(1);
+      }
+      
+      nEv += (len+1);
+
+   } //nw
+   
+   *pLastEv = pLastEvLoop;
+
+   return syncFlagEv;
+
+}
+
+
 /*
 long decrement;
 extern long nevent;
@@ -183,33 +247,13 @@ __download()
 
   printf("\n>>>>>>>>>>>>>>> ROCID=%d, CLASSID=%d <<<<<<<<<<<<<<<<\n\n",rol->pid,rol->classid);
   printf("CONFFILE >%s<\n\n",rol->confFile);
-  // In the future the config file here points to an expanded HPS config 
-  // file that we have access to from all RCEs. To simulate that I put the 
-  // config on /mnt/host now. This default file will be used unless something 
-  // is explicitely seleected in the RC. 
-  // /Pelle
-  char* confFilePtr;
-  /*
-FEB_CONFIG_FILE /mnt/host/daq/config/rce_config.xml
-  strcpy(rol->confFile,
-  */
 
-  if(strlen(rol->confFile)>0 && strcmp(rol->confFile,"none")!=0) {
-     confFilePtr = rol->confFile;
-  } else {
-
-/*sergey: replace '/usr/clas12/release/0.2' with CLAS env var */
-strcpy(rol->confFile,"/usr/clas12/release/0.2/slac_svt/svtdaq/daq/config/clasdev.cnf");
-confFilePtr = rol->confFile;
-
-	/*
-     fprintf(stderr,"Failed to find config file\n");
-     exit(1);
-	*/
-  }
+  char confFile[SVTDAQMAXSTRLEN];
+  
+  getDpmConfigFilePath(rol->confFile, confFileFeb, SVTDAQMAXSTRLEN);
 
   // Extract the file path to the xml config file
-  getFebConfigFilePath(confFilePtr,"CONFIG",confFileFeb,256);
+//  getFebConfigFilePath(confFile,"CONFIG",confFileFeb,SVTDAQMAXSTRLEN);
   if(strlen(confFileFeb)>0) {
      printf("Got FEB config file: %s\n",confFileFeb);
   } else {
@@ -218,7 +262,8 @@ confFilePtr = rol->confFile;
   }
 
   // Find the threshold xml file
-  getFebConfigFilePath(confFilePtr,"THRESHOLDS",confFileThr,256);
+  getDpmThresholdFilePath(rol->confFile, confFileThr, SVTDAQMAXSTRLEN);
+  //getFebConfigFilePath(confFile,"THRESHOLDS",confFileThr,SVTDAQMAXSTRLEN);
   if(strlen(confFileThr)>0) {
      printf("Got threhold config file: %s\n",confFileThr);
   } else {
@@ -227,9 +272,10 @@ confFilePtr = rol->confFile;
   }
 
   /* Flag if this is a charge injection run */
-  run_type = getRunType(confFileFeb);
+  run_type = getRunType(rol->confFile);
   if (run_type == 0) printf("Normal run type\n");
-  else if (run_type == 1) printf("Charge injection run\n");
+  else if (run_type == 1) printf("Gain calibration run\n");
+  else if (run_type == 2) printf("t0 calibration run\n");
   else {
     printf("invalid run type (%d)\n",run_type);
     exit(1);
@@ -273,6 +319,8 @@ __prestart()
   unsigned long jj, adc_id, sl;
   char *env;
   char buffer[1024*1024];
+  char rocIdStr[10];
+
 
   *(rol->nevents) = 0;
 
@@ -316,10 +364,11 @@ __prestart()
      exit(1);
   }
 
-  char rocIdStr[10];
+
   sprintf(rocIdStr,"%i",rol->pid);
   printf("Setting rocId to %s\n",rocIdStr);
-  controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_SET_CONFIG, "RocId",rocIdStr);
+  controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetRocId",rocIdStr);
+  //controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_SET_CONFIG, "RocId",rocIdStr);
   if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
      printf ("Timeout waiting for daq response\n");
      exit(1);
@@ -333,28 +382,71 @@ __prestart()
         printf ("Timeout waiting for daq response\n");
         exit(1);
      }
+
+
+     // enable threshold cut
+     printf("Enable threshold cut\n");
+     controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetThrCutEn","1");
+     if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+        printf ("Timeout waiting for daq response\n");
+        exit(1);
+     }
+     
+
   } else {
      printf("WARNING: No thresholds being set!\n");
+
+     // enable threshold cut
+     printf("Disable threshold cut\n");
+     controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetThrCutEn","0");
+     if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+        printf ("Timeout waiting for daq response\n");
+        exit(1);
+     }
+     
   }
 
   /* set calibration specific configuration */
-  if(run_type==1) {
+  if(run_type==1 || run_type==2) {
 	printf("set charge injection specific configuration\n");
-    // check  that cal group is == 0 here!
-    if(cal_group!=0) {
-       printf("Error: cal_group=%d in prestart. Should be 0!?\n",cal_group);
+    // reset calib group
+    cal_group=0;
+    cal_delay=1;
+    cal_level=0;
+
+    strcpy(rocIdStr,"True");
+    printf("Setting CalibMode to %s\n",rocIdStr);
+    controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetCalibMode",rocIdStr);
+    if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+       printf ("Timeout waiting for daq response\n");
        exit(1);
     }
-	char cal_cmd[256];
-	sprintf(cal_cmd,"<system><config><CalEn>True</CalEn><CalInhibit>False</CalInhibit><FebCore><CalGroup>%d</CalGroup></FebCore></config></system>\f", cal_group);
-	printf("cmd: %s\n",cal_cmd);
-	controlCmdSetConfig ( smem,cal_cmd);
+
+    sprintf(rocIdStr,"%i",cal_group);
+    printf("Setting calibration group to %s\n",rocIdStr);
+    controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetCalibGroup",rocIdStr);
     if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
-      printf ("Timeout waiting for daq response\n");
-      exit(1);
+       printf ("Timeout waiting for daq response\n");
+       exit(1);
     }
-    // increment calibration group as it needs to start at 1 in the go loop.
+
+    // increment to start at the right place in the usrtrig loop
+    cal_level++;
 	cal_group++;	
+
+    if(run_type==2) {
+       //reset delay
+       sprintf(rocIdStr,"%i",cal_delay);
+       printf("Setting CalDelay to %s\n",rocIdStr);
+       controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetCalibDelay",rocIdStr);
+       if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+          printf ("Timeout waiting for daq response\n");
+          exit(1);
+        }
+       cal_delay++;
+    }
+    
+    
   }
 
 
@@ -447,9 +539,13 @@ usrtrig(unsigned long EVTYPE, unsigned long EVSOURCE)
   int len, ii;
   int nwords,nbytes;
   char* chptr;
+  char rocIdStr[10];
+  int* startOfSvtBank;
+  int* pLastEv;
+  int usrTrigDebug = 0;
   TIMERL_VAR;
 
-  syncEventFlag = 0; // Pelle: hard-code for now
+  syncEventFlag = 0; 
   rol->dabufp = (long *) 0;
 
 TIMERL_START;
@@ -466,6 +562,10 @@ TIMERL_START;
   else
   {
 
+     startOfSvtBank = rol->dabufp;
+
+     //if(usrTrigDebug>0) printf("nwords=%d dabufp=%p before dma \n",nwords, rol->dabufp);
+
     int ret = axisRead(myfd,rol->dabufp,1024*1024,0,0,0);
 
 	/*for(ii=0; ii<ret/4; ii++) printf("  DATA [%3d] 0x%08x (%d)\n",ii,rol->dabufp[ii],rol->dabufp[ii]);*/
@@ -474,58 +574,155 @@ TIMERL_START;
     lastSize = ret;
     nwords = ret/4;
 
-	/*printf("lastSize=%d (nwords=%d)\n",lastSize,nwords);*/
+    //if(usrTrigDebug>0)  printf("nwords=%d dabufp=%p after dma \n",nwords, rol->dabufp);
+
+    /* Grab sync flag from the SVT data and find the last event in the block*/	
+    pLastEv = NULL;
+    syncEventFlag = getSvtSyncFlag(startOfSvtBank, nwords,&pLastEv);
+
 
     /* dump config to data stream */
-    //Pelle: add in event number when this works
-    if(syncEventFlag==1) { // || EVENT_NUMBER==1) {       
+    if(syncEventFlag>0 && EVENT_NUMBER%50000==0 && (rol->pid==dpmWithConfigDump|| rol->pid==controlDpmRocId)) {       
+       printf("open config bank\n");
        BANKOPEN(0xe10E,3,rol->pid);
        chptr =(char *)rol->dabufp;
-       nbytes = svtDaqReadConfig(chptr);
-       nwords = nbytes/4;
-       rol->dabufp += nwords;       
+       nbytes = svtDaqUploadAll(chptr, "config");
+       nwords += nbytes/4;
+       rol->dabufp += nbytes/4;       
+       printf("close config bank\n");
        BANKCLOSE;
+       pLastEv[0] = rol->dabufp - pLastEv - 1; 
+
+       /* dump status to data stream */
+       printf("open status bank\n");
+       BANKOPEN(0xe10E,3,rol->pid);
+       chptr =(char *)rol->dabufp;
+       nbytes = svtDaqUploadAll(chptr, "status");
+       nwords += nbytes/4;
+       rol->dabufp += nbytes/4;       
+       printf("close status bank\n");
+       BANKCLOSE;
+       pLastEv[0] = rol->dabufp - pLastEv - 1; 
     }
+
 
     //========
     // Calibration
-    if(run_type==1 && (EVENT_NUMBER%100==0)) {
+    if( run_type==1 || run_type==2) {
+       
+       // Switch on config dump for the first event
+       if( EVENT_NUMBER==0) {              
+          writeConfig = 1;
+       } 
+       
+       // Write config to data stream for every ROC
+       if(writeConfig==1 && (rol->pid==dpmWithConfigDump || rol->pid==controlDpmRocId)) {
+          /* dump config to data stream */          
+          printf("open config bank\n");
+          BANKOPEN(0xe10E,3,rol->pid);
+          printf("open\n");
+          chptr =(char *)rol->dabufp;
+          nbytes = svtDaqUploadAll(chptr, "config");
+          nwords += nbytes/4;
+          rol->dabufp += nbytes/4;                 
+          printf("close config bank\n");
+          BANKCLOSE;
+          startOfSvtBank[0] = rol->dabufp - startOfSvtBank - 1; 
+          printf("closed\n");
+       }
+       
+       
+       if( EVENT_NUMBER%10==0 ) {
 
-       printf("Processing cal_group %d at EVENT_NUMBER %d\n",cal_group,EVENT_NUMBER);
+          // make sure the config gets written on the next event
+          writeConfig = 1;
+          
+          printf("Processing cal_group %d at EVENT_NUMBER %d\n",cal_group,EVENT_NUMBER);
+          
+          // only 8 cal groups. Should stop before the 9th	
+          if(cal_group<8) {
+             sprintf(rocIdStr,"%i",cal_group);
+             printf("Setting calibration group to %s\n",rocIdStr);
+             controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetCalibGroup",rocIdStr);
+             if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+                printf ("Timeout waiting for daq response\n");
+                exit(1);
+             }
+             
+             /* update cal group */
+             cal_group++;	
+             
+          } else {
+             
+             // start all over again for different delay
+             if(run_type==2 && cal_delay<9) {              
+                sprintf(rocIdStr,"%i",cal_delay);
+                printf("Setting CalDelay to %s\n",rocIdStr);
+                controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetCalibDelay",rocIdStr);
+                if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+                   printf ("Timeout waiting for daq response\n");
+                   exit(1);
+                }              
+                
+                
+                
+                cal_delay++;
+                
+                //reset cal_group
+                cal_group = 0;
+                sprintf(rocIdStr,"%i",cal_group);
+                printf("Setting calibration group to %s\n",rocIdStr);
+                controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetCalibGroup",rocIdStr);
+                if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+                   printf ("Timeout waiting for daq response\n");
+                   exit(1);
+                }
+                
+                //increment for next loop
+                cal_group++;
+                
+             } 
+             // start all over again with a different charge level
+             else if(run_type==1 && cal_level<5) {
+                
+                sprintf(rocIdStr,"%i",getCalLevel(cal_level));
+                printf("Setting CalLevel to %s\n",rocIdStr);
+                controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetCalibLevel",rocIdStr);
+                if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+                   printf ("Timeout waiting for daq response\n");
+                   exit(1);
+                }              
+                
+                cal_level++;
+                
+                //reset cal_group
+                cal_group = 0;
+                sprintf(rocIdStr,"%i",cal_group);
+                printf("Setting calibration group to %s\n",rocIdStr);
+                controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetCalibGroup",rocIdStr);
+                if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+                   printf ("Timeout waiting for daq response\n");
+                   exit(1);
+                }
+                
+                //increment for next loop
+                cal_group++;
+                
+                
+             } else {
+                printf("Reached all cal groups. End run.\n");
+                __end();
+             }
+          } 
+          
+       } else {
+          writeConfig = 0;
+       }
 
-        // only 8 cal groups. Should stop before the 9th	
-        if(cal_group<9) {
-
-           // Send cal group command to daq server
-           printf("Set calibration group to %d\n",cal_group);
-           char cmd[256];
-           sprintf(cmd,"<system><config><FebCore><CalGroup>%d</CalGroup></FebCore></config></system>\f", cal_group);
-           printf("cal cmd %s\n",cmd);
-           controlCmdSetConfig( smem, cmd);
-           if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
-              printf ("Timeout waiting for daq response\n");
-              exit(1);
-           }
-
-           /* dump config to data stream */
-           BANKOPEN(0xe10E,3,rol->pid);
-           chptr =(char *)rol->dabufp;
-           nbytes = svtDaqReadConfig(chptr);
-           nwords = nbytes/4;
-           rol->dabufp += nwords;       
-           BANKCLOSE;
-      
-           /* update cal group */
-           cal_group++;	
-      
-        } else {
-           printf("Reached all cal groups. End run.\n");
-           __end();
-        } 
-     }
+       
+    }
     // End of Calibration
     //========
-
 
 
 

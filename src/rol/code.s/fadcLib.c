@@ -3623,11 +3623,13 @@ faGLoadChannelPedestals(char *fname, int updateThresholds)
   }
 }
 
+#define FA_MEASURE_PED_NTIMES		10
+
 int
 faMeasureChannelPedestal(int id, unsigned int chan, fa250Ped *ped)
 {
-  int status, i, reg_bit;
-  double adc_val;
+  int status, i, reg_bit, n;
+  double adc_val, nsamples;
   fa250Ped p;
 
   p.avg = 0.0;
@@ -3655,47 +3657,52 @@ faMeasureChannelPedestal(int id, unsigned int chan, fa250Ped *ped)
   else
     reg_bit = 0x00010000;
 
-  FALOCK;
-  vmeWrite32(&FAp[id]->la_ctrl[chan>>1], 0);       /* disable logic analyzer */
-  vmeWrite32(&FAp[id]->la_cmp_mode0[chan>>1], 0);	/* setup a don't care trigger */
-  vmeWrite32(&FAp[id]->la_cmp_thr0[chan>>1], 0);	/* setup a don't care trigger */
-  vmeWrite32(&FAp[id]->la_cmp_en0[chan>>1], 0);	   /* setup a don't care trigger */
-  vmeWrite32(&FAp[id]->la_cmp_val0[chan>>1], 0);	/* setup a don't care trigger */
-  vmeWrite32(&FAp[id]->la_ctrl[chan>>1], reg_bit); /* enable logic analyzer */
-  FAUNLOCK;
-  
-  taskDelay(1);
-  
-  FALOCK;
-  status = vmeRead32(&FAp[id]->la_status[chan>>1]);
-  vmeWrite32(&FAp[id]->la_ctrl[chan>>1], 0);       /* disable logic analyzer */
-  FAUNLOCK;
-  
-  if(!(status & reg_bit))
+  for(n = 0; n < FA_MEASURE_PED_NTIMES; n++)
   {
-	  logMsg("faMeasureChannelPedestal: ERROR : timeout \n");
-	  return(ERROR);
-  }
+	FALOCK;
+	vmeWrite32(&FAp[id]->la_ctrl[chan>>1], 0);       /* disable logic analyzer */
+	vmeWrite32(&FAp[id]->la_cmp_mode0[chan>>1], 0);	/* setup a don't care trigger */
+	vmeWrite32(&FAp[id]->la_cmp_thr0[chan>>1], 0);	/* setup a don't care trigger */
+	vmeWrite32(&FAp[id]->la_cmp_en0[chan>>1], 0);	   /* setup a don't care trigger */
+	vmeWrite32(&FAp[id]->la_cmp_val0[chan>>1], 0);	/* setup a don't care trigger */
+	vmeWrite32(&FAp[id]->la_ctrl[chan>>1], reg_bit); /* enable logic analyzer */
+	FAUNLOCK;
+	
+	taskDelay(1);
+	
+	FALOCK;
+	status = vmeRead32(&FAp[id]->la_status[chan>>1]);
+	vmeWrite32(&FAp[id]->la_ctrl[chan>>1], 0);       /* disable logic analyzer */
+	FAUNLOCK;
+	
+	if(!(status & reg_bit))
+	{
+		logMsg("faMeasureChannelPedestal: ERROR : timeout \n");
+		return(ERROR);
+	}
 
-  FALOCK;
-  for(i = 0; i < 512; i++)
-  {
-    adc_val = (double)(vmeRead32(&FAp[id]->la_data[chan]) & 0xFFF);
-	 
-	 p.avg+= adc_val;
-	 
-	 p.rms+= adc_val*adc_val;
-	 
-	 if(adc_val < p.min)
-		 p.min = adc_val;
-	 
-	 if(adc_val > p.max)
-		 p.max = adc_val;
+	FALOCK;
+	for(i = 0; i < 512; i++)
+	{
+		adc_val = (double)(vmeRead32(&FAp[id]->la_data[chan]) & 0xFFF);
+		
+		p.avg+= adc_val;
+		
+		p.rms+= adc_val*adc_val;
+		
+		if(adc_val < p.min)
+			p.min = adc_val;
+		
+		if(adc_val > p.max)
+			p.max = adc_val;
+	}
+	FAUNLOCK;
   }
-  FAUNLOCK;
   
-  p.avg /= 512.0;
-  p.rms = sqrt(p.rms / 512.0 - p.avg*p.avg);
+  nsamples = 512.0 * (double)FA_MEASURE_PED_NTIMES;
+  
+  p.avg /= nsamples;
+  p.rms = sqrt(p.rms / nsamples - p.avg*p.avg);
 
   printf("faMeasureChannelPedestal: slot %d, chan %d => avg %6.3f, rms %6.3f, min %.0f, max %.0f\n",
     id, chan, p.avg, p.rms, p.min, p.max);

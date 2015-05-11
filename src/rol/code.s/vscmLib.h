@@ -101,6 +101,8 @@ typedef unsigned int uintptr_t;
 #define IO_MUX_BCOCLK             18
 #define IO_MUX_TOKENOUT           19
 #define IO_MUX_TOKENIN            20
+#define IO_MUX_FSSRHIT_TRIG       21
+#define IO_MUX_FSSRHIT_TBAND_TRIG 22
 
 #define FSSR_H1_U1_IDX    0
 #define FSSR_H1_U2_IDX    1
@@ -244,7 +246,7 @@ uint32_t vscmGetInputTriggers(int id);
 uint32_t vscmGetAcceptedTriggers(int id);
 void vscmFifoClear(int id);
 int vscmFifoStatus(int id);
-void vscmSetHitMask(int id, uint32_t mask);
+void vscmSetHitMask(int id, uint8_t mask, uint8_t trig_width);
 
 /* Pulser Functions */
 void vscmSetPulserRate(int id, uint32_t freq);

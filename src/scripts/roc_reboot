@@ -23,7 +23,7 @@ if ($#argv != 0 ) then
     echo "    clastrig2 sc2 ec3 ec4 lac2 pcal0 pretrig3 pretrig4"
     echo "    croctest1 croctest2 hps2 croctest10"
     echo "    roc1 halldtrg3 jlab12vme hps10 hpsioc1 svt2"
-    echo "    wolfram1 ftof0 ftof1 dcrb1 trig1 dcrb2"
+    echo "    wolfram1 ftof0 ftof1 dcrb1 trig1 trig2 dcrb2"
     echo "  --------------------------------------------------"
     echo "  List of possible PowerSwitch-controlled ROC names:"
     echo "    hpstracker hpsatca"
@@ -91,7 +91,8 @@ set roc_name_snmp = ( dc1        dc2        dc3        dc4        \
                       tdcecal2   adcpcal2   tdcpcal2   adcftof2   \
                       tdcftof2   adcecal3   tdcecal3   adcpcal3   \
                       tdcpcal3   adcftof3   tdcftof3   hps11 \
-                      highbtest3 dcrb2 )
+                      highbtest3 dcrb2      trig1      trig2 \
+                      svt4       svt5       svt7       ctof1 )
 
 
 #***  Set IP list for ROCs snmp-controlled ***
@@ -102,7 +103,7 @@ set ip_snmp = ( 129.57.69.36    129.57.69.37    129.57.69.38    129.57.69.39   \
                 129.57.167.85   129.57.86.44    129.57.69.32    129.57.69.47   \
                 129.57.69.30    129.57.69.28    129.57.69.40    129.57.69.29   \
                 129.57.167.104  129.57.167.47   129.57.167.56   129.57.167.173   \
-                129.57.167.80   129.57.86.45    129.57.86.34    129.57.167.20  \
+                129.57.167.80   129.57.86.71    129.57.86.34    129.57.167.20  \
                 129.57.167.164  129.57.167.165  129.57.86.53    129.57.167.52  \
                 129.57.167.54   129.57.167.73   129.57.167.81   129.57.167.156 \
                 129.57.167.80   129.57.167.157  129.57.167.158  129.57.167.39  \
@@ -113,7 +114,8 @@ set ip_snmp = ( 129.57.69.36    129.57.69.37    129.57.69.38    129.57.69.39   \
                 129.57.167.192  129.57.167.216  129.57.167.211  129.57.167.251 \
                 129.57.167.21   129.57.167.32   129.57.167.22   129.57.167.34  \
                 129.57.167.19   129.57.167.37   129.57.167.27   129.57.167.93 \
-                129.57.86.40    129.57.86.67 )
+                129.57.86.40    129.57.86.67    129.57.167.196  129.57.167.199 \
+                129.57.86.72    129.57.86.45    129.57.86.74    129.57.86.79 )
 
 #***  Set list of soft-IOCS rebooted via service command ***
 #

@@ -34,9 +34,9 @@ struct SDStruct
   /* 0x3C0C */ volatile unsigned int tokenPorts;         /* Address 0x3 */
   /* 0x3C10 */ volatile unsigned int busyoutPorts;       /* Address 0x4 */
   /* 0x3C14 */ volatile unsigned int trigoutPorts;       /* Address 0x5 */
-  /* 0x3C18 */          unsigned int RFU0;               /* Address 0x6 */
-  /* 0x3C1C */ volatile unsigned int busyoutStatus;      /* Address 0x7 */
-  /* 0x3C20 */ volatile unsigned int trigoutStatus;      /* Address 0x8 */
+  /* 0x3C18 */ volatile unsigned int busyoutStatus;      /* Address 0x6 */
+  /* 0x3C1C */ volatile unsigned int trigoutStatus;      /* Address 0x7 */
+  /* 0x3C20 */          unsigned int RFU0;      /* Address 0x8 */
   /* 0x3C24 */ volatile unsigned int busyoutCounter[16]; /* Address 0x9-0x18 */
   /* 0x3C64 */ volatile unsigned int busyoutTest;        /* Address 0x19 */
   /* 0x3C68 */ volatile unsigned int sdLinkTest;         /* Address 0x1A */
@@ -49,13 +49,18 @@ struct SDStruct
   /* 0x3C84 */ volatile unsigned int trigoutCounter[16]; /* Address 0x21-0x30 */
   /* 0x3CC4 */ volatile unsigned int clkACounterTest;    /* Address 0x31 */
   /* 0x3CC8 */ volatile unsigned int clkBCounterTest;    /* Address 0x32 */
-  /* 0x3CCC */          unsigned int blankSD1[(0x3D14-0x3CCC)/4];
+  /* 0x3CCC */          unsigned int blankSD1[(0x3CE4-0x3CCC)/4];
+  /* 0x3CE4 */ volatile unsigned int trigoutCtrl;        /* Address 0x39 */
+  /* 0x3CE8 */          unsigned int blankSD2[(0x3D00-0x3CE8)/4];
+  /* 0x3D00 */ volatile unsigned int trigoutAddr;        /* Address 0x40 */
+  /* 0x3D04 */ volatile unsigned int trigoutData;        /* Address 0x41 */
+  /* 0x3D08 */          unsigned int blankSD3[(0x3D14-0x3D08)/4];
   /* 0x3D14 */ volatile unsigned int memAddrLSB;         /* Address 0x45 */
   /* 0x3D18 */ volatile unsigned int memAddrMSB;         /* Address 0x46 */
   /* 0x3D1C */ volatile unsigned int memWriteCtrl;       /* Address 0x47 */
   /* 0x3D20 */ volatile unsigned int memReadCtrl;        /* Address 0x48 */
   /* 0x3D24 */ volatile unsigned int memCheckStatus;     /* Address 0x49 */
-  /* 0x3D28 */          unsigned int blankSD2[(0x10000-0x3D28)/4];
+  /* 0x3D28 */          unsigned int blankSD4[(0x10000-0x3D28)/4];
 };
 
 /* Initialization flags */
@@ -137,6 +142,10 @@ int  sdPrintBusyoutCounters();
 int  sdGetTrigoutCounter(int ipayload);
 int  sdPrintTrigoutCounters();
 int  sdGetBusyoutStatus(int pflag);
+
+#define SD_TRIGOUT_LOGIC_MULTIPLICITY	0
+#define SD_TRIGOUT_LOGIC_OR				1
+int  sdSetTrigoutLogic(int type, int threshold);
 
 #ifndef VXWORKSPPC
 int  sdFirmwareFlushFifo();

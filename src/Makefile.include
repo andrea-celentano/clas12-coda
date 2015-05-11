@@ -159,10 +159,10 @@ ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
     CFLAGS = -g
 endif
 
-#FFLAGS = -g
-#CFLAGS = -g
-FFLAGS = -O2
-CFLAGS = -O2
+FFLAGS = -g
+CFLAGS = -g
+#FFLAGS = -O2
+#CFLAGS = -O2
 
     FC = g77
 

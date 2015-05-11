@@ -66,4 +66,8 @@ links: libjvme.a libjvme.so
 %.o: %.c
 	$(CC) $(CFLAGS) -o $@ -c $<
 
+install:
+	cp $(LIBS) $(CODA)/$(OSTYPE_MACHINE)/lib
+	cp $(SHLIBS) $(CODA)/$(OSTYPE_MACHINE)/lib
+
 .PHONY: all clean distclean

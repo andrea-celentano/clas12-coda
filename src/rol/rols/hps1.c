@@ -23,6 +23,7 @@ tcpClient adcecal1 'tiInit(0xa80000,3,0)'
 coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 */
 
+#define SSIPC
 
 #undef DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
 
@@ -33,8 +34,9 @@ coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 #define USE_V1190
 #define USE_SSP
 #define USE_VSCM
-#define USE_DC
-
+/*#define USE_DC*/
+#define USE_DCRB
+#define USE_VETROC
 
 /* if event rate goes higher then 10kHz, with random triggers we have wrong
 slot number reported in GLOBAL HEADER and/or GLOBAL TRAILER words; to work
@@ -58,6 +60,12 @@ typedef      long long       hrtime_t;
 */
 #endif
 
+#ifdef SSIPC
+#include <rtworks/ipc.h>
+#include "epicsutil.h"
+static char ssname[80];
+#endif
+
 #include "circbuf.h"
 
 /* from fputil.h */
@@ -71,6 +79,7 @@ typedef      long long       hrtime_t;
 
 /* main TI board */
 #define TI_ADDR   (21<<19)  /* if 0 - default will be used, assuming slot 21*/
+
 
 
 /* name used by loader */
@@ -237,17 +246,36 @@ getTdcSlotNumbers(int *slotnumbers)
 #endif
 */
 
+#ifdef USE_VETROC
+#include "vetrocLib.h"
+extern int nvetroc;                   /* Number of VETROCs in Crate */
+static int VETROC_SLOT;
+static int VETROC_ROFLAG = 1;           /* 0-noDMA, 1-board-by-board DMA, 2-chainedDMA */
+
+/* for the calculation of maximum data words in the block transfer */
+static unsigned int MAXVETROCWORDS = 10000;
+static unsigned int vetrocSlotMask; /* bit=slot (starting from 0) */
+#endif
+
+#ifdef USE_DCRB
+#include "dcrbLib.h"
+extern int ndcrb;                     /* Number of DCs in Crate */
+static int DCRB_SLOT;
+static int DCRB_ROFLAG = 1;           /* 0-noDMA, 1-board-by-board DMA, 2-chainedDMA */
+
+/* for the calculation of maximum data words in the block transfer */
+static unsigned int MAXDCRBWORDS = 10000;
+static unsigned int dcrbSlotMask; /* bit=slot (starting from 0) */
+#endif
 
 #ifdef USE_DC
 #include "dcLib.h"
 extern int ndc;                     /* Number of DCs in Crate */
-static int DC_SLOT, islot;
+static int DC_SLOT;
 static int DC_ROFLAG = 1;           /* 0-noDMA, 1-board-by-board DMA, 2-chainedDMA */
 
 /* for the calculation of maximum data words in the block transfer */
 static unsigned int MAXDCWORDS = 10000;
-static unsigned int MAXTIDWORDS  = 0;
-
 static unsigned int dcSlotMask; /* bit=slot (starting from 0) */
 #endif
 
@@ -370,24 +398,13 @@ __download()
   /* TS 1-6 create physics trigger, no sync event pin, no trigger 2 */
 vmeBusLock();
   tiLoadTriggerTable(3);
+  tiSetTriggerWindow(7);	// (7+1)*4ns trigger it coincidence time to form trigger type
 vmeBusUnlock();
 #endif
 
 
   /*********************************************************/
   /*********************************************************/
-
-
-#if 0
-  /* for timing measurements in FADC250s */
-  tiSetTriggerHoldoff(1,5,0);   /* No more than 1 trigger within 80 ns */
-  tiSetTriggerHoldoff(4,41,0);  /* No more than 4 triggers within 656 ns */
-#endif
-vmeBusLock();
-  tiSetTriggerHoldoff(1,10,0);   /* No more than 1 trigger within 160 ns */
-  tiSetTriggerHoldoff(2,20,1);  /* No more than 2 triggers within 10000 ns */
-vmeBusUnlock();
-
 
 
 
@@ -593,10 +610,12 @@ vmeBusUnlock();
 
     /* 1) Load FADC pedestals from file for trigger path.
        2) Offset FADC threshold for each channel based on pedestal for both readout and trigger */
+	if( rol->pid!=46 && rol->pid!=37 && rol->pid!=39 && rol->pid!=58)
+    {
 vmeBusLock();
-    faGLoadChannelPedestals(getFadcPedsFilename(rol->pid), 1);
+      faGLoadChannelPedestals(getFadcPedsFilename(rol->pid), 1);
 vmeBusUnlock();
-
+    }
     /* read back and print trigger pedestals */
 /*
     printf("\n\nTrigger pedestals readback\n");
@@ -701,7 +720,7 @@ vmeBusUnlock();
 #endif
 
 vmeBusLock();
-  ndc = dcInit((4<<19), 0x80000, 16, 7); /* 7 boards from slot 4, 7 boards from slot 13 */
+  ndc = dcInit((3<<19), 0x80000, 16+2, 7); /* 7 boards from slot 4, 7 boards from slot 13 */
   if(ndc>0)
   {
     dcGSetDAC(/*20*/10); /* threshold in mV */
@@ -760,10 +779,17 @@ vmeBusUnlock();
   printf("DC Download() ends =========================\n\n");
 #endif
 
+  sprintf(rcname,"RC%02d",rol->pid);
+  printf("rcname >%4.4s<\n",rcname);
 
+#ifdef SSIPC
+  sprintf(ssname,"%s_%s",getenv("HOST"),rcname);
+  epics_msg_sender_init(getenv("EXPID"), ssname); /* SECOND ARG MUST BE UNIQUE !!! */
+#endif
 
   logMsg("INFO: User Download Executed\n",1,2,3,4,5,6);
 }
+
 
 
 static void
@@ -797,11 +823,6 @@ __prestart()
   block_level = next_block_level;
 
 
-  sprintf(rcname,"RC%02d",rol->pid);
-  printf("rcname >%4.4s<\n",rcname);
-
-
-
   /**************************************************************************/
   /* setting TI busy conditions, based on boards found in Download          */
   /* tiInit() does nothing for busy, tiConfig() sets fiber, we set the rest */
@@ -811,6 +832,7 @@ __prestart()
 #ifndef TI_SLAVE
 vmeBusLock();
   tiSetBusySource(TI_BUSY_LOOPBACK,0);
+  /*tiSetBusySource(TI_BUSY_FP,0);*/
 vmeBusUnlock();
 #endif
 
@@ -825,6 +847,7 @@ vmeBusLock();
 vmeBusUnlock();
   }
 #endif
+
 
 
 #ifdef USE_V1190
@@ -876,7 +899,6 @@ vmeBusUnlock();
 #endif
 
 
-
 #ifdef USE_VSCM
   printf("VSCM Prestart() start =========================\n");
 
@@ -886,9 +908,14 @@ vmeBusUnlock();
     printf("Set BUSY from SWB for FADCs\n");
 vmeBusLock();
     tiSetBusySource(TI_BUSY_SWB,0);
+	 sdSetActiveVmeSlots(vscmSlotMask);
+	 
+    if(rol->pid == 4) sdSetTrigoutLogic(0, 2); /* SD Trigout when VSCM multiplicity >= 2 - DO FOR SVT4: R1+R2*/
+    else              sdSetTrigoutLogic(0, 1); /* SD Trigout when VSCM multiplicity >= 1 - DO FOR SVT5: R3*/
 vmeBusUnlock();
 
     printf("vscmPrestart ...\n"); fflush(stdout);
+//   vscmPrestart("VSCMConfig_ben_cosmic.txt");
     vscmPrestart("VSCMConfig.txt");
     printf("vscmPrestart done\n"); fflush(stdout);
   }
@@ -896,6 +923,122 @@ vmeBusUnlock();
   printf("VSCM Prestart() ends =========================\n\n");
 #endif
 
+
+
+#ifdef USE_VETROC
+  printf("VETROC Prestart() starts =========================\n");
+
+#ifndef VXWORKS
+  vmeSetQuietFlag(1); /* skip the errors associated with BUS Errors */
+#endif
+
+vmeBusLock();
+  nvetroc = vetrocInit((3<<19), 0x80000, 16+2, 0x111); /* 7 boards from slot 4, 7 boards from slot 13 */
+  if(nvetroc>0)
+  {
+    vetrocGSetProcMode(/*4000*/2000,/*4000*/2000);
+  }
+vmeBusUnlock();
+
+#ifndef VXWORKS
+  vmeSetQuietFlag(0); /* Turn the error statements back on */
+#endif
+
+  if(nvetroc==1) VETROC_ROFLAG = 1; /*no chainedDMA if one board only*/
+  if((nvetroc>0) && (VETROC_ROFLAG==2)) vetrocEnableMultiBlock(1);
+  else if(nvetroc>0) vetrocDisableMultiBlock();
+
+  /* Additional Configuration for each module */
+  vetrocSlotMask=0;
+  for(ii=0; ii<nvetroc; ii++) 
+  {
+    VETROC_SLOT = vetrocSlot(ii);      /* Grab the current module's slot number */
+    vetrocSlotMask |= (1<<VETROC_SLOT); /* Add it to the mask */
+	printf("=======================> vetrocSlotMask=0x%08x\n",vetrocSlotMask);
+
+  }
+
+  /* VETROC stuff */
+  for(id=0; id<nvetroc; id++) 
+  {
+    VETROC_SLOT = vetrocSlot(id);
+vmeBusLock();
+    vetrocTriggerPulseWidth(VETROC_SLOT, 8000);
+    vetrocLinkReset(VETROC_SLOT);
+vmeBusUnlock();
+  }
+
+  printf("VETROC Prestart() ends =========================\n\n");
+#endif
+
+
+#ifdef USE_DCRB
+  printf("DCRB Prestart() starts =========================\n");
+
+#ifndef VXWORKS
+  vmeSetQuietFlag(1); /* skip the errors associated with BUS Errors */
+#endif
+
+vmeBusLock();
+  ndcrb = dcrbInit((4<<19), 0x80000, 16+2, 7); /* 7 boards from slot 4, 7 boards from slot 13 */
+  if(ndcrb>0)
+  {
+    dcrbGSetDAC(-35); /* threshold in mV */
+    dcrbGSetProcMode(/*4000*/2000,/*4000*/2000,32);
+  }
+vmeBusUnlock();
+
+#ifndef VXWORKS
+  vmeSetQuietFlag(0); /* Turn the error statements back on */
+#endif
+
+  if(ndcrb==1) DCRB_ROFLAG = 1; /*no chainedDMA if one board only*/
+  if((ndcrb>0) && (DCRB_ROFLAG==2)) dcrbEnableMultiBlock(1);
+  else if(ndcrb>0) dcrbDisableMultiBlock();
+
+  /* Additional Configuration for each module */
+  dcrbSlotMask=0;
+  for(ii=0; ii<ndcrb; ii++) 
+  {
+    DCRB_SLOT = dcrbSlot(ii);      /* Grab the current module's slot number */
+    dcrbSlotMask |= (1<<DCRB_SLOT); /* Add it to the mask */
+	printf("=======================> dcrbSlotMask=0x%08x\n",dcrbSlotMask);
+
+  }
+
+
+  /* DCRB stuff */
+
+  for(id=0; id<ndcrb; id++) 
+  {
+    DCRB_SLOT = dcrbSlot(id);
+vmeBusLock();
+    dcrbTriggerPulseWidth(DCRB_SLOT, 8000);
+	dcrbLinkReset(DCRB_SLOT);
+vmeBusUnlock();
+
+    /* will try to reset 5 times
+    for(ii=0; ii<5; ii++)
+	{
+      if(dcrbLinkStatus(DCRB_SLOT)) break;
+	  printf("Reseting link at slot %d\n",DCRB_SLOT);
+vmeBusLock();
+      dcrbLinkReset(DCRB_SLOT);
+vmeBusUnlock();
+	}
+    */
+
+  }
+
+
+  for(id=0; id<ndcrb; id++)
+  {
+    DCRB_SLOT = dcrbSlot(id);
+    if(dcrbLinkStatus(DCRB_SLOT)) printf("Link at slot %d is UP\n",DCRB_SLOT);
+    else printf("Link at slot %d is DOWN\n",DCRB_SLOT);
+  }
+  printf("DCRB Prestart() ends =========================\n\n");
+#endif
 
 
   /*********************************************************/
@@ -1024,9 +1167,6 @@ vmeBusUnlock();
   printf("SSP Prestart() ends =========================\n\n");
 #endif /* USE_SSP */
 
-
-
-
   /* USER code here */
   /******************/
 
@@ -1034,14 +1174,12 @@ vmeBusLock();
   tiIntDisable();
 vmeBusUnlock();
 
-
 #ifdef USE_DSC2
   printf("DSC2 Prestart() starts =========================\n");
   /* dsc2 configuration */
   if(ndsc2>0) DSC2_READ_CONF_FILE;
   printf("DSC2 Prestart() ends =========================\n\n");
 #endif
-
 
   /* master and standalone crates, NOT slave */
 #ifndef TI_SLAVE
@@ -1089,7 +1227,7 @@ vmeBusUnlock();
 /* set block level in all boards where it is needed;
    it will overwrite any previous block level settings */
 
-#ifdef TI_SLAVE /* assume that for master and standalone TIs block level is set from config file */.
+#ifdef TI_SLAVE /* assume that for master and standalone TIs block level is set from config file */
 vmeBusLock();
   tiSetBlockLevel(block_level);
 vmeBusUnlock();
@@ -1146,6 +1284,39 @@ vmeBusUnlock();
 vmeBusLock();
     sspSetBlockLevel(slot, block_level);
     sspGetBlockLevel(slot);
+vmeBusUnlock();
+  }
+#endif
+
+#ifdef USE_VETROC
+  for(id=0; id<nvetroc; id++)
+  {
+    slot = vetrocSlot(id);
+vmeBusLock();
+    vetrocSetBlockLevel(slot, block_level);
+/*    vetrocGetBlockLevel(slot);*/
+vmeBusUnlock();
+  }
+#endif
+
+#ifdef USE_DC
+  for(id=0; id<ndc; id++)
+  {
+    slot = dcSlot(id);
+vmeBusLock();
+    dcSetBlockLevel(slot, block_level);
+/*    dcGetBlockLevel(slot);*/
+vmeBusUnlock();
+  }
+#endif
+
+#ifdef USE_DCRB
+  for(id=0; id<ndcrb; id++)
+  {
+    slot = dcrbSlot(id);
+vmeBusLock();
+    dcrbSetBlockLevel(slot, block_level);
+/*    dcrbGetBlockLevel(slot);*/
 vmeBusUnlock();
   }
 #endif
@@ -1240,7 +1411,7 @@ __go()
 #ifndef TI_SLAVE
   /* set sync event interval (in blocks) */
 vmeBusLock();
-  tiSetSyncEventInterval(10000);
+ tiSetSyncEventInterval(10000/*block_level*/);
 vmeBusUnlock();
 #endif
 
@@ -1333,7 +1504,27 @@ vmeBusUnlock();
 
 #endif
 
-#ifdef USE_DSC@
+#ifdef USE_DCRB
+  for(ii=0; ii<ndcrb; ii++)
+  {
+    DCRB_SLOT = dcrbSlot(ii);
+vmeBusLock();
+    dcrbClear(DCRB_SLOT);
+vmeBusUnlock();
+  }
+#endif
+
+#ifdef USE_VETROC
+  for(ii=0; ii<nvetroc; ii++)
+  {
+    VETROC_SLOT = vetrocSlot(ii);
+vmeBusLock();
+    vetrocClear(VETROC_SLOT);
+vmeBusUnlock();
+  }
+#endif
+
+#ifdef USE_DSC2
   for(ii=0; ii<ndsc2_daq; ii++)
   {
     slot = dsc2Slot(ii);
@@ -1548,8 +1739,6 @@ vmeBusUnlock();
 #ifdef USE_SSP
     if(nssp>0)
     {
-
-
 #ifdef DEBUG
       printf("Calling sspGBReady ...\n");fflush(stdout);
 #endif
@@ -1575,10 +1764,6 @@ vmeBusUnlock();
 #ifdef DEBUG
       printf("SSP IS READY: gbready=0x%08x, expect 0x%08x\n",gbready,sspSlotMask);
 #endif
-
-
-
-
 
 vmeBusLock();
       len = sspReadBlock(0,tdcbuf,0x10000,1);
@@ -1631,9 +1816,6 @@ vmeBusUnlock();
         FA_SLOT = faSlot(0);
         if(FADC_ROFLAG==2)
         {
-
-
-
 
 #ifdef DMA_TO_BIGBUF
  		  /*
@@ -2019,13 +2201,13 @@ vmeBusUnlock();
           usrVmeDmaMemory(&pMemBase, &uMemBase, &mSize);
  
 vmeBusLock();
- 	      dCnt = faReadBlock(DC_SLOT,rol->dabufp,MAXDCWORDS,DC_ROFLAG);
+ 	      dCnt = dcReadBlock(DC_SLOT,rol->dabufp,MAXDCWORDS,DC_ROFLAG);
 vmeBusUnlock();
           rol->dabufp += dCnt;
           usrRestoreVmeDmaMemory();
 #else
 vmeBusLock();
-	      dCnt = faReadBlock(DC_SLOT,tdcbuf,MAXDCWORDS,DC_ROFLAG);
+	      dCnt = dcReadBlock(DC_SLOT,tdcbuf,MAXDCWORDS,DC_ROFLAG);
 vmeBusUnlock();
 #endif
         }
@@ -2097,9 +2279,9 @@ vmeBusUnlock();
       /* Reset the Token */
       if(DC_ROFLAG==2)
 	  {
-	    for(islot=0; islot<ndc; islot++)
+	    for(jj=0; jj<ndc; jj++)
 	    {
-	      DC_SLOT = dcSlot(islot);
+	      DC_SLOT = dcSlot(jj);
 vmeBusLock();
 	      /*dcResetToken(DC_SLOT);not implemented yet !!!!!!!!!!*/
 vmeBusUnlock();
@@ -2112,6 +2294,267 @@ vmeBusUnlock();
 
 
 
+
+
+#ifdef USE_DCRB
+
+
+
+    /* Configure Block Type... temp fix for 2eSST trouble with token passing */
+    tdcbuf = tdcbuf_save;
+    dCnt=0;
+    if(ndcrb != 0)
+    {
+      stat = 0;
+      for(itime=0; itime<100000; itime++) 
+	  {
+vmeBusLock();
+	    gbready = dcrbGBready();
+vmeBusUnlock();
+	    stat = (gbready == dcrbSlotMask);
+	    if (stat>0) 
+	    {
+          printf("expected mask 0x%08x, got 0x%08x\n",dcrbSlotMask,gbready);
+	      break;
+	    }
+	  }
+      if(stat==0) printf("dcrb not ready !!!\n");
+
+
+      if(stat>0)
+	  {
+        BANKOPEN(0xe105,1,rol->pid);
+
+        DCRB_SLOT = dcrbSlot(0);
+        if(DCRB_ROFLAG==2)
+        {
+#ifdef DMA_TO_BIGBUF
+          uMemBase = dabufp_usermembase;
+          pMemBase = dabufp_physmembase;
+          mSize = 0x100000;
+          usrChangeVmeDmaMemory(pMemBase, uMemBase, mSize);
+ 
+          usrVmeDmaMemory(&pMemBase, &uMemBase, &mSize);
+ 
+vmeBusLock();
+ 	      dCnt = dcrbReadBlock(DCRB_SLOT,rol->dabufp,MAXDCRBWORDS,DCRB_ROFLAG);
+vmeBusUnlock();
+          rol->dabufp += dCnt;
+          usrRestoreVmeDmaMemory();
+#else
+vmeBusLock();
+	      dCnt = dcrbReadBlock(DCRB_SLOT,tdcbuf,MAXDCRBWORDS,DCRB_ROFLAG);
+vmeBusUnlock();
+#endif
+        }
+        else
+		{
+          for(jj=0; jj<ndcrb; jj++)
+	      {
+            DCRB_SLOT = dcrbSlot(jj);
+#ifdef DMA_TO_BIGBUF
+            uMemBase = dabufp_usermembase;
+            pMemBase = dabufp_physmembase;
+            mSize = 0x100000;
+            usrChangeVmeDmaMemory(pMemBase, uMemBase, mSize);
+
+vmeBusLock();
+            len = dcrbReadBlock(DCRB_SLOT, rol->dabufp, MAXDCRBWORDS, DCRB_ROFLAG);
+vmeBusUnlock();
+/*#ifdef DEBUG*/
+            printf("DCRB: slot=%d, nw=%d, data-> 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			  DCRB_SLOT,len,LSWAP(rol->dabufp[0]),LSWAP(rol->dabufp[1]),LSWAP(rol->dabufp[2]),
+			  LSWAP(rol->dabufp[3]),LSWAP(rol->dabufp[4]),LSWAP(rol->dabufp[5]),LSWAP(rol->dabufp[6]));
+/*#endif*/
+            rol->dabufp += len;
+            dCnt += len;
+
+            usrRestoreVmeDmaMemory();
+#else
+vmeBusLock();
+            len = dcrbReadBlock(DCRB_SLOT, &tdcbuf[dCnt], MAXDCRBWORDS, DCRB_ROFLAG);
+vmeBusUnlock();
+/*#ifdef DEBUG*/
+            printf("DC: slot=%d, nw=%d, data-> 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			  DCRB_SLOT,len,LSWAP(tdcbuf[dCnt+0]),LSWAP(tdcbuf[dCnt+1]),LSWAP(tdcbuf[dCnt+2]),
+              LSWAP(tdcbuf[dCnt+3]),LSWAP(tdcbuf[dCnt+4]),LSWAP(tdcbuf[dCnt+5]),LSWAP(tdcbuf[dCnt+6]));
+/*#endif*/
+            dCnt += len;
+#endif
+	      }
+		}
+
+	    if(dCnt<=0)
+	    {
+	      printf("DCRB: No data or error.  dCnt = %d\n",dCnt);
+          dCnt=0;
+	    }
+        else
+	    {
+#ifndef DMA_TO_BIGBUF
+          for(jj=0; jj<dCnt; jj++) *rol->dabufp++ = tdcbuf[jj];
+#endif
+	    }
+
+        BANKCLOSE;
+	  }
+	  else
+	  {
+	    printf ("DCRBs: no events   stat=%d  intcount = %d   gbready = 0x%08x  dcrbSlotMask = 0x%08x\n",
+		  stat,tiGetIntCount(),gbready,dcrbSlotMask);
+        printf("Missing slots:");
+        for(jj=1; jj<21; jj++)
+		{
+          mask = 1<<jj;
+          if((dcrbSlotMask&mask) && !(gbready&mask)) printf("%3d",jj);
+		}
+        printf("\n");
+	  }
+
+      /* Reset the Token */
+      if(DCRB_ROFLAG==2)
+	  {
+	    for(jj=0; jj<ndcrb; jj++)
+	    {
+	      DCRB_SLOT = dcrbSlot(jj);
+vmeBusLock();
+	      /*dcResetToken(DC_SLOT);not implemented yet !!!!!!!!!!*/
+vmeBusUnlock();
+	    }
+	  }
+
+    }
+
+#endif /*USE_DCRB*/
+
+
+
+
+#ifdef USE_VETROC
+    /* Configure Block Type... temp fix for 2eSST trouble with token passing */
+    tdcbuf = tdcbuf_save;
+    dCnt=0;
+    if(nvetroc != 0)
+    {
+      stat = 0;
+      for(itime=0; itime<100000; itime++) 
+	  {
+vmeBusLock();
+	    gbready = vetrocGBready();
+vmeBusUnlock();
+	    stat = (gbready == vetrocSlotMask);
+	    if (stat>0) 
+	    {
+          printf("expected mask 0x%08x, got 0x%08x\n",vetrocSlotMask,gbready);
+	      break;
+	    }
+	  }
+      if(stat==0) printf("vetroc not ready !!!\n");
+
+
+      if(stat>0)
+	  {
+        BANKOPEN(0xe105,1,rol->pid);
+
+        VETROC_SLOT = vetrocSlot(0);
+        if(VETROC_ROFLAG==2)
+        {
+#ifdef DMA_TO_BIGBUF
+          uMemBase = dabufp_usermembase;
+          pMemBase = dabufp_physmembase;
+          mSize = 0x100000;
+          usrChangeVmeDmaMemory(pMemBase, uMemBase, mSize);
+ 
+          usrVmeDmaMemory(&pMemBase, &uMemBase, &mSize);
+ 
+vmeBusLock();
+ 	      dCnt = vetrocReadBlock(VETROC_SLOT,rol->dabufp,MAXVETROCWORDS,VETROC_ROFLAG);
+vmeBusUnlock();
+          rol->dabufp += dCnt;
+          usrRestoreVmeDmaMemory();
+#else
+vmeBusLock();
+	      dCnt = vetrocReadBlock(VETROC_SLOT,tdcbuf,MAXVETROCWORDS,VETROC_ROFLAG);
+vmeBusUnlock();
+#endif
+        }
+        else
+		{
+          for(jj=0; jj<nvetroc; jj++)
+	      {
+            VETROC_SLOT = vetrocSlot(jj);
+#ifdef DMA_TO_BIGBUF
+            uMemBase = dabufp_usermembase;
+            pMemBase = dabufp_physmembase;
+            mSize = 0x100000;
+            usrChangeVmeDmaMemory(pMemBase, uMemBase, mSize);
+
+vmeBusLock();
+            len = vetrocReadBlock(VETROC_SLOT, rol->dabufp, MAXVETROCWORDS, VETROC_ROFLAG);
+vmeBusUnlock();
+/*#ifdef DEBUG*/
+            printf("VETROC: slot=%d, nw=%d, data-> 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			  VETROC_SLOT,len,LSWAP(rol->dabufp[0]),LSWAP(rol->dabufp[1]),LSWAP(rol->dabufp[2]),
+			  LSWAP(rol->dabufp[3]),LSWAP(rol->dabufp[4]),LSWAP(rol->dabufp[5]),LSWAP(rol->dabufp[6]));
+/*#endif*/
+            rol->dabufp += len;
+            dCnt += len;
+
+            usrRestoreVmeDmaMemory();
+#else
+vmeBusLock();
+            len = vetrocReadBlock(VETROC_SLOT, &tdcbuf[dCnt], MAXVETROCWORDS, VETROC_ROFLAG);
+vmeBusUnlock();
+/*#ifdef DEBUG*/
+            printf("VETROC: slot=%d, nw=%d, data-> 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			  VETROC_SLOT,len,LSWAP(tdcbuf[dCnt+0]),LSWAP(tdcbuf[dCnt+1]),LSWAP(tdcbuf[dCnt+2]),
+              LSWAP(tdcbuf[dCnt+3]),LSWAP(tdcbuf[dCnt+4]),LSWAP(tdcbuf[dCnt+5]),LSWAP(tdcbuf[dCnt+6]));
+/*#endif*/
+            dCnt += len;
+#endif
+	      }
+		}
+
+	    if(dCnt<=0)
+	    {
+	      printf("VETROC: No data or error.  dCnt = %d\n",dCnt);
+          dCnt=0;
+	    }
+        else
+	    {
+#ifndef DMA_TO_BIGBUF
+          for(jj=0; jj<dCnt; jj++) *rol->dabufp++ = tdcbuf[jj];
+#endif
+	    }
+
+        BANKCLOSE;
+	  }
+	  else
+	  {
+	    printf ("VETROCs: no events   stat=%d  intcount = %d   gbready = 0x%08x  VETROCSlotMask = 0x%08x\n",
+		  stat,tiGetIntCount(),gbready,vetrocSlotMask);
+        printf("Missing slots:");
+        for(jj=1; jj<21; jj++)
+		{
+          mask = 1<<jj;
+          if((vetrocSlotMask&mask) && !(gbready&mask)) printf("%3d",jj);
+		}
+        printf("\n");
+	  }
+
+      /* Reset the Token */
+      if(VETROC_ROFLAG==2)
+	  {
+	    for(jj=0; jj<nvetroc; jj++)
+	    {
+	      VETROC_SLOT = vetrocSlot(jj);
+vmeBusLock();
+	      /*vetrocResetToken(DC_SLOT);not implemented yet !!!!!!!!!!*/
+vmeBusUnlock();
+	    }
+	  }
+    }
+#endif /*USE_VETROC*/
 
 
 #ifndef TI_SLAVE
@@ -2203,19 +2646,17 @@ vmeBusUnlock();
 	  }
 #endif
 
-#ifdef USE_V1190
-	  /*
+#ifdef USE_V1190_HIDE
 	  if(ntdcs>0)
 	  {
 vmeBusLock();
         len = tdc1190UploadAll(chptr, 10000);
 vmeBusUnlock();
-        printf("\nTDC len=%d\n",len);
-        printf("%s\n",chptr);
+        /*printf("\nTDC len=%d\n",len);
+        printf("%s\n",chptr);*/
         chptr += len;
         nbytes += len;
 	  }
-	  */
 #endif
 
 #ifdef USE_DSC2
@@ -2244,6 +2685,7 @@ vmeBusUnlock();
         nbytes += len;
 	  }
 #endif
+
 
 	  /* temporary for crates with GTP */
       if(rol->pid==37||rol->pid==39)
@@ -2317,17 +2759,45 @@ vmeBusLock();
         nwords = dsc2ReadScalers(slot, tdcbuf, 0x10000, 0xFF, 1);
         /*printf("nwords=%d, nwords = 0x%08x 0x%08x 0x%08x 0x%08x\n",nwords,tdcbuf[0],tdcbuf[1],tdcbuf[2],tdcbuf[3]);*/
 vmeBusUnlock();
+
+#ifdef SSIPC
+	  {
+        int status, mm;
+        unsigned int dd[72];
+        for(mm=0; mm<72; mm++) dd[mm] = tdcbuf[mm];
+        status = epics_msg_send("hallb_dsc2_hps2_slot2","uint",72,dd);
+	  }
+#endif
         /* unlike other boards, dcs2 scaler readout already swapped in 'dsc2ReadScalers', so swap it back, because
         hps2.c expects big-endian format*/
         for(ii=0; ii<nwords; ii++) *rol->dabufp ++ = LSWAP(tdcbuf[ii]);
       }
       BANKCLOSE;
 	  }
-#endif      
+
+#endif
 	}
 
 
-
+#ifndef TI_SLAVE
+    /* print livetite */
+    if(syncFlag==1)
+	{
+      int livetime, live_percent;
+vmeBusLock();
+      tiLatchTimers();
+      livetime = tiLive(0);
+vmeBusUnlock();
+      live_percent = livetime/10;
+	  printf("============= Livetime=%3d percent\n",live_percent);
+#ifdef SSIPC
+	  {
+        int status;
+        status = epics_msg_send("hallb_livetime","int",1,&live_percent);
+	  }
+#endif
+	}
+#endif
 
 
 

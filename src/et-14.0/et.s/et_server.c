@@ -1960,11 +1960,18 @@ ET_HIGHINT((uintptr_t)events[i]), ET_LOWINT((uintptr_t)events[i]));
             err = et_event_new(id, att, &pe, mode, NULL, size);
           }
           /* keep track of how this event is to be modified */
-          if (err == ET_OK) pe->modify = ET_MODIFY;
+          if (err == ET_OK)
+		  {
+            pe->modify = ET_MODIFY;
+            /* send an index into shared memory and NOT a pointer - for local Java clients */
+            transfer[1] = htonl(pe->place);
+		  }
+		  else
+		  {
+            transfer[1] = 0;
+		  }
 
           transfer[0] = htonl(err);
-          /* send an index into shared memory and NOT a pointer - for local Java clients */
-          transfer[1] = htonl(pe->place);
           transfer[2] = 0; /* not used */
 
           if (etNetTcpWrite(connfd, (void *) transfer, sizeof(transfer)) != sizeof(transfer)) {

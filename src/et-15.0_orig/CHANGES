@@ -1,0 +1,65 @@
+Changes from the previous version:
+
+- in C code, add mutex protection when calling et_close and other routines
+  so there is much more thread safety. It is necessary to run this version
+  of ET (14.0) in order not to crash the emu with a JVM seg fault.
+  
+- in C code, after et_close() is called, its et id cannot be used,
+  returns new error, ET_ERROR_CLOSED
+  
+- in C and Java, when broad/multicasting to connect to an ET system, an
+  ET client will use all the IP addresses sent by the ET system to try and
+  connect, starting with addresses on the same subnets. A timeout of 3 seconds
+  maximum exists for each address tried.
+
+- the "scons install" option now installs et_start and et_monitor but the examples
+  must now be installed by doing "scons examples"
+
+- add scons options:
+    -- to remove documentation
+    -- It now installs into $CODA unless --prefix given on cmd line.
+       It can also install into --incdir, --bindir, and --libdir if
+       more installation control is needed
+
+- add ant options to:
+    -- remove documentation
+    -- install & uninstall jar files
+    -- install into CODA env var or into --prefix
+
+
+1/21/2014
+	Made ET file other-readable & other-writeable
+	Deprecate routines that swap (use evio)
+
+
+
+ET-15.0
+
+4/16/2014
+    - SystemCreate.getStations() returns an ArrayList not a LinkedList
+    - replace all LinkedLists with ArrayLists for performance
+    - make certain methods public so a java process which runs an ET
+      server in its own JVM can efficiently access that ET system
+      (avoid sockets)
+
+6/18/2014
+    -Fix bug in java ET system (server) in which the getEvents() delay
+     will become negative due to rounding error
+    -Fix bug in java ET system (server) in which the getEvents() delay
+     will become infinite if 0 time left
+
+7/10/2014
+    - et_monitor can now use multicasting to find ET system
+      and so can its java counterpart, org.jlab.coda.et.apps.EtMonitor
+    - graphical et monitor no longer needs a schema
+
+9/22/2014
+    - fix flags for Mac OSX compilation
+    - fix bad return values in et_jni.c when error
+
+11/12/14
+    - fix bug in which SystemCreate.shutdown() did not end all the ET system threads
+
+12/12/14
+    - fix bug in which C ET system seg faults due to null pointer in server code handling
+      et_event_new() from remote and no-share C clients

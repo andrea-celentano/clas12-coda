@@ -17,6 +17,17 @@ TI_BLOCK_LEVEL 1                               # the number of events in readout
 
 TI_BUFFER_LEVEL 1                              # 0 - pipeline mode, 1 - ROC Lock mode, >=2 - buffered mode
 
+TI_INPUT_PRESCALE bit prescale                 # bit: 0-5, prescale: 0-15, actual prescale value is 2^prescale
+
+TI_RANDOM_TRIGGER en prescale                  # en: 0=disabled 1=enabled, prescale: 0-15, nominal rate = 500kHz/2^prescale
+
+TI_HOLDOFF   rule   time  timescale            # rule: 1-4, time: 0-127, timescale: 0-1
+                                               # note:
+                                                   rule 1 timescale: 0=16ns, 1=480ns  (max time=60,960ns)
+                                                   rule 2 timescale: 0=16ns, 1=960ns  (max time=121,920ns)
+                                                   rule 3 timescale: 0=32ns, 1=1920ns (max time=243,840ns)
+                                                   rule 4 timescale: 0=64ns, 1=3840ns (max time=487,680ns)
+                                               # all rules run simultaneously
 */
 
 #include <stdio.h>
@@ -44,6 +55,10 @@ static unsigned int delay, offset;
 static int block_level;
 static int buffer_level;
 static int input_prescale[6];
+static int random_enabled;
+static int random_prescale;
+static int holdoff_rules[4];
+static int holdoff_timescale[4];
 
 /* tiInit() have to be called before this function */
 int  
@@ -70,7 +85,6 @@ tiConfig(char *fname)
   return(0);
 }
 
-
 int
 tiInitGlobals()
 {
@@ -82,6 +96,16 @@ tiInitGlobals()
   block_level = 1;
   buffer_level = 1;
   nslave = 0;
+  random_enabled = 0;
+  random_prescale = 0;
+  holdoff_rules[0] = 50;
+  holdoff_rules[1] = 1;
+  holdoff_rules[2] = 1;
+  holdoff_rules[3] = 1;
+  holdoff_timescale[0] = 1;
+  holdoff_timescale[1] = 1;
+  holdoff_timescale[2] = 1;
+  holdoff_timescale[3] = 1;
   for(ii=0; ii<MAXSLAVES; ii++) slave_list[ii] = 0;
   for(ii=0; ii<6; ii++) input_prescale[ii] = 0;
 
@@ -99,13 +123,14 @@ tiReadConfigFile(char *filename)
   char   str_tmp[STRLEN], keyword[ROCLEN];
   char   host[ROCLEN], ROC_name[ROCLEN];
   char   str2[2];
-  int    args, i1, i2;
+  int    args, i1, i2, i3;
   int    slot, chan;
   unsigned int  ui1, ui2;
   char *getenv();
   char *clonparms;
   char *expid;
-
+  
+  gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
   expid = getenv("EXPID");
   if(strlen(filename)!=0) /* filename specified */
@@ -127,8 +152,6 @@ tiReadConfigFile(char *filename)
   }
   else /* filename does not specified */
   {
-    /* obtain our hostname */
-    gethostname(host,ROCLEN);
     sprintf(fname, "%s/ti/%s.cnf", clonparms, host);
     if((fd=fopen(fname,"r")) == NULL)
     {
@@ -216,6 +239,38 @@ tiReadConfigFile(char *filename)
         }
         input_prescale[i1-1] = i2;
       }
+      else if(active && (strcmp(keyword,"TI_RANDOM_TRIGGER")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d", &i1, &i2);
+        if((i1 < 0) || (i1 > 1))
+        {
+          printf("\nReadConfigFile: Invalid random enable option, %s\n",str_tmp);
+        }
+        if((i2 < 0) || (i2 > 15))
+        {
+          printf("\nReadConfigFile: Invalid random prescaler value selction, %s\n",str_tmp);
+        }
+        random_enabled = i1;
+        random_prescale = i2;
+      }
+      else if(active && (strcmp(keyword,"TI_HOLDOFF")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d %d", &i1, &i2, &i3);
+        if((i1 < 1) || (i1 > 4))
+        {
+          printf("\nReadConfigFile: Invalid holdoff rule selection, %s\n",str_tmp);
+        }
+        if((i2 < 0) || (i2 > 127))
+        {
+          printf("\nReadConfigFile: Invalid holdoff time, %s\n",str_tmp);
+        }
+        if((i3 < 0) || (i3 > 1))
+        {
+          printf("\nReadConfigFile: Invalid holdoff timescale, %s\n",str_tmp);
+        }
+        holdoff_rules[i1-1] = i2;
+        holdoff_timescale[i1-1] = i3;
+      }
       else
       {
         ; /* unknown key - do nothing */
@@ -257,11 +312,18 @@ tiDownloadAll()
   /*for(ii=0; ii<nslave; ii++) tiAddSlave(slave_list[ii]); done automatically in ROL1 */
   for(ii=0; ii<6; ii++) tiSetInputPrescale(ii+1,input_prescale[ii]);
 
+  for(ii=0; ii<4; ii++) tiSetTriggerHoldoff(ii+1,holdoff_rules[ii],holdoff_timescale[ii]);
+
   tiSetFiberDelay(delay, offset);
 
   tiSetBlockLevel(block_level);
 
   tiSetBlockBufferLevel(buffer_level);
+
+  if(!random_enabled)
+    tiDisableRandomTrigger();
+  else
+    tiSetRandomTrigger(1, random_prescale);
 
   return(0);
 }
@@ -314,6 +376,8 @@ tiUploadAll(char *string, int length)
     input_prescale[ii] = tiGetInputPrescale(ii+1);
   }
 
+  random_enabled = tiGetRandomTriggerEnable(1);
+  random_prescale = tiGetRandomTriggerSetting(1);
 
   if(length)
   {
@@ -332,11 +396,22 @@ tiUploadAll(char *string, int length)
     sprintf(sss,"TI_BUFFER_LEVEL %d\n",buffer_level);
     ADD_TO_STRING;
 
+    for(ii=0; ii<4; ii++)
+    {
+      tmp = tiGetTriggerHoldoff(ii+1);
+      holdoff_rules[ii] = tmp & 0x7F;
+      holdoff_timescale[ii] = (tmp>>7)&0x1;
+      sprintf(sss,"TI_HOLDOFF %d %d %d\n",ii+1,holdoff_rules[ii],holdoff_timescale[ii]);
+      ADD_TO_STRING;
+    }
+
     for(ii = 0; ii < 6; ii++)
     {
       sprintf(sss,"TI_INPUT_PRESCALE %d %d\n",ii+1,input_prescale[ii]);
       ADD_TO_STRING;
     }
+
+    sprintf(sss,"TI_RANDOM_TRIGGER %d %d\n",random_enabled,random_prescale);
 
     CLOSE_STRING;
   }

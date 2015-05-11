@@ -153,8 +153,7 @@ __prestart()
   gtpFiberTriggerReset();
   gtpFiberTriggerEnable();
 
-
-  gtpConfig("");
+  GTP_READ_CONF_FILE;
 
   printf("INFO: User Prestart 1 executed\n");
 

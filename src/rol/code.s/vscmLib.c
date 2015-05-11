@@ -1841,9 +1841,13 @@ vscmPulserBCOSync(int id, uint8_t bco, int sync)
 }
 
 void
-vscmSetHitMask(int id, uint32_t mask)
+vscmSetHitMask(int id, uint8_t mask, uint8_t trig_width)
 {
-	vmeWrite32(&VSCMpr[id]->FssrHitReg, mask);
+  uint32_t val = mask | (trig_width<<8);;
+  if (vscmIsNotInit(&id, __func__))
+    return;
+
+  vmeWrite32(&VSCMpr[id]->FssrHitReg, val);
 }
 
 /*
@@ -2189,6 +2193,14 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
       vscmSetDacCalibration(boardID);
       vscmSetPulserRate(boardID, 200000);
 
+		/* Send FSSR gothit OR to SWB Trigout */
+/*		vmeWrite32(&VSCMpr[boardID]->TrigOutCfg, IO_MUX_FSSRHIT_TRIG);*/
+
+		/* Send FSSR gothit OR to SWB Trigout: this one requires coincidence between top/bottom silicon layers on each HFCB */
+		vmeWrite32(&VSCMpr[boardID]->TrigOutCfg, IO_MUX_FSSRHIT_TBAND_TRIG);
+		
+		/* Enable all gothit signals, stretch by 64*8ns for triggering */
+		vscmSetHitMask(boardID, 0xFF, 64);
 
       /* Clear event buffers */
       vscmFifoClear(boardID);
@@ -2222,6 +2234,21 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
   }
   return nvscm;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #else /* dummy version*/
 

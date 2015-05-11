@@ -1168,6 +1168,60 @@ sdPrintTrigoutCounters()
   return OK;
 }
 
+int
+sdSetTrigoutLogic(int type, int threshold)
+{
+  int i, j, k, addr, data, mult;
+  if(SDp==NULL)
+  {
+    printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SDLOCK;
+  switch(type)
+  {
+    case SD_TRIGOUT_LOGIC_MULTIPLICITY:
+      for(i = 0; i < 4096; i++)
+		{
+		  data = 0;
+        for(j = 0; j < 16; j++)
+        {
+          addr = i*16+j;
+		    mult = 0;
+		    for(k = 0; k < 16; k++)
+			 {
+            if(addr & (1<<k))
+              mult++;
+			 } 
+          if(mult >= threshold)
+			   data |= (1<<j);
+		  }
+        vmeWrite32(&SDp->trigoutAddr, i);
+        vmeWrite32(&SDp->trigoutData, data);
+		}
+      break;
+    case SD_TRIGOUT_LOGIC_OR:
+      for(i = 0; i < 4096; i++)
+		{
+        if(!i) data = 0xFFFE;
+        else data = 0xFFFF;
+        vmeWrite32(&SDp->trigoutAddr, i);
+        vmeWrite32(&SDp->trigoutData, data);
+		}
+      break;
+    default:
+      for(i = 0; i < 4096; i++)
+		{
+        vmeWrite32(&SDp->trigoutAddr, i);
+        vmeWrite32(&SDp->trigoutData, 0);
+		}
+      break;
+  }
+  vmeWrite32(&SDp->trigoutCtrl, 0x8008);
+  vmeWrite32(&SDp->trigoutCtrl, 0x8008);
+  SDUNLOCK;
+}
 
 
 /*************************************************************

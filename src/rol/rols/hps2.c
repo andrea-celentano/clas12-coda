@@ -283,7 +283,8 @@ rol2trig(int a, int b)
   int a_tdc, a_edge;
   int a_slot_old;
   int a_channel_old;
-  int npedsamples;
+  int npedsamples, atleastoneslot, atleastonechannel[21];
+  time_t now;
   int error;
   int ndnv, nw;
   char errmsg[256];
@@ -2040,7 +2041,9 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
                   printf("ttfa: pedestal file >%s< is opened for writing\n",fname);
                 }
 
-                sprintf(cname,"%s/parms/peds/%s/roc%02d.cnf",dir,expid,rol->pid);
+                /*sprintf(cname,"%s/parms/peds/%s/roc%02d.cnf",dir,expid,rol->pid);*/
+                sprintf(cname,"%s/parms/peds/%s/%s_ped.cnf",dir,expid,getenv("HOST"));
+                /*sprintf(cname,"%s/parms/fadc250/%s_ped.cnf",dir,getenv("HOST"));*/
                 fc = fopen(cname,"w");
                 if(fc==NULL)
                 {
@@ -2049,6 +2052,8 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
                 else
 	            {
                   printf("ttfa: pedestal-cnf file >%s< is opened for writing\n",cname);
+                  now = time(NULL);
+                  fprintf(fc,"#\n# File generated automatically by DAQ running in RAW mode at %s#\n",ctime(&now));
                 }
 
                 for(i=0; i<NSLOTS; i++)
@@ -2065,9 +2070,34 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 	          {
                 printf("mynev=%d - closing pedestal file (Nmeasures=%d (%d %d ..))\n",
                   mynev,npeds[3][0],npeds[3][1],npeds[4][0]);
+
+                /* check if we have pedestal for at least one channel in current slot */
+                atleastoneslot = 0;
+                for(i=0; i<NSLOTS; i++)
+				{
+                  atleastonechannel[i] = 0;
+                  for(j=0; j<NCHANS; j++)
+				  {
+                    if(npeds[i][j]>0)
+					{
+                      atleastoneslot = 1;
+                      atleastonechannel[i] = 1;
+                      break;
+					}
+				  }
+				}
+
+                if(atleastoneslot)
+				{
+                  fprintf(fc,"FADC250_CRATE %s\n",getenv("HOST"));
+				}
                 for(i=0; i<NSLOTS; i++)
 	            {
-                  fprintf(fc,"FADC250_SLOT %d\n",i);
+                  if(atleastonechannel[i])
+				  {
+                    fprintf(fc,"FADC250_SLOT %d\n",i);
+				    fprintf(fc,"FADC250_ALLCH_PED ");
+				  }
                   for(j=0; j<NCHANS; j++)
                   {
                     if(npeds[i][j]>0)
@@ -2079,10 +2109,19 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
                       pedrms[i][j] = sqrtf( pedrms[i][j]/((float)npeds[i][j]) - (pedval[i][j]*pedval[i][j]) );
 #endif
                       fprintf(fd,"%2d %2d %5d %6.3f %2d\n",i,j,(int)pedval[i][j],pedrms[i][j],0);
-                      fprintf(fc,"FADC250_CH_PED %d %7.3f\n",j,pedval[i][j]);
 			        }
+                    /* always print, zero or not */
+                    if(atleastonechannel[i]) fprintf(fc," %8.3f",pedval[i][j]);
 		          }
+                  if(atleastonechannel[i])
+				  {
+                    fprintf(fc,"\n");
+				  }
 	            }
+                if(atleastoneslot)
+				{
+                  fprintf(fc,"FADC250_CRATE end\n");
+				}
 
 #ifndef VXWORKS
                 /*open files for everybody*/
@@ -3246,6 +3285,9 @@ if(a_pulsenumber == 0)
     */
 
     header[0] = lenev - 1;
+
+    /* rol->dabufpi[1] comes from ROL1 and contains information for block of events; we'll replace it
+	   with correct info for every event using data from TI */
     header[1] = rol->dabufpi[1];
 
     /* header created by CEOPEN macros (see rol.h) */
@@ -3261,6 +3303,14 @@ if(a_pulsenumber == 0)
 
     /* event number obtained from TI board have to be recorded into fragment header - event builder need it */
     header[1] = (header[1]&0xFFFFFF00) + (a_event_number_l&0xFF);
+
+    /* if NOT the last event, clear syncflag; should do it only for blocks with sync event in the end,
+    but do not bother chacking, will do it for all blocks */
+    if(iev<(nnE-1))
+	{
+      header[1] = header[1]&0x00FFFFFF;
+	}
+
 /*
 	printf("HEADER: sync_flag=%d event_type=%d bank_type=%d event_number=%d\n",
       (header[1]>>24)&0xFF,(header[1]>>16)&0xFF,(header[1]>>8)&0xFF,header[1]&0xFF);

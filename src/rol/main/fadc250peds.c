@@ -57,7 +57,7 @@ main(int argc, char *argv[])
 
   if(argc != 2)
   {
-    printf(" ERROR: Must specify one argument\n");
+    printf(" ERROR: Must specify one arguments\n");
     Usage();
     exit(-1);
   }
@@ -97,6 +97,8 @@ main(int argc, char *argv[])
 
   for(ifa=0; ifa<nfadc; ifa++)
   {
+    if(f) fprintf(f, "FADC250_SLOT %d\nFADC250_ALLCH_PED", faSlot(ifa));
+
     for(ch=0; ch<16; ch++)
 	 {
       if(faMeasureChannelPedestal(faSlot(ifa), ch, &ped) != OK)
@@ -105,9 +107,9 @@ main(int argc, char *argv[])
         fclose(f);
         goto CLOSE;
 		}
-		if(f)
-		  fprintf(f, "%2d %2d %7.3f %7.3f %2d\n", faSlot(ifa), ch, ped.avg, ped.rms, 0);
+		if(f) fprintf(f, " %8.3f", ped.avg);
     }
+    if(f) fprintf(f, "\n");
   }
   if(f)
     fclose(f);

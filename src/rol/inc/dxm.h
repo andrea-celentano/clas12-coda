@@ -9,15 +9,53 @@
 
 #include <sys/types.h>
 
+#define SVTDAQMAXSTRLEN 256
 static int cal_group = 0;
+static int cal_delay = 0;
+static int cal_level = 0;
 static int run_type = 0;
+static int dpmWithConfigDump = 51;
+static int controlDpmRocId = 66;
+static int writeConfig = 0;
+
 
 
 /* find run type for SVT DAQ */
 static int getRunType(char* filename) {
-	int type = 0;
-	if(strstr(filename,"calib")!=0) type = 1;
+	int type;
+    printf("look for calib str in \"%s\"\n",filename);
+	if(strstr(filename,"injection")!=NULL) 
+       type = 1;
+	else if(strstr(filename,"t0")!=NULL) 
+       type = 2;
+    else 
+       type = 0;
 	return type;
+}
+
+static int getCalLevel(int i) {
+   int level;
+   switch (i) {
+      case 0 :
+         level = 29;
+         break;
+      case 1 :
+         level = 48;
+         break;
+      case 2 :
+         level = 80;
+         break;
+      case 3 :
+         level = 120;
+         break;
+      case 4 :
+         level = 192;
+         break;
+      default:
+         printf("this cal_level should never happen. Exit!\n");
+         exit(1);                    
+   }
+   return level;
 }
 
 
@@ -33,7 +71,7 @@ static void getFebConfigFilePath(char* conf, char* type, char* f, int MAX) {
      FILE * confFile = fopen(conf,"r");
      if (confFile == NULL) printf("Error opening file \"%s\"\n",conf);
      
-     char line[256];
+     char line[SVTDAQMAXSTRLEN];
      while( fgets (line , 256 , confFile) != NULL ) {
         //printf("%s\n",line);
         //split by white space
@@ -79,3 +117,109 @@ static void getFebConfigFilePath(char* conf, char* type, char* f, int MAX) {
   return;
 }
      
+
+// Extract the config file path from the config file
+static void getValueFromConfig(char* confFile, const char* keyword, char* outValue, const int MAX) {
+   printf("getValueFromConfig\n");
+
+   char filename[SVTDAQMAXSTRLEN];
+   char baseDir[SVTDAQMAXSTRLEN];
+   char host[SVTDAQMAXSTRLEN];
+   char line[SVTDAQMAXSTRLEN];
+   char key[SVTDAQMAXSTRLEN];
+   char value[SVTDAQMAXSTRLEN];
+   int active;
+   FILE* file;
+
+   //baseDir = getenv("CLON_PARMS");   
+   strcpy(baseDir,"/usr/clas12/release/0.2/parms");
+   printf("baseDir %s\n", baseDir);
+   //gethostname(host,256);
+   strcpy(host,"all");
+   printf("host %s\n", host);
+   
+   //initialize to empty
+   strcpy(outValue,"");
+
+   
+   if(strlen(confFile)==0 || strcmp(confFile,"none")==0) {   
+      printf("Extract keyword \"%s\" from default conf file.\n", keyword);
+      sprintf(filename,"%s/dpm/dpm-default.cnf",baseDir);
+      
+   } else {
+      printf("Extract keyword \"%s\" from conf file \"%s\".\n", keyword, confFile);
+      sprintf(filename,"%s",confFile);
+   }      
+   
+   printf("Config filename \"%s\"\n", filename);
+   
+
+   file = fopen(filename, "r");
+   if (file == NULL) {
+      printf("Error opening file \"%s\"\n",file);
+      exit(1);
+   }
+   
+   active = 0;
+   while( fgets(line,256,file) != NULL ) {
+      
+      printf("active %d: Processing line \"%s\"\n", active,line);
+      
+      if(strlen(line)>0) {
+         
+         if(line[0]!='#') {
+
+            printf("1\n");
+            // reset
+            strcpy(key,"");
+            strcpy(value,"");
+
+            sscanf(line, "%s %s", key, value);
+
+            printf("%s %s\n",key,value);
+            
+            // look for the DPM crate
+            if(strcmp(key,"DPM_CRATE")==0) {  
+
+               printf("got crate\n");
+               printf("compare host %s\n",host);
+               printf("compare value %s\n",value);
+               
+               if(strcmp(value,host)==0) {
+                  active = 1;            
+                  printf("active %d %s %s (%s)\n",active,key,host,value);
+               } else {
+                  //I'm not really using active since I exit but in the future we could.
+                  //printf("line \"%s\" in config file \"%s\" is forbidden  Fix config file.\n",line,filename);
+                  active = 0;
+               }
+            }
+            else if( active==1 && strcmp(key,keyword)==0) {
+               printf(" got value %s\n",value);
+               if(strlen(value)<MAX) {
+                  strcpy(outValue,value);
+               } else {
+                  printf(" ERROR: the path from the config file is too long?!. Fix config file.\n");
+                  exit(1);
+               }
+            } else {         
+               printf(" do nothing here\n");
+            }      
+         }
+      }
+   } //lines
+   fclose(file);
+}
+
+
+static void getDpmConfigFilePath(char* confFile, char* outFilePath, const int MAX) {
+   printf("getDpmConfigFilePath\n");
+   getValueFromConfig(confFile,"DPM_CONFIG_FILE",outFilePath,MAX);
+}
+
+static void getDpmThresholdFilePath(char* confFile, char* outFilePath, const int MAX) {
+   printf("getDpmThresholdFilePath\n");
+   getValueFromConfig(confFile,"DPM_THR_CONFIG_FILE",outFilePath,MAX);
+}
+
+

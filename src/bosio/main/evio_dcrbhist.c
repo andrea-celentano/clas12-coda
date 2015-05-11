@@ -23,7 +23,7 @@ struct {
                          (((x) & 0x00ff0000) >>  8) | \
                          (((x) & 0xff000000) >> 24))
 
-#define MAXEVENTS 1000000/*3900*/
+#define MAXEVENTS 10000000/*3900*/
 
 #define MAXBUF 10000000
 unsigned int buf[MAXBUF];
@@ -494,23 +494,23 @@ main(int argc, char **argv)
 
 
 
-  nbins=3000;
+  nbins=1000;
   x1 = 0.;
-  x2 = 3000.;
+  x2 = 1000.;
   ww = 0.;
   idn=1;
   sprintf(title,"chan0");
   hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
 
-  nbins=3000;
+  nbins=1000;
   x1 = 0.;
-  x2 = 3000.;
+  x2 = 1000.;
   ww = 0.;
   idn=2;
   sprintf(title,"chan2");
   hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
 
-  nbins=3000;
+  nbins=1000;
   x1 = -1500.;
   x2 = 1500.;
   ww = 0.;
@@ -521,7 +521,7 @@ main(int argc, char **argv)
 
 
 
-  nbins=2000;
+  nbins=1000;
   x1 = -1000.;
   x2 = 1000.;
   ww = 0.;
@@ -531,7 +531,7 @@ main(int argc, char **argv)
 
 
 
-  nbins=2000;
+  nbins=1000;
   x1 = 0.;
   x2 = 2000.;
   ww = 0.;
@@ -547,6 +547,8 @@ main(int argc, char **argv)
   idn=11;
   sprintf(title,"tdc_all");
   hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
+
+
 
 
   nbins=200;
@@ -619,7 +621,7 @@ main(int argc, char **argv)
 
       /*dcrb*/
       ind1 = evNlink(buf, 42, 0xe105, 42, &nbytes);
-      if(ind1 <= 0) ind1 = evNlink(buf, 42, 0xe105, 42, &nbytes);
+      if(ind1 <= 0) ind1 = evNlink(buf, 67, 0xe105, 67, &nbytes);
       if(ind1 > 0)
       {
         int half,chip,chan,bco,tdc,tdcref,chan1,edge,nw;
@@ -642,7 +644,7 @@ main(int argc, char **argv)
 		/*
         goodevent = 0;
 		*/
-		/*TEMP 1290*/
+		/*TEMP 1290
         GET32(word);
         nw = word;
 #ifdef DEBUG
@@ -688,8 +690,7 @@ main(int argc, char **argv)
               printf("\nV1290 dcrbref1=%f\n\n",dcrbref);
 #endif
 
-			  /*dcrbref = -850.;*/
-              dcrbref = dcrbref + 76/*94*/;
+              dcrbref = dcrbref + 76;
 #ifdef DEBUG
               printf("\nV1290 dcrbref2=%f\n\n",dcrbref);
 #endif
@@ -697,7 +698,7 @@ main(int argc, char **argv)
 		    }
 		  }
 	    }
-		/*TEMP*/
+		TEMP*/
 
 		/*
 goto exit;
@@ -771,9 +772,14 @@ goto exit;
 #endif
 
 /*printf("slot=%d nw=%d\n",(word>>22)&0x1f,(word>>0)&0x3fffff);*/
+
+
+/*
 if((word>>0)&0x3fffff > 6) goto exit;
+*/
 
 		        break;
+
 		      case DC_DATA_EVENT_HEADER:
 #ifdef DEBUG
 		        printf(" {EVTHDR} EVENT: %d\n", (word>>0)&0x7ffffff);fflush(stdout);
@@ -806,8 +812,9 @@ printf("tdc(cor)-----> %d\n",tdc);
                 /*
 				}
 				*/
-
+				/*
                 if(tdcref==0&&chan==0&&slot==9) tdcref = tdc;
+				*/
 #ifdef DEBUG
 		        printf(" {DCRBEVT} 0x%08x",word);fflush(stdout);
 		        printf(" CH: %3u", chan);fflush(stdout);
@@ -839,14 +846,18 @@ printf("tdc(cor)-----> %d\n",tdc);
 	              hf1_(&idn,&tmpx,&ww);
 
 
+                  idn = 11;
+	              hf1_(&idn,&tmpx,&ww);
+
+
+
+
 
           		  idn = slot*1000+chan;
                   tmpx = (float)tdc-(float)tdcref;
 	              ww   = 1.;
 	              hf1_(&idn,&tmpx,&ww);
 
-                  idn = 11;
-	              hf1_(&idn,&tmpx,&ww);
 				  /*
 				}
 				*/

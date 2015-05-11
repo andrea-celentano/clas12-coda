@@ -92,6 +92,7 @@ main(int argc, char *argv[])
   {
     board_id = start_slot;
     fssrGainScan(board_id, filename, beg_chip, end_chip, beg_chan, end_chan, start_thr, chan_mult);
+//    fssrThresholdScan(board_id, NULL, beg_chip, end_chip, beg_chan, end_chan, start_thr);
   }
   else
   {

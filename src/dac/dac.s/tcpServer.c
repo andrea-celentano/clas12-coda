@@ -243,7 +243,7 @@ TcpServer(void)
   struct sockaddr_in clientAddr; 
   int sockAddrSize;              /* size of socket address structure */ 
   int sFd;                       /* socket file descriptor */ 
-  int newFd;                     /* socket descriptor from accept */ 
+  /*int newFd;*/                     /* socket descriptor from accept */ 
   int ix = 0;                    /* counter for work task names */ 
   int portnum = SERVER_PORT_NUM; /* desired port number; can be changed if that number in use enc */
   char workName[16];             /* name of work task */ 
@@ -389,7 +389,7 @@ TcpServer(void)
       return (ERROR); 
     }
 
-    /*printf("accepted request\n");*/
+    /*printf("accepted request, targ.newFd=%d\n",targ.newFd);*/
     targ.address = inet_ntoa(clientAddr.sin_addr);
     targ.port = ntohs (clientAddr.sin_port);
 
@@ -417,7 +417,7 @@ usrNetStackDataPoolStatus("tcpServer",1);
       if(!strncmp((int) inet_ntoa (clientAddr.sin_addr),"129.57.71.",10))
 	  {
         printf("WARN: ignore request from %s\n",targ.address);
-        close(newFd);
+        close(targ.newFd);
         request_in_progress = 0;
 	  }
       else
@@ -455,7 +455,7 @@ static void
 tcpServerWorkTask(TWORK *targ)
 	 /*int sFd, char *address, unsigned short port) */
 {
-  STATUS ret;
+  int ret;
   TREQUEST clientRequest;            /* request/message from client */ 
   int nRead;                               /* number of bytes read */ 
   char message[REQUEST_MSG_SIZE];
@@ -495,6 +495,9 @@ tcpServerWorkTask(TWORK *targ)
     my_execute(message);
 
 	dup2(oldstdout, STDOUT_FILENO); /*restore stdout*/
+
+    ret = close(oldstdout);  /* close server socket connection */ 
+    if(ret<0) perror("close oldstdout: ");
   }
   else if(nRead == 0)
   {
@@ -506,7 +509,9 @@ tcpServerWorkTask(TWORK *targ)
   }
 
   /*free(targ->address);-stuck here !!!*/ /* free malloc from inet_ntoa() */ 
-  close(targ->newFd);  /* close server socket connection */ 
+
+  ret = close(targ->newFd);  /* close server socket connection */ 
+  if(ret<0) perror("close targ->newFd: ");
 
   request_in_progress = 0;
 

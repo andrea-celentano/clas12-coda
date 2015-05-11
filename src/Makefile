@@ -9,9 +9,9 @@ all:
 	- cd rcscripts;                      $(MAKE) install
 	- cd evio-4.3;                       $(MAKE)
 	- cd evio-4.3;                       $(MAKE) install
-	- cd et-14.0;                        $(MAKE)
-	- cd et-14.0;                        $(MAKE) ulib
-	- cd et-14.0;                        $(MAKE) install
+	- cd et-15.0;                        $(MAKE)
+	- cd et-15.0;                        $(MAKE) ulib
+	- cd et-15.0;                        $(MAKE) install
 #	- cd bosio;                          $(MAKE)
 #	- cd bosio;                          $(MAKE) install
 	- cd mysql4.1.20;                    $(MAKE)
@@ -41,7 +41,7 @@ clean:
 	cd scripts;                          $(MAKE) clean
 	- cd rcscripts;                      $(MAKE) clean
 	- cd evio-4.3;                       $(MAKE) clean
-	- cd et-14.0;                        $(MAKE) clean
+	- cd et-15.0;                        $(MAKE) clean
 	- cd bosio;                          $(MAKE) clean
 	- cd mysql4.1.20;                    $(MAKE) clean
 	- cd codatcl1.0;                     $(MAKE) clean
@@ -99,9 +99,9 @@ arm:
 	- cd mysql4.1.20;                    make install 
 	- cd evio-4.3;                       make
 	- cd evio-4.3;                       make install
-	- cd et-14.0;                        make
-	- cd et-14.0;                        make ulib
-	- cd et-14.0;                        make install
+	- cd et-15.0;                        make
+	- cd et-15.0;                        make ulib
+	- cd et-15.0;                        make install
 	- cd codatt;                         make lib
 	- cd codatt;                         make shlib
 	- cd codatt;                         make install 
@@ -115,7 +115,7 @@ arm:
 cleanarm:
 	cd mysql4.1.20;                      make clean   
 	- cd evio-4.3;                       make clean
-	- cd et-14.0;                        make clean
+	- cd et-15.0;                        make clean
 	- cd codatt;                         make clean   
 	- cd dac;                            make clean   
 	- cd rol;                            make clean   

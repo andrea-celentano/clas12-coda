@@ -316,7 +316,9 @@ struct TI_A24RegStruct
 #define TI_TRIGGERRULE_RULE4_MASK 0xFF000000
 
 /* 0x3C triggerWindow bits and masks */
-#define TI_TRIGGERWINDOW_COINC_MASK 0x0000FFFF
+#define TI_TRIGGERWINDOW_COINC_MASK   0x0000FFFF
+#define TI_TRIGGERWINDOW_INHIBIT_MASK 0x0000FF00
+#define TI_TRIGGERWINDOW_TRIG21_MASK  0x01FF0000
 
 /* 0x48 tsInput bits and masks */
 #define TI_TSINPUT_MASK      0x0000003F
@@ -361,6 +363,7 @@ struct TI_A24RegStruct
 #define TI_SYNCCOMMAND_RESET_EVNUM         0xBB
 #define TI_SYNCCOMMAND_SYNCRESET_LOW       0xCC
 #define TI_SYNCCOMMAND_SYNCRESET           0xDD
+#define TI_SYNCCOMMAND_SYNCRESET_4US       0xEE
 #define TI_SYNCCOMMAND_SYNCCODE_MASK       0x000000FF
 
 /* 0x7C syncDelay bits and masks */
@@ -597,6 +600,10 @@ int  tiEnableDataReadout();
 void tiResetBlockReadout();
 
 int  tiLoadTriggerTable(int mode);
+int  tiSetTriggerWindow(int window_width);
+int  tiGetTriggerWindow();
+int  tiSetTriggerInhibitWindow(int window_width);
+int  tiGetTriggerInhibitWindow();
 int  tiLatchTimers();
 unsigned int tiGetLiveTime();
 unsigned int tiGetBusyTime();
@@ -625,7 +632,8 @@ int  tiResetMGT();
 unsigned int tiGetGTPBufferLength(int pflag);
 unsigned int tiGetSWAStatus(int reg);
 unsigned int tiGetSWBStatus(int reg);
-
+int  tiGetRandomTriggerEnable(int trigger);
+int  tiGetRandomTriggerSetting(int trigger);
 
 /* Library Interrupt/Polling routine prototypes */
 int  tiIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg);

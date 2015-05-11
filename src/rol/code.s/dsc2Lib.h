@@ -62,7 +62,8 @@ typedef struct dsc_struct
   /* 0x00C8 */ volatile unsigned int PulserNPulses;
   /* 0x00CC */ volatile unsigned int PulserStart;
   /* 0x00D0 */ volatile unsigned int PulserStatus;
-  /* 0x00D4 */ volatile unsigned int reserved1[(0x00F8-0x00D4)/4];
+  /* 0x00D4 */ volatile unsigned int PulserStop;
+  /* 0x00D8 */ volatile unsigned int reserved1[(0x00F8-0x00D8)/4];
   /* 0x00F8 */ volatile unsigned int reserved2[(0x0100-0x00F8)/4];
   /* 0x0100 */ volatile unsigned int TrgScalerGrp1[16];
   /* 0x0140 */ volatile unsigned int TdcScalerGrp1[16];
@@ -116,6 +117,7 @@ typedef struct dsc_struct
 #define DSC_TESTCTRL_FP_MASK        0x00000003
 #define DSC_TESTCTRL_ROUTE_IN1      (1<<0)
 #define DSC_TESTCTRL_ROUTE_IN2      (1<<1)
+#define DSC_TESTCTRL_ROUTE_PULSER   (1<<2)
 #define DSC_TESTCTRL_SOFT_PULSE     (1<<31)
 
 /* 0x00A0 trgOutSrc register masks */
@@ -266,6 +268,8 @@ int  dsc2ReadScalers(unsigned int id, volatile unsigned int *data, int nwrds, in
 int  dsc2PrintScalers(unsigned int id, int rflag);
 int  dsc2PrintScalerRates(unsigned int id, int rflag);
 int  dsc2SetPulseWidthAll(unsigned short tdcVal, unsigned short trgVal, unsigned short trgoutVal);
+
+int  dsc2PulserSetup(int id, float freq, float duty, unsigned int npulses);
 
 int dsc2SetScalerConfigRefPrescale(unsigned int id, int refprescale);
 int dsc2GetScalerConfigRefPrescale(unsigned int id);

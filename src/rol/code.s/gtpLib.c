@@ -698,6 +698,7 @@ gtpReadConfigFile(char *filename)
   char *clonparms;
   char *expid;
 
+  gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
   expid = getenv("EXPID");
   if(strlen(filename)!=0) /* filename specified */
@@ -719,8 +720,6 @@ gtpReadConfigFile(char *filename)
   }
   else /* filename does not specified */
   {
-    /* obtain our hostname */
-    gethostname(host,ROCLEN);
     sprintf(fname, "%s/gtp/%s.cnf", clonparms, host);
     if((fd=fopen(fname,"r")) == NULL)
     {

@@ -2,7 +2,7 @@
 *
 *  dcrbLib.h  - Driver library header file for readout of the dcrb boards
 *
-*  Author: Ber Raydo
+*  Author: Ben Raydo
 *          Jefferson Lab Data Acquisition Group
 *
 */
@@ -80,7 +80,7 @@ int ndcrb = 0;                                       /* Number of DCRBs in Crate
 int dcrbA32Base   = 0x09000000;                      /* Minimum VME A32 Address for use by DCRBs */
 int dcrbA32Offset = 0x08000000;                      /* Difference in CPU A32 Base - VME A32 Base */
 int dcrbA24Offset = 0x0;                             /* Difference in CPU A24 Base - VME A24 Base */
-volatile struct dcrb_struct *DCRBp[(DCRB_MAX_BOARDS+1)]; /* pointers to DCRB memory map */
+volatile dcrb_regs *DCRBp[(DCRB_MAX_BOARDS+1)]; /* pointers to DCRB memory map */
 volatile unsigned int *DCRBpd[(DCRB_MAX_BOARDS+1)];      /* pointers to DCRB FIFO memory */
 volatile unsigned int *DCRBpmb;                        /* pointer to Multblock window */
 int dcrbID[DCRB_MAX_BOARDS];                           /* array of slot numbers for DCRBs */
@@ -92,8 +92,6 @@ int dcrbMinSlot=0;                                   /* Lowest Slot holding an D
 int dcrbSource=0;                                    /* Signal source for DCRB system control*/
 int dcrbBlockLevel=0;                                /* Block Level for DCRBs */
 int dcrbIntCount = 0;                                /* Count of interrupts from DCRB */
-struct dcrb_data_struct dcrb_data;
-
 
 int
 dcrbSlot(unsigned int id)
@@ -171,9 +169,9 @@ dcrbInit(UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
   int boardID = 0;
   int maxSlot = 1;
   int minSlot = 21;
-  int trigSrc=0, clkSrc=0, srSrc=0;
+  int syncSrc=0, trigSrc=0, clkSrc=0, srSrc=0;
   unsigned int rdata, laddr, laddr_inc, a32addr;
-  volatile struct dcrb_struct *dcrb;
+  volatile dcrb_regs *dcrb;
   unsigned short sdata;
   int noBoardInit=0;
   int useList=0;
@@ -181,14 +179,16 @@ dcrbInit(UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
   /* Check if we have already Initialized boards before */
   if((dcrbInited>0) && (dcrbID[0] != 0)) 
   {
-    /* Hard Reset of all DCRB boards in the Crate */
+    /* Hard Reset of all DCRB boards in the Crate
     for(ii=0;ii<ndcrb;ii++) 
 	{
 	  dcrbHardReset(dcrbID[ii]);
 	}
     taskDelay(120);
+    */
+    ;
   }
-  
+
   /* Check if we're initializing using a list */
   useList=(iFlag&(1<<17))>>17;
 
@@ -242,12 +242,12 @@ dcrbInit(UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
 	{
 	  laddr_inc = laddr +ii*addr_inc;
 	}
-      dcrb = (struct dcrb_struct *)laddr_inc;
+      dcrb = (dcrb_regs *)laddr_inc;
       /* Check if Board exists at that address */
 #ifdef VXWORKS
-      res = vxMemProbe((char *) &(dcrb->BoardID),VX_READ,4,(char *)&rdata);
+      res = vxMemProbe((char *) &(dcrb->Cfg.BoardId),VX_READ,4,(char *)&rdata);
 #else
-      res = vmeMemProbe((char *) &(dcrb->BoardID),4,(char *)&rdata);
+      res = vmeMemProbe((char *) &(dcrb->Cfg.BoardId),4,(char *)&rdata);
 #endif
       if(res < 0) 
 	{
@@ -271,14 +271,14 @@ dcrbInit(UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
         continue;
 	  }
 	  /* Check if this is board has a valid slot number */
-	  boardID =  ((vmeRead32(&(dcrb->BlockConfig)))&DCRB_SLOT_ID_MASK)>>11;
+	  boardID =  ((vmeRead32(&(dcrb->Cfg.FirmwareRev)))&DCRB_SLOT_ID_MASK)>>DCRB_SLOT_ID_SHIFT;
 	  if((boardID <= 0)||(boardID >21)) 
 	  {
 	    printf(" ERROR: Board Slot ID is not in range: %d\n",boardID);
 	    continue;
 	  }
-	  DCRBp[boardID] = (struct dcrb_struct *)(laddr_inc);
-	  dcrbRev[boardID] = vmeRead32(&(dcrb->FirmwareRev));
+	  DCRBp[boardID] = (dcrb_regs *)(laddr_inc);
+	  dcrbRev[boardID] = vmeRead32(&(dcrb->Cfg.FirmwareRev)) & DCRB_VERSION_MASK;
 /* 	} */
 	  dcrbID[ndcrb] = boardID;
 	  if(boardID >= maxSlot) maxSlot = boardID;
@@ -355,36 +355,42 @@ dcrbInit(UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
 			printf("and Software Triggers (Soft Sync Reset)\n");
 			clkSrc  = DCRB_REF_CLK_INTERNAL;
 			trigSrc = 0;
+			syncSrc = 0;
 			break;
 		case 1: case 2:
 			printf("dcrbInit: Enabling DCRB for Internal Clock ");
 			printf("and VXS Triggers (Soft Sync Reset)\n");
 			clkSrc  = DCRB_REF_CLK_INTERNAL;
-			trigSrc = DCRB_TRIG_P0;
+			trigSrc = DCRB_SD_MUX_TRIG1;
+			syncSrc = 0;
 			break;
 		case 3:
 			printf("dcrbInit: Enabling DCRB for Internal Clock ");
 			printf("and VXS-HighRes Triggers (Soft Sync Reset)\n");
 			clkSrc  = DCRB_REF_CLK_INTERNAL;
-			trigSrc = DCRB_TRIG_P0 | DCRB_SYNC_P0;
+			trigSrc = DCRB_SD_MUX_TRIG1;
+			syncSrc = DCRB_SD_MUX_SYNC;
 			break;
 		case 4:
 			printf("dcrbInit: Enabling DCRB for VXS Clock ");
 			printf("and Software Triggers (Soft Sync Reset)\n");
 			clkSrc  = DCRB_REF_CLK_P0;
 			trigSrc = 0;
+			syncSrc = 0;
 			break;
 		case 5:
 			printf("dcrbInit: Enabling DCRB for VXS Clock ");
 			printf("and VXS Triggers (Soft Sync Reset)\n");
 			clkSrc  = DCRB_REF_CLK_P0;
-			trigSrc = DCRB_TRIG_P0;
+			trigSrc = DCRB_SD_MUX_TRIG1;
+			syncSrc = 0;
 			break;
 		case 6: case 7:
 			printf("dcrbInit: Enabling DCRB for VXS Clock ");
 			printf("and VXS Triggers (VXS Sync Reset)\n");
 			clkSrc  = DCRB_REF_CLK_P0;
-			trigSrc = DCRB_TRIG_P0 | DCRB_SYNC_P0;
+			trigSrc = DCRB_SD_MUX_TRIG1;
+			syncSrc = DCRB_SD_MUX_SYNC;
 			break;
 	    }
     }
@@ -392,18 +398,24 @@ dcrbInit(UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
   /* Enable Clock source - Internal Clk enabled by default */ 
   for(ii=0; ii<ndcrb; ii++) 
   {
-    vmeWrite32(&(DCRBp[dcrbID[ii]]->ClockConfig),clkSrc | DCRB_REF_CLK_RESET);
-	vmeWrite32(&(DCRBp[dcrbID[ii]]->ClockConfig),clkSrc);
-    printf("Board %d (slot %d) ClockConfig=0x%08x\n",ii,dcrbID[ii],vmeRead32(&(DCRBp[dcrbID[ii]]->ClockConfig)));
+    vmeWrite32(&(DCRBp[dcrbID[ii]]->Clk.Ctrl),clkSrc | DCRB_REF_CLK_RESET);
+    vmeWrite32(&(DCRBp[dcrbID[ii]]->Clk.Ctrl),clkSrc);
   }
   taskDelay(1);
 
   /* Hard Reset FPGAs and FIFOs */
-  for(ii=0;ii<ndcrb;ii++) 
-    {
-      vmeWrite32(&(DCRBp[dcrbID[ii]]->Reset),0);
-    }
+  for(ii=0;ii<ndcrb;ii++)
+  {
+    vmeWrite32(&(DCRBp[dcrbID[ii]]->Cfg.Reset),DCRB_CFG_RESET);
+	 taskDelay(1);
+    vmeWrite32(&(DCRBp[dcrbID[ii]]->Cfg.Reset),0);
+  }
   taskDelay(1);
+
+  /* Default 100mV threshold */
+  dcrbSetDAC(dcrbID[ii], 100);
+  /* Default no calibration signals enabled */
+  dcrbSetDAC_Pulser(dcrbID[ii], 0x00, 0.0, 2000, 1000, 1010, 2);
 
   /* Write configuration registers with default/defined Sources */
   for(ii=0;ii<ndcrb;ii++) 
@@ -429,22 +441,23 @@ dcrbInit(UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
       DCRBpd[dcrbID[ii]] = (unsigned int *)(laddr);  /* Set a pointer to the FIFO */
       if(!noBoardInit)
 	{
-	  vmeWrite32(&(DCRBp[dcrbID[ii]]->ADR32),(a32addr>>16) + DCRB_A32_ENABLE);  /* Write the register and enable */
+	  vmeWrite32(&(DCRBp[dcrbID[ii]]->EB.AD32),(a32addr>>16) + DCRB_A32_ENABLE);  /* Write the register and enable */
 	
 	  /* Set Default Block Level to 1 */
-	  vmeWrite32(&(DCRBp[dcrbID[ii]]->BlockConfig),1);
+	  vmeWrite32(&(DCRBp[dcrbID[ii]]->EB.BlockCfg),1);
 
       /* berr for every board; TODO: multiblock needs it on last board only !!!*/
-      vmeWrite32(&(DCRBp[dcrbID[ii]]->ReadoutConfig), DCRB_ENABLE_BERR);
+      vmeWrite32(&(DCRBp[dcrbID[ii]]->EB.ReadoutCfg), DCRB_ENABLE_BERR);
 
 	}
       dcrbBlockLevel=1;
 
-      /* Setup Trigger and Sync Reset sources */
-      if(!noBoardInit)
-	{
-	  vmeWrite32(&(DCRBp[dcrbID[ii]]->TriggerSource),trigSrc);
-	}
+    /* Setup Trigger and Sync Reset sources */
+    if(!noBoardInit)
+    {
+      vmeWrite32(&(DCRBp[dcrbID[ii]]->Sd.SrcSel[DCRB_OUTPUT_TRIG]),trigSrc);
+      vmeWrite32(&(DCRBp[dcrbID[ii]]->Sd.SrcSel[DCRB_OUTPUT_SYNC]),syncSrc);
+    }
   }
 
   /* If there are more than 1 DCRB in the crate then setup the Muliblock Address
@@ -476,7 +489,7 @@ goto skipmultiblock;
 	  for (ii=0;ii<ndcrb;ii++) 
 	    {
 	      /* Write the register and enable */
-	      vmeWrite32(&(DCRBp[dcrbID[ii]]->ADR32M),
+	      vmeWrite32(&(DCRBp[dcrbID[ii]]->EB.Adr32M),
 			((a32addr+DCRB_MAX_A32MB_SIZE)>>8) + (a32addr>>23) + DCRB_AMB_ENABLE);
 	    }
 	}    
@@ -485,10 +498,10 @@ goto skipmultiblock;
       dcrbMinSlot = minSlot;
     if(!noBoardInit)
 	{
-	  vmeWrite32(&(DCRBp[minSlot]->ADR32M),
-		    vmeRead32(&(DCRBp[minSlot]->ADR32M)) | DCRB_FIRST_BOARD);
-	  vmeWrite32(&(DCRBp[maxSlot]->ADR32M),
-		    vmeRead32(&(DCRBp[maxSlot]->ADR32M)) | DCRB_LAST_BOARD);
+	  vmeWrite32(&(DCRBp[minSlot]->EB.Adr32M),
+		    vmeRead32(&(DCRBp[minSlot]->EB.Adr32M)) | DCRB_FIRST_BOARD);
+	  vmeWrite32(&(DCRBp[maxSlot]->EB.Adr32M),
+		    vmeRead32(&(DCRBp[maxSlot]->EB.Adr32M)) | DCRB_LAST_BOARD);
 	}
 skipmultiblock:
 	;    
@@ -523,18 +536,16 @@ dcrbHardReset(int id)
 		0x000E, 0x2000
 	};
 
-	vmeWrite32(&(DCRBp[id]->ICap), DCRB_ICAP_CE);
-	vmeWrite32(&(DCRBp[id]->ICap), DCRB_ICAP_CE | DCRB_ICAP_CLK);
+	vmeWrite32(&(DCRBp[id]->Cfg.ICapCtrl), DCRB_ICAP_CE);
+	vmeWrite32(&(DCRBp[id]->Cfg.ICapCtrl), DCRB_ICAP_CE | DCRB_ICAP_CLK);
 	for(i = 0; i < sizeof(reloadSequence)/sizeof(reloadSequence[0]); i++)
 	{
-		vmeWrite32(&(DCRBp[id]->ICap), reloadSequence[i]);
-		vmeWrite32(&(DCRBp[id]->ICap), DCRB_ICAP_CLK | reloadSequence[i]);
+		vmeWrite32(&(DCRBp[id]->Cfg.ICapDataWr), reloadSequence[i]);
+		vmeWrite32(&(DCRBp[id]->Cfg.ICapCtrl), DCRB_ICAP_CLK);
 	}
 	for(i = 0; i < 10; i++)
-	{
-		vmeWrite32(&(DCRBp[id]->ICap), DCRB_ICAP_CE);
-		vmeWrite32(&(DCRBp[id]->ICap), DCRB_ICAP_CE | DCRB_ICAP_CLK);
-	}
+		vmeWrite32(&(DCRBp[id]->Cfg.ICapCtrl), DCRB_ICAP_CE | DCRB_ICAP_CLK);
+	
 	return(OK);
 }
 
@@ -561,21 +572,22 @@ dcrbSetClockSource(int id, int clkSrc)
   if(id==0) id=dcrbID[0];
 
   if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-    {
-      printf("dcrbStatus: ERROR : DCRB in slot %d is not initialized \n",id);
-      return;
-    }
+  {
+    printf("dcrbStatus: ERROR : DCRB in slot %d is not initialized \n",id);
+    return;
+  }
 
   if(clkSrc>0x1)
-    {
-      printf("%s: ERROR: Invalid Clock Source specified (0x%x)\n",
-	     __FUNCTION__,clkSrc);
-      return ERROR;
-    }
+  {
+    printf("%s: ERROR: Invalid Clock Source specified (0x%x)\n", __FUNCTION__,clkSrc);
+    return ERROR;
+  }
+
+  if(clkSrc) clkSrc = DCRB_REF_CLK_P0;
 
   /* Enable Clock source - Internal Clk enabled by default */ 
-  vmeWrite32(&(DCRBp[dcrbID[id]]->ClockConfig),clkSrc | DCRB_REF_CLK_RESET);
-  vmeWrite32(&(DCRBp[dcrbID[id]]->ClockConfig),clkSrc);
+  vmeWrite32(&(DCRBp[id]->Clk.Ctrl),clkSrc | DCRB_REF_CLK_RESET);
+  vmeWrite32(&(DCRBp[id]->Clk.Ctrl),clkSrc);
   taskDelay(20);
 
   switch(clkSrc)
@@ -599,15 +611,15 @@ dcrbStatus(int id, int sflag)
 { 
   int ii;
   unsigned int vers, bid;
-  unsigned int busyFifo, busyTrig, errorFifo;
   unsigned int adr32m, adr32;
-  unsigned int lookBack, windowWidth, blockConfig, tdcConfig, testPulseConfig;
-  unsigned int clkConfig, dacConfig, trigBusyThreshold, trigSrc;
+  unsigned int lookBack, windowWidth, blockConfig;
+  unsigned int testPulseConfigDCE[3];
+  unsigned int testPulseConfigFCE[3];
+  unsigned int clkConfig, dacConfig, trigBusyThreshold, trigSrc, syncSrc;
   unsigned int intr, geo;
   unsigned int fifoWordCnt, fifoEventCnt, fifoBlockCnt;
-  unsigned int intWordCnt, intEventCnt, intBlockCnt;
   unsigned int readoutCfg;
-  unsigned int chDisable[3];
+  unsigned int chDisable[3], tdcConfig[3];
 
   if(id==0) id=dcrbID[0];
 
@@ -618,35 +630,35 @@ dcrbStatus(int id, int sflag)
     }
 
   DCRBLOCK;
-  vers   = vmeRead32(&DCRBp[id]->FirmwareRev);
-  bid    = vmeRead32(&DCRBp[id]->BoardID);
-  busyFifo = vmeRead32(&DCRBp[id]->GrpBusyFifo);
-  busyTrig = vmeRead32(&DCRBp[id]->GrpBusyTrig);
-  errorFifo = vmeRead32(&DCRBp[id]->GrpErrorFifo);
-  adr32m = vmeRead32(&DCRBp[id]->ADR32M);
-  lookBack = vmeRead32(&DCRBp[id]->LookBack);
-  windowWidth = vmeRead32(&DCRBp[id]->WindowWidth);
-  blockConfig = vmeRead32(&DCRBp[id]->BlockConfig);
-  tdcConfig = vmeRead32(&DCRBp[id]->TDCConfig);
-  clkConfig = vmeRead32(&DCRBp[id]->ClockConfig);
-  testPulseConfig = vmeRead32(&DCRBp[id]->TestPulseConfig);
-  dacConfig = vmeRead32(&DCRBp[id]->DACConfig);
-  trigBusyThreshold = vmeRead32(&DCRBp[id]->TriggerBusyThreshold);
-  trigSrc = vmeRead32(&DCRBp[id]->TriggerSource);
-  adr32 = vmeRead32(&DCRBp[id]->ADR32);
-  intr = vmeRead32(&DCRBp[id]->Interrupt);
-  geo = vmeRead32(&DCRBp[id]->Geo);
-  fifoWordCnt = vmeRead32(&DCRBp[id]->FifoWordCnt);
-  fifoEventCnt = vmeRead32(&DCRBp[id]->FifoEventCnt);
-  fifoBlockCnt = vmeRead32(&DCRBp[id]->FifoBlockCnt);
-  readoutCfg = vmeRead32(&DCRBp[id]->ReadoutConfig);
-  intWordCnt = vmeRead32(&DCRBp[id]->IntWordCnt);
-  intEventCnt = vmeRead32(&DCRBp[id]->IntEventCnt);
-  intBlockCnt = vmeRead32(&DCRBp[id]->IntBlockCnt);
-  
-  chDisable[0] = vmeRead32(&DCRBp[id]->ChDisable[0]);
-  chDisable[1] = vmeRead32(&DCRBp[id]->ChDisable[1]);
-  chDisable[2] = vmeRead32(&DCRBp[id]->ChDisable[2]);
+  vers   = vmeRead32(&DCRBp[id]->Cfg.FirmwareRev) & DCRB_VERSION_MASK;
+  bid    = vmeRead32(&DCRBp[id]->Cfg.BoardId);
+  adr32m = vmeRead32(&DCRBp[id]->EB.Adr32M);
+  lookBack = vmeRead32(&DCRBp[id]->EB.Lookback);
+  windowWidth = vmeRead32(&DCRBp[id]->EB.WindowWidth);
+  blockConfig = vmeRead32(&DCRBp[id]->EB.BlockCfg);
+  clkConfig = vmeRead32(&DCRBp[id]->Clk.Ctrl);
+  testPulseConfigDCE[0] = vmeRead32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_DCE0]);
+  testPulseConfigDCE[1] = vmeRead32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_DCE1]);
+  testPulseConfigDCE[2] = vmeRead32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_DCE2]);
+  testPulseConfigFCE[0] = vmeRead32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_FCE0]);
+  testPulseConfigFCE[1] = vmeRead32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_FCE1]);
+  testPulseConfigFCE[2] = vmeRead32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_FCE2]);
+  dacConfig = vmeRead32(&DCRBp[id]->Cfg.DacThreshold);
+  trigSrc = vmeRead32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_TRIG]);
+  syncSrc = vmeRead32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_SYNC]);
+  adr32 = vmeRead32(&DCRBp[id]->EB.AD32);
+  intr = vmeRead32(&DCRBp[id]->EB.Interrupt);
+  geo = (vmeRead32(&DCRBp[id]->Cfg.FirmwareRev) & DCRB_SLOT_ID_MASK) >> DCRB_SLOT_ID_SHIFT;
+  fifoWordCnt = vmeRead32(&DCRBp[id]->EB.FifoWordCnt);
+  fifoEventCnt = vmeRead32(&DCRBp[id]->EB.FifoEventCnt);
+  fifoBlockCnt = vmeRead32(&DCRBp[id]->EB.FifoBlockCnt);
+  readoutCfg = vmeRead32(&DCRBp[id]->EB.ReadoutCfg);
+  tdcConfig[0] = vmeRead32(&DCRBp[id]->Tdc[0].DeadCycles);
+  tdcConfig[1] = vmeRead32(&DCRBp[id]->Tdc[1].DeadCycles);
+  tdcConfig[2] = vmeRead32(&DCRBp[id]->Tdc[2].DeadCycles);
+  chDisable[0] = ~(vmeRead32(&DCRBp[id]->Tdc[0].EnableN));
+  chDisable[1] = ~(vmeRead32(&DCRBp[id]->Tdc[1].EnableN));
+  chDisable[2] = ~(vmeRead32(&DCRBp[id]->Tdc[2].EnableN));
   DCRBUNLOCK;
 
 #ifdef VXWORKS
@@ -678,90 +690,61 @@ dcrbStatus(int id, int sflag)
 	printf("   A32 Disabled\n");
     }
 
-  if(intr&DCRB_INT_ENABLE_MASK) 
-    {
-      printf("\n  Interrupts ENABLED: ");
-      printf(" on Block Count(%d), Event Count(%d), Word Count(%d)", intBlockCnt, intEventCnt, intWordCnt);
-      printf("\n");
-      printf("  Interrupt Reg: 0x%08x\n",intr);
-      printf("  VME INT Vector = 0x%x  Level = %d\n",(intr&DCRB_INT_VEC_MASK),((intr&DCRB_INT_LEVEL_MASK)>>8));
-    }
-
   printf("\n Signal Sources: \n");
   if((clkConfig&DCRB_REF_CLK_MASK)==DCRB_REF_CLK_INTERNAL)
-    {
-      printf("   Ref Clock : Internal\n");
-    }
+    printf("   Ref Clock : Internal\n");
   else if((clkConfig&DCRB_REF_CLK_MASK)==DCRB_REF_CLK_P0)
-    {
-      printf("   Ref Clock : VXS\n");
-    }
+    printf("   Ref Clock : VXS\n");
   else
-    {
-      printf("   Ref Clock : %d (Undefined)\n",(clkConfig&DCRB_REF_CLK_MASK));
-    }
+    printf("   Ref Clock : %d (Undefined)\n",(clkConfig&DCRB_REF_CLK_MASK));
 
-  switch(trigSrc&DCRB_TRIG_MASK) 
-    {
-    case 0:
-      printf("   Trig Src  : VME (Software)\n");
-      break;
-    case DCRB_TRIG_P0_SYNC:
-      printf("   Trig Src  : VXS\n");
-      break;
-    case DCRB_TRIG_P0:
-      printf("   Trig Src  : VXS-HighRes\n");
-      break;
-    }  
+  switch(trigSrc)
+  {
+    case DCRB_SD_MUX_0:
+    case DCRB_SD_MUX_1:			printf("   Trig Src  : VME (Software)\n"); break;
+    case DCRB_SD_MUX_TRIG1:	printf("   Trig Src  : VXS\n"); break;
+    default:                  printf("   Trig Src  : unknown\n"); break;
+  }  
 
-  switch(trigSrc&DCRB_SYNC_MASK) 
-    {
-    case 0:
-      printf("   Sync Reset: VME (Software)\n");
-      break;
-    case DCRB_SYNC_P0:
-      printf("   Sync Reset: VXS (Sync)\n");
-      break;
-    }  
+  switch(syncSrc) 
+  {
+    case DCRB_SD_MUX_0:
+    case DCRB_SD_MUX_1:			printf("   Sync Src  : VME (Software)\n"); break;
+    case DCRB_SD_MUX_SYNC:		printf("   Sync Src  : VXS\n"); break;
+    default:                  printf("   Sync Src  : unknown\n"); break;
+  }  
 
   printf("\n Configuration: \n");
-
-  if(readoutCfg&DCRB_ENABLE_BERR)
+  
+  if(readoutCfg & DCRB_ENABLE_BERR)
     printf("   Bus Error ENABLED\n");
   else
     printf("   Bus Error DISABLED\n");
 
 
-  if(adr32m&DCRB_ENABLE_MULTIBLOCK) 
-    {
-	  if(adr32m&DCRB_FIRST_BOARD)
-	    printf("   MultiBlock transfer ENABLED (First Board - token via VXS)\n");
-	  else if(adr32m&DCRB_LAST_BOARD)
-	    printf("   MultiBlock transfer ENABLED (Last Board  - token via VXS)\n");
-	  else
-	    printf("   MultiBlock transfer ENABLED (Token via VXS)\n");
-	  /* #ifdef VERSION1 */
-    } 
+  if(adr32m & DCRB_ENABLE_MULTIBLOCK) 
+  {
+    if(adr32m & DCRB_FIRST_BOARD)
+      printf("   MultiBlock transfer ENABLED (First Board - token via VXS)\n");
+    else if(adr32m & DCRB_LAST_BOARD)
+      printf("   MultiBlock transfer ENABLED (Last Board  - token via VXS)\n");
+    else
+      printf("   MultiBlock transfer ENABLED (Token via VXS)\n");
+  } 
   else 
-    {
-      printf("   MultiBlock transfer DISABLED\n");
-    }
+    printf("   MultiBlock transfer DISABLED\n");
 
-  printf("\n TDC Processing Configuration: \n");
-  printf("   Channel Disable Mask[31- 0] = 0x%08x\n",chDisable[0]);
-  printf("   Channel Disable Mask[63-32] = 0x%08x\n",chDisable[1]);
-  printf("   Channel Disable Mask[95-64] = 0x%08x\n",chDisable[2]);
-  printf("   Lookback (PL)    = %d ns   Time Window (PTW) = %d ns\n",lookBack,windowWidth);
-  printf("   Channel deadtime = %d ns\n", tdcConfig*8);
-
-  printf("\n");
-  printf("   Busy Fifo Mask  = 0x%06x\n", busyFifo);
-  printf("   Busy Trig Mask  = 0x%06x\n", busyTrig);
-  printf("   Error Fifo Mask = 0x%06x\n", errorFifo);
+  printf("\n TDC Processing Configuration:\n");
+  printf("   Channel Disable Mask[31- 0] = 0x%08x, Deadtime = %d\n", chDisable[0], tdcConfig[0]*8);
+  printf("   Channel Disable Mask[63-32] = 0x%08x, Deadtime = %d\n", chDisable[1], tdcConfig[1]*8);
+  printf("   Channel Disable Mask[95-64] = 0x%08x, Deadtime = %d\n", chDisable[2], tdcConfig[2]*8);
+  printf("   Lookback (PL)    = %d ns   Time Window (PTW) = %d ns\n", lookBack, windowWidth);
 
   printf("   Blocks in FIFO  = %u  (Block level = %d)\n", fifoBlockCnt, blockConfig & 0x7ff);
   printf("   Events in FIFO  = %u\n", fifoEventCnt);
   printf("   Words in FIFO   = %u = %u\n", fifoWordCnt);
+  
+  printf("\n DAC Threshold: %dmV", dacConfig-2048);
   printf("\n");
 }
 
@@ -771,10 +754,7 @@ dcrbGStatus(int sflag)
   int ii;
 
   for (ii=0;ii<ndcrb;ii++) 
-    {
-      dcrbStatus(dcrbID[ii],sflag);
-    }
-
+    dcrbStatus(dcrbID[ii],sflag);
 }
 
 
@@ -786,23 +766,17 @@ dcrbGStatus(int sflag)
  */
 int
 dcrbSetProcMode(int id, unsigned int lookBack, unsigned int windowWidth, unsigned int deadTime)
-{
-  
+{  
   int err=0;
   unsigned int ptw_last_adr, ptw_max_buf;
-
 
   if(id==0) id=dcrbID[0];
 
   if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-    {
-      logMsg("dcrbSetProcMode: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
-      return(ERROR);
-    }
-
-	
-	#define DCRB_MAX_LOOKBACK    65535
-#define DCRB_MAX_WINDOW      65535
+  {
+    logMsg("dcrbSetProcMode: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
+    return(ERROR);
+  }
 
   /*Defaults */
   if((lookBack==0)||(lookBack>DCRB_MAX_LOOKBACK))  lookBack  = DCRB_DEFAULT_LOOKBACK;
@@ -811,15 +785,22 @@ dcrbSetProcMode(int id, unsigned int lookBack, unsigned int windowWidth, unsigne
 
   /* Consistancy check */
   if(windowWidth > lookBack) 
-    {
-      err++;
-      printf("dcrbSetProcMode: ERROR: Window must be <= Latency\n"); 
-    }
+  {
+    err++;
+    printf("dcrbSetProcMode: ERROR: Window must be <= Latency\n"); 
+  }
+
+  /* convert inputs from ns to ticks */
+  lookBack = lookBack / DCRB_NS_PER_CLOCK;
+  windowWidth = windowWidth / DCRB_NS_PER_CLOCK;
+  deadTime = deadTime / DCRB_NS_PER_CLOCK;
 
   DCRBLOCK;
-  vmeWrite32(&DCRBp[id]->LookBack, lookBack);
-  vmeWrite32(&DCRBp[id]->WindowWidth, windowWidth);
-  vmeWrite32(&DCRBp[id]->TDCConfig, deadTime);
+  vmeWrite32(&DCRBp[id]->EB.Lookback, lookBack);
+  vmeWrite32(&DCRBp[id]->EB.WindowWidth, windowWidth);
+  vmeWrite32(&DCRBp[id]->Tdc[0].DeadCycles, deadTime);
+  vmeWrite32(&DCRBp[id]->Tdc[1].DeadCycles, deadTime);
+  vmeWrite32(&DCRBp[id]->Tdc[2].DeadCycles, deadTime);
   DCRBUNLOCK;
 
   return(OK);
@@ -906,7 +887,7 @@ dcrbReadBlock(int id, volatile UINT32 *data, int nwrds, int rflag)
       DCRBLOCK;
       if(rmode == 2) 
 	{ /* Multiblock Mode */
-	  if((vmeRead32(&(DCRBp[id]->ADR32M))&DCRB_FIRST_BOARD)==0) 
+	  if((vmeRead32(&(DCRBp[id]->EB.Adr32M))&DCRB_FIRST_BOARD)==0) 
 	    {
 	      logMsg("dcrbReadBlock: ERROR: DCRB in slot %d is not First Board\n",id,0,0,0,0,0);
 	      DCRBUNLOCK;
@@ -1017,9 +998,9 @@ dcrbReadBlock(int id, volatile UINT32 *data, int nwrds, int rflag)
 
       /* Check if Bus Errors are enabled. If so then disable for Prog I/O reading */
       DCRBLOCK;
-      berr = vmeRead32(&(DCRBp[id]->ReadoutConfig))&DCRB_ENABLE_BERR;
-      if(berr)
-	    vmeWrite32(&(DCRBp[id]->ReadoutConfig),vmeRead32(&(DCRBp[id]->ReadoutConfig)) & ~DCRB_ENABLE_BERR);
+      berr = vmeRead32(&(DCRBp[id]->EB.ReadoutCfg));
+      if(berr & DCRB_ENABLE_BERR)
+	    vmeWrite32(&(DCRBp[id]->EB.ReadoutCfg), berr & ~DCRB_ENABLE_BERR);
 
       dCnt = 0;
       /* Read Block Header - should be first word */
@@ -1050,7 +1031,7 @@ dcrbReadBlock(int id, volatile UINT32 *data, int nwrds, int rflag)
       else
 	{
 	  /* We got bad data - Check if there is any data at all */
-	  if( vmeRead32(&(DCRBp[id]->FifoWordCnt)) == 0) 
+	  if( vmeRead32(&(DCRBp[id]->EB.FifoWordCnt)) == 0) 
 	    {
 	      logMsg("dcrbReadBlock: FIFO Empty (0x%08x)\n",bhead,0,0,0,0,0);
 	      DCRBUNLOCK;
@@ -1081,9 +1062,8 @@ dcrbReadBlock(int id, volatile UINT32 *data, int nwrds, int rflag)
       dCnt += ii;
 
 
-      if(berr)
-	vmeWrite32(&(DCRBp[id]->ReadoutConfig),
-		  vmeRead32(&(DCRBp[id]->ReadoutConfig)) | DCRB_ENABLE_BERR);
+      if(berr & DCRB_ENABLE_BERR)
+        vmeWrite32(&(DCRBp[id]->EB.ReadoutCfg), berr | DCRB_ENABLE_BERR);
 
       DCRBUNLOCK;
       return(dCnt);
@@ -1192,7 +1172,7 @@ dcrbPrintBlock(int id, int rflag)
 
   /* Check if data available */
   DCRBLOCK;
-  if(vmeRead32(&(DCRBp[id]->FifoWordCnt))==0) 
+  if(vmeRead32(&(DCRBp[id]->EB.FifoWordCnt))==0) 
     {
       printf("dcrbPrintEvent: ERROR: FIFO Empty\n");
       DCRBUNLOCK;
@@ -1200,9 +1180,9 @@ dcrbPrintBlock(int id, int rflag)
     }
 
   /* Check if Bus Errors are enabled. If so then disable for reading */
-  berr = vmeRead32(&(DCRBp[id]->ReadoutConfig))&DCRB_ENABLE_BERR;
-  if(berr)
-    vmeWrite32(&(DCRBp[id]->ReadoutConfig),vmeRead32(&(DCRBp[id]->ReadoutConfig)) & ~DCRB_ENABLE_BERR);
+  berr = vmeRead32(&(DCRBp[id]->EB.ReadoutCfg));
+  if(berr & DCRB_ENABLE_BERR)
+    vmeWrite32(&(DCRBp[id]->EB.ReadoutCfg), berr & ~DCRB_ENABLE_BERR);
 
   dCnt = 0;
   /* Read Block Header - should be first word */
@@ -1228,7 +1208,7 @@ dcrbPrintBlock(int id, int rflag)
   else
     {
       /* We got bad data - Check if there is any data at all */
-      if(vmeRead32(&(DCRBp[id]->FifoWordCnt))==0) 
+      if(vmeRead32(&(DCRBp[id]->EB.FifoWordCnt))==0) 
 	{
 	  logMsg("dcrbPrintBlock: FIFO Empty (0x%08x)\n",bhead,0,0,0,0,0);
 	  DCRBUNLOCK;
@@ -1261,9 +1241,8 @@ dcrbPrintBlock(int id, int rflag)
   dCnt += ii;
 
 
-  if(berr)
-    vmeWrite32(&(DCRBp[id]->ReadoutConfig),
-	      vmeRead32( &(DCRBp[id]->ReadoutConfig)) | DCRB_ENABLE_BERR );
+  if(berr & DCRB_ENABLE_BERR)
+    vmeWrite32(&(DCRBp[id]->EB.ReadoutCfg), berr | DCRB_ENABLE_BERR);
   
   DCRBUNLOCK;
   return(dCnt);
@@ -1289,7 +1268,9 @@ dcrbClear(int id)
     }
 
   DCRBLOCK;
-  vmeWrite32(&(DCRBp[id]->Reset),0);
+  vmeWrite32(&(DCRBp[id]->Cfg.Reset),1);
+  taskDelay(2);
+  vmeWrite32(&(DCRBp[id]->Cfg.Reset),0);
   DCRBUNLOCK;
 }
 
@@ -1302,26 +1283,26 @@ dcrbReset(int id, int iFlag)
   if(id==0) id=dcrbID[0];
 
   if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-    {
-      logMsg("dcrbReset: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
-      return;
-    }
+  {
+    logMsg("dcrbReset: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
+    return;
+  }
 
   DCRBLOCK;
   if(iFlag==0)
-    {
-      a32addr = vmeRead32(&(DCRBp[id]->ADR32));
-      addrMB  = vmeRead32(&(DCRBp[id]->ADR32M));
-    }
+  {
+    a32addr = vmeRead32(&(DCRBp[id]->EB.AD32));
+    addrMB  = vmeRead32(&(DCRBp[id]->EB.Adr32M));
+  }
 
   dcrbHardReset(id);
   taskDelay(120);
 
   if(iFlag==0)
-    {
-      vmeWrite32(&(DCRBp[id]->ADR32),a32addr);
-      vmeWrite32(&(DCRBp[id]->ADR32M),addrMB);
-    }
+  {
+    vmeWrite32(&(DCRBp[id]->EB.AD32),a32addr);
+    vmeWrite32(&(DCRBp[id]->EB.Adr32M),addrMB);
+  }
   DCRBUNLOCK;
 }
 
@@ -1332,64 +1313,19 @@ dcrbChanDisable(int id, unsigned int cmask0, unsigned int cmask1, unsigned int c
   if(id==0) id=dcrbID[0];
 
   if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-    {
-      logMsg("dcrbChanDisable: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
-      return;
-    }
+  {
+    logMsg("dcrbChanDisable: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
+    return;
+  }
 
   DCRBLOCK;
   /* Write New Disable Mask */
-  vmeWrite32(&(DCRBp[id]->ChDisable[0]), cmask0);
-  vmeWrite32(&(DCRBp[id]->ChDisable[1]), cmask1);
-  vmeWrite32(&(DCRBp[id]->ChDisable[2]), cmask2);
+  vmeWrite32(&(DCRBp[id]->Tdc[0].EnableN), cmask0);
+  vmeWrite32(&(DCRBp[id]->Tdc[1].EnableN), cmask1);
+  vmeWrite32(&(DCRBp[id]->Tdc[2].EnableN), cmask2);
   DCRBUNLOCK;
 
 }
-
-void
-dcrbTrig(int id)
-{
-  if(id==0) id=dcrbID[0];
-
-  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-    {
-      logMsg("dcrbTrig: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
-      return;
-    }
-
-  DCRBLOCK;
-  vmeWrite32(&(DCRBp[id]->TriggerSource), vmeRead32(&(DCRBp[id]->TriggerSource)) | DCRB_TRIG_VME);
-  DCRBUNLOCK;
-}
-
-void
-dcrbGTrig()
-{
-  int ii;
-
-  for(ii=0;ii<ndcrb;ii++)
-    dcrbTrig(dcrbID[ii]);
-}
-
-
-
-void
-dcrbSync(int id)
-{
-  if(id==0) id=dcrbID[0];
-
-  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-    {
-      logMsg("dcrbSync: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
-      return;
-    }
-
-  DCRBLOCK;
-  vmeWrite32(&(DCRBp[id]->TriggerSource), vmeRead32(&(DCRBp[id]->TriggerSource)) | DCRB_SYNC_VME);
-  DCRBUNLOCK;
-}
-
-
 
 /* Return Event/Block count for DCRB in slot id */
 int
@@ -1406,11 +1342,10 @@ dcrbDready(int id, int dflag)
     }
   DCRBLOCK;
   if(dflag)
-    dcnt = vmeRead32(&(DCRBp[id]->FifoBlockCnt));
+    dcnt = vmeRead32(&(DCRBp[id]->EB.FifoBlockCnt));
   else
-    dcnt = vmeRead32(&(DCRBp[id]->FifoEventCnt));
+    dcnt = vmeRead32(&(DCRBp[id]->EB.FifoEventCnt));
   DCRBUNLOCK;
-
   
   return(dcnt);
 }
@@ -1430,7 +1365,7 @@ dcrbBready(int id)
     }
   
   DCRBLOCK;
-  stat = vmeRead32(&(DCRBp[id]->FifoBlockCnt));
+  stat = vmeRead32(&(DCRBp[id]->EB.FifoBlockCnt));
   DCRBUNLOCK;
 
   if(stat)
@@ -1449,7 +1384,7 @@ dcrbGBready()
   for(ii=0;ii<ndcrb;ii++) 
     {
       id = dcrbID[ii];
-      stat = vmeRead32(&(DCRBp[id]->FifoBlockCnt));
+      stat = vmeRead32(&(DCRBp[id]->EB.FifoBlockCnt));
  
       if(stat)
 	dmask |= (1<<id);
@@ -1474,121 +1409,6 @@ dcrbScanMask()
   return(dmask);
 }
 
-/* if val>0 then set the busy level, if val=0 then read it back.
-   if bflag>0 then force the module Busy */
-int
-dcrbBusyLevel(int id, unsigned int val, int bflag)
-{
-  unsigned int blreg=0;
-
-  if(id==0) id=dcrbID[0];
-
-  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-    {
-      logMsg("dcrbBusyLevel: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
-      return(ERROR);
-    }
-  
-  /* if Val > 0 then set the Level else leave it alone*/
-  DCRBLOCK;
-
-  vmeWrite32(&(DCRBp[id]->BusyEventCnt), 0xFFFFFFFF);
-  if(bflag)
-    vmeWrite32(&(DCRBp[id]->BusyBlockCnt), 0xFFFFFFFF);
-  else
-    vmeWrite32(&(DCRBp[id]->BusyBlockCnt), 0);
-
-  if(val) 
-	vmeWrite32(&(DCRBp[id]->BusyWordCnt),val);
-  else
-    blreg = vmeRead32(&(DCRBp[id]->BusyWordCnt));
-
-  DCRBUNLOCK;
-
-  return(blreg);
-}
-
-int
-dcrbBusy(int id)
-{
-  unsigned int blreg=0;
-  unsigned int dreg=0;
-
-  if(id==0) id=dcrbID[0];
-
-  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-    {
-      logMsg("dcrbBusy: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
-      return(ERROR);
-    }
-  
-  DCRBLOCK;
-  blreg = vmeRead32(&(DCRBp[id]->BusyWordCnt));
-  dreg  = vmeRead32(&(DCRBp[id]->FifoWordCnt));
-  DCRBUNLOCK;
-
-  if(dreg>=blreg)
-    return(1);
-  else
-    return(0);
-}
-
-
-void
-dcrbEnableSoftTrig(int id)
-{
-
-  if(id==0) id=dcrbID[0];
-
-  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-    {
-      logMsg("dcrbEnableSoftTrig: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
-      return;
-    }
-  
-  /* Clear the source */
-  DCRBLOCK;
-  vmeWrite32(&(DCRBp[id]->TriggerSource),
-	    vmeRead32(&(DCRBp[id]->TriggerSource)) & ~DCRB_TRIG_MASK );
-  /* Set Source and Enable*/
-  vmeWrite32(&(DCRBp[id]->TriggerSource),
-	    vmeRead32(&(DCRBp[id]->TriggerSource)) | DCRB_TRIG_VME );
-  DCRBUNLOCK;
-}
-void
-dcrbGEnableSoftTrig()
-{
-  int ii, id;
-
-  for(ii=0;ii<ndcrb;ii++) 
-    {
-      id = dcrbID[ii];
-      dcrbEnableSoftTrig(id);
-    }
-}
-
-void
-dcrbEnableSoftSync(int id)
-{
-
-  if(id==0) id=dcrbID[0];
-
-  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-    {
-      logMsg("dcrbEnableSoftSync: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
-      return;
-    }
-  
-  /* Clear the source */
-  DCRBLOCK;
-  vmeWrite32(&(DCRBp[id]->TriggerSource),
-	    vmeRead32(&(DCRBp[id]->TriggerSource)) & ~DCRB_SYNC_MASK);
-  /* Set Source and Enable*/
-  vmeWrite32(&(DCRBp[id]->TriggerSource),
-	    vmeRead32(&(DCRBp[id]->TriggerSource)) | DCRB_SYNC_VME);
-  DCRBUNLOCK;
-}
-
 void
 dcrbEnableBusError(int id)
 {
@@ -1602,8 +1422,8 @@ dcrbEnableBusError(int id)
     }
   
   DCRBLOCK;
-  vmeWrite32(&(DCRBp[id]->ReadoutConfig),
-	    vmeRead32(&(DCRBp[id]->ReadoutConfig)) | DCRB_ENABLE_BERR );
+  vmeWrite32(&(DCRBp[id]->EB.ReadoutCfg),
+    vmeRead32(&(DCRBp[id]->EB.ReadoutCfg)) | DCRB_ENABLE_BERR );
   DCRBUNLOCK;
 }
 
@@ -1614,10 +1434,10 @@ dcrbGEnableBusError()
 
   DCRBLOCK;
   for(ii=0;ii<ndcrb;ii++) 
-    {
-      vmeWrite32(&(DCRBp[dcrbID[ii]]->ReadoutConfig),
-		vmeRead32(&(DCRBp[dcrbID[ii]]->ReadoutConfig)) | DCRB_ENABLE_BERR );
-    }
+  {
+    vmeWrite32(&(DCRBp[dcrbID[ii]]->EB.ReadoutCfg),
+      vmeRead32(&(DCRBp[dcrbID[ii]]->EB.ReadoutCfg)) | DCRB_ENABLE_BERR );
+  }
   DCRBUNLOCK;
 }
 
@@ -1635,8 +1455,8 @@ dcrbDisableBusError(int id)
     }
   
   DCRBLOCK;
-  vmeWrite32(&(DCRBp[id]->ReadoutConfig),
-	    vmeRead32(&(DCRBp[id]->ReadoutConfig)) & ~DCRB_ENABLE_BERR );
+  vmeWrite32(&(DCRBp[id]->EB.ReadoutCfg),
+	    vmeRead32(&(DCRBp[id]->EB.ReadoutCfg)) & ~DCRB_ENABLE_BERR );
   DCRBUNLOCK;
 
 }
@@ -1657,22 +1477,22 @@ dcrbEnableMultiBlock()
     {
       id = dcrbID[ii];
       DCRBLOCK;
-      vmeWrite32(&(DCRBp[id]->ADR32M),
-		vmeRead32(&(DCRBp[id]->ADR32M)) | DCRB_ENABLE_MULTIBLOCK );
+      vmeWrite32(&(DCRBp[id]->EB.Adr32M),
+		vmeRead32(&(DCRBp[id]->EB.Adr32M)) | DCRB_ENABLE_MULTIBLOCK );
       DCRBUNLOCK;
       dcrbDisableBusError(id);
       if(id == dcrbMinSlot) 
 	{
 	  DCRBLOCK;
-	  vmeWrite32(&(DCRBp[id]->ADR32M),
-		    vmeRead32(&(DCRBp[id]->ADR32M)) | DCRB_FIRST_BOARD );
+	  vmeWrite32(&(DCRBp[id]->EB.Adr32M),
+		    vmeRead32(&(DCRBp[id]->EB.Adr32M)) | DCRB_FIRST_BOARD );
 	  DCRBUNLOCK;
 	}
       if(id == dcrbMaxSlot) 
 	{
 	  DCRBLOCK;
-	  vmeWrite32(&(DCRBp[id]->ADR32M),
-		    vmeRead32(&(DCRBp[id]->ADR32M)) | DCRB_LAST_BOARD );
+	  vmeWrite32(&(DCRBp[id]->EB.Adr32M),
+		    vmeRead32(&(DCRBp[id]->EB.Adr32M)) | DCRB_LAST_BOARD );
 	  DCRBUNLOCK;
 	  dcrbEnableBusError(id);   /* Enable Bus Error only on Last Board */
 	}
@@ -1693,8 +1513,8 @@ dcrbDisableMultiBlock()
   
   DCRBLOCK;
   for(ii=0;ii<ndcrb;ii++)
-    vmeWrite32(&(DCRBp[dcrbID[ii]]->ADR32M),
-	      vmeRead32(&(DCRBp[dcrbID[ii]]->ADR32M)) & ~DCRB_ENABLE_MULTIBLOCK );
+    vmeWrite32(&(DCRBp[dcrbID[ii]]->EB.Adr32M),
+	      vmeRead32(&(DCRBp[dcrbID[ii]]->EB.Adr32M)) & ~DCRB_ENABLE_MULTIBLOCK );
   DCRBUNLOCK;
 }
 
@@ -1715,9 +1535,9 @@ dcrbSetBlockLevel(int id, int level)
   
   if(level<=0) level = 1;
   DCRBLOCK;
-  vmeWrite32(&(DCRBp[id]->BlockConfig), level);
+  vmeWrite32(&(DCRBp[id]->EB.BlockCfg), level);
   dcrbBlockLevel = level;
-  rval = vmeRead32(&(DCRBp[id]->BlockConfig)) & DCRB_BLOCK_LEVEL_MASK;
+  rval = vmeRead32(&(DCRBp[id]->EB.BlockCfg)) & DCRB_BLOCK_LEVEL_MASK;
   DCRBUNLOCK;
 
   return(rval);
@@ -1731,40 +1551,73 @@ dcrbGSetBlockLevel(int level)
   if(level<=0) level = 1;
   DCRBLOCK;
   for(ii=0;ii<ndcrb;ii++)
-    vmeWrite32(&(DCRBp[dcrbID[ii]]->BlockConfig), level);
+    vmeWrite32(&(DCRBp[dcrbID[ii]]->EB.BlockCfg), level);
   DCRBUNLOCK;
 
   dcrbBlockLevel = level;
 }
 
-int
-dcrbSetDAC(int id, unsigned int dvalue)
-{
+int  
+dcrbPulserSetup(int id, float freq, float duty, unsigned int npulses)
+{ 
+  unsigned int per, low; 
+	 
   if(id==0) id=dcrbID[0];
   
   if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-    {
-      logMsg("dcrbSetDAC: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
-      return(ERROR);
-    }
-  
-  if(dvalue>DCRB_MAX_DAC_VAL) 
-    {
-      logMsg("dcrbSetDAC: ERROR : DCRB value (%d) out of range (0-%d) \n",
-	     dvalue,DCRB_MAX_DAC_VAL,0,0,0,0);
-      return(ERROR);
-    }
-  
-  DCRBLOCK;
-  vmeWrite32(&DCRBp[id]->DACConfig, (dvalue * 93600) / 1000);
-  DCRBUNLOCK;
+  {
+    printf("%s: ERROR : DCRB in slot %d is not initialized \n", __FUNCTION__, id);
+    return(ERROR);
+  }
 
-  return(OK);
-}
+  if(freq < DCRB_PULSER_FREQ_MIN)
+  { 
+    printf("%s: ERROR: Frequency input (%f) too low. Setting to minimum...\n",  
+	     __FUNCTION__,freq); 
+    freq = DCRB_PULSER_FREQ_MIN;
+  } 
+	 
+  if(freq > DCRB_PULSER_FREQ_MAX) 
+  { 
+    printf("%s: ERROR: Frequency input (%f) too high. Setting to maximum...\n",  
+	     __FUNCTION__,freq); 
+    freq = DCRB_PULSER_FREQ_MAX; 
+  } 
+	 
+  if((duty < 0.0) || (duty > 1.0)) 
+  { 
+    printf("%s: ERROR: Invalid duty cycle %f. Setting to 0.5\n",  
+	     __FUNCTION__,duty); 
+    duty = 0.5; 
+  } 
+ 
+  DCRBLOCK;	 
+  // Setup period register... 
+  per = 125000000.0f / freq; 
+  if(!per) 
+    per = 1; 
+  vmeWrite32(&DCRBp[id]->Sd.PulserPeriod, per); 
+	 
+  // Setup duty cycle register...	 
+  low = per * duty; 
+  if(!low) 
+    low = 1; 
+  vmeWrite32(&DCRBp[id]->Sd.PulserLowCycles, low); 
+  vmeWrite32(&DCRBp[id]->Sd.PulserNPulses, npulses);
+	 
+  printf("%s: Actual frequency = %f, duty = %f\n", __FUNCTION__, 
+	 125000000.0f/(float)per, (float)low/(float)per); 
+  DCRBUNLOCK; 
+
+/*	if(npulses<0xFFFFFFFF) dcrbPulserStart(id); */
+  return OK;
+} 
 
 int
-dcrbGetDAC(int id)
+dcrbSetDAC_Pulser(int id, int grp_mask, float freq, int offset_mV, int low_mV, int high_mV, int width)
 {
+  unsigned int period;
+
   if(id==0) id=dcrbID[0];
   
   if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
@@ -1773,7 +1626,77 @@ dcrbGetDAC(int id)
     return(ERROR);
   }
 
-  return(vmeRead32(&DCRBp[id]->DACConfig));
+  DCRBLOCK;
+  vmeWrite32(&DCRBp[id]->Cfg.DacLow, low_mV+2048);
+  vmeWrite32(&DCRBp[id]->Cfg.DacHigh, high_mV+2048);
+  vmeWrite32(&DCRBp[id]->Cfg.DacOffset, offset_mV+2048);
+
+  if(grp_mask & 0x1)   vmeWrite32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_DCE0], 18);
+  else                 vmeWrite32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_DCE0], 0);
+  if(grp_mask & 0x2)   vmeWrite32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_DCE1], 18);
+  else                 vmeWrite32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_DCE1], 0);
+  if(grp_mask & 0x4)   vmeWrite32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_DCE2], 18);
+  else                 vmeWrite32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_DCE2], 0);
+  if(grp_mask & 0x8)   vmeWrite32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_FCE0], 18);
+  else                 vmeWrite32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_FCE0], 0);
+  if(grp_mask & 0x10)  vmeWrite32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_FCE1], 18);
+  else                 vmeWrite32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_FCE1], 0);
+  if(grp_mask & 0x20)  vmeWrite32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_FCE2], 18);
+  else                 vmeWrite32(&DCRBp[id]->Sd.SrcSel[DCRB_OUTPUT_FCE2], 0);
+  DCRBUNLOCK;
+
+  dcrbPulserSetup(id, freq, 2.0f/125000000.0f, 0xFFFFFFFF);
+
+  return(OK);
+}
+
+int
+dcrbSetDAC(int id, int dvalue)
+{
+  int dac = (int)(((float)dvalue) * 8.06f + 2048.0f);
+
+  if(id==0) id=dcrbID[0];
+  
+  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
+  {
+    logMsg("dcrbSetDAC: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
+    return(ERROR);
+  }
+
+  if(dac < 0)
+  {
+    dac = 0;
+    dvalue = ((float)(dac - 2048) / 8.06f);
+    printf("Error in %s: threshold too low, saturating at: %dmV\n", __FUNCTION__, dvalue);
+  }
+  else if (dac > 4095)
+  {
+    dac = 4095;
+    dvalue = ((float)(dac - 2048) / 8.06f);
+    printf("Error in %s: threshold too high, saturating at: %dmV\n", __FUNCTION__, dvalue);
+  }
+  
+  DCRBLOCK;
+  vmeWrite32(&DCRBp[id]->Cfg.DacThreshold, dac);
+  DCRBUNLOCK;
+
+  return(OK);
+}
+
+int
+dcrbGetDAC(int id)
+{
+  int thr;
+  if(id==0) id=dcrbID[0];
+  
+  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
+  {
+    logMsg("dcrbSetDAC: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
+    return(ERROR);
+  }
+  thr = (int)((float)(vmeRead32(&DCRBp[id]->Cfg.DacThreshold) - 2048) / 8.06f);
+
+  return(thr);
 }
 
 void
@@ -1784,69 +1707,43 @@ dcrbGSetDAC(unsigned int dvalue)
     dcrbSetDAC(dcrbID[ii], dvalue);
 }
 
-int
-dcrbSetCalMask(int id, unsigned int dcrbe_mask, unsigned fce_mask)
-{
-  if(id==0) id=dcrbID[0];
-  
-  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-    {
-      logMsg("dcrbSetCalMask: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
-      return(ERROR);
-    }
-  
-  if((dcrbe_mask>0x3f) || (fce_mask>0x3f))
-    {
-      logMsg("dcrbSetDAC: ERROR : DCRB dcrbe_mask/fce_mask (%d/%d) out of range\n",
-	     dcrbe_mask,fce_mask,0,0,0,0);
-      return(ERROR);
-    }
-  
-  DCRBLOCK;
-  vmeWrite32(&DCRBp[id]->TestPulseConfig, fce_mask | (dcrbe_mask<<6));
-  DCRBUNLOCK;
-
-  return(OK);
-}
-
-void
-dcrbGSetCalMask(unsigned int dcrbe_mask, unsigned fce_mask)
-{
-  int ii;
-  for(ii=0;ii<ndcrb;ii++)
-    dcrbSetCalMask(dcrbID[ii], dcrbe_mask,fce_mask);
-}
-
 void dcrbSelectSpi(int id,int sel)
 {
 	if(sel)
-		vmeWrite32(&DCRBp[id]->SpiFlash, 0x0);
+		vmeWrite32(&DCRBp[id]->Cfg.SpiCtrl, DCRB_SPI_NCS_CLEAR);
 	else
-		vmeWrite32(&DCRBp[id]->SpiFlash, 0x4);
+		vmeWrite32(&DCRBp[id]->Cfg.SpiCtrl, DCRB_SPI_NCS_SET);
 }
 
 unsigned char dcrbTransferSpi(int id,unsigned char data)
 {
-	int i;
-	unsigned char rsp = 0;
+	unsigned int i, rsp = 0;
+	
+	vmeWrite32(&DCRBp[id]->Cfg.SpiCtrl, data | DCRB_SPI_TRANSFER);
+
 	for(i = 0; i < 8; i++)
 	{
-		vmeWrite32(&DCRBp[id]->SpiFlash, ((data>>7)&0x1));	
-		rsp = (rsp<<1) | vmeRead32(&DCRBp[id]->SpiFlash) & 0x1;
-		vmeWrite32(&DCRBp[id]->SpiFlash, 0x2|((data>>7)&0x1));
-		data<<=1;
+		rsp = vmeRead32(&DCRBp[id]->Cfg.SpiStatus);
+		if(rsp & DCRB_SPI_READY)
+			break;
 	}
-	return rsp;
+
+	return (unsigned char)(rsp & 0xFF);
 }
 
-void dcrbFlashGetId(int id,unsigned char *rsp)
+unsigned int dcrbFlashGetId(int id)
 {
+	unsigned int rsp;
+
 	dcrbSelectSpi(id,1);
 	dcrbTransferSpi(id,FLASH_CMD_GETID);
-	rsp[0] = dcrbTransferSpi(id,0xFF);
-	rsp[1] = dcrbTransferSpi(id,0xFF);
-	rsp[2] = dcrbTransferSpi(id,0xFF);
+	rsp = dcrbTransferSpi(id,0xFF);
+	rsp |= dcrbTransferSpi(id,0xFF)<<8;
+	rsp |= dcrbTransferSpi(id,0xFF)<<16;
+	rsp |= dcrbTransferSpi(id,0xFF)<<24;
 	dcrbSelectSpi(id,0);
+
+	return rsp;
 }
 
 unsigned char dcrbFlashGetStatus(int id, unsigned char cmd)
@@ -1910,8 +1807,8 @@ int dcrbFirmwareUpdate(int id, const char *filename)
 {
 	FILE *f;
 	int i, flashId = 0;
-	unsigned int addr = 0, page = 0;
-	unsigned char buf[1056], rspId[3];
+	unsigned int addr = 0, page = 0, rspId;
+	unsigned char buf[1056];
 
   if(id==0) id=dcrbID[0];
   
@@ -1922,13 +1819,11 @@ int dcrbFirmwareUpdate(int id, const char *filename)
     }
 	
 	dcrbSelectSpi(id,0);
-	dcrbFlashGetId(id,rspId);
+	rspId = dcrbFlashGetId(id);
 	
-	printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X\n", rspId[0], rspId[1], rspId[2]);
+	printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X\n", (rspId>>0)&0xFF, (rspId>>8)&0xFF, (rspId>>16)&0xFF);
 
-	if( (rspId[0] == FLASH_MFG_WINBOND) &&
-	    (rspId[1] == (FLASH_DEVID_W25Q64>>8)) &&
-		(rspId[2] == (FLASH_DEVID_W25Q64&0xFF)) )
+	if(rspId == FLASH_DEV_M25P64)
 	{
 		f = fopen(filename, "rb");
 		if(!f)
@@ -2001,54 +1896,6 @@ int dcrbFirmwareUpdate(int id, const char *filename)
 		}
 		fclose(f);
 	}
-	else if( (rspId[0] == FLASH_MFG_ATMEL) &&
-	         (rspId[1] == (FLASH_DEVID_AT45DB642D>>8)) &&
-		     (rspId[2] == (FLASH_DEVID_AT45DB642D&0xFF)) )
-	{
-		f = fopen(filename, "rb");
-		if(!f)
-		{
-			printf("%s: ERROR: dcrbFirmwareUpdate invalid file %s\n", __FUNCTION__, filename);
-			return ERROR;
-		}
-	
-		memset(buf, 0xff, 1056);
-		while(fread(buf, 1, 1056, f) > 0)
-		{
-		  dcrbSelectSpi(id,1);	/* write buffer 1 */
-			dcrbTransferSpi(id,FLASH_CMD_WRBUF1);
-			dcrbTransferSpi(id,0x00);
-			dcrbTransferSpi(id,0x00);
-			dcrbTransferSpi(id,0x00);
-			for(i = 0; i < 1056; i++)
-				dcrbTransferSpi(id,buf[i]);
-			dcrbSelectSpi(id,0);
-
-			dcrbSelectSpi(id,1);	/* buffer 1 to flash w/page erase */
-			dcrbTransferSpi(id,FLASH_CMD_PGBUF1ERASE);
-			dcrbTransferSpi(id, (page>>5) & 0xFF);
-			dcrbTransferSpi(id, (page<<3) & 0xFF);
-			dcrbTransferSpi(id, 0x00);
-			dcrbSelectSpi(id,0);
-			
-			i = 0;
-			while(1)
-			{
-				if(dcrbFlashGetStatus(id, FLASH_CMD_GETSTATUS2) & 0x80)
-					break;
-				if(i == 40000)	/* 40ms maximum page program time */
-				{
-					fclose(f);
-					printf("%s: ERROR: dcrbFirmwareUpdate failed to program flash\n", __FUNCTION__);
-					return ERROR;
-				}
-				i++;
-			}			
-			memset(buf, 0xff, 1056);
-			page++;
-		}
-		fclose(f);
-	}
 	else
 	{
 		printf("%s: ERROR: dcrbFirmwareUpdate failed to identify flash id (or device not supported)\n", __FUNCTION__);
@@ -2061,9 +1908,8 @@ int dcrbFirmwareRead(int id, const char *filename)
 {
 	FILE *f;
 	int i,len, flashId = 0;
-	unsigned int addr = 0;
+	unsigned int addr = 0, rspId;
 	unsigned char buf[256];
-	unsigned char rspId[3];
 
   if(id==0) id=dcrbID[0];
   
@@ -2072,45 +1918,13 @@ int dcrbFirmwareRead(int id, const char *filename)
       printf("dcrbFirmwareRead: ERROR : DCRB in slot %d is not initialized \n",id);
       return(ERROR);
     }
-	
-	dcrbSelectSpi(id,0);
-	dcrbFlashGetId(id,rspId);
-	
-	printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X\n", rspId[0], rspId[1], rspId[2]);
 
-	if( (rspId[0] == FLASH_MFG_WINBOND) &&
-	    (rspId[1] == (FLASH_DEVID_W25Q64>>8)) &&
-		(rspId[2] == (FLASH_DEVID_W25Q64&0xFF)) )
-	{
-		f = fopen(filename, "wb");
-		if(!f)
-		{
-			printf("%s: ERROR: dcrbFirmwareRead invalid file %s\n", __FUNCTION__, filename);
-			return ERROR;
-		}
-		
-		dcrbSelectSpi(id,1);
-		dcrbTransferSpi(id,FLASH_CMD_RD);	/* continuous array read */
-		dcrbTransferSpi(id,(addr>>16)&0xFF);
-		dcrbTransferSpi(id,(addr>>8)&0xFF);
-		dcrbTransferSpi(id,(addr)&0xFF);
-		
-		for(i = 0; i < FLASH_BYTE_LENGTH; i++)
-		{
-			fputc(dcrbTransferSpi(id,0xFF), f);
-			if(!(i% 65536))
-			{
-				printf(".");
-				taskDelay(1);
-			}
-		}
-			
-		dcrbSelectSpi(id,0);
-		fclose(f);
-	}
-	else if( (rspId[0] == FLASH_MFG_ATMEL) &&
-	         (rspId[1] == (FLASH_DEVID_AT45DB642D>>8)) &&
-		     (rspId[2] == (FLASH_DEVID_AT45DB642D&0xFF)) )
+	dcrbSelectSpi(id,0);
+	rspId = dcrbFlashGetId(id);
+	
+	printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X\n", (rspId>>0)&0xFF, (rspId>>8)&0xFF, (rspId>>16)&0xFF);
+
+	if(rspId == FLASH_DEV_M25P64)
 	{
 		f = fopen(filename, "wb");
 		if(!f)
@@ -2150,9 +1964,9 @@ int dcrbFirmwareVerify(int id, const char *filename)
 {
 	FILE *f;
 	int i,len, flashId = 0;
-	unsigned int addr = 0;
+	unsigned int addr = 0, rspId;
 	unsigned char buf[256];
-	unsigned char rspId[3], val;
+	unsigned char val;
 	
   if(id==0) id=dcrbID[0];
   
@@ -2163,50 +1977,11 @@ int dcrbFirmwareVerify(int id, const char *filename)
     }
 	
 	dcrbSelectSpi(id,0);
-	dcrbFlashGetId(id,rspId);
+	rspId = dcrbFlashGetId(id);
 	
-	printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X\n", rspId[0], rspId[1], rspId[2]);
+	printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X\n", (rspId>>0)&0xFF, (rspId>>8)&0xFF, (rspId>>16)&0xFF);
 
-	if( (rspId[0] == FLASH_MFG_WINBOND) &&
-	    (rspId[1] == (FLASH_DEVID_W25Q64>>8)) &&
-		(rspId[2] == (FLASH_DEVID_W25Q64&0xFF)) )
-	{
-		f = fopen(filename, "rb");
-		if(!f)
-		{
-			printf("%s: ERROR: dcrbFirmwareVerify invalid file %s\n", __FUNCTION__, filename);
-			return ERROR;
-		}
-		
-		dcrbSelectSpi(id,1);
-		dcrbTransferSpi(id,FLASH_CMD_RD);	/* continuous array read */
-		dcrbTransferSpi(id,(addr>>16)&0xFF);
-		dcrbTransferSpi(id,(addr>>8)&0xFF);
-		dcrbTransferSpi(id,(addr)&0xFF);
-
-		while((len = fread(buf, 1, 256, f)) > 0)
-		{
-			for(i = 0; i < len; i++)
-			{
-				val = dcrbTransferSpi(id,0xFF);
-				if(buf[i] != val)
-				{
-					dcrbSelectSpi(id,0);
-					fclose(f);					
-					printf("%s: ERROR: dcrbFirmwareVerify failed verify at addess 0x%08X[%02X,%02X]\n", __FUNCTION__, addr+i, buf[i], val);
-					return ERROR;
-				}
-			}
-			addr+=256;
-			if(!(addr & 0xFFFF))
-				printf(".");
-		}
-		dcrbSelectSpi(id,0);
-		fclose(f);
-	}
-	else if( (rspId[0] == FLASH_MFG_ATMEL) &&
-	         (rspId[1] == (FLASH_DEVID_AT45DB642D>>8)) &&
-		     (rspId[2] == (FLASH_DEVID_AT45DB642D&0xFF)) )
+	if(rspId == FLASH_DEV_M25P64)
 	{
 		f = fopen(filename, "rb");
 		if(!f)
@@ -2292,309 +2067,7 @@ dcrbDataDecode(unsigned int data)
 	else
 		printf("\n");
 
-
-/*
-  int i_print = 1;
-  static unsigned int type_last = 15;
-  static unsigned int time_last = 0;
-
-  if( data & 0x80000000 )
-    {
-      fadc_data.new_type = 1;
-      fadc_data.type = (data & 0x78000000) >> 27;
-    }
-  else
-    {
-      fadc_data.new_type = 0;
-      fadc_data.type = type_last;
-    }
-        
-  switch( fadc_data.type )
-    {
-    case 0:
-      fadc_data.slot_id_hd = (data & 0x7C00000) >> 22;
-      fadc_data.n_evts = (data & 0x3FF800) >> 11;
-      fadc_data.blk_num = (data & 0x7FF);
-      if( i_print ) 
-	printf("%8X - BLOCK HEADER - slot = %d   n_evts = %d   n_blk = %d\n",
-	       data, fadc_data.slot_id_hd, fadc_data.n_evts, fadc_data.blk_num);
-      break;
-    case 1:
-      fadc_data.slot_id_tr = (data & 0x7C00000) >> 22;
-      fadc_data.n_words = (data & 0x3FFFFF);
-      if( i_print ) 
-	printf("%8X - BLOCK TRAILER - slot = %d   n_words = %d\n",
-	       data, fadc_data.slot_id_tr, fadc_data.n_words);
-      break;
-    case 2:
-      if( fadc_data.new_type )
-	{
-	  fadc_data.evt_num_1 = (data & 0x7FFFFFF);
-	  if( i_print ) 
-	    printf("%8X - EVENT HEADER 1 - evt_num = %d\n", data, fadc_data.evt_num_1);
-	}    
-      else
-	{
-	  fadc_data.evt_num_2 = (data & 0x7FFFFFF);
-	  if( i_print ) 
-	    printf("%8X - EVENT HEADER 2 - evt_num = %d\n", data, fadc_data.evt_num_2);
-	}
-      break;
-    case 3:
-      if( fadc_data.new_type )
-	{
-	  fadc_data.time_1 = (data & 0xFFFFFF);
-	  if( i_print ) 
-	    printf("%8X - TRIGGER TIME 1 - time = %08x\n", data, fadc_data.time_1);
-	  fadc_data.time_now = 1;
-	  time_last = 1;
-	}    
-      else
-	{
-	  if( time_last == 1 )
-	    {
-	      fadc_data.time_2 = (data & 0xFFFFFF);
-	      if( i_print ) 
-		printf("%8X - TRIGGER TIME 2 - time = %08x\n", data, fadc_data.time_2);
-	      fadc_data.time_now = 2;
-	    }    
-	  else if( time_last == 2 )
-	    {
-	      fadc_data.time_3 = (data & 0xFFFFFF);
-	      if( i_print ) 
-		printf("%8X - TRIGGER TIME 3 - time = %08x\n", data, fadc_data.time_3);
-	      fadc_data.time_now = 3;
-	    }    
-	  else if( time_last == 3 )
-	    {
-	      fadc_data.time_4 = (data & 0xFFFFFF);
-	      if( i_print ) 
-		printf("%8X - TRIGGER TIME 4 - time = %08x\n", data, fadc_data.time_4);
-	      fadc_data.time_now = 4;
-	    }    
-	  else
-	    if( i_print ) 
-	      printf("%8X - TRIGGER TIME - (ERROR)\n", data);
-	                
-	  time_last = fadc_data.time_now;
-	}    
-      break;
-    case 4:
-      if( fadc_data.new_type )
-	{
-	  fadc_data.chan = (data & 0x7800000) >> 23;
-	  fadc_data.width = (data & 0xFFF);
-	  if( i_print ) 
-	    printf("%8X - WINDOW RAW DATA - chan = %d   nsamples = %d\n", 
-		   data, fadc_data.chan, fadc_data.width);
-	}    
-      else
-	{
-	  fadc_data.valid_1 = 1;
-	  fadc_data.valid_2 = 1;
-	  fadc_data.adc_1 = (data & 0x1FFF0000) >> 16;
-	  if( data & 0x20000000 )
-	    fadc_data.valid_1 = 0;
-	  fadc_data.adc_2 = (data & 0x1FFF);
-	  if( data & 0x2000 )
-	    fadc_data.valid_2 = 0;
-	  if( i_print ) 
-	    printf("%8X - RAW SAMPLES - valid = %d  adc = %4d   valid = %d  adc = %4d\n", 
-		   data, fadc_data.valid_1, fadc_data.adc_1, 
-		   fadc_data.valid_2, fadc_data.adc_2);
-	}    
-      break;
-    case 5:
-      fadc_data.over = 0; 
-      fadc_data.chan = (data & 0x7800000) >> 23;
-      fadc_data.adc_sum = (data & 0x3FFFFF);
-      if( data & 0x400000 )
-	fadc_data.over = 1;
-      if( i_print ) 
-	printf("%8X - WINDOW SUM - chan = %d   over = %d   adc_sum = %08x\n",
-	       data, fadc_data.chan, fadc_data.over, fadc_data.adc_sum);
-      break;
-    case 6:
-      if( fadc_data.new_type )
-	{
-	  fadc_data.chan = (data & 0x7800000) >> 23;
-	  fadc_data.pulse_num = (data & 0x600000) >> 21;
-	  fadc_data.thres_bin = (data & 0x3FF);
-	  if( i_print ) 
-	    printf("%8X - PULSE RAW DATA - chan = %d   pulse # = %d   threshold bin = %d\n", 
-		   data, fadc_data.chan, fadc_data.pulse_num, fadc_data.thres_bin);
-	}    
-      else
-	{
-	  fadc_data.valid_1 = 1;
-	  fadc_data.valid_2 = 1;
-	  fadc_data.adc_1 = (data & 0x1FFF0000) >> 16;
-	  if( data & 0x20000000 )
-	    fadc_data.valid_1 = 0;
-	  fadc_data.adc_2 = (data & 0x1FFF);
-	  if( data & 0x2000 )
-	    fadc_data.valid_2 = 0;
-	  if( i_print ) 
-	    printf("%8X - PULSE RAW SAMPLES - valid = %d  adc = %d   valid = %d  adc = %d\n", 
-		   data, fadc_data.valid_1, fadc_data.adc_1, 
-		   fadc_data.valid_2, fadc_data.adc_2);
-	}    
-      break;
-    case 7:
-      fadc_data.chan = (data & 0x7800000) >> 23;
-      fadc_data.pulse_num = (data & 0x600000) >> 21;
-      fadc_data.quality = (data & 0x180000) >> 19;
-      fadc_data.integral = (data & 0x7FFFF);
-      if( i_print ) 
-	printf("%8X - PULSE INTEGRAL - chan = %d   pulse # = %d   quality = %d   integral = %d\n", 
-	       data, fadc_data.chan, fadc_data.pulse_num, 
-	       fadc_data.quality, fadc_data.integral);
-      break;
-    case 8:
-      fadc_data.chan = (data & 0x7800000) >> 23;
-      fadc_data.pulse_num = (data & 0x600000) >> 21;
-      fadc_data.quality = (data & 0x180000) >> 19;
-      fadc_data.time = (data & 0xFFFF);
-      if( i_print ) 
-	printf("%8X - PULSE TIME - chan = %d   pulse # = %d   quality = %d   time = %d\n", 
-	       data, fadc_data.chan, fadc_data.pulse_num, 
-	       fadc_data.quality, fadc_data.time);
-      break;
-    case 9:
-      if( fadc_data.new_type )
-	{
-	  fadc_data.chan_a = (data & 0x3C00000) >> 22;
-	  fadc_data.source_a = (data & 0x4000000) >> 26;
-	  fadc_data.chan_b = (data & 0x1E0000) >> 17;
-	  fadc_data.source_b = (data & 0x200000) >> 21;
-	  if( i_print ) 
-	    printf("%8X - STREAMING RAW DATA - ena A = %d  chan A = %d   ena B = %d  chan B = %d\n", 
-		   data, fadc_data.source_a, fadc_data.chan_a, 
-		   fadc_data.source_b, fadc_data.chan_b);
-	}    
-      else
-	{
-	  fadc_data.valid_1 = 1;
-	  fadc_data.valid_2 = 1;
-	  fadc_data.adc_1 = (data & 0x1FFF0000) >> 16;
-	  if( data & 0x20000000 )
-	    fadc_data.valid_1 = 0;
-	  fadc_data.adc_2 = (data & 0x1FFF);
-	  if( data & 0x2000 )
-	    fadc_data.valid_2 = 0;
-	  fadc_data.group = (data & 0x40000000) >> 30;
-	  if( fadc_data.group )
-	    {
-	      if( i_print ) 
-		printf("%8X - RAW SAMPLES B - valid = %d  adc = %d   valid = %d  adc = %d\n", 
-		       data, fadc_data.valid_1, fadc_data.adc_1, 
-		       fadc_data.valid_2, fadc_data.adc_2);
-	    }		 
-	  else
-	    if( i_print ) 
-	      printf("%8X - RAW SAMPLES A - valid = %d  adc = %d   valid = %d  adc = %d\n", 
-		     data, fadc_data.valid_1, fadc_data.adc_1, 
-		     fadc_data.valid_2, fadc_data.adc_2);	            
-	}    
-      break;
-    case 10:
-      fadc_data.chan = (data & 0x7800000) >> 23;
-      fadc_data.pulse_num = (data & 0x600000) >> 21;
-      fadc_data.vmin = (data & 0x1FF000) >> 12;
-      fadc_data.vpeak = (data & 0xFFF);
-      if( i_print ) 
-	printf("%8X - PULSE V - chan = %d   pulse # = %d   vmin = %d   vpeak = %d\n", 
-	       data, fadc_data.chan, fadc_data.pulse_num, 
-	       fadc_data.vmin, fadc_data.vpeak);
-      break;
-
-    case 11:
-      fadc_data.trig_type_int = data & 0x7;
-      fadc_data.trig_state_int = (data & 0x8) >> 3;
-      fadc_data.evt_num_int = (data & 0xFFF0) >> 4;
-      fadc_data.err_status_int = (data & 0x10000) >> 16;
-      if( i_print ) 
-	printf("%8X - INTERNAL TRIGGER - type = %d   state = %d   num = %d   error = %d\n",
-	       data, fadc_data.trig_type_int, fadc_data.trig_state_int, fadc_data.evt_num_int,
-	       fadc_data.err_status_int);
-    case 12:
-      if( i_print ) 
-	printf("%8X - UNDEFINED TYPE = %d\n", data, fadc_data.type);
-      break;
-    case 13:
-      if( i_print ) 
-	printf("%8X - END OF EVENT = %d\n", data, fadc_data.type);
-      break;
-    case 14:
-      if( i_print ) 
-	printf("%8X - DATA NOT VALID = %d\n", data, fadc_data.type);
-      break;
-    case 15:
-      if( i_print ) 
-	printf("%8X - FILLER WORD = %d\n", data, fadc_data.type);
-      break;
-    }
-	
-  type_last = fadc_data.type;
-*/
-
   return;
-}
-
-
-void
-dcrbSoftTrig(int id)
-{
-  if(id==0) id=dcrbID[0];
-
-  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-  {
-    printf("dcrbSoftTrig: ERROR : DCRB in slot %d is not initialized \n",id);
-    return;
-  }
-
-  vmeWrite32(&(DCRBp[id]->TriggerSource),DCRB_TRIG_VME);
-
-}
-
-
-void
-dcrbPrintScalers(int id)
-{
-  unsigned int scaler[6];
-
-  if(id==0) id=dcrbID[0];
-
-  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
-  {
-    printf("dcrbPrintScalers: ERROR : DCRB in slot %d is not initialized \n",id);
-    return;
-  }
-
-  vmeWrite32(&(DCRBp[id]->ScalerLatch), 0xFFFFFFFF);
-
-  scaler[0] = vmeRead32(&(DCRBp[id]->ScalerBusy));
-  scaler[1] = vmeRead32(&(DCRBp[id]->ScalerBusyCycles));
-  scaler[2] = vmeRead32(&(DCRBp[id]->ScalerVmeClk));
-  scaler[3] = vmeRead32(&(DCRBp[id]->ScalerSync));
-  scaler[4] = vmeRead32(&(DCRBp[id]->ScalerTrig1));
-  scaler[5] = vmeRead32(&(DCRBp[id]->ScalerTrig2));
-
-  printf("\n Slot %d scalers\n",id);
-
-  printf("ScalerBusy       %10u\n",scaler[0]);
-  printf("ScalerBusyCycles %10u\n",scaler[1]);
-  printf("ScalerVmeClk     %10u\n",scaler[2]);
-  printf("ScalerSync       %10u\n",scaler[3]);
-  printf("ScalerTrig1      %10u\n",scaler[4]);
-  printf("ScalerTrig2      %10u\n",scaler[5]);
-
-  printf("ScalerTDCs      %10u %10u %10u\n",
-		 vmeRead32(&(DCRBp[id]->ScalerTDC[0])),
-         vmeRead32(&(DCRBp[id]->ScalerTDC[1])),
-         vmeRead32(&(DCRBp[id]->ScalerTDC[2])) );
-
-  printf("\n Slot %d FIFO: nevents=%u nwords=%u\n",id,vmeRead32(&(DCRBp[id]->FifoEventCnt)),vmeRead32(&(DCRBp[id]->FifoWordCnt)));
 }
 
 
@@ -2610,9 +2083,11 @@ dcrbTriggerPulseWidth(int id, unsigned int width)
     return;
   }
 
-  width /= 8;
+  width /= DCRB_NS_PER_CLOCK;
 
-  vmeWrite32(&(DCRBp[id]->TriggerCtrl),width);
+  vmeWrite32(&(DCRBp[id]->Tdc[0].TriggerWidth),width);
+  vmeWrite32(&(DCRBp[id]->Tdc[1].TriggerWidth),width);
+  vmeWrite32(&(DCRBp[id]->Tdc[2].TriggerWidth),width);
 
   return(width);
 }
@@ -2630,7 +2105,7 @@ dcrbLinkStatus(int id)
     return;
   }
 
-  return( ( (vmeRead32(&(DCRBp[id]->GtpStatus)))&0x1000 )>>12 );
+  return( ( (vmeRead32(&(DCRBp[id]->Ser[1].Status)))&0x1000 )>>12 );
 }
 
 int
@@ -2644,14 +2119,12 @@ dcrbLinkReset(int id)
     return;
   }
 
-  vmeWrite32(&(DCRBp[id]->GtpCtrl), 0x203);
+  vmeWrite32(&(DCRBp[id]->Ser[1].Ctrl), 0x201);
   taskDelay(1);
-  vmeWrite32(&(DCRBp[id]->GtpCtrl), 0x202);
-  taskDelay(1);
-  vmeWrite32(&(DCRBp[id]->GtpCtrl), 0x200);
-  taskDelay(1);
-  vmeWrite32(&(DCRBp[id]->GtpCtrl), 0);
+  vmeWrite32(&(DCRBp[id]->Ser[1].Ctrl), 0x200);
   taskDelay(10);
+  vmeWrite32(&(DCRBp[id]->Ser[1].Ctrl), 0x800);
+  taskDelay(1);
 
 
   return(0);
@@ -2714,6 +2187,7 @@ dcrbReadConfigFile(char *filename)
   char *clonparms;
   char *expid;
 
+  gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
   expid = getenv("EXPID");
   if(strlen(filename)!=0) /* filename specified */
@@ -2735,8 +2209,6 @@ dcrbReadConfigFile(char *filename)
   }
   else /* filename does not specified */
   {
-    /* obtain our hostname */
-    gethostname(host,ROCLEN);
     sprintf(fname, "%s/dcrb/%s.cnf", clonparms, host);
     if((fd=fopen(fname,"r")) == NULL)
     {

@@ -37,18 +37,15 @@ set ER   = daq_comp.tcl
 set RC   = daq_comp.tcl
 set XT   = daq_comp.tcl
 
-set ET_comp   = 'et_start -n 1000 -s 100000 -f /tmp/et_sys_classvt'
-set EB_comp1  = 'coda_ebc -s classvt -o "EB'
-set EB_comp2  = ' CDEB" '
-set EB_comp   = "$EB_comp1$nn$EB_comp2"
-set ER_comp1  = 'coda_erc -s classvt -o "ER'
-set ER_comp2  = ' ER" '
-set ER_comp   = "$ER_comp1$nn$ER_comp2"
-set RC_comp   = 'runcontrol -s classvt -cedit -dbedit'
-set XT1_comp1 = 'coda_roc_gef -s classvt -o "svt'
-set XT1_comp2 = ' ROC" '
-set XT1_comp  = "$XT1_comp1$nn$XT1_comp2"
+set ET_comp   = "et_start -n 1000 -s 100000 -f /tmp/et_sys_classvt$nn"
+set EB_comp   = "coda_ebc -s classvt$nn -o 'EB$nn CDEB' "
+set ER_comp   = "coda_erc -s classvt$nn -o 'ER$nn ER' "
+set RC_comp   = "runcontrol -s classvt$nn -cedit -dbedit"
 
+set XT_comp0 = 'coda_roc_gef -s classvt'
+set XT1_comp1 = ' -o "svt'
+set XT1_comp2 = ' ROC" '
+set XT1_comp  = "$XT_comp0$nn$XT1_comp1$nn$XT1_comp2"
 
 echo ""
 echo " Start ET"

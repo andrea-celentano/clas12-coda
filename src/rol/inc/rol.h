@@ -240,6 +240,7 @@ extern pthread_mutex_t sendbuffer_lock;
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 /* get current pointer in the big buffer and fill CODA header info */ 
 /* called in rol1: CEOPEN(EVTYPE, BT_BANKS)*/
+/* NOTE: in blocking mode *(rol->nevents) count blocks, not events; rol2 will put event number in during disentangling */
 #define CEOPEN(bnum, btype) \
 { \
 dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise following loop will think there is an event */ \
@@ -272,6 +273,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 #define CECLOSE \
 { \
+  int syncsync = 0; \
 /*printf("11: %d 0x%08x\n",StartOfEvent[0],StartOfEvent[1]);*/\
   /* writes bank length (in words) into the first word of the event (CODA header [0]) */ \
   *StartOfEvent = (int) (((char *) (rol->dabufp)) - ((char *) StartOfEvent)); \
@@ -318,6 +320,8 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     } \
     oldevnb = dabufp[1] & 0xff; \
     ev_type = (dabufp[1] >> 16) & 0xff; \
+    syncsync = (dabufp[1] >> 24); \
+    /*if(syncsync) printf("CECLOSE: sync=0x%02x (ev# %d)\n",syncsync,oldevnb);*/ \
     /*if((ev_type >= 0) && (ev_type < 16))*/ \
     if( (ev_type < EV_SYNC) || (ev_type >= (EV_SYNC+16)) )	\
     { \
@@ -377,6 +381,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 #define CECLOSE1 \
 { \
   int nw = 0; \
+  int syncsync = 0; \
   while(nw < nwords) \
   { \
 	/*printf("CECLOSE1: fragment header: %d 0x%08x\n",dabufp[0],dabufp[1]);*/ \
@@ -399,6 +404,8 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
       } \
       oldevnb = dabufp[1] & 0xff; \
       ev_type = (dabufp[1] >> 16) & 0xff; \
+      syncsync = (dabufp[1] >> 24); \
+      /*if(syncsync) printf("CECLOSE1: sync=0x%02x (ev# %d)\n",syncsync,oldevnb);*/ \
       if( (ev_type < EV_SYNC) || (ev_type >= (EV_SYNC+16)) )	\
       { \
         last_event_check ++; \
@@ -752,6 +759,7 @@ static void
 cdodispatch(unsigned int theType)
 {
   dispatch_busy = 1;
+
   (*(rol->nevents))++;
 
   /*printf("cdodispatch: increment 'nevents to %d\n",*(rol->nevents));*/

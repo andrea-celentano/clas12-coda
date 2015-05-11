@@ -17,6 +17,7 @@
 #include "GTP_HPSModule.h"
 #include "V1495PulserModule.h"
 #include "FADCScalers_HPSModule.h"
+#include "vetroc_module.h"
 
 #define TIMER_CAPTURE_POLLRATE	100
 
@@ -305,6 +306,8 @@ void DiagGUI::ProcessParam(char *paramA, char *paramB, char *paramC, int count)
 				pFrameModule->AddFrame(pModuleFrames[iModuleCount] = new GTP_HPSModule(pFrameModule, pCrateMsgClientLast, addr), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 			else if(!stricmp("MOD_TYPE_V1495_PULSER", paramB))
 				pFrameModule->AddFrame(pModuleFrames[iModuleCount] = new V1495PulserModule(pFrameModule, pCrateMsgClientLast, addr), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+			else if(!stricmp("MOD_TYPE_VETROC", paramB))
+				pFrameModule->AddFrame(pModuleFrames[iModuleCount] = new vetroc_module(pFrameModule, pCrateMsgClientLast, addr), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 			else
 			{
 				printf("Error: Unknown module type: %s\n", paramB);

@@ -96,7 +96,6 @@ static int singles_nmin_en[2] = {1, 1};
 static int cosmic_timecoincidence = 10;
 static int cosmic_pattern = 0xFE;
 
-static int pairs_clusterdelay[2] = {128, 128};
 static int pairs_timecoincidence[2] = {2, 2};
 static int pairs_emin[2] = {0, 0};
 static int pairs_emax[2] = {8191, 8191};
@@ -498,6 +497,7 @@ sspInit(unsigned int addr, unsigned int addr_inc, int nfind, int iFlag)
 
       /* soft reset (resets EB and fifo) */
       vmeWrite32(&pSSP[sspSL[issp]]->Cfg.Reset, 1);
+      taskDelay(2);
       vmeWrite32(&pSSP[sspSL[issp]]->Cfg.Reset, 0);
 
 	}	 
@@ -1159,7 +1159,7 @@ sspPulserStart(int id)
  
  
 /************************************************************ 
- * int sspSetClkSrc(float freq, float duty, unsigned npulses) 
+ * int sspPulserSetup(float freq, float duty, unsigned npulses) 
  *    freq: 
  *        0.01 to 25E6 pulser frequency in Hz 
  *    duty: 
@@ -1205,11 +1205,18 @@ sspPulserSetup(int id, float freq, float duty, unsigned int npulses)
     } 
  
   SSPLOCK;	 
+  /* Set to disable pulser output during setup */
+  sspWriteReg(&pSSP[id]->Sd.PulserLowCycles, 0xFFFFFFFF); 
+  sspWriteReg(&pSSP[id]->Sd.PulserPeriod, 0);
+  sspWriteReg(&pSSP[id]->Sd.PulserNPulses, npulses);
+  /* Hack to let npulses saturate in case burst mode is needed with no glitches */
+  taskDelay(60);
+  
   // Setup period register... 
-	per = /*SYSCLK_FREQ*/GCLK_FREQ / freq; 
+  per = /*SYSCLK_FREQ*/GCLK_FREQ / freq; 
   if(!per) 
     per = 1; 
-  sspWriteReg(&pSSP[id]->Sd.PulserPeriod, per); 
+  sspWriteReg(&pSSP[id]->Sd.PulserPeriod, per);
 	 
   // Setup duty cycle register...	 
   low = per * duty; 
@@ -1217,14 +1224,13 @@ sspPulserSetup(int id, float freq, float duty, unsigned int npulses)
     low = 1; 
   sspWriteReg(&pSSP[id]->Sd.PulserLowCycles, low); 
 	 
-  sspWriteReg(&pSSP[id]->Sd.PulserNPulses, npulses); 
 	 
   printf("%s: Actual frequency = %f, duty = %f\n",  
 	 __FUNCTION__, 
 	 (float)/*SYSCLK_FREQ*/GCLK_FREQ/(float)per, (float)low/(float)per); 
   SSPUNLOCK; 
 
-	if(npulses<0xFFFFFFFF) sspPulserStart(id);
+  sspPulserStart(id);
 } 
 
 float sspGetPulserFreq(int id)
@@ -1693,7 +1699,7 @@ sspReloadFirmware(int id)
     VSCM_WriteReg((unsigned int)&pVSCM_BASE->ICap, 0x40000 | 0x00000); 
     VSCM_WriteReg((unsigned int)&pVSCM_BASE->ICap, 0x40000 | 0x20000); 
     } 
-    taskDelay(120); 
+    taskDelay(120);
   */ 
 } 
  
@@ -2403,34 +2409,6 @@ int sspHps_SetPairsEnableED(int id, int n, int en)
   return OK;
 }
 
-int sspHps_SetPairsClusterDelay(int id, int n, int delay)
-{
-  if(id==0) id=sspSL[0]; 
-  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-  { 
-    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-    return ERROR; 
-  } 
-
-  if( (n < 0) || (n > 1) )
-  {
-    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
-    return ERROR;
-  }
-
-  if( (delay < 0) || (delay > 512) )
-  {
-    printf("%s: ERROR: delay is outside acceptable range.\n",__FUNCTION__);
-    return ERROR;
-  }
-
-  SSPLOCK;
-  sspWriteReg(&pSSP[id]->HpsPairs[n].ClusterDelay, delay); 
-  SSPUNLOCK; 
- 
-  return OK;
-}
-
 /* sspHps_PairsTimeCoincidence() - set cluster pair coincidence time window (units: +/-4ns) */
 int sspHps_SetPairsTimeCoincidence(int id, int n, int ticks)
 {
@@ -3009,29 +2987,6 @@ int sspHps_GetPairsEnableED(int id, int n)
   return val;
 }
 
-int sspHps_GetPairsClusterDelay(int id, int n)
-{
-  int val;
-  if(id==0) id=sspSL[0]; 
-  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
-  { 
-    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
-    return ERROR; 
-  } 
-
-  if( (n < 0) || (n > 1) )
-  {
-    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
-    return ERROR;
-  }
-
-  SSPLOCK;
-  val = sspReadReg(&pSSP[id]->HpsPairs[n].ClusterDelay); 
-  SSPUNLOCK; 
- 
-  return val;
-}
-
 int sspHps_GetPairsTimeCoincidence(int id, int n)
 {
   int val;
@@ -3376,7 +3331,7 @@ void sspPrintHpsConfig(int id)
       singlesEminEn[2], singlesEmaxEn[2], singlesNminEn[2],
       cosmicTimeCoincidence, cosmicPatternCoincidence,
       pairsSumEn[2], pairsDiffEn[2], pairsCoplanarEn[2], pairsEDEn[2],
-      pairsClusterDelay[2], pairsTimeCoincidence[2], pairsSummax[2],
+      pairsTimeCoincidence[2], pairsSummax[2],
       pairsSummin[2], pairsDiffmax[2], pairsEmin[2], pairsEmax[2],
       pairsNHitsmin[2], pairsCoplanarTolerance[2], pairsEDmin[2];
   float pairsEDFactor[2];
@@ -3411,7 +3366,6 @@ void sspPrintHpsConfig(int id)
   pairsDiffEn[i] = sspHps_GetPairsEnableDiff(id, i);
   pairsCoplanarEn[i] = sspHps_GetPairsEnableCoplanar(id, i);
   pairsEDEn[i] = sspHps_GetPairsEnableED(id, i);
-  pairsClusterDelay[i] = sspHps_GetPairsClusterDelay(id, i);
   pairsTimeCoincidence[i] = sspHps_GetPairsTimeCoincidence(id, i);
   pairsSummax[i] = sspHps_GetPairsSummax(id, i);
   pairsSummin[i] = sspHps_GetPairsSummin(id, i);
@@ -3439,7 +3393,6 @@ void sspPrintHpsConfig(int id)
   printf("     Emin = %dMeV\n", pairsEmin[i]);
   printf("     Emax = %dMeV\n", pairsEmax[i]);
   printf("     NHitsmin = %d\n", pairsNHitsmin[i]);
-  printf("     ClusterDelay = %d(%dns)\n", pairsClusterDelay[i], pairsClusterDelay[i]*4);
   printf("     TimeCoincidence = %d(+/-%dns)\n", pairsTimeCoincidence[i], pairsTimeCoincidence[i]*4);
   printf("     SumMax = %dMeV, SumMin = %dMeV, Enabled = %d\n", pairsSummax[i], pairsSummin[i], pairsSumEn[i]);
   printf("     DiffMax = %dMeV, Enabled = %d\n", pairsDiffmax[i], pairsDiffEn[i]);
@@ -3819,7 +3772,6 @@ sspInitGlobals()
 
   for(ii = 0; ii < 2; ii++)
   {
-    pairs_clusterdelay[ii] = 128;
     pairs_timecoincidence[ii] = 2;
     pairs_emin[ii] = 0;
     pairs_emax[ii] = 8191;
@@ -3885,6 +3837,7 @@ sspReadConfigFile(char *filename)
   char *clonparms;
   char *expid;
 
+  gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
   expid = getenv("EXPID");
   if(strlen(filename)!=0) /* filename specified */
@@ -3906,8 +3859,6 @@ sspReadConfigFile(char *filename)
   }
   else /* filename does not specified */
   {
-    /* obtain our hostname */
-    gethostname(host,ROCLEN);
     sprintf(fname, "%s/ssp/%s.cnf", clonparms, host);
     if((fd=fopen(fname,"r")) == NULL)
     {
@@ -4371,7 +4322,6 @@ sspDownloadAll()
       sspHps_SetPairsEnableDiff(sspSL[ii], jj, pairs_diffmax_en[jj]);
       sspHps_SetPairsEnableCoplanar(sspSL[ii], jj, pairs_coplanartolerance_en[jj]);
       sspHps_SetPairsEnableED(sspSL[ii], jj, pairs_ed_en[jj]);
-      sspHps_SetPairsClusterDelay(sspSL[ii], jj, pairs_clusterdelay[jj]);
       sspHps_SetPairsTimeCoincidence(sspSL[ii], jj, pairs_timecoincidence[jj]);
       sspHps_SetPairsSummax(sspSL[ii], jj, pairs_summax[jj]);
 		sspHps_SetPairsSummin(sspSL[ii], jj, pairs_summin[jj]);
@@ -4509,7 +4459,6 @@ sspUploadAll(char *string, int length)
 
 	for(i=0; i<2; i++)
 	{
-pairs_clusterdelay[i] = sspHps_GetPairsClusterDelay(slot, i);
 	  pairs_timecoincidence[i] = sspHps_GetPairsTimeCoincidence(slot,i);
 	  pairs_emin[i] = sspHps_GetPairsEmin(slot,i);
 	  pairs_emax[i]= sspHps_GetPairsEmax(slot,i);
@@ -4563,7 +4512,6 @@ pairs_clusterdelay[i] = sspHps_GetPairsClusterDelay(slot, i);
 
 	  for(i = 0; i < 2; i++)
 	  {
-        sprintf(sss,"SSP_HPS_PAIRS_CLUSTERDELAY %d %d\n",i,pairs_clusterdelay[i]); ADD_TO_STRING;
 	    sprintf(sss,"SSP_HPS_PAIRS_TIMECOINCIDENCE %d %d\n",i,pairs_timecoincidence[i]); ADD_TO_STRING;
         sprintf(sss,"SSP_HPS_PAIRS_EMIN %d %d\n",i,pairs_emin[i]); ADD_TO_STRING;
         sprintf(sss,"SSP_HPS_PAIRS_EMAX %d %d\n",i,pairs_emax[i]); ADD_TO_STRING;

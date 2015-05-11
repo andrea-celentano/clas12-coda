@@ -133,8 +133,7 @@ typedef struct
 typedef struct
 {
   /* 0x0000-0x0003 */ volatile unsigned int Ctrl;
-  /* 0x0004-0x0007 */          unsigned int Reserved0[(0x0008-0x0004)/4];
-  /* 0x0008-0x000B */ volatile unsigned int ClusterDelay;
+  /* 0x0004-0x000B */          unsigned int Reserved0[(0x000C-0x0004)/4];
   /* 0x000C-0x000F */ volatile unsigned int ClusterTimeCoincidence;
   /* 0x0010-0x0013 */ volatile unsigned int ClusterSummax;
   /* 0x0014-0x0017 */ volatile unsigned int ClusterDiffmax;
@@ -487,7 +486,6 @@ int  sspHps_SetPairsEnableSum(int id, int n, int en);
 int  sspHps_SetPairsEnableDiff(int id, int n, int en);
 int  sspHps_SetPairsEnableCoplanar(int id, int n, int en);
 int  sspHps_SetPairsEnableED(int id, int n, int en);
-int  sspHps_SetPairsClusterDelay(int id, int n, int delay);
 int  sspHps_SetPairsTimeCoincidence(int id, int n, int ticks);
 int  sspHps_SetPairsSummax(int id, int n, int max);
 int  sspHps_SetPairsSummin(int id, int n, int min);

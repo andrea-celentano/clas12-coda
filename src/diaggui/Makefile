@@ -39,6 +39,7 @@ CLON_FLAGS += -I./src.s \
 				-I./inc/TID \
 				-I./inc/V1495Pulser \
 				-I./inc/VSCM \
+				-I./inc/vetroc \
 				-I$(CODA)/common/include
 
 ifneq ("$(OSTYPE)","VXWORKS")

@@ -64,10 +64,10 @@
 #ifdef SunOS_sun4u
 #define MAX_ROCS 19 /* must accomodate biggest roc id, not the number of rocs !!! */
 #else
-#define MAX_ROCS 67
+#define MAX_ROCS 70
 #endif
 
-#define QSIZE 8
+#define QSIZE 6 /* was 8, trying to decrease memory usage on clondaq5 */
 
 
 #define NTHREADMAX 7

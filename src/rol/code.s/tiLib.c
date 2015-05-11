@@ -690,6 +690,8 @@ tiStatus(int pflag)
   unsigned long long l1a_count=0;
   unsigned long long l1a_count_block_low=0; /*sergey*/
   unsigned int blocklimit;
+  unsigned int ii, trigger_rules;
+  unsigned int trigger_rule_times[4];
 
   if(TIp==NULL)
     {
@@ -719,6 +721,8 @@ tiStatus(int pflag)
 
   tsInput      = vmeRead32(&TIp->tsInput);
 
+  trigger_rules = vmeRead32(&TIp->triggerRule);
+
   output       = vmeRead32(&TIp->output);
   blocklimit   = vmeRead32(&TIp->blocklimit);
   fiberSyncDelay = vmeRead32(&TIp->fiberSyncDelay);
@@ -732,7 +736,7 @@ tiStatus(int pflag)
 
   /*
   l1a_count_block_low = (l1a_count/((unsigned long long)tiBlockLevel))&((unsigned long long)TI_NBLOCKS_COUNT_MASK);
-*/
+  */
   l1a_count_block_low = (l1a_count/((unsigned long long)tiBlockLevel))%((unsigned long long)1000);
 
   for(iblock=0; iblock<4; iblock++)
@@ -1008,35 +1012,52 @@ tiStatus(int pflag)
 
   printf(" Blocks ready for readout: %d\n",(blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8);
   if(tiMaster)
-    {
-      /* TI slave block status */
-      fibermask = tiSlaveMask;
-      for(ifiber=0; ifiber<8; ifiber++)
-	{
-	  if( fibermask & (1<<ifiber) )
-	    {
-	      if( (ifiber % 2) == 0)
-		{
-		  nblocksReady   = blockStatus[ifiber/2] & TI_BLOCKSTATUS_NBLOCKS_READY0;
-		  nblocksNeedAck = (blockStatus[ifiber/2] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK0)>>8;
-		}
-	      else
-		{
-		  nblocksReady   = (blockStatus[(ifiber-1)/2] & TI_BLOCKSTATUS_NBLOCKS_READY1)>>16;
-		  nblocksNeedAck = (blockStatus[(ifiber-1)/2] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK1)>>24;
-		}
-	      printf("  Fiber %d  :  Blocks ready / need acknowledge: %d / %d\n",
-		     ifiber+1,nblocksReady, nblocksNeedAck);
-	    }
-	}
+  {
+    /* TI slave block status */
+    fibermask = tiSlaveMask;
+    for(ifiber=0; ifiber<8; ifiber++)
+	 {
+	   if( fibermask & (1<<ifiber) )
+	   {
+	     if( (ifiber % 2) == 0)
+		  {
+          nblocksReady   = blockStatus[ifiber/2] & TI_BLOCKSTATUS_NBLOCKS_READY0;
+          nblocksNeedAck = (blockStatus[ifiber/2] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK0)>>8;
+        }
+        else
+        {
+          nblocksReady   = (blockStatus[(ifiber-1)/2] & TI_BLOCKSTATUS_NBLOCKS_READY1)>>16;
+          nblocksNeedAck = (blockStatus[(ifiber-1)/2] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK1)>>24;
+        }
+        printf("  Fiber %d  :  Blocks ready / need acknowledge: %d / %d\n",
+            ifiber+1,nblocksReady, nblocksNeedAck);
+      }
+    }
 
-      /* TI master block status */
-      nblocksReady   = (blockStatus[4] & TI_BLOCKSTATUS_NBLOCKS_READY1)>>16;
-      nblocksNeedAck = (blockStatus[4] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK1)>>24;
-      printf("  Loopback :  Blocks ready / need acknowledge: %d / %d\n",
+    /* TI master block status */
+    nblocksReady   = (blockStatus[4] & TI_BLOCKSTATUS_NBLOCKS_READY1)>>16;
+    nblocksNeedAck = (blockStatus[4] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK1)>>24;
+    printf("  Loopback :  Blocks ready / need acknowledge: %d / %d\n",
 	     nblocksReady, nblocksNeedAck);
 
-    }
+
+    /* TI master trigger rules */
+    if(trigger_rules & 0x00000080) trigger_rule_times[0] = ((trigger_rules>>0) & 0x7F) * 480;
+    else                           trigger_rule_times[0] = ((trigger_rules>>0) & 0x7F) * 16;
+
+    if(trigger_rules & 0x00008000) trigger_rule_times[1] = ((trigger_rules>>8) & 0x7F) * 960;
+    else                           trigger_rule_times[1] = ((trigger_rules>>8) & 0x7F) * 16;
+
+    if(trigger_rules & 0x00800000) trigger_rule_times[2] = ((trigger_rules>>16) & 0x7F) * 1920;
+    else                           trigger_rule_times[2] = ((trigger_rules>>16) & 0x7F) * 32;
+
+    if(trigger_rules & 0x80000000) trigger_rule_times[3] = ((trigger_rules>>24) & 0x7F) * 3840;
+    else                           trigger_rule_times[3] = ((trigger_rules>>24) & 0x7F) * 64;
+
+    for(ii=0;ii<4;ii++)
+      printf("  Trigger rule %d: no more than %d trigger in %dns\n", ii+1, ii+1, trigger_rule_times[ii]);
+
+  }
   printf(" Input counter %d\n",inputCounter);
 
   printf("GTPStatusA=0x%08x\n",vmeRead32(&TIp->GTPStatusA));
@@ -1835,6 +1856,7 @@ tiSetTriggerSource(int trig)
       /* Set VME and Loopback by default */
       trigenable  = TI_TRIGSRC_VME;
       trigenable |= TI_TRIGSRC_LOOPBACK;
+/*      trigenable |= TI_TRIGSRC_PULSER;*/
 
       switch(trig)
 	{
@@ -2244,6 +2266,61 @@ tiSetRandomTrigger(int trigger, int setting)
   return OK;
 }
 
+int
+tiGetRandomTriggerSetting(int trigger)
+{
+  int val;
+  if(TIp==NULL)
+  {
+    printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if(trigger!=1 && trigger!=2)
+  {
+    logMsg("\ntiSetRandomTrigger: ERROR: Invalid trigger type %d\n",trigger,2,3,4,5,6);
+    return ERROR;
+  }
+
+  TILOCK;
+  val = vmeRead32(&TIp->randomPulser);
+  TIUNLOCK;
+
+  if(trigger==1)
+    return (val>>0) & 0xF;
+  else if(trigger==2)
+    return (val>>8) & 0xF;
+
+  return 0;
+}
+
+int
+tiGetRandomTriggerEnable(int trigger)
+{
+  int val;
+  if(TIp==NULL)
+  {
+    printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if(trigger!=1 && trigger!=2)
+  {
+    logMsg("\ntiSetRandomTrigger: ERROR: Invalid trigger type %d\n",trigger,2,3,4,5,6);
+    return ERROR;
+  }
+
+  TILOCK;
+  val = vmeRead32(&TIp->randomPulser);
+  TIUNLOCK;
+
+  if((trigger==1) && (val & TI_RANDOMPULSER_TRIG1_ENABLE))
+    return 1;
+  else if((trigger==2) && (val & TI_RANDOMPULSER_TRIG2_ENABLE))
+    return 1;
+
+  return 0;
+}
 
 int
 tiDisableRandomTrigger()
@@ -3218,7 +3295,7 @@ tiSyncReset(int blflag)
     }
   
   TILOCK;
-  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_SYNCRESET); 
+  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_SYNCRESET_4US);
   taskDelay(1);
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_RESET_EVNUM); 
   taskDelay(1);
@@ -4176,7 +4253,7 @@ int
 tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
 {
   unsigned int wval=0, rval=0;
-  unsigned int maxvalue=0x3f;
+  unsigned int maxvalue=0x7f;
 
   if(TIp == NULL) 
     {
@@ -4455,6 +4532,112 @@ tiLoadTriggerTable(int mode)
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ *  @ingroup MasterConfig
+ *  @brief Set the window of the input trigger coincidence window
+ *  @param window_width Width of the input coincidence window (units of 4ns)
+ *  @return OK if successful, otherwise ERROR
+ */
+int
+tiSetTriggerWindow(int window_width)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((window_width<1) || (window_width>TI_TRIGGERWINDOW_COINC_MASK))
+    {
+      printf("%s: ERROR: Invalid Trigger Coincidence Window (%d)\n",
+	     __FUNCTION__,window_width);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->triggerWindow,
+	     (vmeRead32(&TIp->triggerWindow) & ~TI_TRIGGERWINDOW_COINC_MASK) 
+	     | window_width);
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ *  @ingroup MasterStatus
+ *  @brief Get the window of the input trigger coincidence window
+ *  @return Width of the input coincidence window (units of 4ns), otherwise ERROR
+ */
+int
+tiGetTriggerWindow()
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->triggerWindow) & ~TI_TRIGGERWINDOW_COINC_MASK;
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
+ *  @ingroup MasterConfig
+ *  @brief Set the width of the input trigger inhibit window
+ *  @param window_width Width of the input inhibit window (units of 4ns)
+ *  @return OK if successful, otherwise ERROR
+ */
+int
+tiSetTriggerInhibitWindow(int window_width)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((window_width<1) || (window_width>(TI_TRIGGERWINDOW_INHIBIT_MASK>>8)))
+    {
+      printf("%s: ERROR: Invalid Trigger Inhibit Window (%d)\n",
+	     __FUNCTION__,window_width);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->triggerWindow,
+	     (vmeRead32(&TIp->triggerWindow) & ~TI_TRIGGERWINDOW_INHIBIT_MASK) 
+	     | (window_width<<8));
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ *  @ingroup MasterStatus
+ *  @brief Get the width of the input trigger inhibit window
+ *  @return Width of the input inhibit window (units of 4ns), otherwise ERROR
+ */
+int
+tiGetTriggerInhibitWindow()
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->triggerWindow) & TI_TRIGGERWINDOW_INHIBIT_MASK)>>8;
+  TIUNLOCK;
+
+  return rval;
 }
 
 /*******************************************************************************

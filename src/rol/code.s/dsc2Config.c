@@ -233,6 +233,8 @@ dsc2InitGlobals()
 
     scalerRefPrescale[ii] = 0;
     scalerFlags[ii] = DSC_SCALERCFG_RESET_AUTO;
+
+    DAQReadoutMask[ii] = 0;
   }
 
 }
@@ -272,7 +274,7 @@ int
 dsc2ReadConfigFile(char *filename)
 {
   FILE   *fd;
-  int    ii, jj, ch, kk = -1;
+  int    ii, jj, ch, kk = 0;
   char   str_tmp[STRLEN], str2[STRLEN], keyword[ROCLEN];
   char   host[ROCLEN], ROC_name[ROCLEN];
   int    i1, i2, i3, i4, msk[NCHAN];
@@ -282,6 +284,7 @@ dsc2ReadConfigFile(char *filename)
   char *clonparms;
   char *expid;
 
+  gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
   expid = getenv("EXPID");
   if(strlen(filename)!=0) /* filename specified */
@@ -303,8 +306,6 @@ dsc2ReadConfigFile(char *filename)
   }
   else /* filename does not specified */
   {
-    /* obtain our hostname */
-    gethostname(host,ROCLEN);
     sprintf(fname, "%s/dsc2/%s.cnf", clonparms, host);
     if((fd=fopen(fname,"r")) == NULL)
     {
@@ -411,6 +412,7 @@ dsc2ReadConfigFile(char *filename)
       else if(active && ((strcmp(keyword,"DSC2_CH_THRESHOLD") == 0) && (kk >= 0)))
       {
         sscanf (str_tmp, "%*s %d %d %d", &chan, &i1, &i2);
+		printf("--> %d %d %d\n",chan, i1, i2);
         if((chan<0) || (chan>=NCHAN))
         {
           printf("\nReadConfigFile: Wrong channel number, %d\n\n",chan);
@@ -641,7 +643,7 @@ dsc2Mon(int slot)
 
   if(Ndsc_daq)
   {
-    printf("Following %d slots are set for daq readout:\n");
+    printf("Following %d slots are set for daq readout:\n",Ndsc_daq);
   }
   else
   {
@@ -652,7 +654,7 @@ dsc2Mon(int slot)
 
   if(Ndsc_tcp)
   {
-    printf("Following %d slots are set for tcpserver readout:\n");
+    printf("Following %d slots are set for tcpserver readout:\n",Ndsc_tcp);
     for(jj=0; jj<Ndsc_tcp; jj++) printf(" %d",dscID_tcp[jj]);
     printf("\n");
   }
@@ -785,6 +787,13 @@ dsc2UploadAll(char *string, int length)
 }
 
 
+int
+dsc2UploadAllPrint()
+{
+  char str[16001];
+  dsc2UploadAll(str, 16000);
+  printf("%s",str);
+}
 
 
 

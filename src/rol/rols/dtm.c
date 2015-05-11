@@ -44,7 +44,7 @@ void usrtrig_done();
 #include "ControlCmdMem.h"
 
 ControlCmdMemory *smem;
-char confFileFeb[256];
+char confFileFeb[SVTDAQMAXSTRLEN];
 
 /************************/
 /************************/
@@ -83,29 +83,13 @@ __download()
 
   printf("\n>>>>>>>>>>>>>>> ROCID=%d, CLASSID=%d <<<<<<<<<<<<<<<<\n\n",rol->pid,rol->classid);
   printf("CONFFILE >%s<\n\n",rol->confFile);
-  // In the future the config file here points to an expanded HPS config 
-  // file that we have access to from all RCEs. To simulate that I put the 
-  // config on /mnt/host now. This default file will be used unless something 
-  // is explicitely seleected in the RC. 
-  // /Pelle
-  char* confFilePtr;
-  if(strlen(rol->confFile)>0 && strcmp(rol->confFile,"none")!=0) {
-     confFilePtr = rol->confFile;
-  } else {
 
-/*sergey: replace '/usr/clas12/release/0.2' with CLAS env var */
-strcpy(rol->confFile,"/usr/clas12/release/0.2/slac_svt/svtdaq/daq/config/clasdev.cnf");
-confFilePtr = rol->confFile;
-/*
-     fprintf(stderr,"Failed to find config file\n");
-     exit(1);
-*/
-  }
+  char confFile[SVTDAQMAXSTRLEN];
+  
+  getDpmConfigFilePath(rol->confFile, confFileFeb, SVTDAQMAXSTRLEN);
+
   // Extract the file path to the xml config file
-  // If in the end the file is expanded we will not need this but 
-  // just make sure that we only read out xml part of the expanded file.
-  // /Pelle
-  getFebConfigFilePath(confFilePtr,"CONFIG",confFileFeb,256);
+  //getFebConfigFilePath(confFile,"CONFIG",confFileFeb,256);
   if(strlen(confFileFeb)>0) {
      printf("Got FEB config file: %s\n",confFileFeb);
   } else {

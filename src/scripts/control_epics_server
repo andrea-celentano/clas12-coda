@@ -5,7 +5,8 @@
 
 if ($1 == start) then
 
-  ssh -n $CLON_DAQ "(setenv EPICS_CAS_INTF_ADDR_LIST $CLON_DAQ.jlab.org; clas_epics_server -a $2) >>& $CLON_LOG/epics/clas_epics_server.log &" &
+##  ssh -n $CLON_DAQ "(setenv EPICS_CAS_INTF_ADDR_LIST $CLON_DAQ.jlab.org; clas_epics_server -a $2) >>& $CLON_LOG/epics/clas_epics_server.log &" &
+  ssh -n $CLON_DAQ "(clas_epics_server -a $2) >>& $CLON_LOG/epics/clas_epics_server.log &" &
 
 else if ($1 == stop) then
 

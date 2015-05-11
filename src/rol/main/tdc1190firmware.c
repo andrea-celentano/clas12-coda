@@ -5,10 +5,24 @@
 
 cd $CLON_PARMS/firmwares
 
-slot 3:
-tdc1190firmware 0x11180000 v1190core0.6.rbf
-
-etc
+   * Slot  3:  tdc1190firmware 0x11180000 v1190core0.6.rbf
+   * Slot  4:  tdc1190firmware 0x11200000 v1190core0.6.rbf
+   * Slot  5:  tdc1190firmware 0x11280000 v1190core0.6.rbf
+   * Slot  6:  tdc1190firmware 0x11300000 v1190core0.6.rbf
+   * Slot  7:  tdc1190firmware 0x11380000 v1190core0.6.rbf
+   * Slot  8:  tdc1190firmware 0x11400000 v1190core0.6.rbf
+   * Slot  9:  tdc1190firmware 0x11480000 v1190core0.6.rbf
+   * Slot 10:  tdc1190firmware 0x11500000 v1190core0.6.rbf
+   * Slot 11:  tdc1190firmware 0x11580000 v1190core0.6.rbf
+   * Slot 12:  tdc1190firmware 0x11600000 v1190core0.6.rbf
+   * Slot 13:  tdc1190firmware 0x11680000 v1190core0.6.rbf
+   * Slot 14:  tdc1190firmware 0x11700000 v1190core0.6.rbf
+   * Slot 15:  tdc1190firmware 0x11780000 v1190core0.6.rbf
+   * Slot 16:  tdc1190firmware 0x11800000 v1190core0.6.rbf
+   * Slot 17:  tdc1190firmware 0x11880000 v1190core0.6.rbf
+   * Slot 18:  tdc1190firmware 0x11900000 v1190core0.6.rbf
+   * Slot 19:  tdc1190firmware 0x11980000 v1190core0.6.rbf
+   * Slot 20:  tdc1190firmware 0x11A00000 v1190core0.6.rbf
 
 */
 

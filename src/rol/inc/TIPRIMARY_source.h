@@ -23,6 +23,7 @@
 #define DSC2_READ_CONF_FILE {dsc2Config("");if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) dsc2Config(rol->confFile);}
 #define FADC_READ_CONF_FILE {fadc250Config("");if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) fadc250Config(rol->confFile);}
 #define SSP_READ_CONF_FILE {sspConfig("");if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) sspConfig(rol->confFile);}
+#define GTP_READ_CONF_FILE {gtpConfig("");if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) gtpConfig(rol->confFile);}
 #define TDC_READ_CONF_FILE {tdc1190Config("");/*if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) tdc1190Config(rol->confFile);*/}
 
 
@@ -194,7 +195,7 @@ vmeBusUnlock();
 
   /* only 1 trigger type for physics trigger */
 vmeBusLock();
-  tiSetTriggerSource(TI_TRIGGER_TSINPUTS);  
+  tiSetTriggerSource(TI_TRIGGER_TSINPUTS);
   tiDisableTSInput(TI_TSINPUT_ALL);
   tiEnableTSInput( TI_TSINPUT_1 | TI_TSINPUT_2 | TI_TSINPUT_3 | TI_TSINPUT_4 | TI_TSINPUT_5 | TI_TSINPUT_6);
   tiLoadTriggerTable(3);
@@ -398,6 +399,7 @@ vmeBusUnlock();
 		{
           printf("TIPRIMARY: add slave connected to fiber 4 (DPM0)\n");
 vmeBusLock();
+/* hps10: tiAddSlave(2);*/ /* temporary !!!! TI buster, so moved 4->2 */
           tiAddSlave(4);
 vmeBusUnlock();
 		}
@@ -405,6 +407,7 @@ vmeBusUnlock();
 		{
           printf("TIPRIMARY: add slave connected to fiber 5 (DPM8)\n");
 vmeBusLock();
+/* hps10: tiAddSlave(3);*/ /* temporary !!!! TI buster, so moved 5->3 */
           tiAddSlave(5);
 vmeBusUnlock();
 		}

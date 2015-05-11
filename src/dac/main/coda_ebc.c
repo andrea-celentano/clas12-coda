@@ -452,8 +452,9 @@ handle_build(trArg arg)
   int types[MAX_ROCS];
   unsigned int *evptr[MAX_ROCS][NCHUNKMAX];
 
-unsigned int fragment_mask, skip_mask, sync_mask;
-WORD128 type_mask;
+  WORD128 fragment_mask;
+  WORD128 sync_mask;
+  WORD128 type_mask;
 
   int current_evnb;
   int current_evty;
@@ -523,12 +524,11 @@ WORD128 type_mask;
     build_node[i] = &build_nodes[i];
     bzero((void *)build_node[i],sizeof(BANKPART));
   }
-  fragment_mask = 0;
-  sync_mask = 0;
 
+  Clear128(&fragment_mask);
+  Clear128(&sync_mask);
   Clear128(&type_mask);
 
-  skip_mask = 0;
   current_evty = -1;
   current_evnb = -1;
   current_sync =  0;
@@ -939,8 +939,7 @@ data_unlock(ebp);
           fflush(stdout);
           printf("[%1d] ERROR: Discard data until next control event\n",id);
           fflush(stdout);
-          fragment_mask = 0;
-          skip_mask = 0;
+          /*fragment_mask = 0;*/
 exit(0);
         }
         else if((current_evty != desc1->type) && (in_error == 0))
@@ -954,16 +953,8 @@ exit(0);
         }
       }
 
-
-
-
-
-
-      fragment_mask |= (1<< desc1->rocid);
-      skip_mask |= (1 << roc);
-      if(issync) sync_mask |= (1<< desc1->rocid);
-
-
+      SetBit128(&fragment_mask,desc1->rocid);
+      if(issync) SetBit128(&sync_mask,desc1->rocid);
 
       /* if there was no data from this ROC we need worry no more;
       this next "if" takes care of the situation where there was a
@@ -1044,23 +1035,43 @@ exit(0);
 
     /*****************************/
     /* check for SYNC mismatches */
-    if(sync_mask)
+    if(! IFZERO128(&sync_mask)) /* if not zero */
     {
       current_sync = 1;
-      if(sync_mask != fragment_mask)
+      if(! EQ128(&sync_mask,&fragment_mask)) /* if they are different */
       {
-        printf("ERROR: Event (Num %d type %d) SYNC mismatch, ROC mask",
+        printf("ERROR: Event (Num %d type %d) SYNC mismatch\n",
                current_evnb, current_evty); fflush(stdout);
-        printf(" = 0x%08x , SYNC mask = 0x%08x\n",
-                fragment_mask, sync_mask); fflush(stdout);
-        /* keep info on which ROCs missed the Sync Event */
+
+      printf("    ROC mask: ");
+      Print128(&fragment_mask);
+
+      printf("   SYNC mask: ");
+      Print128(&sync_mask);
+
+      printf("[%1d] following ROC IDs seems out of sync:\n",arg->id);
+      for(i=0; i<MAX_ROCS; i++)
+      {
+        if( CheckBit128(&fragment_mask,i) != 0 && CheckBit128(&sync_mask,i) == 0 ) printf(" %2d",i);
+      }
+      printf("\n\n");
+
+      
+
+
+      fflush(stdout);
+
+
+
+        /* keep info on which ROCs missed the Sync Event 
         current_syncerr = fragment_mask&(~sync_mask);
+*/
       }
     }
 
     /* cleanup ... and reserve space */
-    fragment_mask = skip_mask = 0;
-    sync_mask = 0;
+    Clear128(&fragment_mask);
+    Clear128(&sync_mask);
     Clear128(&type_mask);
 
 

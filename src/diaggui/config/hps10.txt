@@ -1,0 +1,7 @@
+###########################################################
+# Trigger System Configuration Setup for 12GeV Test Stand #
+###########################################################
+
+HOSTNAME hps10
+	MODULE MOD_TYPE_DSC2	0x00900000	# SLOT 18
+ENDHOST

@@ -379,7 +379,7 @@ int tdc1190ReadDone();
 
 /** TDC1290 configuration parameters **/
 typedef struct {
-  int  group;
+  /*int  group;*/
   int  f_rev;
   char SerNum[80];
 

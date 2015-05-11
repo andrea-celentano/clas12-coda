@@ -457,6 +457,8 @@ dsc2Status(UINT32 id, int pflag)
 	printf(" IN1");
       if(testCtrl & DSC_TESTCTRL_ROUTE_IN2)
 	printf(" IN2");
+      if(testCtrl & DSC_TESTCTRL_ROUTE_PULSER)
+	printf(" PULSER");
       printf("\n");
     }
   printf(" Scaler Gate Source:\n");
@@ -1497,6 +1499,7 @@ dsc2GetDelay(UINT32 id, UINT16 group)
  *                                1 to enable IN1 as test input
  *                                2 to enable IN2 as test input
  *                                3 to enable IN1 and IN2 as test inputs
+ *                                4 to enable PULSER as test input
  *                                                    
  *   Returns -1 if Error, 0 if OK.
  *                                                    
@@ -1525,6 +1528,10 @@ dsc2SetTestInput(UINT32 id, UINT32 flag)
 
     case 3:
       wval = DSC_TESTCTRL_ROUTE_IN1 | DSC_TESTCTRL_ROUTE_IN2;
+      break;
+		
+	 case 4:
+      wval = DSC_TESTCTRL_ROUTE_PULSER;
       break;
     }
   vmeWrite32(&dscp[id]->testCtrl,wval);
@@ -3470,6 +3477,75 @@ dsc2ResetScalersGroupB(unsigned int id)
   return(rval);
 }
 
+/************************************************************ 
+ * int dsc2PulserSetup(int id, float freq, float duty, unsigned npulses) 
+ *    freq: 
+ *        0.01 to 25E6 pulser frequency in Hz 
+ *    duty: 
+ *        0 to 1 pulser duty cycle 
+ *    npulses: 
+ *        0: pulser disabled 
+ *        1 to 0xFFFFFFFE: pulser fires this number of times before being disabled.  
+ *                         Must write to Sd.PulserStart to start pulser in this mode 
+ *        0xFFFFFFFF: pulser fires forever 
+ */ 
+
+#define SD_PULSER_FREQ_MIN		0.01
+#define SD_PULSER_FREQ_MAX		25E6
+
+int
+dsc2PulserSetup(int id, float freq, float duty, unsigned int npulses)
+{
+  unsigned int rval=0, per, low; 
+  CHECKID(id);
+ 
+  if(freq < SD_PULSER_FREQ_MIN) 
+  { 
+    printf("%s: ERROR: Frequency input (%f) too low. Setting to minimum...\n", __FUNCTION__,freq); 
+    freq = SD_PULSER_FREQ_MIN; 
+  } 
+	 
+  if(freq > SD_PULSER_FREQ_MAX) 
+  { 
+    printf("%s: ERROR: Frequency input (%f) too high. Setting to maximum...\n", __FUNCTION__,freq); 
+    freq = SD_PULSER_FREQ_MAX; 
+  } 
+	 
+  if((duty < 0.0) || (duty > 1.0)) 
+  { 
+    printf("%s: ERROR: Invalid duty cycle %f. Setting to 0.5\n", __FUNCTION__,duty); 
+    duty = 0.5; 
+  } 
+ 
+  DSCLOCK;	 
+
+  vmeWrite32(&dscp[id]->PulserNPulses, 0);
+  vmeWrite32(&dscp[id]->PulserStop, 0);
+
+  // Setup period register... 
+  per = 50000000 / freq; 
+  if(!per) 
+    per = 1; 
+  
+  vmeWrite32(&dscp[id]->PulserPeriod, per); 
+	 
+  // Setup duty cycle register...	 
+  low = per * duty; 
+  if(!low) 
+    low = 1; 
+  vmeWrite32(&dscp[id]->PulserLow, low); 
+	 
+  vmeWrite32(&dscp[id]->PulserNPulses, npulses); 
+  
+  if(npulses<0xFFFFFFFF)
+    vmeWrite32(&dscp[id]->PulserStart, 0);
+
+  printf("%s: Actual frequency = %f, duty = %f\n", __FUNCTION__, 
+	 (float)50000000.0/(float)per, (float)low/(float)per); 
+  DSCUNLOCK;
+  
+  return(rval);
+}
 
 #else /* dummy version*/
 

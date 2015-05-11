@@ -27,6 +27,8 @@
 #include "CODA_format.h"
 #include "circbuf.h"
 
+/* on arrival from ROCs: bit 7 - coda control events, bit 6 - sync bit, bits 0-5 - TI bit pattern */
+/* following hack makes TIs softtrig etc types in according to that scheme */
 #define SOFT_TRIG_FIX \
   /*printf("befor: desc->type=%d\n",desc->type);*/ \
   if(desc->type==253) desc->type=0x3D; \

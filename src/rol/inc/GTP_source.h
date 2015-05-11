@@ -8,6 +8,8 @@
 #ifndef __GTP_ROL__
 #define __GTP_ROL__
 
+#define GTP_READ_CONF_FILE {gtpConfig("");if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) gtpConfig(rol->confFile);}
+
 /*
 #define POLLING_GTP
 */
