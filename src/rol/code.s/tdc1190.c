@@ -164,7 +164,7 @@ tdc1190Init(UINT32 addr, UINT32 addr_inc, int ntdc, int iFlag)
   int boardID = 0;
   unsigned int laddr;
   volatile struct v1190_ROM_struct *rp;
-  char boardmodel[2][6] = {"v1190","v1290"};
+  char boardmodel[3][7] = {"v1190","v1290","v1290N"};
 
   /* Check for valid address */
   if(addr==0) 
@@ -274,6 +274,7 @@ tdc1190CommonInit(int itdc, UINT32 laddr)
   int ii, res=0, errFlag = 0;
   unsigned short rdata=0;
   int boardID = 0;
+  int boardVersion = 0;
   volatile struct v1190_ROM_struct *rp;
 
   c1190p[itdc] = (struct v1190_struct *)(laddr);
@@ -298,6 +299,7 @@ tdc1190CommonInit(int itdc, UINT32 laddr)
   {
     /* Check if this is a Model 1190/1290 */
     rp = (struct v1190_ROM_struct *)((UINT32)c1190p[itdc] + V1190_ROM_OFFSET);
+    boardVersion = vmeRead16(&(rp->vers)) & 0xff;
     boardID = ((vmeRead16(&(rp->board2))&(0xff))<<16) +
 	  ((vmeRead16(&(rp->board1))&(0xff))<<8) +
 	  (vmeRead16(&(rp->board0))&(0xff));
@@ -320,8 +322,10 @@ tdc1190CommonInit(int itdc, UINT32 laddr)
       return ERROR;
 	} 
   }
-  if((boardID&0xffff) == V1190_BOARD_ID)  use1190[itdc] = 1;  /* 1 for v1190 */
-  else                                    use1190[itdc] = 2;  /* 2 for v1290 */
+
+  if((boardID&0xffff)==V1190_BOARD_ID)                             use1190[itdc] = 1;  /* 1 for v1190 */
+  else if(((boardID&0xffff)==V1290_BOARD_ID) && (boardVersion==0)) use1190[itdc] = 2;  /* 2 for v1290 */
+  else if(((boardID&0xffff)==V1290_BOARD_ID) && (boardVersion==2)) use1190[itdc] = 3;  /* 3 for v1290N */
 
   return OK;
 }
@@ -477,20 +481,22 @@ tdc1190PrintROM(UINT32 addr_add, int loop)
 STATUS
 tdc1290EnableChannels(int id, UINT16 channels[2])
 {
-  int i;
+  int i, nnn=2;
   CHECKID(id);
   tdc1190WriteMicro(id,0x4400);
-  for(i=0; i<2; i++) tdc1190WriteMicro(id,channels[i]);
+  if(use1190[id]==3) nnn=1;
+  for(i=0; i<nnn; i++) tdc1190WriteMicro(id,channels[i]);
   return(OK);
 }
 
 STATUS
 tdc1290GetChannels(int id, UINT16 channels[2])
 {
-  int i;
+  int i, nnn=2;
   CHECKID(id);
   tdc1190WriteMicro(id,0x4500);
-  for(i=0; i<2; i++) tdc1190ReadMicro(id,&channels[i],1);
+  if(use1190[id]==3) nnn=1;
+  for(i=0; i<nnn; i++) tdc1190ReadMicro(id,&channels[i],1);
   return(OK);
 }
 
@@ -892,8 +898,9 @@ tdc1290DownloadAll()
   }
   for(ii=0; ii<Nc1190; ii++)
   {
-    if(use1190[ii]==1) nnn = 8;
-    else               nnn = 2;
+    if(use1190[ii]==1)      nnn = 8;
+    else if(use1190[ii]==2) nnn = 2;
+    else                    nnn = 1;
     for(jj=0; jj<nnn; jj++) tdc1190WriteMicro(ii,tdc[tdc1190Slot(ii)].mask[jj]);
   }
 
@@ -1071,11 +1078,17 @@ tdc1290Mon(int slot)
       printf("  Channel Mask = 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x\n",
         channels[7],channels[6],channels[5],channels[4],channels[3],channels[2],channels[1],channels[0]);
 	}
-    else
+    else if(use1190[ii] == 2)
 	{
       printf("  Channel Mask = 0x%04x 0x%04x\n",
         channels[1],channels[0]);
 	}
+    else
+	{
+      printf("  Channel Mask = 0x%04x\n",
+        channels[0]);
+	}
+
     printf("\n");
 
     tdc1290PrintDMABerrFifo(berr_fifo);
@@ -1212,8 +1225,9 @@ tdc1290UploadAll(char *string, int length)
   }
   for(ii=0; ii<Nc1190; ii++)
   {
-    if(use1190[ii] == 1) nnn = 8;
-    else                 nnn = 2;
+    if(use1190[ii] == 1)      nnn = 8;
+    else if(use1190[ii] == 2) nnn = 2;
+    else                      nnn = 1;
 	/*
     for(jj=0; jj<nnn; jj++) tdc1190ReadMicro(ii,&channels[jj],1);
 	*/
@@ -1244,8 +1258,9 @@ tdc1290UploadAll(char *string, int length)
     {
       slot = tdc1190Slot(ii);
 
-      if(use1190[ii] == 1) sprintf(tdcname,"TDC1190");
-      else                 sprintf(tdcname,"TDC1290");
+      if(use1190[ii] == 1)      sprintf(tdcname,"TDC1190");
+      else if(use1190[ii] == 2) sprintf(tdcname,"TDC1290");
+      else                      sprintf(tdcname,"TDC1290");
 
       sprintf(sss,"%s_SLOT %d\n",tdcname,slot);
       ADD_TO_STRING;
@@ -1280,8 +1295,9 @@ tdc1290UploadAll(char *string, int length)
       sprintf(sss,"%s_EDGE %d\n",tdcname,tdc[slot].edge);
       ADD_TO_STRING;
 
-      if(use1190[ii] == 1) nnn = 8;
-      else                 nnn = 2;
+      if(use1190[ii] == 1)      nnn = 8;
+      else if(use1190[ii] == 2) nnn = 2;
+      else                      nnn = 1;
       for(jj=0; jj<nnn; jj++)
 	  {
         sprintf(sss,"%s_MASK%1d",tdcname,jj+1);
@@ -1407,6 +1423,7 @@ tdc1190Status(int id)
 
   CHECKID(id);
   if(use1190[id]==2) sprintf(tdcname, "%s", "v1290");
+  if(use1190[id]==3) sprintf(tdcname, "%s", "v1290N");
 
   /* read various registers */
   LOCK_1190;
@@ -3077,11 +3094,7 @@ tdc1190GetEdgeResolution(int id)
   tdc1190WriteMicro(id,0x2600);
   tdc1190ReadMicro(id,&tdata,1);
 
-  if(use1190[id]==2)
-  {
-    rval = 25;
-  }
-  else
+  if(use1190[id]==1)
   {
     tdata &= 0x3;
     if(tdata==0)      rval = 800;
@@ -3092,6 +3105,10 @@ tdc1190GetEdgeResolution(int id)
 	  printf("%s(%d): ERROR: tdata=%d (0x%x)\n",__FUNCTION__,id,tdata,tdata);
 	  return(ERROR);
     }
+  }
+  else
+  {
+    rval = 25;
   }
   /*
   printf("%s(%d): Edge Resolution is %d ps\n",__FUNCTION__,id,rval);

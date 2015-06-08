@@ -53,7 +53,7 @@ if($line =~ s/-h//i) {
 
 
 $nproc=0;
-$ps=`/usr/ucb/ps -auxwww | grep ipc_process_manager | grep -v .log | grep -v grep`;
+$ps=`ps -auxwww | grep ipc_process_manager | grep -v .log | grep -v grep`;
 foreach $line (split("\n",$ps)) {
     if($line=~/\bipc_process_manager\./) {next;}
     if($line=~/\bipc_process_manager\b/) {

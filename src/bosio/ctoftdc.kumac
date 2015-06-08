@@ -1,0 +1,54 @@
+hi/file 66 ctofhist.his
+*
+opt stat
+*opt fit 1111111
+*
+***set stat 1111111
+meta 10 -111
+*
+*
+* reference
+zone 1 1
+hi/pl 12
+wait
+*
+zone 4 4
+DO ID1 = 0,5
+DO ID2 = 0,15
+  IDN = 100 + [ID1]*16 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+zone 4 4
+DO ID0 = 1,2
+DO ID1 = 0,2
+DO ID2 = 1,16
+  IDN = 1000 + [ID0]*100 + [ID1]*16 + [ID2]
+  hi/pl [IDN](0.:300.)
+ENDDO
+wait
+ENDDO
+ENDDO
+*
+zone 4 4
+DO ID1 = 0,2
+DO ID2 = 1,16
+  IDN = 3000 + [ID1]*16 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+zone 4 4
+DO ID1 = 0,2
+DO ID2 = 1,16
+  IDN = 4000 + [ID1]*16 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+*close 66
+*

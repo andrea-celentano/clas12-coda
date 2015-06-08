@@ -47,7 +47,7 @@ typedef struct NameRegistry {
     int modified;		/* Non-zero means that the property has
 				 * been modified, so it needs to be written
 				 * out when the NameRegistry is closed. */
-    unsigned long propLength;	/* Length of the property, in bytes. */
+    uint32_t propLength;	/* Length of the property, in bytes. */
     char *property;		/* The contents of the property, or NULL
 				 * if none.  See format description above;
 				 * this is *not* terminated by the first

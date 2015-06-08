@@ -13,6 +13,11 @@ MAIN = codaedit
 #------------------
 include $(CODA)/src/Makefile.include
 
+#LDCC = $(FC)
+#LDFC = $(FC)
+LDCC = $(LDCXX)
+LDFC = $(LDCXX)
+
 # if want debugging mode, uncomment following lines
 ifeq ("$(OSTYPE)","SunOS")
     CFLAGS = -g -KPIC -mt -DSunOS -DOSTYPE="SunOS"

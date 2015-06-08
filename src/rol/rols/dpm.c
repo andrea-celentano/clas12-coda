@@ -141,7 +141,45 @@ int svtDaqReadConfig(char* str, const char* type) {
    return len;
 }
 
- 
+
+int svtDaqUploadCompact(char* chptr, int group, int level, int delay) {
+   printf("svtDaqUploadCompact called with chptr=%p.\n",chptr);
+
+   int nbytes;
+   int len;
+   char tmp[50];
+   nbytes = 0;
+          
+   /* add one 'return' to make evio2xml output nicer */
+   *chptr++ = '\n';
+   nbytes++;
+          
+   /* read the actual string from the daq */
+   /* this do not include null character */
+   sprintf(tmp,"cal_group_%d cal_level_%d cal_delay_%d",group,level,delay);
+   len = strlen(tmp);
+   strncpy(chptr,tmp,len);
+   printf("cfg strlen=%d\n",len);
+   printf("\"%s\"\n",tmp);
+
+   // increment pointers
+   // Note that null character is not included. We will add it later.
+   chptr += len;
+   nbytes += len;
+          
+   /* add one 'return' to make evio2xml output nicer */
+   *chptr++ = '\n';
+   nbytes ++;
+
+   /* add end of string */
+   *chptr++ = '\0';
+   nbytes++;
+
+   return nbytes;
+}
+       
+
+
 // Get the xml configuration string from the DAQ          
 int svtDaqUploadAll(char* chptr, const char* type) {
    printf("svtDaqUploadAll called with chptr=%p.\n",chptr);
@@ -582,13 +620,13 @@ TIMERL_START;
 
 
     /* dump config to data stream */
-    if(syncEventFlag>0 && EVENT_NUMBER%50000==0 && (rol->pid==dpmWithConfigDump|| rol->pid==controlDpmRocId)) {       
+    if(syncEventFlag>0 && EVENT_NUMBER%50000==0 && run_type!=1 && run_type!=2 && (rol->pid==dpmWithConfigDump|| rol->pid==controlDpmRocId)) {       
        printf("open config bank\n");
        BANKOPEN(0xe10E,3,rol->pid);
        chptr =(char *)rol->dabufp;
        nbytes = svtDaqUploadAll(chptr, "config");
-       nwords += nbytes/4;
-       rol->dabufp += nbytes/4;       
+       nwords += (nbytes+4-1)/4;
+       rol->dabufp += (nbytes+4-1)/4;       
        printf("close config bank\n");
        BANKCLOSE;
        pLastEv[0] = rol->dabufp - pLastEv - 1; 
@@ -598,8 +636,8 @@ TIMERL_START;
        BANKOPEN(0xe10E,3,rol->pid);
        chptr =(char *)rol->dabufp;
        nbytes = svtDaqUploadAll(chptr, "status");
-       nwords += nbytes/4;
-       rol->dabufp += nbytes/4;       
+       nwords += (nbytes+4-1)/4;
+       rol->dabufp += (nbytes+4-1)/4;       
        printf("close status bank\n");
        BANKCLOSE;
        pLastEv[0] = rol->dabufp - pLastEv - 1; 
@@ -611,28 +649,30 @@ TIMERL_START;
     if( run_type==1 || run_type==2) {
        
        // Switch on config dump for the first event
-       if( EVENT_NUMBER==0) {              
+       if( EVENT_NUMBER==1) {              
           writeConfig = 1;
        } 
-       
+       //writeConfig = 0;
        // Write config to data stream for every ROC
-       if(writeConfig==1 && (rol->pid==dpmWithConfigDump || rol->pid==controlDpmRocId)) {
+       //if(writeConfig==1 && (rol->pid==dpmWithConfigDump || rol->pid==controlDpmRocId)) {
+       if(writeConfig==1) {
           /* dump config to data stream */          
           printf("open config bank\n");
           BANKOPEN(0xe10E,3,rol->pid);
           printf("open\n");
           chptr =(char *)rol->dabufp;
-          nbytes = svtDaqUploadAll(chptr, "config");
-          nwords += nbytes/4;
-          rol->dabufp += nbytes/4;                 
+          nbytes =svtDaqUploadCompact(chptr,cal_group,cal_level,cal_delay);
+          nwords += (nbytes+4-1)/4; 
+          rol->dabufp += (nbytes+4-1)/4;                 
           printf("close config bank\n");
           BANKCLOSE;
-          startOfSvtBank[0] = rol->dabufp - startOfSvtBank - 1; 
+          pLastEv[0] = rol->dabufp - pLastEv - 1; 
+          printf("nbytes %d nw %d\n",nbytes,(nbytes+4-1)/4);
           printf("closed\n");
        }
        
        
-       if( EVENT_NUMBER%10==0 ) {
+       if( EVENT_NUMBER%1000==0 ) {
 
           // make sure the config gets written on the next event
           writeConfig = 1;

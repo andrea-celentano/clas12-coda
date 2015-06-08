@@ -147,6 +147,8 @@ evNlink(unsigned int *buf, int frag, int tag, int num, int *nbytes)
 
 
 
+
+
 enum {
   BANK = 0,
   SEGMENT,
@@ -890,6 +892,11 @@ printf("tdc(cor)-----> %d\n",tdc);
           /*printf("end loop: b08=0x%08x\n",b08);*/
 #endif
         }
+
+
+
+
+
 
 
 		/*print CED

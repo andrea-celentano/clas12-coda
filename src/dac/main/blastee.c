@@ -15,6 +15,8 @@
 #include <sys/lock.h>
 #endif
 
+#include <netinet/tcp.h>
+
 #include <sys/ioctl.h>
 #include <sys/errno.h>
 
@@ -62,7 +64,7 @@ main(int argc, char *argv[])
   bzero((char *)&sin, sizeof(sin));
   bzero((char *)&from, sizeof(from));
 
-  f = socket (AF_INET, SOCK_STREAM, 0);
+  f = socket (DOMAIN, SOCK_STREAM, 0);
 
   if(f < 0)
   {
@@ -71,7 +73,8 @@ main(int argc, char *argv[])
 	exit(1);
   }
 
-  sin.sin_family = AF_INET;
+
+  sin.sin_family = DOMAIN;
 
   sin.sin_port = htons (atoi (argv [1]));
 
@@ -91,10 +94,12 @@ main(int argc, char *argv[])
 
   len = sizeof(from);
 
-  while ((s = accept (f, (struct sockaddr *)&from, &len))  == -1)
+  while ((s = accept (f, (struct sockaddr *)&from, &len))  == -1) ;
 
   blastNum = 0;
   blasteeStop = 0;
+
+
 
   printf("trying to set 'snd' socket buffer size to %d(0x%08x) bytes\n",
     sockbufsize,sockbufsize);
@@ -105,8 +110,13 @@ main(int argc, char *argv[])
 	exit(1);
   }
 
+
+
   printf("trying to set 'rcv' socket buffer size to %d(0x%08x) bytes\n",
     sockbufsize,sockbufsize);
+
+  /*sergey: kills performance !!!!!!!!!!!!!!!!!!!!!!!!*/
+
   if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &sockbufsize, sizeof(sockbufsize)) < 0)
   {
 	printf("setsockopt SO_RCVBUF failed\n");
@@ -125,6 +135,21 @@ main(int argc, char *argv[])
     printf("actual 'rcv' socket buffer size is %d(0x%08x) bytes\n",
       nbytes,nbytes);
   }
+
+
+
+  /*sergey: does not needed for 10G
+  {
+    int optval = 1;
+    if (setsockopt (s, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof (optval)) < 0)
+    {
+	  printf("setsockopt TCP_NODELAY failed\n");
+	  free(buffer);
+	  exit(1);
+    }
+  }
+  */
+
 
 
 

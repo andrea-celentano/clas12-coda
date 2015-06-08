@@ -52,6 +52,9 @@
  *	  
  */
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #include <assert.h>
 #include "Editor_graph.h"
 #include "Editor_database.h"
@@ -101,15 +104,9 @@ configName (char* fullname)
 int
 connectToDatabase (char *host)
 {
-  const char *user = "clasrun";
-  const char *passwd = "";
-  const char db[128];
-  unsigned int port = 0;
-  const char *unix_socket = "";
-  unsigned long client_flag = 0;
-
 #ifdef _CODA_DEBUG
   printf("connectToDatabase() reached\n");
+  printf("connectToDatabase(): host >%s<\n",host);
 #endif
 
   if (host == 0)
@@ -128,44 +125,13 @@ connectToDatabase (char *host)
     strncpy (dbaseServerHost, host, sizeof (dbaseServerHost));
   }
 
+#ifdef _CODA_DEBUG
+  printf("connectToDatabase(): dbhost >%s<\n",dbaseServerHost);
+  printf("connectToDatabase(): database >%s>\n",getenv("EXPID"));
+#endif
 
   /*initialize MYSQL structure; use 'mysql_options'*/
   mysql = dbConnect(dbaseServerHost, getenv("EXPID"));
-
-  /*sergey: use our wrapper
-  sprintf(db,"daq_%s",getenv("EXPID"));
-  mysql = mysql_init(mysql);
-#ifdef _CODA_DEBUG
-  printf("connectToDatabase: after mysql_init mysql=0x%08x\n",mysql);
-#endif
-  if(mysql == NULL) return(NULL);
-
-#ifdef _CODA_DEBUG
-  printf("connectToDatabase: connecting: mysql=0x%08x dbaseServerHost=>%s< user=>%s< passwd=>%s<\n",
-                              mysql,
-                              dbaseServerHost,
-                              user,
-                              passwd);
-  printf("connectToDatabase: connecting: db=>%s< port=%d unix_socket=>%s< flag=%d\n",
-                              db,
-                              port,
-                              unix_socket,
-                              client_flag);
-#endif
-
-  mysql = mysql_real_connect( mysql,
-                              dbaseServerHost,
-                              user,
-                              passwd,
-                              db,
-                              port,
-                              unix_socket,
-                              client_flag);
-
-#ifdef _CODA_DEBUG
-  printf("connectToDatabase: after mysql_real_connect mysql=0x%08x\n",mysql);
-#endif
-  */
 
   return(mysql);
 }

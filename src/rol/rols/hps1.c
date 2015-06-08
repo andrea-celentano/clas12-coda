@@ -390,9 +390,16 @@ __download()
   CDOINIT(TIPRIMARY,TIR_SOURCE);
 #endif
 
+
+  /************/
+  /* init daq */
+
+  daqInit();
+  DAQ_READ_CONF_FILE;
+
+
   /*************************************/
   /* redefine TI settings if neseccary */
-
 
 #ifndef TI_SLAVE
   /* TS 1-6 create physics trigger, no sync event pin, no trigger 2 */
@@ -610,7 +617,7 @@ vmeBusUnlock();
 
     /* 1) Load FADC pedestals from file for trigger path.
        2) Offset FADC threshold for each channel based on pedestal for both readout and trigger */
-	if( rol->pid!=46 && rol->pid!=37 && rol->pid!=39 && rol->pid!=58)
+	if(rol->pid>36 && rol->pid!=46 && rol->pid!=37 && rol->pid!=39 && rol->pid!=58)
     {
 vmeBusLock();
       faGLoadChannelPedestals(getFadcPedsFilename(rol->pid), 1);
@@ -678,6 +685,55 @@ vmeBusLock();
 vmeBusUnlock();
 
   printf("FADC250 Download() ends =========================\n\n");
+#endif
+
+
+#ifdef USE_V1190
+  printf("V1190 Download() starts =========================\n");
+
+vmeBusLock();
+  ntdcs = tdc1190Init(0x11100000,0x80000,20,0);
+vmeBusUnlock();
+  if(ntdcs>0) TDC_READ_CONF_FILE;
+
+  for(ii=0; ii<ntdcs; ii++)
+  {
+    slot = tdc1190Slot(ii);
+    tdctypebyslot[slot] = tdc1190Type(ii);
+    printf(">>> id=%d slot=%d type=%d\n",ii,slot,tdctypebyslot[slot]);
+  }
+
+
+#ifdef SLOTWORKAROUND
+  for(ii=0; ii<ntdcs; ii++)
+  {
+vmeBusLock();
+    slot = tdc1190GetGeoAddress(ii);
+vmeBusUnlock();
+	slotnums[ii] = slot;
+    printf("[%d] slot %d\n",ii,slotnums[ii]);
+  }
+#endif
+
+
+  /* if TDCs are present, set busy from P2 */
+  if(ntdcs>0)
+  {
+    printf("Set BUSY from P2 for TDCs\n");
+vmeBusLock();
+    tiSetBusySource(TI_BUSY_P2,0);
+vmeBusUnlock();
+  }
+
+  for(ii=0; ii<ntdcs; ii++)
+  {
+vmeBusLock();
+    tdc1190Clear(ii);
+vmeBusUnlock();
+    error_flag[ii] = 0;
+  }
+
+  printf("V1190 Download() ends =========================\n\n");
 #endif
 
 
@@ -850,55 +906,6 @@ vmeBusUnlock();
 
 
 
-#ifdef USE_V1190
-  printf("V1190 Prestart() starts =========================\n");
-
-vmeBusLock();
-  ntdcs = tdc1190Init(0x11100000,0x80000,20,0);
-vmeBusUnlock();
-  if(ntdcs>0) TDC_READ_CONF_FILE;
-
-  for(ii=0; ii<ntdcs; ii++)
-  {
-    slot = tdc1190Slot(ii);
-    tdctypebyslot[slot] = tdc1190Type(ii);
-    printf(">>> id=%d slot=%d type=%d\n",ii,slot,tdctypebyslot[slot]);
-  }
-
-
-#ifdef SLOTWORKAROUND
-  for(ii=0; ii<ntdcs; ii++)
-  {
-vmeBusLock();
-    slot = tdc1190GetGeoAddress(ii);
-vmeBusUnlock();
-	slotnums[ii] = slot;
-    printf("[%d] slot %d\n",ii,slotnums[ii]);
-  }
-#endif
-
-
-  /* if TDCs are present, set busy from P2 */
-  if(ntdcs>0)
-  {
-    printf("Set BUSY from P2 for TDCs\n");
-vmeBusLock();
-    tiSetBusySource(TI_BUSY_P2,0);
-vmeBusUnlock();
-  }
-
-  for(ii=0; ii<ntdcs; ii++)
-  {
-vmeBusLock();
-    tdc1190Clear(ii);
-vmeBusUnlock();
-    error_flag[ii] = 0;
-  }
-
-  printf("V1190 Prestart() ends =========================\n\n");
-#endif
-
-
 #ifdef USE_VSCM
   printf("VSCM Prestart() start =========================\n");
 
@@ -908,16 +915,19 @@ vmeBusUnlock();
     printf("Set BUSY from SWB for FADCs\n");
 vmeBusLock();
     tiSetBusySource(TI_BUSY_SWB,0);
-	 sdSetActiveVmeSlots(vscmSlotMask);
+	sdSetActiveVmeSlots(vscmSlotMask);
 	 
     if(rol->pid == 4) sdSetTrigoutLogic(0, 2); /* SD Trigout when VSCM multiplicity >= 2 - DO FOR SVT4: R1+R2*/
     else              sdSetTrigoutLogic(0, 1); /* SD Trigout when VSCM multiplicity >= 1 - DO FOR SVT5: R3*/
 vmeBusUnlock();
 
+    VSCM_READ_CONF_FILE;
+/*
     printf("vscmPrestart ...\n"); fflush(stdout);
 //   vscmPrestart("VSCMConfig_ben_cosmic.txt");
     vscmPrestart("VSCMConfig.txt");
     printf("vscmPrestart done\n"); fflush(stdout);
+*/
   }
 
   printf("VSCM Prestart() ends =========================\n\n");
@@ -983,7 +993,7 @@ vmeBusLock();
   ndcrb = dcrbInit((4<<19), 0x80000, 16+2, 7); /* 7 boards from slot 4, 7 boards from slot 13 */
   if(ndcrb>0)
   {
-    dcrbGSetDAC(-35); /* threshold in mV */
+    dcrbGSetDAC(-150); /* threshold in mV */
     dcrbGSetProcMode(/*4000*/2000,/*4000*/2000,32);
   }
 vmeBusUnlock();
@@ -2666,6 +2676,19 @@ vmeBusLock();
         len = dsc2UploadAll(chptr, 10000);
 vmeBusUnlock();
         /*printf("\nDSC2 len=%d\n",len);
+        printf("%s\n",chptr);*/
+        chptr += len;
+        nbytes += len;
+	  }
+#endif
+
+#ifdef USE_VSCM
+	  if(nvscm1>0)
+	  {
+vmeBusLock();
+        len = vscmUploadAll(chptr, 65535);
+vmeBusUnlock();
+        /*printf("\nVSCM len=%d\n",len);
         printf("%s\n",chptr);*/
         chptr += len;
         nbytes += len;

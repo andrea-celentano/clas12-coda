@@ -30,13 +30,29 @@
      tiFirmwareUpdate(0x00A80000,"fpgareload.svf")
 
   UNIX:
+     cron_exec 0
      cd $CLON_PARMS/firmwares
      tiFirmwareUpdate 0x00A80000 mti91.svf
+     <cron_exec 2, or better roc_reboot>
 ###     tiFirmwareUpdate 0x00A80000 fpgareload.svf
 */
 
+/*
+
+262   300
+317   310
+335   282
+
+@reboot  /bin/csh -c "(source /home/clasioc/.cshrc; diagguiserver_init_cron 1) > ~/.crontab_diagguiserver_init "
+0-59/1 * * * *  /bin/csh -c "(source /home/clasioc/.cshrc; diagguiserver_cron 1) > ~/.crontab_diagguiserver "
+
+ */
+
+
+
+
 /* serial number upgradeL
-     tiFirmwareUpdate 0x00A80000 mti84.svf 203
+     tiFirmwareUpdate 0x00A80000 mti91.svf 203
 */
 
 #include <stdio.h>

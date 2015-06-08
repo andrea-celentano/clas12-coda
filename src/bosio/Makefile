@@ -19,6 +19,9 @@ include $(CODA)/src/Makefile.include
 # customize definitions
 #-----------------------
 
+# using fortran's  cernlib
+LDCC = $(FC)
+
 # if debugging
 #FFLAGS = -g -KPIC -mt -DSunOS -e -ftrap=no%inexact,no%underflow
 #CFLAGS = -g -KPIC -mt -DSunOS -DOSTYPE="SunOS"

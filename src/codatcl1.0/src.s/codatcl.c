@@ -3,6 +3,7 @@
  */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <time.h>
 #include <signal.h>
 #include <sys/param.h>

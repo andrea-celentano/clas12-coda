@@ -113,6 +113,9 @@ typedef unsigned int uintptr_t;
 #define FSSR_H2_U3_IDX    6
 #define FSSR_H2_U4_IDX    7
 
+#define FNLEN     128       /* length of config. file name */
+#define ROCLEN     80       /* length of ROC_name */
+
 typedef struct {
 /* 0x0000-0x0003 */ uint32_t LastStatusWord;
 /* 0x0004-0x0007 */ uint32_t ScalerStatusWord;
@@ -233,6 +236,20 @@ int vscmFirmwareRead(int id, const char *filename);
 int vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag);
 int vscmIsNotInit(int *id, const char *func);
 void vscmResetToken(int id);
+
+void vscmSetClockSource(int id, int clock_int_ext);
+int  vscmGetClockSource(int id);
+int  vscmGetBCOFreq(int id);
+int  vscmSetTriggerWindowWidth(int id);
+int  vscmSetTriggerWindowOffset(int id);
+void vscmInitGlobals();
+int  vscmReadConfigFile(char *filename);
+int  vscmDownloadAll();
+int  vscmConfig(char *fname);
+void vscmMon(int slot);
+int  vscmUploadAll(char *string, int length);
+int  vscmUploadAllPrint();
+
 
 /* Ready Functions */
 uint32_t vscmDReady(int id);

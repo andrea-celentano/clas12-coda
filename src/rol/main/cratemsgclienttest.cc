@@ -93,17 +93,48 @@ main(int argc, char *argv[])
     delete [] buf;
 	*/
 
-    slot=2;
+    slot=13;
     ret = tcp->ReadScalers(slot, &buf, &len);
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
     for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
     delete [] buf;
 
+    slot=14;
+    ret = tcp->ReadScalers(slot, &buf, &len);
+    printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
+    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    delete [] buf;
+
+    slot=15;
+    ret = tcp->ReadScalers(slot, &buf, &len);
+    printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
+    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    delete [] buf;
+
+    slot=16;
+    ret = tcp->ReadScalers(slot, &buf, &len);
+    printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
+    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    delete [] buf;
+
+    slot=17;
+    ret = tcp->ReadScalers(slot, &buf, &len);
+    printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
+    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    delete [] buf;
+
+    slot=18;
+    ret = tcp->ReadScalers(slot, &buf, &len);
+    printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
+    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    delete [] buf;
+	/*
     slot=10;
     ret = tcp->ReadScalers(slot, &buf, &len);
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
     for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
     delete [] buf;
+	*/
 
     printf("\n\n");
 

@@ -643,6 +643,8 @@ Vme_Read32(Cmd_Read32 *pCmd_Read32, Cmd_Read32_Rsp *pCmd_Read32_Rsp)
 
 	pCmd_Read32_Rsp->cnt = c;	
 
+	/*printf("Vme_Read32: addr=0x%08x, laddr=0x%08x, cnt=%d, flag=%d\n",pCmd_Read32->addr,pRd,c,pCmd_Read32->flags);*/
+
 	vmeBusLock();
 	if(pCmd_Read32->flags & CRATE_MSG_FLAGS_ADRINC)
 		while(c--) *pWr++ = swap32(*pRd++);

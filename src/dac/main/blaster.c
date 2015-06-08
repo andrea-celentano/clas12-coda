@@ -49,7 +49,7 @@ main(int argc, char *argv[])
 
   bzero ((char *)&sin, sizeof (sin));
 
-  s = socket (AF_INET, SOCK_STREAM, 0);
+  s = socket (DOMAIN, SOCK_STREAM, 0);
   if(s < 0) printf ("cannot open socket\n");
 
   hp = gethostbyname (argv[1]);
@@ -63,7 +63,7 @@ main(int argc, char *argv[])
     memcpy(&servaddr.sin_addr, *pptr, sizeof(struct in_addr));
     printf(">>> sin_port=%u\n",servaddr.sin_port);
     printf(">>> sin_addr=%u\n",servaddr.sin_addr);
-    inet_ntop(AF_INET,*pptr,txt,INET_ADDRSTRLEN);
+    inet_ntop(DOMAIN,*pptr,txt,INET_ADDRSTRLEN);
     printf(">>> txt >%s<\n",txt);
 
 	/*
@@ -85,7 +85,6 @@ main(int argc, char *argv[])
 
 
 
-
   if (hp == 0 && (sin.sin_addr.s_addr = inet_addr (argv [1])) == -1)
   {
 	fprintf (stderr, "%s: unkown host\n", argv [1]);
@@ -97,7 +96,7 @@ main(int argc, char *argv[])
   sin.sin_port = htons (atoi (argv [2]));
   sockbufsize  = atoi (argv [3]);
 
-  sin.sin_family 	= AF_INET;
+  sin.sin_family 	= DOMAIN;
 
   sendsize = SENDSIZE;
   printf("sendsize=%d\n",sendsize);
@@ -108,6 +107,9 @@ main(int argc, char *argv[])
 	exit (1);
   }
 
+
+
+  /*sergey: does not needed for 10G
   if(setsockopt(s, SOL_SOCKET, SO_SNDBUF, &sockbufsize, sizeof(sockbufsize))<0)
   {
 	printf("setsockopt SO_SNDBUF failed\n");
@@ -125,8 +127,8 @@ main(int argc, char *argv[])
     printf("socket buffer size is %d(0x%08x) bytes\n",nbytes,nbytes);
   }
 
-  /*
-  optval = 0;
+  
+  optval = 1;
   if (setsockopt (s, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof (optval)) < 0)
   {
 	printf("setsockopt TCP_NODELAY failed\n");
@@ -134,6 +136,9 @@ main(int argc, char *argv[])
 	exit(1);
   }
   */
+
+
+
 
   /*
   if (setsockopt (s, SOL_SOCKET, SO_SND_COPYAVOID, &on, sizeof (on)) < 0)
@@ -179,8 +184,8 @@ main(int argc, char *argv[])
   {
 	if(blasterStop == 1) break;
 
-    if ((y = send(s, buffer, sendsize, 0)) < 0)
-	/*if ((y = write(s, buffer, sendsize)) < 0)*/
+    /*if ((y = send(s, buffer, sendsize, 0)) < 0)*/
+	if ((y = write(s, buffer, sendsize)) < 0)
     {
       perror ("blaster write error: ");
       blasterStop = 1;
@@ -188,7 +193,7 @@ main(int argc, char *argv[])
     }
     else
     {
-      /*printf("sent %d bytes\n",y)*/;
+      if(y!=sendsize) printf("sent %d bytes\n",y);
     }
   }
     

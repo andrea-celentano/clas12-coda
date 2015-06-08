@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "vscmLib.h"
 
 #undef DEBUG
 
@@ -67,6 +66,11 @@ extern unsigned int *dma_dabufp;
 #endif
 
 #endif
+
+#include "vscmLib.h"
+
+#include "xxxConfig.h"
+static int active;
 
 /* Define Global Variables */
 int nvscm = 0;                                          /* Number of VSCMs in Crate */
@@ -1206,6 +1210,53 @@ vscmSetTriggerWindow(int id, \
 #endif
 }
 
+int
+vscmGetTriggerWindowWidth(int id)
+{
+  uint32_t bcoStop_i, bcoStop_r;
+  uint32_t bcoStart_i, bcoStart_r;
+  uint32_t window;
+  uint32_t bcoFreq;
+  uint16_t start, stop, width;
+  
+  if (vscmIsNotInit(&id, __func__))
+    return;
+
+  bcoFreq = vmeRead32(&VSCMpr[id]->FssrClkCfg);
+  window = vmeRead32(&VSCMpr[id]->TriggerWindow);
+
+  bcoStart_r = (window>>0) & 0xFF;
+  bcoStart_i = (window>>8) & 0xFF;
+  bcoStop_r =  (window>>16) & 0xFF;
+  bcoStop_i =  (window>>24) & 0xFF;
+
+  width = ((bcoStop_i - bcoStart_i - 1) & 0xFF) * bcoFreq + ((0x100 - bcoStart_r) & 0xFF) - ((0x100 - bcoStop_r) & 0xFF);
+
+  return (int)width;
+}
+
+int
+vscmGetTriggerWindowOffset(int id)
+{
+  uint32_t bcoStart_i, bcoStart_r;
+  uint32_t window, start;
+  uint32_t bcoFreq;
+  
+  if (vscmIsNotInit(&id, __func__))
+    return;
+
+  bcoFreq = vmeRead32(&VSCMpr[id]->FssrClkCfg);
+  window = vmeRead32(&VSCMpr[id]->TriggerWindow);
+  
+  bcoStart_r = (window>>0) & 0xFF;
+  bcoStart_i = (window>>8) & 0xFF;
+  
+  start = ((0x100 - bcoStart_i) & 0xFF) * bcoFreq +
+          ((0x100 - bcoStart_r) & 0xFF);
+  
+  return start;
+}
+
 void
 vscmPrintFifo(unsigned int *buf, int n)
 {
@@ -1438,10 +1489,35 @@ vscmLatchChipScaler(int id, int chip)
   vscmDisableChipScaler(id, chip);
 }
 
+void
+vscmSetClockSource(int id, int clock_int_ext)
+{
+  if (vscmIsNotInit(&id, __func__))
+    return;
+  
+  if(clock_int_ext == 0) /* internal clock */
+  {
+    vmeWrite32(&VSCMpr[id]->ClockCfg, 2); /* sets clock */
+    vmeWrite32(&VSCMpr[id]->ClockCfg, 0); /* release reset */
+  }
+  else
+  {
+    vmeWrite32(&VSCMpr[id]->ClockCfg, 3); /* sets clock */
+    vmeWrite32(&VSCMpr[id]->ClockCfg, 1); /* release reset */
+  }
+  vscmFifoClear(id);
+  fssrMasterReset(id);
+  taskDelay(10);
+}
 
-
-
-
+int
+vscmGetClockSource(int id)
+{
+  if (vscmIsNotInit(&id, __func__))
+    return;
+  
+  return vmeRead32(&VSCMpr[id]->ClockCfg) & 0x1;
+}
 
 void
 vscmClearStripScalers(int id, int chip)
@@ -1657,6 +1733,15 @@ vscmSetBCOFreq(int id, uint32_t freq)
   vmeWrite32(&VSCMpr[id]->FssrClkCfg, freq);
 }
 
+int
+vscmGetBCOFreq(int id)
+{
+  if (vscmIsNotInit(&id, __func__))
+    return;
+
+  return vmeRead32(&VSCMpr[id]->FssrClkCfg);
+}
+
 uint8_t
 vscmSetDacCalibration(int id)
 {
@@ -1858,14 +1943,15 @@ vscmSetHitMask(int id, uint8_t mask, uint8_t trig_width)
 int
 vscmIsNotInit(int *id, const char *func)
 {
-  if (*id == 0)
-    *id = vscmID[0];
+  if(*id == 0) *id = vscmID[0];
 
-  if ((*id <= 0) || (*id > 21) || (VSCMpr[*id] == NULL)) {
+  if((*id <= 0) || (*id > 21) || (VSCMpr[*id] == NULL))
+  {
     logMsg("ERROR: %s: VSCM in slot %d is not initialized\n", func, *id);
-    return 1;
+    return(1);
   }
-  return 0;
+
+  return(0);
 }
 
 void
@@ -1873,6 +1959,11 @@ vscmSetBlockLevel(int id, int block_level)
 {
   vmeWrite32(&VSCMpr[id]->BlockCfg, block_level);
 }
+
+
+
+
+
 
 void
 vscmPrestart(char *fname)
@@ -2242,6 +2333,476 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
 
 
 
+
+/**** CONFIG ************************************/
+/**** CONFIG ************************************/
+/**** CONFIG ************************************/
+
+typedef struct
+{
+  int clock_int_ext; /* clock source: 0-internal, 1-external */
+  int bco_freq;      /* BCO frequency */
+
+  int window_width;  /* trigger window width */
+  int window_offset; /* trigger window offset */
+  int window_bco;    /* ? */
+
+  int fssr_addr_reg_disc_threshold[8][8];
+  int fssr_addr_reg_dcr[8];
+  int fssr_addr_reg_kill_mask[8][4];
+  int fssr_addr_reg_inject_mask[8][4];
+
+} VSCM_CONFIG_STRUCT;
+
+static VSCM_CONFIG_STRUCT conf[VSCM_MAX_BOARDS+1]; /* index is slot number */
+
+
+void
+vscmInitGlobals()
+{
+  int ii, jj, kk, slot;
+
+  for(kk=0; kk<nvscm; kk++)
+  {
+    slot = vscmID[kk];
+    vscmFifoClear(slot);
+    fssrMasterReset(slot);
+	fssrSetChipID(slot, 0, 1, 2, 3, 4);
+  }
+
+  taskDelay(10);
+
+  for(kk=0; kk<nvscm; kk++)
+  {
+    slot = vscmID[kk];
+
+    conf[slot].clock_int_ext = 0;
+
+    conf[slot].bco_freq = 16;
+
+    conf[slot].window_width = 256;
+    conf[slot].window_offset = 256;
+    conf[slot].window_bco = 16;  /* use conf[slot].bco_freq instead */
+
+    for(ii=0;ii<8;ii++) for(jj=0;jj<8;jj++) conf[slot].fssr_addr_reg_disc_threshold[ii][jj] = 140;
+
+    for(ii=0;ii<8;ii++) conf[slot].fssr_addr_reg_dcr[ii] = 0x18;
+
+    for(ii=0;ii<8;ii++)
+	{
+      conf[slot].fssr_addr_reg_kill_mask[ii][0] = 0;
+      conf[slot].fssr_addr_reg_kill_mask[ii][1] = 0;
+      conf[slot].fssr_addr_reg_kill_mask[ii][2] = 0;
+      conf[slot].fssr_addr_reg_kill_mask[ii][3] = 0;
+	}
+
+    for(ii=0;ii<8;ii++)
+	{
+      conf[slot].fssr_addr_reg_inject_mask[ii][0] = 0;
+      conf[slot].fssr_addr_reg_inject_mask[ii][1] = 0;
+      conf[slot].fssr_addr_reg_inject_mask[ii][2] = 0;
+      conf[slot].fssr_addr_reg_inject_mask[ii][3] = 0;
+	}
+
+  }
+ 
+  return;
+}
+
+
+
+int
+vscmReadConfigFile(char *filename)
+{
+  FILE   *fd;
+  char   fname[FNLEN] = { "" };  /* config file name */
+  int    ii, jj, ch;
+  char   str_tmp[STRLEN], keyword[ROCLEN];
+  char   host[ROCLEN], ROC_name[ROCLEN];
+  char   str2[2];
+  int    args, i1, i2, i3, i4;
+  float  f1;
+  int    slot1, slot2, slot, chan;
+  unsigned int  ui1, ui2;
+  char *getenv();
+  char *clonparms;
+  char *expid;
+
+  int nval;
+  char charval[10][STRLEN];
+  unsigned int val[10];
+
+  gethostname(host,ROCLEN);  /* obtain our hostname */
+  clonparms = getenv("CLON_PARMS");
+  expid = getenv("EXPID");
+  if(strlen(filename)!=0) /* filename specified */
+  {
+    if ( filename[0]=='/' || (filename[0]=='.' && filename[1]=='/') )
+	{
+      sprintf(fname, "%s", filename);
+	}
+    else
+	{
+      sprintf(fname, "%s/vscm/%s", clonparms, filename);
+	}
+
+    if((fd=fopen(fname,"r")) == NULL)
+    {
+      printf("\nvscmReadConfigFile: Can't open config file >%s<\n",fname);
+      return(-1);
+    }
+  }
+  else /* filename does not specified */
+  {
+    sprintf(fname, "%s/vscm/%s.cnf", clonparms, host);
+    if((fd=fopen(fname,"r")) == NULL)
+    {
+      sprintf(fname, "%s/vscm/%s.cnf", clonparms, expid);
+      if((fd=fopen(fname,"r")) == NULL)
+      {
+        printf("\nvscmReadConfigFile: Can't open config file >%s<\n",fname);
+        return(-2);
+	  }
+	}
+
+  }
+  printf("\nvscmReadConfigFile: Using configuration file >%s<\n",fname);
+
+  /* Parsing of config file */
+  active = 0;
+  while ((ch = getc(fd)) != EOF)
+  {
+    if ( ch == '#' || ch == ' ' || ch == '\t' )
+    {
+      while (getc(fd) != '\n') {}
+    }
+    else if( ch == '\n' ) {}
+    else
+    {
+      ungetc(ch,fd);
+      fgets(str_tmp, STRLEN, fd);
+      sscanf (str_tmp, "%s %s", keyword, ROC_name);
+
+
+      /* Start parsing real config inputs */
+      if(strcmp(keyword,"VSCM_CRATE") == 0)
+      {
+	    if(strcmp(ROC_name,host) == 0)
+        {
+	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+          active = 1;
+        }
+	    else if(strcmp(ROC_name,"all") == 0)
+		{
+	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+          active = 1;
+		}
+        else
+		{
+	      printf("\nReadConfigFile: crate = %s  host = %s - disactivated\n",ROC_name,host);
+          active = 0;
+		}
+      }
+
+      else if(active && (strcmp(keyword,"VSCM_SLOT")==0))
+      {
+        sscanf (str_tmp, "%*s %s", str2);
+        if(isdigit(str2[0]))
+        {
+          slot1 = atoi(str2);
+          slot2 = slot1 + 1;
+          if(slot1<2 && slot1>21)
+          {
+            printf("\nReadConfigFile: Wrong slot number %d\n\n",slot1);
+            return(-1);
+          }
+        }
+        else if(!strcmp(str2,"all"))
+        {
+          slot1 = 0;
+          slot2 = VSCM_MAX_BOARDS+1;
+        }
+        else
+        {
+          printf("\nReadConfigFile: Wrong slot >%s<, must be 'all' or actual slot number\n\n",str2);
+          return(-1);
+        }
+	  }
+
+      else if(active && (!strcmp(keyword,"VSCM_CLOCK_INTERNAL")))
+      {
+        for(slot=slot1; slot<slot2; slot++) conf[slot].clock_int_ext = 0;
+      }
+
+      else if(active && (!strcmp(keyword,"VSCM_CLOCK_EXTERNAL")))
+      {
+        for(slot=slot1; slot<slot2; slot++) conf[slot].clock_int_ext = 1;
+      }
+
+      else if(!strcmp(keyword,"VSCM_BCO_FREQ"))
+      {
+        sscanf(str_tmp,"%*s %3s",charval[0]);
+        nval = 1;        
+        VAL_DECODER;
+		for(slot=slot1; slot<slot2; slot++) conf[slot].bco_freq = val[0];
+      }
+
+      else if(active && (!strcmp(keyword,"VSCM_TRIG_WINDOW")))
+      {
+        sscanf(str_tmp,"%*s %4s %4s %4s",charval[0],charval[1],charval[2]);
+        nval = 3;
+        VAL_DECODER;
+        for(slot=slot1; slot<slot2; slot++) 
+		{
+          conf[slot].window_width = val[0];
+          conf[slot].window_offset = val[1];
+          conf[slot].window_bco = val[2];
+		}
+      }
+
+      else if(active && (!strcmp(keyword,"FSSR_ADDR_REG_DISC_THR")))
+      {
+        sscanf(str_tmp,"%*s %1s %1s %3s",charval[0], charval[1], charval[2]);
+        nval = 3;        
+        VAL_DECODER;
+        for(slot=slot1; slot<slot2; slot++) conf[slot].fssr_addr_reg_disc_threshold[val[0]][val[1]] = val[2];
+      }
+
+      else if(active && (!strcmp(keyword,"FSSR_ADDR_REG_DCR")))
+      {
+        sscanf(str_tmp,"%*s %1s %4s",charval[0],charval[1]);
+        nval = 2;        
+        VAL_DECODER;
+        for(slot=slot1; slot<slot2; slot++) conf[slot].fssr_addr_reg_dcr[val[0]] = val[1];
+      }
+
+      else if(active && (!strcmp(keyword,"FSSR_ADDR_REG_KILL")))
+      {
+        sscanf(str_tmp,"%*s %1s %10s %10s %10s %10s",charval[0], charval[1], charval[2],charval[3], charval[4]);
+        nval = 5;        
+        VAL_DECODER;
+        for(slot=slot1; slot<slot2; slot++) 
+		{
+          conf[slot].fssr_addr_reg_kill_mask[val[0]][0] = val[1];
+          conf[slot].fssr_addr_reg_kill_mask[val[0]][1] = val[2];
+          conf[slot].fssr_addr_reg_kill_mask[val[0]][2] = val[3];
+          conf[slot].fssr_addr_reg_kill_mask[val[0]][3] = val[4];
+		}
+      }
+
+      else if(active && (!strcmp(keyword,"FSSR_ADDR_REG_INJECT")))
+      {
+        sscanf(str_tmp,"%*s %1s %10s %10s %10s %10s", keyword,charval[0], charval[1], charval[2], charval[3], charval[4]);
+        nval = 5;        
+        VAL_DECODER;
+        for(slot=slot1; slot<slot2; slot++) 
+		{
+          conf[slot].fssr_addr_reg_inject_mask[val[0]][0] = val[1];
+          conf[slot].fssr_addr_reg_inject_mask[val[0]][1] = val[2];
+          conf[slot].fssr_addr_reg_inject_mask[val[0]][2] = val[3];
+          conf[slot].fssr_addr_reg_inject_mask[val[0]][3] = val[4];
+		}
+      }
+
+      else
+      {
+        ; /* unknown key - do nothing */
+		/*
+        printf("vscmReadConfigFile: Unknown Field or Missed Field in\n");
+        printf("   %s \n", fname);
+        printf("   str_tmp=%s", str_tmp);
+        printf("   keyword=%s \n\n", keyword);
+        return(-10);
+		*/
+      }
+
+    }
+  } /* end of while */
+
+  fclose(fd);
+
+  return(0);
+}
+
+int
+vscmDownloadAll()
+{
+  int ii, jj, id, slot, ret;
+
+  for(id=0; id<nvscm; id++)
+  {
+    slot = vscmSlot(id);
+
+    vscmSetClockSource(slot, conf[slot].clock_int_ext);
+
+    vscmSetBCOFreq(slot, conf[slot].bco_freq);
+
+    vscmSetTriggerWindow(slot, conf[slot].window_width, conf[slot].window_offset, conf[slot].window_bco);
+
+    for(ii=0;ii<8;ii++) for(jj=0;jj<8;jj++) fssrSetThreshold(slot,ii,jj,conf[slot].fssr_addr_reg_disc_threshold[ii][jj]);
+
+    for(ii=0;ii<8;ii++) fssrSetControl(slot,ii,conf[slot].fssr_addr_reg_dcr[ii]);
+
+    for(ii=0;ii<8;ii++)
+	{
+      ret = fssrSetMask(slot,ii,FSSR_ADDR_REG_KILL,(uint32_t *)&conf[slot].fssr_addr_reg_kill_mask[ii][0]);
+#ifdef DEBUG
+      if(ret) printf("ERROR: %s: %d/%u Mask Reg# %d not set correctly\n",__func__,slot,ii,FSSR_ADDR_REG_KILL); 
+#endif
+	}
+
+    for(ii=0;ii<8;ii++)
+	{
+      ret = fssrSetMask(slot,ii,FSSR_ADDR_REG_INJECT,(uint32_t *)&conf[slot].fssr_addr_reg_inject_mask[ii][0]);
+#ifdef DEBUG
+      if(ret) printf("ERROR: %s: %d/%u Mask Reg# %d not set correctly\n",__func__,slot,ii,FSSR_ADDR_REG_INJECT); 
+#endif
+	}
+
+    for(ii=0; ii<8; ii++)
+    {
+      fssrSetActiveLines(slot, ii, FSSR_ALINES_6);
+      fssrRejectHits(slot, ii, 0);
+      fssrSCR(slot, ii);
+      fssrSendData(slot, ii, 1);
+    }
+  }
+
+  return(0);
+}
+
+/* vscmInit() have to be called before this function */
+int  
+vscmConfig(char *fname)
+{
+  int res;
+  char *string; /*dummy, will not be used*/
+
+  if(strlen(fname) > 0) /* filename specified  - upload initial settings from the hardware */
+  {
+    vscmUploadAll(string, 0);
+  }
+  else /* filename not specified  - set defaults */
+  {
+    vscmInitGlobals();
+  }
+
+  /* read config file */
+  if( (res = vscmReadConfigFile(fname)) < 0 ) return(res);
+
+  /* download to all boards */
+  vscmDownloadAll();
+
+  return(0);
+}
+
+void
+vscmMon(int slot)
+{
+  ;
+}
+
+
+
+/* upload setting from all found DSC2s */
+int
+vscmUploadAll(char *string, int length)
+{
+  int id, slot, i, ii, jj, kk, ifiber, len1, len2;
+  char *str, sss[1024];
+  unsigned int tmp, connectedfibers;
+  unsigned short sval;
+  unsigned short bypMask;
+  unsigned short channels[8];
+
+  for(id=0; id<nvscm; id++)
+  {
+    slot = vscmSlot(id);
+
+    conf[slot].clock_int_ext = vscmGetClockSource(slot);
+
+    conf[slot].bco_freq = vscmGetBCOFreq(slot);
+
+    conf[slot].window_width = vscmGetTriggerWindowWidth(slot);
+    conf[slot].window_offset = vscmGetTriggerWindowOffset(slot);
+/*    conf[slot].window_bco = remove this - not needed */
+
+    for(ii=0;ii<8;ii++) for(jj=0;jj<8;jj++) conf[slot].fssr_addr_reg_disc_threshold[ii][jj] = fssrGetThreshold(slot, ii, jj);
+
+    for(ii=0;ii<8;ii++) conf[slot].fssr_addr_reg_dcr[ii] = fssrGetControl(slot, ii);
+
+    for(ii=0;ii<8;ii++)
+      fssrGetKillMask(slot, ii, (uint32_t *)&conf[slot].fssr_addr_reg_kill_mask[ii][0]);
+
+    for(ii=0;ii<8;ii++)
+      fssrGetInjectMask(slot, ii, (uint32_t *)&conf[slot].fssr_addr_reg_inject_mask[ii][0]);
+  }
+
+  if(length)
+  {
+    str = string;
+    str[0] = '\0';
+
+    for(id=0; id<nvscm; id++)
+    {
+      slot = vscmSlot(id);
+
+      sprintf(sss,"VSCM_SLOT %d\n",slot);
+      ADD_TO_STRING;
+
+      if(conf[slot].clock_int_ext==0)      {sprintf(sss,"VSCM_CLOCK_INTERNAL\n");ADD_TO_STRING;}
+	  else if(conf[slot].clock_int_ext==1) {sprintf(sss,"VSCM_CLOCK_EXTERNAL\n");ADD_TO_STRING;}
+
+      sprintf(sss,"VSCM_BCO_FREQ %d\n",conf[slot].bco_freq); ADD_TO_STRING;
+
+      sprintf(sss,"VSCM_TRIG_WINDOW %d %d %d\n",conf[slot].window_width,conf[slot].window_offset,conf[slot].window_bco); ADD_TO_STRING;
+
+      for(jj=0;jj<8;jj++)
+	  {
+        for(ii=0;ii<8;ii++)
+	    {
+		  sprintf(sss,"FSSR_ADDR_REG_DISC_THR %d %d %d\n",ii,jj,conf[slot].fssr_addr_reg_disc_threshold[ii][jj]); ADD_TO_STRING;
+	    }
+	  }
+
+      for(ii=0;ii<8;ii++)
+	  {
+        sprintf(sss,"FSSR_ADDR_REG_DCR %d %d\n",ii,conf[slot].fssr_addr_reg_dcr[ii]); ADD_TO_STRING;
+	  }
+
+      for(ii=0;ii<8;ii++)
+	  {
+        sprintf(sss,"FSSR_ADDR_REG_KILL %d 0x%08x 0x%08x 0x%08x 0x%08x\n",ii,
+                conf[slot].fssr_addr_reg_kill_mask[ii][0],
+			    conf[slot].fssr_addr_reg_kill_mask[ii][1],
+			    conf[slot].fssr_addr_reg_kill_mask[ii][2],
+			    conf[slot].fssr_addr_reg_kill_mask[ii][3]);
+        ADD_TO_STRING;
+	  }
+
+      for(ii=0;ii<8;ii++)
+	  {
+        sprintf(sss,"FSSR_ADDR_REG_INJECT %d 0x%08x 0x%08x 0x%08x 0x%08x\n",ii,
+                conf[slot].fssr_addr_reg_inject_mask[ii][0],
+			    conf[slot].fssr_addr_reg_inject_mask[ii][1],
+			    conf[slot].fssr_addr_reg_inject_mask[ii][2],
+			    conf[slot].fssr_addr_reg_inject_mask[ii][3]);
+        ADD_TO_STRING;
+	  }
+    }
+
+    CLOSE_STRING;
+  }
+
+}
+
+int
+vscmUploadAllPrint()
+{
+  char str[65537];
+  vscmUploadAll(str, 65536);
+  printf("%s",str);
+}
 
 
 

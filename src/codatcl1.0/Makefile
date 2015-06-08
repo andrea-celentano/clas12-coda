@@ -18,6 +18,13 @@ include $(CODA)/src/Makefile.include
 # customize definitions
 #-----------------------
 
+#64bit
+TCLINCDIR = -I/usr/include/tcl-private/generic \
+		-I/usr/include/tk-private/generic \
+		-I/usr/include/tk-private/unix
+
+
+
 # Directory from which applications will reference the library of Dp
 # scripts (note: you can set the DP_LIBRARY environment variable at
 # run-time to override this value (Sergey: you can not !) ):

@@ -1,0 +1,3 @@
+./configure --enable-64bit --with-tcl=/usr/lib64/tcl8.5 --with-tk=/usr/lib64 --with-itcl=/usr/lib/itclConfig.sh
+
+./configure --enable-64bit --with-tcl=/usr/lib64/tcl8.5 --with-tk=/usr/lib64 --with-itcl=/usr/lib --with-mysql-lib=/usr/lib64/mysql

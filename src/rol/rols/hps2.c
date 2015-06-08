@@ -162,8 +162,11 @@ static char *expid = NULL;
 static int tdctypebyslot[NSLOTS];
 static int slotnums[NSLOTS];
 static int error_flag[NSLOTS];
+static int NBsubtract[NSLOTS];
 
-
+/* daq stuff */
+static int rol2_report_raw_data;
+/* daq stuff */
 
 
 /* user routines */
@@ -195,6 +198,9 @@ __prestart()
   /* Register a sync trigger source (up to 32 sources) */
   CTRIGRSS(EVENT, 1, rol2trig, rol2trig_done); /* second arg=1 - what is that ? */
 
+  rol2_report_raw_data = daqGetReportRawData();
+  printf("ROL2: rol2_report_raw_data set to %d\n",rol2_report_raw_data);
+
   rol->poll = 1;
 
   rol->recNb = 0;
@@ -205,11 +211,19 @@ __prestart()
   /* get some tdc info fron rol1 */
   ntdcs = getTdcTypes(tdctypebyslot);
   printf("ROL2: ntdcs_1=%d\n",ntdcs);
-  for(ii=0; ii<NSLOTS; ii++) printf(" slot %d, type %d\n",ii,tdctypebyslot[ii]);
+  for(ii=0; ii<NSLOTS; ii++)
+  {
+    printf("ROL2: slot %d, type %d\n",ii,tdctypebyslot[ii]);
+
+    if(tdctypebyslot[ii]==1)      NBsubtract[ii] = 9; /*v1190*/
+    else if(tdctypebyslot[ii]==2) NBsubtract[ii] = 9; /*v1290*/
+    else if(tdctypebyslot[ii]==3) NBsubtract[ii] = 5; /*v1290N*/
+    else                          NBsubtract[ii] = 0; /*there is no board*/
+  }
 
   ntdcs = getTdcSlotNumbers(slotnums);
   printf("ROL2: ntdcs_2=%d\n",ntdcs);
-  for(ii=0; ii<ntdcs; ii++) printf(" tdc_id %d, slotnum %d\n",ii,slotnums[ii]);
+  for(ii=0; ii<ntdcs; ii++) printf("ROL2:  tdc_id %d, slotnum %d\n",ii,slotnums[ii]);
 
 #endif
 
@@ -253,6 +267,7 @@ __go()
 #define NCH 16
 #define NPL 4
 
+#define REPORT_RAW_BANK_IF_REQUESTED if(rol2_report_raw_data) iASIS[nASIS++] = jj
 
 
 void
@@ -301,7 +316,6 @@ rol2trig(int a, int b)
   int nheaders, ntrailers, nbcount, nbsubtract, nwtdc;
   unsigned int *tdchead, tdcslot, tdcchan, tdcval, tdc14, tdcedge, tdceventcount;
   unsigned int tdceventid, tdcbunchid, tdcwordcount, tdcerrorflags;
-  unsigned int NBsubtract = 9; /*same for v1190 and v1290 ?*/
 
 #ifdef MODE7
   /* because of wierd FADC data format in mode 7 (all channels reports PULSE INTEGRAL,
@@ -374,8 +388,6 @@ rol2trig(int a, int b)
     if(banktyp[jj] != 3) for(ii=0; ii<lenin; ii++) datain[ii] = LSWAP(datain[ii]);
 #endif
 #endif
-
-
 
     if(banktag[jj] == 0xe109) /* FADC250 hardware format */
 	{
@@ -1083,18 +1095,18 @@ lenE[jj][nB][nE[nB]] - event length in words
 
           tdcedge = ((datain[ii]>>26)&0x1);
 		  /*printf("tdcslot=%d tdctypebyslot=%d\n",tdcslot,tdctypebyslot[tdcslot]);*/
-          if( tdctypebyslot[tdcslot] == 2 ) /*1290*/
-          {
-            tdcchan = ((datain[ii]>>21)&0x1F);
-            tdcval = (datain[ii]&0x1FFFFF);
-          }
-          else /*1190*/
+          if(tdctypebyslot[tdcslot] == 1) /*1190*/
           {
             tdcchan = ((datain[ii]>>19)&0x7F);
             tdcval = (datain[ii]&0x7FFFF);
 			/*if(tdcchan==63) {reftdc=1; printf("[ev %d] befor: 0x%08x\n",*(rol->nevents),tdcval);}*/
             tdcval = tdcval<<2; /*report 1190 value with same resolution as 1290*/
 			/*if(tdcchan==63) printf("[ev %d] after: 0x%08x (0x%08x)\n",*(rol->nevents),tdcval,tdcval&0x7FFFF);*/
+          }
+          else /*1290*/
+          {
+            tdcchan = ((datain[ii]>>21)&0x1F);
+            tdcval = (datain[ii]&0x1FFFFF);
 		  }
 
 #ifdef DEBUG2
@@ -1141,7 +1153,6 @@ lenE[jj][nB][nE[nB]] - event length in words
         else if( ((datain[ii]>>27)&0x1F) == 8)
         {
           nbcount = 1; /* counter for the number of output words from board */
-          nbsubtract = NBsubtract; /* # words to subtract including errors (5 for v1290N, 9 for others) */
           tdcslot = datain[ii]&0x1F;
           tdceventcount = (datain[ii]>>5)&0x3FFFFF;
 #ifdef SLOTWORKAROUND
@@ -1157,6 +1168,7 @@ lenE[jj][nB][nE[nB]] - event length in words
 		  }
 		  */
 #endif
+          nbsubtract = NBsubtract[tdcslot]; /* # words to subtract including errors (5 for v1290N, 9 for others) */
           nheaders++;
 
 		  
@@ -1669,6 +1681,7 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 
     else if(banktag[jj] == 0xe104) /* VSCM hardware format */
 	{
+      REPORT_RAW_BANK_IF_REQUESTED;
       banknum = rol->pid;
 
 #ifdef DEBUG4
@@ -2688,18 +2701,18 @@ if(a_pulsenumber == 0)
 
               tdcedge = ((datain[ii]>>26)&0x1);
 		      /*printf("tdcslot=%d tdctypebyslot=%d\n",tdcslot,tdctypebyslot[tdcslot]);*/
-              if( tdctypebyslot[tdcslot] == 2 ) /*1290*/
-              {
-                tdcchan = ((datain[ii]>>21)&0x1F);
-                tdcval = (datain[ii]&0x1FFFFF);
-              }
-              else /*1190*/
+              if( tdctypebyslot[tdcslot] == 1 ) /*1190*/
               {
                 tdcchan = ((datain[ii]>>19)&0x7F);
                 tdcval = (datain[ii]&0x7FFFF);
 			    /*if(tdcchan==63) {reftdc=1; printf("[ev %d] befor: 0x%08x\n",*(rol->nevents),tdcval);}*/
                 tdcval = tdcval<<2; /*report 1190 value with same resolution as 1290*/
 			    /*if(tdcchan==63) printf("[ev %d] after: 0x%08x (0x%08x)\n",*(rol->nevents),tdcval,tdcval&0x7FFFF);*/
+              }
+              else /*1290*/
+              {
+                tdcchan = ((datain[ii]>>21)&0x1F);
+                tdcval = (datain[ii]&0x1FFFFF);
 		      }
 
               /* output data in 'standard' format: slot[27-31]  edge[26]  chan[19-25]  tdc[0-18] */
@@ -2750,7 +2763,6 @@ if(a_pulsenumber == 0)
             else if( ((datain[ii]>>27)&0x1F) == 8)
             {
               nbcount = 1; /* counter for the number of output words from board */
-              nbsubtract = NBsubtract; /* # words to subtract including errors (5 for v1290N, 9 for others) */
               tdcslot = datain[ii]&0x1F;
               tdceventcount = (datain[ii]>>5)&0x3FFFFF;
               tdchead = (unsigned int *) dataout; /* remember pointer */
@@ -2767,6 +2779,8 @@ if(a_pulsenumber == 0)
 		      }
 		      */
 #endif
+              nbsubtract = NBsubtract[tdcslot]; /* # words to subtract including errors (5 for v1290N, 9 for others) */
+
 			  /*sergey: do not output global header
               *dataout ++ = tdcslot;
               b08 += 4;
@@ -3396,7 +3410,7 @@ __status()
   return;
 }  
 
-/*hps12 buring crash:
+/*hps12 during crash:
 top - 17:36:34 up 5 days,  3:47,  1 user,  load average: 3.48, 1.20, 0
 Tasks: 185 total,   3 running, 182 sleeping,   0 stopped,   0 zombie
 Cpu(s):  3.3%us,  1.1%sy,  0.0%ni, 95.5%id,  0.0%wa,  0.0%hi,  0.0%si,

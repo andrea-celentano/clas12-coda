@@ -642,17 +642,17 @@ BOOL VMEClient::ConnectVME(char *targetname, int port)
 
   //ReadBoardRegisters(); sergey: have to do that on connect to get actual registers
 
-  /*
-#define FTOF_BOARD_ADDRESS_1 0x11110000
-#define FTOF_BOARD_ADDRESS_2 0x11120000
+  
+#define FTOF_BOARD_ADDRESS_1 0x11A00000
+#define FTOF_BOARD_ADDRESS_2 0x11A00000
 
   unsigned int val;
 
   VMERead32(FTOF_BOARD_ADDRESS_1 + 0x1000, &val);
-  printf("Board 1: 'Sector' Firmware Revision: V%u.%u\n", (unsigned int)(val>>8), (unsigned int)(val & 0xFF));
+  printf("Board 1: 'Sector' Firmware Revision: V%u.%u (0x%08x)\n", (unsigned int)(val>>8), (unsigned int)(val & 0xFF), val);
 
   VMERead32(FTOF_BOARD_ADDRESS_1 + 0x2000, &val);
-  printf("Board 1: 'Global' Firmware Revision: V%u.%u\n", (unsigned int)(val>>8), (unsigned int)(val & 0xFF));
+  printf("Board 1: 'Global' Firmware Revision: V%u.%u (0x%08x)\n", (unsigned int)(val>>8), (unsigned int)(val & 0xFF), val);
 
   if(FTOF_BOARD_ADDRESS_1 != FTOF_BOARD_ADDRESS_2)
   {
@@ -662,7 +662,7 @@ BOOL VMEClient::ConnectVME(char *targetname, int port)
 	VMERead32(FTOF_BOARD_ADDRESS_2 + 0x2000, &val);
 	printf("Board 2: 'Global' Firmware Revision: V%u.%u\n", (unsigned int)(val>>8), (unsigned int)(val & 0xFF));
   }
-  */
+  
 
 
   return(TRUE);

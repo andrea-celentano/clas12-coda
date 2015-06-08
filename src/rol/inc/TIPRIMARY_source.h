@@ -19,12 +19,14 @@
 #define TDC_READ_CONF_FILE {tdc1190Config("");}
 */
 
-#define TI_READ_CONF_FILE {tiConfig("");if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) tiConfig(rol->confFile);}
-#define DSC2_READ_CONF_FILE {dsc2Config("");if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) dsc2Config(rol->confFile);}
+#define DAQ_READ_CONF_FILE  {daqConfig("");    if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) daqConfig(rol->confFile);}
+#define TI_READ_CONF_FILE   {tiConfig("");     if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) tiConfig(rol->confFile);}
+#define DSC2_READ_CONF_FILE {dsc2Config("");   if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) dsc2Config(rol->confFile);}
+#define VSCM_READ_CONF_FILE {vscmConfig("");   if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) vscmConfig(rol->confFile);}
 #define FADC_READ_CONF_FILE {fadc250Config("");if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) fadc250Config(rol->confFile);}
-#define SSP_READ_CONF_FILE {sspConfig("");if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) sspConfig(rol->confFile);}
-#define GTP_READ_CONF_FILE {gtpConfig("");if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) gtpConfig(rol->confFile);}
-#define TDC_READ_CONF_FILE {tdc1190Config("");/*if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) tdc1190Config(rol->confFile);*/}
+#define SSP_READ_CONF_FILE  {sspConfig("");    if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) sspConfig(rol->confFile);}
+#define GTP_READ_CONF_FILE  {gtpConfig("");    if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) gtpConfig(rol->confFile);}
+#define TDC_READ_CONF_FILE  {tdc1190Config("");/*if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) tdc1190Config(rol->confFile);*/}
 
 
 

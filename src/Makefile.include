@@ -183,8 +183,8 @@ CFLAGS = -g
     LDCXX = $(CXX)
 
 
-###    LDCC = $(CC)
-    LDCC = $(FC)
+    LDCC = $(CC)
+###    LDCC = $(FC)
     LDFC = $(FC)
 
 ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")

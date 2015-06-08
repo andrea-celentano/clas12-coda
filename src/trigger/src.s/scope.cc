@@ -53,7 +53,13 @@
 #include "ECALTriggerBoardRegs.h"
 
 #include "guiecal.h"
+
+#ifdef OLDOLD
 #include "vmeclient.h"
+#else
+#include "cratemsgclient.h"
+#endif
+
 #include "scope.h"
 
 /*NEW*/
@@ -87,7 +93,13 @@ static char THIS_FILE[] = __FILE__;
 #define SHH                640 // scope screen hight
 #define VSTEP              20 // pixels per channel
 
-extern VMEClient *tcpvme; //sergey: global for now, will find appropriate place later
+
+//sergey: global for now, will find appropriate place later
+#ifdef OLDOLD
+extern VMEClient *tcpvme;
+#else
+extern CrateMsgClient *tcp;
+#endif
 
 
 
@@ -669,10 +681,10 @@ Bool_t ScopeDlg::OnTimer()
 {
   printf("ScopeDlg::OnTimer() reached\n");
 
-  unsigned int status1, status2;
+  unsigned int status1, status2, tmp;
 
+#ifdef OLDOLD
   if(!tcpvme->m_bConnected) return(FALSE); // do nothing if not connected
-
 
   if(!tcpvme->VMERead32(board_address[0] + ECAL_TRIG_STATUS, &status1, FALSE))
   {
@@ -682,12 +694,30 @@ Bool_t ScopeDlg::OnTimer()
 
   if(board_address[1]!=0)
   {
-  if(!tcpvme->VMERead32(board_address[1] + ECAL_TRIG_STATUS, &status2, FALSE))
+    if(!tcpvme->VMERead32(board_address[1] + ECAL_TRIG_STATUS, &status2, FALSE))
+    {
+      tcpvme->DebugMsg("ERROR: Scope Trigger Failed to Read Status 2");
+      return(FALSE);
+    }
+  }
+#else
+  /*if(!tcp->m_bConnected) return(FALSE); // do nothing if not connected*/
+
+  if(!tcp->Read32(board_address[0] + ECAL_TRIG_STATUS, &status1))
   {
-    tcpvme->DebugMsg("ERROR: Scope Trigger Failed to Read Status 2");
+    tcp->DebugMsg("ERROR: Scope Trigger Failed to Read Status 1");
     return(FALSE);
   }
+
+  if(board_address[1]!=0)
+  {
+    if(!tcp->Read32(board_address[1] + ECAL_TRIG_STATUS, &status2))
+    {
+      tcp->DebugMsg("ERROR: Scope Trigger Failed to Read Status 2");
+      return(FALSE);
+    }
   }
+#endif
 
   printf("-------> status1=0x%08x status2=0x%08x\n",status1,status2);
   if((status1 & 0x2) || (status2 & 0x2))
@@ -715,11 +745,19 @@ printf("-------> 3\n");
 
     if(m_bTriggerContinuous)
     {
+#ifdef OLDOLD
       tcpvme->VMEWrite32(board_address[0] + ECAL_TRIG_STATUS, 0x0000, FALSE);
       if(board_address[1]!=0) tcpvme->VMEWrite32(board_address[1] + ECAL_TRIG_STATUS, 0x0000, FALSE);
       tcpvme->VMEWrite32(board_address[0] + ECAL_TRIG_STATUS, 0x0001, FALSE);
       if(board_address[1]!=0) tcpvme->VMEWrite32(board_address[1] + ECAL_TRIG_STATUS, 0x0001, FALSE);
-
+#else
+      tmp = 0;
+      tcp->Write32(board_address[0] + ECAL_TRIG_STATUS, &tmp);
+      if(board_address[1]!=0) tcp->Write32(board_address[1] + ECAL_TRIG_STATUS, &tmp);
+      tmp = 1;
+      tcp->Write32(board_address[0] + ECAL_TRIG_STATUS, &tmp);
+      if(board_address[1]!=0) tcp->Write32(board_address[1] + ECAL_TRIG_STATUS, &tmp);
+#endif
     }
     else
     {
@@ -1009,9 +1047,11 @@ void ScopeDlg::UpdateCursor(int ix, int iy, BOOL updatePosition, BOOL eraseold)
 // continous mode trigger, sets flag for timer
 void ScopeDlg::OnBScopecontinuous() 
 {
+  unsigned int tmp;
   m_bTriggerContinuous = TRUE;
   if(UpdateTriggerMasks())
   {
+#ifdef OLDOLD
     if(tcpvme->m_bConnected)
 	{
       tcpvme->VMEWrite32(board_address[0] + ECAL_TRIG_STATUS, 0x0000, FALSE);
@@ -1019,6 +1059,17 @@ void ScopeDlg::OnBScopecontinuous()
       tcpvme->VMEWrite32(board_address[0] + ECAL_TRIG_STATUS, 0x0001, FALSE);
       if(board_address[1]!=0) tcpvme->VMEWrite32(board_address[1] + ECAL_TRIG_STATUS, 0x0001, FALSE);
 	}
+#else
+    /*if(tcp->m_bConnected)*/
+	{
+      tmp = 0;
+      tcp->Write32(board_address[0] + ECAL_TRIG_STATUS, &tmp);
+      if(board_address[1]!=0) tcp->Write32(board_address[1] + ECAL_TRIG_STATUS, &tmp);
+      tmp = 1;
+      tcp->Write32(board_address[0] + ECAL_TRIG_STATUS, &tmp);
+      if(board_address[1]!=0) tcp->Write32(board_address[1] + ECAL_TRIG_STATUS, &tmp);
+	}
+#endif
     fScopeTimer->Start();
   }
 }
@@ -1026,9 +1077,11 @@ void ScopeDlg::OnBScopecontinuous()
 // same as before, without flag
 void ScopeDlg::OnBScopesingle() 
 {
+  unsigned int tmp;
   m_bTriggerContinuous = FALSE;
   if(UpdateTriggerMasks())
   {
+#ifdef OLDOLD
    if(tcpvme->m_bConnected)
 	{
       tcpvme->VMEWrite32(board_address[0] + ECAL_TRIG_STATUS, 0x0000, FALSE);
@@ -1036,6 +1089,17 @@ void ScopeDlg::OnBScopesingle()
       tcpvme->VMEWrite32(board_address[0] + ECAL_TRIG_STATUS, 0x0001, FALSE);
       if(board_address[1]!=0) tcpvme->VMEWrite32(board_address[1] + ECAL_TRIG_STATUS, 0x0001, FALSE);
     }
+#else
+   /*if(tcpvme->m_bConnected)*/
+	{
+      tmp = 0;
+      tcp->Write32(board_address[0] + ECAL_TRIG_STATUS, &tmp);
+      if(board_address[1]!=0) tcp->Write32(board_address[1] + ECAL_TRIG_STATUS, &tmp);
+      tmp = 1;
+      tcp->Write32(board_address[0] + ECAL_TRIG_STATUS, &tmp);
+      if(board_address[1]!=0) tcp->Write32(board_address[1] + ECAL_TRIG_STATUS, &tmp);
+    }
+#endif
     fScopeTimer->Start();
   }
 }
@@ -1074,6 +1138,7 @@ BOOL ScopeDlg::UpdateTriggerMasks()
   }
 
 
+#ifdef OLDOLD
   if(tcpvme->m_bConnected)
   {
     if(!tcpvme->VMEWrite32(board_address[0] + ECAL_TRIG_VALUE7, bit_masks[7])) return FALSE;
@@ -1115,23 +1180,74 @@ BOOL ScopeDlg::UpdateTriggerMasks()
       if(!tcpvme->VMEWrite32(board_address[1] + ECAL_TRIG_INGORE0, ignore_masks[0])) return FALSE;
 	}
   }
+#else
+  /*if(tcp->m_bConnected)*/
+  {
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_VALUE7, &bit_masks[7])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_VALUE6, &bit_masks[6])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_VALUE5, &bit_masks[5])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_VALUE4, &bit_masks[4])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_VALUE3, &bit_masks[3])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_VALUE2, &bit_masks[2])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_VALUE1, &bit_masks[1])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_VALUE0, &bit_masks[0])) return FALSE;
+
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_INGORE7, &ignore_masks[7])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_INGORE6, &ignore_masks[6])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_INGORE5, &ignore_masks[5])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_INGORE4, &ignore_masks[4])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_INGORE3, &ignore_masks[3])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_INGORE2, &ignore_masks[2])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_INGORE1, &ignore_masks[1])) return FALSE;
+    if(!tcp->Write32(board_address[0] + ECAL_TRIG_INGORE0, &ignore_masks[0])) return FALSE;
+
+    if(board_address[1]!=0) 
+	{
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_VALUE7, &bit_masks[7])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_VALUE6, &bit_masks[6])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_VALUE5, &bit_masks[5])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_VALUE4, &bit_masks[4])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_VALUE3, &bit_masks[3])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_VALUE2, &bit_masks[2])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_VALUE1, &bit_masks[1])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_VALUE0, &bit_masks[0])) return FALSE;
+
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_INGORE7, &ignore_masks[7])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_INGORE6, &ignore_masks[6])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_INGORE5, &ignore_masks[5])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_INGORE4, &ignore_masks[4])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_INGORE3, &ignore_masks[3])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_INGORE2, &ignore_masks[2])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_INGORE1, &ignore_masks[1])) return FALSE;
+      if(!tcp->Write32(board_address[1] + ECAL_TRIG_INGORE0, &ignore_masks[0])) return FALSE;
+	}
+  }
+#endif
 
   return TRUE;
 }
 
 BOOL ScopeDlg::ReadScope(UInt_t addr, UInt_t *buf, Int_t len)
 {
+#ifdef OLDOLD
   if(!tcpvme->m_bConnected) return FALSE;
+#endif
 
   printf("ScopeDlg::ReadScope reached, len=%d\n",len);
   unsigned int val;
+#ifdef OLDOLD
   tcpvme->VMERead32(addr + 0x2000, &val);
+#else
+  tcp->Read32(addr + 0x2000, &val);
+#endif
   printf("'Global' Firmware Revision: V%u.%u\n", (unsigned int)(val>>8), (unsigned int)(val & 0xFF));
 
   len=len/8;
   printf("---------------------------- len=%d\n",len); /*128*/
 
+
   /* Break into pieces - 5500 CPU otherwise drops connection with larger transfers...*/
+#ifdef OLDOLD
   if(!(tcpvme->VMEBlkRead32(addr + ECAL_TRIG_BUFFER, len, &buf[len*0], 1))) return FALSE;
   if(!(tcpvme->VMEBlkRead32(addr + ECAL_TRIG_BUFFER, len, &buf[len*1], 1))) return FALSE;
   if(!(tcpvme->VMEBlkRead32(addr + ECAL_TRIG_BUFFER, len, &buf[len*2], 1))) return FALSE;
@@ -1140,6 +1256,16 @@ BOOL ScopeDlg::ReadScope(UInt_t addr, UInt_t *buf, Int_t len)
   if(!(tcpvme->VMEBlkRead32(addr + ECAL_TRIG_BUFFER, len, &buf[len*5], 1))) return FALSE;
   if(!(tcpvme->VMEBlkRead32(addr + ECAL_TRIG_BUFFER, len, &buf[len*6], 1))) return FALSE;
   if(!(tcpvme->VMEBlkRead32(addr + ECAL_TRIG_BUFFER, len, &buf[len*7], 1))) return FALSE;
+#else
+  if(!(tcp->Read32(addr + ECAL_TRIG_BUFFER, &buf[len*0], len, CRATE_MSG_FLAGS_NOADRINC))) return FALSE;
+  if(!(tcp->Read32(addr + ECAL_TRIG_BUFFER, &buf[len*1], len, CRATE_MSG_FLAGS_NOADRINC))) return FALSE;
+  if(!(tcp->Read32(addr + ECAL_TRIG_BUFFER, &buf[len*2], len, CRATE_MSG_FLAGS_NOADRINC))) return FALSE;
+  if(!(tcp->Read32(addr + ECAL_TRIG_BUFFER, &buf[len*3], len, CRATE_MSG_FLAGS_NOADRINC))) return FALSE;
+  if(!(tcp->Read32(addr + ECAL_TRIG_BUFFER, &buf[len*4], len, CRATE_MSG_FLAGS_NOADRINC))) return FALSE;
+  if(!(tcp->Read32(addr + ECAL_TRIG_BUFFER, &buf[len*5], len, CRATE_MSG_FLAGS_NOADRINC))) return FALSE;
+  if(!(tcp->Read32(addr + ECAL_TRIG_BUFFER, &buf[len*6], len, CRATE_MSG_FLAGS_NOADRINC))) return FALSE;
+  if(!(tcp->Read32(addr + ECAL_TRIG_BUFFER, &buf[len*7], len, CRATE_MSG_FLAGS_NOADRINC))) return FALSE;
+#endif
 
   return TRUE;
 }

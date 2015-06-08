@@ -1,6 +1,9 @@
 
 /* codaRegistry.c; flag USE_TK is used to distinguish C version from Tk one */
 
+#include <stdio.h>
+#include <stdint.h>
+
 #include <X11/Intrinsic.h>
 #include <X11/Xatom.h>
 #include <X11/StringDefs.h>
@@ -196,7 +199,7 @@ codaRegOpen(display, lock)
 {
     NameRegistry *regPtr;
     int result, actualFormat;
-    unsigned long bytesAfter;
+    uint32_t bytesAfter;
     Atom registryProperty, actualType;
     
     regPtr = (NameRegistry *) malloc(sizeof(NameRegistry));
@@ -528,7 +531,7 @@ ValidateWindowName(display, name, commWindow, oldOK)
 				 * 0 means consider these invalid. */
 {
     int result, actualFormat, argc, i;
-    unsigned long length, bytesAfter;
+    uint32_t length, bytesAfter;
     Atom appNameProperty,actualType;
     char *property;
 
@@ -999,7 +1002,7 @@ motifHandler(Widget w,XtPointer p,XEvent *eventPtr)
   Atom commProperty = XInternAtom(XtDisplay(w),"COMM",False);
   char *propInfo;
   int result, actualFormat;
-  unsigned long numItems, bytesAfter;
+  uint32_t numItems, bytesAfter;
   Atom actualType;
 
   if ((eventPtr->xproperty.atom != commProperty)
@@ -1099,7 +1102,7 @@ SendEventProc(ClientData clientData, XEvent *eventPtr)
   char *propInfo;
   register char *p;
   int result, actualFormat;
-  unsigned long numItems, bytesAfter;
+  uint32_t numItems, bytesAfter;
   Atom actualType;
   Atom commProperty = XInternAtom(Tk_Display(window),"COMM",False);
 
@@ -1309,7 +1312,7 @@ SendEventProc(clientData, eventPtr)
     char *propInfo;
     register char *p;
     int result, actualFormat;
-    unsigned long numItems, bytesAfter;
+    uint32_t numItems, bytesAfter;
     Atom actualType;
     Atom commProperty = XInternAtom(Tk_Display(window),"COMM",False);
 

@@ -13,3 +13,4 @@ common/
 *.so
 *.a
 *.his
+src/rc64/

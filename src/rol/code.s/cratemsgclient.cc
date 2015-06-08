@@ -18,6 +18,10 @@
 #include "libtcp.h"
 #include "libdb.h"
 
+/*
+#define DEBUG_PRINT 1
+*/
+
 #define MAX_DWORD_TRANSFER	160
 
 static void
