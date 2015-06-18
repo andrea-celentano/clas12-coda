@@ -101,7 +101,7 @@ typedef struct rotated_text_item_template {
     float *corners_x;
     float *corners_y;
     
-    long int size;
+  /*sergey long*/ int size;
     int cached;
 
     struct rotated_text_item_template *next;
@@ -881,7 +881,7 @@ static RotatedTextItem *XRotRetrieveFromCache(dpy, font, angle, text, align)
 {
     Font fid;
     char *font_name=NULL;
-    unsigned long name_value;
+    unsigned /*sergey long*/int    name_value;
     RotatedTextItem *item=NULL;
     RotatedTextItem *i1=first_text_item;
     
@@ -1336,7 +1336,7 @@ static void XRotAddToLinkedList(dpy, item)
 #endif
 {
     
-    static long int current_size=0;
+  static /*sergey long*/ int current_size=0;
     static RotatedTextItem *last=NULL;
     RotatedTextItem *i1=first_text_item, *i2=NULL;
 

@@ -678,8 +678,8 @@ main(int argc, char **argv)
 
 
 
-  while(1)
-  {
+while(1)
+{
   sprintf(filename,"%s.%d",argv[1],nfile++);
   printf("opening data file >%s<\n",filename);
 
@@ -1111,7 +1111,7 @@ main(int argc, char **argv)
 
   if(iev>=MAXEVENTS) break;
 
-  } /*while(1)*/
+} /*while(1)*/
 
 
   exit(0);

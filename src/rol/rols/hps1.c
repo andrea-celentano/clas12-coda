@@ -219,7 +219,6 @@ static int error_flag[NBOARDS];
 static int ndsc2=0, ndsc2_daq=0;
 static int ntdcs;
 
-static unsigned int NBsubtract = 9; /*same for v1190 and v1290 ?*/
 
 int
 getTdcTypes(int *typebyslot)
@@ -1578,7 +1577,7 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   int nev, rlenbuf[22];
   unsigned long tdcslot, tdcchan, tdcval, tdc14, tdcedge, tdceventcount;
   unsigned long tdceventid, tdcbunchid, tdcwordcount, tdcerrorflags;
-  unsigned int *tdchead, nbsubtract;
+  unsigned int *tdchead;
 #ifdef SLOTWORKAROUND
   unsigned long tdcslot_h, tdcslot_t, remember_h;
 #endif

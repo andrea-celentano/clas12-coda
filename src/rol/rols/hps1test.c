@@ -9,7 +9,7 @@ UDP_cancel: cancel >inf:hps1 sys 0, mask 21<
 wait: request in progress
 */
 
-/* hps1.c */
+/* hps1test.c */
 
 #if defined(VXWORKS) || defined(Linux_vme)
 
@@ -23,12 +23,11 @@ tcpClient adcecal1 'tiInit(0xa80000,3,0)'
 coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 */
 
-
 #define SSIPC
 
 #undef DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
 
-/* hps1.c - first readout list for VXS crates with FADC250 and new TI */
+/* hps1test.c - first readout list for VXS crates with FADC250 and new TI */
 
 #define USE_FADC250
 #define USE_DSC2
@@ -38,6 +37,7 @@ coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 /*#define USE_DC*/
 #define USE_DCRB
 #define USE_VETROC
+#define USE_MVT
 
 /* if event rate goes higher then 10kHz, with random triggers we have wrong
 slot number reported in GLOBAL HEADER and/or GLOBAL TRAILER words; to work
@@ -64,6 +64,7 @@ typedef      long long       hrtime_t;
 #ifdef SSIPC
 #include <rtworks/ipc.h>
 #include "epicsutil.h"
+static char ssname[80];
 #endif
 
 
@@ -80,7 +81,6 @@ typedef      long long       hrtime_t;
 
 /* main TI board */
 #define TI_ADDR   (21<<19)  /* if 0 - default will be used, assuming slot 21*/
-
 
 
 /* name used by loader */
@@ -122,8 +122,12 @@ void usrtrig_done();
 static int nssp;   /* Number of SSPs found with sspInit(..) */
 #endif
 
+#ifdef USE_MVT
+#include "mvtLib.h"
+static int nmvt;   /* Number of MVT SSPs found with mvtInit(..) */
+#endif
+
 static char rcname[5];
-static char ssname[80];
 
 #define NBOARDS 22    /* maximum number of VME boards: we have 21 boards, but numbering starts from 1 */
 #define MY_MAX_EVENT_LENGTH 3000/*3200*/ /* max words per board */
@@ -136,7 +140,6 @@ extern unsigned int dabufp_physmembase;
 /*#endif*/
 
 extern int rocMask; /* defined in roc_component.c */
-
 #define NTICKS 1000 /* the number of ticks per second */
 /*temporary here: for time profiling */
 
@@ -187,8 +190,6 @@ extern int rocMask; /* defined in roc_component.c */
 
 #endif
 
-
-
 void
 tsleep(int n)
 {
@@ -221,7 +222,6 @@ static int error_flag[NBOARDS];
 static int ndsc2=0, ndsc2_daq=0;
 static int ntdcs;
 
-static unsigned int NBsubtract = 9; /*same for v1190 and v1290 ?*/
 
 int
 getTdcTypes(int *typebyslot)
@@ -284,6 +284,11 @@ static unsigned int dcSlotMask; /* bit=slot (starting from 0) */
 #ifdef USE_SSP
 static unsigned int sspSlotMask = 0; /* bit=slot (starting from 0) */
 static int SSP_SLOT;
+#endif
+
+#ifdef USE_MVT
+static unsigned int mvtSlotMask = 0; /* bit=slot (starting from 0) */
+static int MVT_SLOT;
 #endif
 
 #ifdef USE_VSCM
@@ -392,9 +397,16 @@ __download()
   CDOINIT(TIPRIMARY,TIR_SOURCE);
 #endif
 
+
+  /************/
+  /* init daq */
+
+  daqInit();
+  DAQ_READ_CONF_FILE;
+
+
   /*************************************/
   /* redefine TI settings if neseccary */
-
 
 #ifndef TI_SLAVE
   /* TS 1-6 create physics trigger, no sync event pin, no trigger 2 */
@@ -407,21 +419,6 @@ vmeBusUnlock();
 
   /*********************************************************/
   /*********************************************************/
-
-
-#if 0
-  /* for timing measurements in FADC250s */
-  tiSetTriggerHoldoff(1,5,0);   /* No more than 1 trigger within 80 ns */
-  tiSetTriggerHoldoff(4,41,0);  /* No more than 4 triggers within 656 ns */
-#endif
-vmeBusLock();
-/* NOW SET IN TI CONFIG FILE - DO NOT SET IN HERE */
-/*  tiSetTriggerHoldoff(1,10,0); */   /* No more than 1 trigger within 160 ns */
-/*  tiSetTriggerHoldoff(1,20,1); */   /* No more than 1 trigger within 10000 ns */
-/*  tiSetTriggerHoldoff(1,50,1); */  /* No more than 1 trigger within 25000 ns */
-/*  tiSetTriggerHoldoff(2,20,1); */   /* No more than 2 triggers within 10000 ns */
-vmeBusUnlock();
-
 
 
 
@@ -522,6 +519,8 @@ vmeBusUnlock();
 
    */
 
+
+
   NFADC = 16 + 2; /* 16 slots + 2 (for the switch slots) */
 
   /* NOTE: starting from 'fadcA32Base' address, memory chunks size=FA_MAX_A32_MEM(=0x800000)
@@ -552,6 +551,7 @@ v1495: 0x11xx0000, where xx follows the same scheme as FADCs
 v1190: 0x11xx0000, where xx follows the same scheme as FADCs
 
 */
+
 
   /* Setup the iFlag.. flags for FADC initialization */
   iFlag = 0;
@@ -627,7 +627,7 @@ vmeBusUnlock();
 
     /* 1) Load FADC pedestals from file for trigger path.
        2) Offset FADC threshold for each channel based on pedestal for both readout and trigger */
-	if( rol->pid!=46 && rol->pid!=37 && rol->pid!=39 && rol->pid!=58)
+	if(rol->pid>36 && rol->pid!=46 && rol->pid!=37 && rol->pid!=39 && rol->pid!=58)
     {
 vmeBusLock();
       faGLoadChannelPedestals(getFadcPedsFilename(rol->pid), 1);
@@ -698,6 +698,55 @@ vmeBusUnlock();
 #endif
 
 
+#ifdef USE_V1190
+  printf("V1190 Download() starts =========================\n");
+
+vmeBusLock();
+  ntdcs = tdc1190Init(0x11100000,0x80000,20,0);
+vmeBusUnlock();
+  if(ntdcs>0) TDC_READ_CONF_FILE;
+
+  for(ii=0; ii<ntdcs; ii++)
+  {
+    slot = tdc1190Slot(ii);
+    tdctypebyslot[slot] = tdc1190Type(ii);
+    printf(">>> id=%d slot=%d type=%d\n",ii,slot,tdctypebyslot[slot]);
+  }
+
+
+#ifdef SLOTWORKAROUND
+  for(ii=0; ii<ntdcs; ii++)
+  {
+vmeBusLock();
+    slot = tdc1190GetGeoAddress(ii);
+vmeBusUnlock();
+	slotnums[ii] = slot;
+    printf("[%d] slot %d\n",ii,slotnums[ii]);
+  }
+#endif
+
+
+  /* if TDCs are present, set busy from P2 */
+  if(ntdcs>0)
+  {
+    printf("Set BUSY from P2 for TDCs\n");
+vmeBusLock();
+    tiSetBusySource(TI_BUSY_P2,0);
+vmeBusUnlock();
+  }
+
+  for(ii=0; ii<ntdcs; ii++)
+  {
+vmeBusLock();
+    tdc1190Clear(ii);
+vmeBusUnlock();
+    error_flag[ii] = 0;
+  }
+
+  printf("V1190 Download() ends =========================\n\n");
+#endif
+
+
 #ifdef USE_VSCM
   printf("VSCM Download() starts =========================\n");
 #ifndef VXWORKS
@@ -722,7 +771,6 @@ vmeBusUnlock();
     slot = vscmSlot(ii);      /* Grab the current module's slot number */
     vscmSlotMask |= (1<<slot); /* Add it to the mask */
   }
-
   printf("VSCM Download() ends =========================\n\n");
 #endif
 
@@ -796,12 +844,40 @@ vmeBusUnlock();
   printf("DC Download() ends =========================\n\n");
 #endif
 
+
+
+
+#ifdef USE_MVT
+  printf("\nMVT: start\n\n");
+  nmvt = mvtDownload();
+  /* have to be mvtInit(0x08100000,0x80000,20,0); */
+  printf("\nMVT: found %d boards\n\n",nmvt);
+  /*
+  mvtSlotMask=0;
+  for(id=0; id<nmvt; id++)
+  {
+    MVT_SLOT = mvtSlot(id);
+    mvtSlotMask |= (1<<MVT_SLOT);
+    printf("=======================> mvtSlotMask=0x%08x\n",mvtSlotMask);
+  }
+*/
+  /*
+vmeBusLock();
+  sdInit(1);
+  sdSetActiveVmeSlots(mvtSlotMask);
+  sdStatus();
+vmeBusUnlock();
+*/
+#endif
+
+
+
   sprintf(rcname,"RC%02d",rol->pid);
   printf("rcname >%4.4s<\n",rcname);
 
 #ifdef SSIPC
   sprintf(ssname,"%s_%s",getenv("HOST"),rcname);
-  epics_msg_sender_init("clastest0"/*getenv("EXPID")*/, ssname); /* SECOND ARG MUST BE UNIQUE !!! */
+  epics_msg_sender_init(getenv("EXPID"), ssname); /* SECOND ARG MUST BE UNIQUE !!! */
 #endif
 
   logMsg("INFO: User Download Executed\n",1,2,3,4,5,6);
@@ -849,6 +925,7 @@ __prestart()
 #ifndef TI_SLAVE
 vmeBusLock();
   tiSetBusySource(TI_BUSY_LOOPBACK,0);
+  /*tiSetBusySource(TI_BUSY_FP,0);*/
 vmeBusUnlock();
 #endif
 
@@ -866,55 +943,6 @@ vmeBusUnlock();
 
 
 
-#ifdef USE_V1190
-  printf("V1190 Prestart() starts =========================\n");
-
-vmeBusLock();
-  ntdcs = tdc1190Init(0x11100000,0x80000,20,0);
-vmeBusUnlock();
-  if(ntdcs>0) TDC_READ_CONF_FILE;
-
-  for(ii=0; ii<ntdcs; ii++)
-  {
-    slot = tdc1190Slot(ii);
-    tdctypebyslot[slot] = tdc1190Type(ii);
-    printf(">>> id=%d slot=%d type=%d\n",ii,slot,tdctypebyslot[slot]);
-  }
-
-
-#ifdef SLOTWORKAROUND
-  for(ii=0; ii<ntdcs; ii++)
-  {
-vmeBusLock();
-    slot = tdc1190GetGeoAddress(ii);
-vmeBusUnlock();
-	slotnums[ii] = slot;
-    printf("[%d] slot %d\n",ii,slotnums[ii]);
-  }
-#endif
-
-
-  /* if TDCs are present, set busy from P2 */
-  if(ntdcs>0)
-  {
-    printf("Set BUSY from P2 for TDCs\n");
-vmeBusLock();
-    tiSetBusySource(TI_BUSY_P2,0);
-vmeBusUnlock();
-  }
-
-  for(ii=0; ii<ntdcs; ii++)
-  {
-vmeBusLock();
-    tdc1190Clear(ii);
-vmeBusUnlock();
-    error_flag[ii] = 0;
-  }
-
-  printf("V1190 Prestart() ends =========================\n\n");
-#endif
-
-
 #ifdef USE_VSCM
   printf("VSCM Prestart() start =========================\n");
 
@@ -924,15 +952,19 @@ vmeBusUnlock();
     printf("Set BUSY from SWB for FADCs\n");
 vmeBusLock();
     tiSetBusySource(TI_BUSY_SWB,0);
-	 sdSetActiveVmeSlots(vscmSlotMask);
-/*	 sdSetTrigoutLogic(0, 1);	*/	/* SD Trigout when VSCM multiplicity >= 1 */
-	 sdSetTrigoutLogic(0, 2);		/* SD Trigout when VSCM multiplicity >= 2 */
+	sdSetActiveVmeSlots(vscmSlotMask);
+	 
+    if(rol->pid == 4) sdSetTrigoutLogic(0, 2); /* SD Trigout when VSCM multiplicity >= 2 - DO FOR SVT4: R1+R2*/
+    else              sdSetTrigoutLogic(0, 1); /* SD Trigout when VSCM multiplicity >= 1 - DO FOR SVT5: R3*/
 vmeBusUnlock();
 
+    VSCM_READ_CONF_FILE;
+/*
     printf("vscmPrestart ...\n"); fflush(stdout);
 //   vscmPrestart("VSCMConfig_ben_cosmic.txt");
     vscmPrestart("VSCMConfig.txt");
     printf("vscmPrestart done\n"); fflush(stdout);
+*/
   }
 
   printf("VSCM Prestart() ends =========================\n\n");
@@ -998,7 +1030,7 @@ vmeBusLock();
   ndcrb = dcrbInit((4<<19), 0x80000, 16+2, 7); /* 7 boards from slot 4, 7 boards from slot 13 */
   if(ndcrb>0)
   {
-    dcrbGSetDAC(-30); /* threshold in mV */
+    dcrbGSetDAC(-150); /* threshold in mV */
     dcrbGSetProcMode(/*4000*/2000,/*4000*/2000,32);
   }
 vmeBusUnlock();
@@ -1336,6 +1368,43 @@ vmeBusUnlock();
   }
 #endif
 
+
+
+#ifdef USE_MVT
+  /*
+  for(id=0; id<nmvt; id++)
+  {
+    slot = mvtSlot(id);
+vmeBusLock();
+    mvtSetBlockLevel(slot, block_level);
+vmeBusUnlock();
+  }
+  */
+  if(nmvt>0)
+  {
+    mvtPrestart();
+	/*
+    if(nmvt>0)
+    {
+      MVT_READ_CONF_FILE;
+    }
+	*/
+  }
+  /*
+  for(id=0; id<nmvt; id++)
+  {
+    slot = mvtSlot(id);
+vmeBusLock();
+    mvtSetBlockLevel(slot, block_level);
+    mvtGetBlockLevel(slot);
+vmeBusUnlock();
+  }
+  */
+#endif
+
+
+
+
 vmeBusLock();
   tiStatus(1);
 vmeBusUnlock();
@@ -1397,6 +1466,15 @@ vmeBusLock();
 vmeBusUnlock();
 #endif
 
+
+#ifdef USE_MVT
+  if(nmvt>0)
+  {
+    mvtEnd();
+  }
+#endif
+
+
 vmeBusLock();
   tiStatus(1);
 vmeBusUnlock();
@@ -1426,7 +1504,7 @@ __go()
 #ifndef TI_SLAVE
   /* set sync event interval (in blocks) */
 vmeBusLock();
- tiSetSyncEventInterval(100/*00*/);
+ tiSetSyncEventInterval(10000/*block_level*/);
 vmeBusUnlock();
 #endif
 
@@ -1550,6 +1628,15 @@ vmeBusUnlock();
   }
 #endif
 
+
+#ifdef USE_MVT
+  if(nmvt>0)
+  {
+    mvtGo();
+  }
+#endif
+
+
   /* always clear exceptions */
   jlabgefClearException(1);
 
@@ -1583,7 +1670,7 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   int nev, rlenbuf[22];
   unsigned long tdcslot, tdcchan, tdcval, tdc14, tdcedge, tdceventcount;
   unsigned long tdceventid, tdcbunchid, tdcwordcount, tdcerrorflags;
-  unsigned int *tdchead, nbsubtract;
+  unsigned int *tdchead;
 #ifdef SLOTWORKAROUND
   unsigned long tdcslot_h, tdcslot_t, remember_h;
 #endif
@@ -1747,6 +1834,48 @@ vmeBusUnlock();
 #endif /* USE_V1190 */
 
 
+#ifdef USE_MVT
+    if(nmvt>0)
+   {
+      for(itime=0; itime<100000; itime++) 
+	  {
+vmeBusLock();
+	    gbready = mvtGBReady(rol->pid);
+vmeBusUnlock();
+	    stat = (gbready == mvtSlotMask);
+	    if (stat>0) 
+	    {
+	      break;
+	    }
+#ifdef DEBUG
+		else
+		{
+          printf("MVT NOT READY: gbready=0x%08x, expect 0x%08x\n",gbready,mvtSlotMask);
+		}
+#endif
+	  }
+
+	  /*
+vmeBusLock();
+     gbready = mvtGBReady();
+vmeBusUnlock();
+	  */
+
+
+vmeBusLock();
+      len = mvtReadBlock(rol->pid,tdcbuf,1000000,1);
+vmeBusUnlock();
+	  
+	  
+      if(len>0)
+      {
+        BANKOPEN(0xe118,1,rol->pid);
+        for(jj=0; jj<len; jj++) *rol->dabufp++ = tdcbuf[jj];
+        BANKCLOSE;
+      }
+
+   }
+#endif
 
 
 
@@ -2687,6 +2816,19 @@ vmeBusUnlock();
 	  }
 #endif
 
+#ifdef USE_VSCM
+	  if(nvscm1>0)
+	  {
+vmeBusLock();
+        len = vscmUploadAll(chptr, 65535);
+vmeBusUnlock();
+        /*printf("\nVSCM len=%d\n",len);
+        printf("%s\n",chptr);*/
+        chptr += len;
+        nbytes += len;
+	  }
+#endif
+
 
 #ifdef USE_SSP
       if(nssp>0)
@@ -2700,6 +2842,19 @@ vmeBusUnlock();
         nbytes += len;
 	  }
 #endif
+
+	  /*
+#ifdef USE_MVT
+      if(nmvt>0)
+      {
+vmeBusLock();
+        len = mvtUploadAll(chptr, 10000);
+vmeBusUnlock();
+        chptr += len;
+        nbytes += len;
+	  }
+#endif
+	  */
 
 
 	  /* temporary for crates with GTP */
@@ -2780,22 +2935,39 @@ vmeBusUnlock();
         int status, mm;
         unsigned int dd[72];
         for(mm=0; mm<72; mm++) dd[mm] = tdcbuf[mm];
-        printf("sending msg ...\n");
         status = epics_msg_send("hallb_dsc2_hps2_slot2","uint",72,dd);
 	  }
 #endif
-
         /* unlike other boards, dcs2 scaler readout already swapped in 'dsc2ReadScalers', so swap it back, because
         hps2.c expects big-endian format*/
         for(ii=0; ii<nwords; ii++) *rol->dabufp ++ = LSWAP(tdcbuf[ii]);
       }
       BANKCLOSE;
 	  }
+
 #endif
 	}
 
 
-
+#ifndef TI_SLAVE
+    /* print livetite */
+    if(syncFlag==1)
+	{
+      int livetime, live_percent;
+vmeBusLock();
+      tiLatchTimers();
+      livetime = tiLive(0);
+vmeBusUnlock();
+      live_percent = livetime/10;
+	  printf("============= Livetime=%3d percent\n",live_percent);
+#ifdef SSIPC
+	  {
+        int status;
+        status = epics_msg_send("hallb_livetime","int",1,&live_percent);
+	  }
+#endif
+	}
+#endif
 
 
 

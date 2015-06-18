@@ -29,7 +29,7 @@
 
 extern char *mysql_host;
 
-extern unsigned long *dataSent; /* see coda_component.c */
+extern unsigned int *dataSent; /* see coda_component.c */
 
 int deflt; /* 1 for CODA format, 0 for BOS format (see coda_eb_inc.c) */
 #ifdef USE_128
@@ -312,7 +312,7 @@ LINK_sized_read(int fd, char **buf, hrtime_t tprof[NPROFMAX])
   int rembytes;	/* remaining bytes */
   int n_retries = 0;
   int n_retry2;
-  unsigned long netlong;	/* network byte ordered length */
+  unsigned int netlong;	/* network byte ordered length */
   char *bufferp = 0;
   unsigned int lwd, magic;
   unsigned int *bigbuf;
@@ -466,7 +466,7 @@ end1 = gethrtime();
   if(size == 0)
   {
   	/* GHGHGH */
-  	unsigned long *p;
+  	unsigned int *p;
   	printf("LINK_sized_read(): WARNING: zero length block from ROC\n");
     fflush(stdout);
 #ifndef NOALLOC
@@ -477,7 +477,7 @@ end1 = gethrtime();
       fflush(stdout);
     }
 #endif
-    p = (unsigned long *) *buf;
+    p = (unsigned int *) *buf;
     p[BBIWORDS]  = -1;
     p[BBIBUFNUM] = -1;
     p[BBIROCID]  = -1;
@@ -511,8 +511,8 @@ end1 = gethrtime();
 #endif
 
   /* Sergey: CHANGE THIS IF BIGBUFS CHANGED IN roc_component.c */
-  *((unsigned long *) *buf) = (size >> 2); /* put buffer size in 1st word */
-  /*printf("12345: %d (%d 0x%08x)\n",*((unsigned long *) *buf),size,*buf);fflush(stdout);*/
+  *((unsigned int *) *buf) = (size >> 2); /* put buffer size in 1st word */
+  /*printf("12345: %d (%d 0x%08x)\n",*((unsigned int *) *buf),size,*buf);fflush(stdout);*/
   bufferp = *buf/* + sizeof(size)*/;           /* set pointer to 2nd word */
 
 
@@ -720,7 +720,7 @@ handle_link(trArg arg)
   int numRead;
   int headerSize;
   char *errMsg;
-  signed long *buf_long_p;
+  signed int *buf_long_p;
   int count, i, itmp;
   char *buf;
   char ipaddress[20];

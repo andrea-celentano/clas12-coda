@@ -129,20 +129,17 @@ gotControlEvent(et_event **pe, int size)
 
 #undef DEBUG
  
-#define NWPAWC 20000000 /* Length of the PAWC common block. */
+#define NWPAWC 2000000 /* Length of the PAWC common block. */
 #define LREC 1024      /* Record length in machine words. */
 
 struct {
   float hmemor[NWPAWC];
 } pawc_;
 
-struct {
-  int iquest[100];
-} quest_;
 
 
 #define MAXEVENTS 10000000
-#define MAXNTUPEVENTS 100000 /* max events in one ntuple file */
+#define MAXNTUPEVENTS 150000 /* max events in one ntuple file */
 
 #define MAXBUF 10000000
 unsigned int buf[MAXBUF];
@@ -271,8 +268,6 @@ evNlink(unsigned int *buf, int frag, int tag, int num, int *nbytes)
 
 
 /*translation tables: args - board#/chan, funcs - layer/slab */
-
-
 
 
 /* adcs */
@@ -431,202 +426,198 @@ main(int argc, char **argv)
   int nprime = 4096;
   char chtags[LENEVENT][8] = {
     "iev     ",
-
-	"tdcD01",
-	"tdcD02",
-	"tdcD03",
-	"tdcD04",
-	"tdcD05",
-	"tdcD06",
-	"tdcD07",
-	"tdcD08",
-	"tdcD09",
-	"tdcD10",
-	"tdcD11",
-	"tdcD12",
-	"tdcD13",
-	"tdcD14",
-	"tdcD15",
-	"tdcD16",
-	"tdcD17",
-	"tdcD18",
-	"tdcD19",
-	"tdcD20",
-	"tdcD21",
-	"tdcD22",
-	"tdcD23",
-	"tdcD24",
-	"tdcD25",
-	"tdcD26",
-	"tdcD27",
-	"tdcD28",
-	"tdcD29",
-	"tdcD30",
-	"tdcD31",
-	"tdcD32",
-	"tdcD33",
-	"tdcD34",
-	"tdcD35",
-	"tdcD36",
-	"tdcD37",
-	"tdcD38",
-	"tdcD39",
-	"tdcD40",
-	"tdcD41",
-	"tdcD42",
-	"tdcD43",
-	"tdcD44",
-	"tdcD45",
-	"tdcD46",
-	"tdcD47",
-	"tdcD48",
-
-	"tdcU01",
-	"tdcU02",
-	"tdcU03",
-	"tdcU04",
-	"tdcU05",
-	"tdcU06",
-	"tdcU07",
-	"tdcU08",
-	"tdcU09",
-	"tdcU10",
-	"tdcU11",
-	"tdcU12",
-	"tdcU13",
-	"tdcU14",
-	"tdcU15",
-	"tdcU16",
-	"tdcU17",
-	"tdcU18",
-	"tdcU19",
-	"tdcU20",
-	"tdcU21",
-	"tdcU22",
-	"tdcU23",
-	"tdcU24",
-	"tdcU25",
-	"tdcU26",
-	"tdcU27",
-	"tdcU28",
-	"tdcU29",
-	"tdcU30",
-	"tdcU31",
-	"tdcU32",
-	"tdcU33",
-	"tdcU34",
-	"tdcU35",
-	"tdcU36",
-	"tdcU37",
-	"tdcU38",
-	"tdcU39",
-	"tdcU40",
-	"tdcU41",
-	"tdcU42",
-	"tdcU43",
-	"tdcU44",
-	"tdcU45",
-	"tdcU46",
-	"tdcU47",
-	"tdcU48",
-
-	"adcD01",
-	"adcD02",
-	"adcD03",
-	"adcD04",
-	"adcD05",
-	"adcD06",
-	"adcD07",
-	"adcD08",
-	"adcD09",
-	"adcD10",
-	"adcD11",
-	"adcD12",
-	"adcD13",
-	"adcD14",
-	"adcD15",
-	"adcD16",
-	"adcD17",
-	"adcD18",
-	"adcD19",
-	"adcD20",
-	"adcD21",
-	"adcD22",
-	"adcD23",
-	"adcD24",
-	"adcD25",
-	"adcD26",
-	"adcD27",
-	"adcD28",
-	"adcD29",
-	"adcD30",
-	"adcD31",
-	"adcD32",
-	"adcD33",
-	"adcD34",
-	"adcD35",
-	"adcD36",
-	"adcD37",
-	"adcD38",
-	"adcD39",
-	"adcD40",
-	"adcD41",
-	"adcD42",
-	"adcD43",
-	"adcD44",
-	"adcD45",
-	"adcD46",
-	"adcD47",
-	"adcD48",
-
-	"adcU01",
-	"adcU02",
-	"adcU03",
-	"adcU04",
-	"adcU05",
-	"adcU06",
-	"adcU07",
-	"adcU08",
-	"adcU09",
-	"adcU10",
-	"adcU11",
-	"adcU12",
-	"adcU13",
-	"adcU14",
-	"adcU15",
-	"adcU16",
-	"adcU17",
-	"adcU18",
-	"adcU19",
-	"adcU20",
-	"adcU21",
-	"adcU22",
-	"adcU23",
-	"adcU24",
-	"adcU25",
-	"adcU26",
-	"adcU27",
-	"adcU28",
-	"adcU29",
-	"adcU30",
-	"adcU31",
-	"adcU32",
-	"adcU33",
-	"adcU34",
-	"adcU35",
-	"adcU36",
-	"adcU37",
-	"adcU38",
-	"adcU39",
-	"adcU40",
-	"adcU41",
-	"adcU42",
-	"adcU43",
-	"adcU44",
-	"adcU45",
-	"adcU46",
-	"adcU47",
-	"adcU48"
+	"tdcD01  ",
+	"tdcD02  ",
+	"tdcD03  ",
+	"tdcD04  ",
+	"tdcD05  ",
+	"tdcD06  ",
+	"tdcD07  ",
+	"tdcD08  ",
+	"tdcD09  ",
+	"tdcD10  ",
+	"tdcD11  ",
+	"tdcD12  ",
+	"tdcD13  ",
+	"tdcD14  ",
+	"tdcD15  ",
+	"tdcD16  ",
+	"tdcD17  ",
+	"tdcD18  ",
+	"tdcD19  ",
+	"tdcD20  ",
+	"tdcD21  ",
+	"tdcD22  ",
+	"tdcD23  ",
+	"tdcD24  ",
+	"tdcD25  ",
+	"tdcD26  ",
+	"tdcD27  ",
+	"tdcD28  ",
+	"tdcD29  ",
+	"tdcD30  ",
+	"tdcD31  ",
+	"tdcD32  ",
+	"tdcD33  ",
+	"tdcD34  ",
+	"tdcD35  ",
+	"tdcD36  ",
+	"tdcD37  ",
+	"tdcD38  ",
+	"tdcD39  ",
+	"tdcD40  ",
+	"tdcD41  ",
+	"tdcD42  ",
+	"tdcD43  ",
+	"tdcD44  ",
+	"tdcD45  ",
+	"tdcD46  ",
+	"tdcD47  ",
+	"tdcD48  ",
+	"tdcU01  ",
+	"tdcU02  ",
+	"tdcU03  ",
+	"tdcU04  ",
+	"tdcU05  ",
+	"tdcU06  ",
+	"tdcU07  ",
+	"tdcU08  ",
+	"tdcU09  ",
+	"tdcU10  ",
+	"tdcU11  ",
+	"tdcU12  ",
+	"tdcU13  ",
+	"tdcU14  ",
+	"tdcU15  ",
+	"tdcU16  ",
+	"tdcU17  ",
+	"tdcU18  ",
+	"tdcU19  ",
+	"tdcU20  ",
+	"tdcU21  ",
+	"tdcU22  ",
+	"tdcU23  ",
+	"tdcU24  ",
+	"tdcU25  ",
+	"tdcU26  ",
+	"tdcU27  ",
+	"tdcU28  ",
+	"tdcU29  ",
+	"tdcU30  ",
+	"tdcU31  ",
+	"tdcU32  ",
+	"tdcU33  ",
+	"tdcU34  ",
+	"tdcU35  ",
+	"tdcU36  ",
+	"tdcU37  ",
+	"tdcU38  ",
+	"tdcU39  ",
+	"tdcU40  ",
+	"tdcU41  ",
+	"tdcU42  ",
+	"tdcU43  ",
+	"tdcU44  ",
+	"tdcU45  ",
+	"tdcU46  ",
+	"tdcU47  ",
+	"tdcU48  ",
+	"adcD01  ",
+	"adcD02  ",
+	"adcD03  ",
+	"adcD04  ",
+	"adcD05  ",
+	"adcD06  ",
+	"adcD07  ",
+	"adcD08  ",
+	"adcD09  ",
+	"adcD10  ",
+	"adcD11  ",
+	"adcD12  ",
+	"adcD13  ",
+	"adcD14  ",
+	"adcD15  ",
+	"adcD16  ",
+	"adcD17  ",
+	"adcD18  ",
+	"adcD19  ",
+	"adcD20  ",
+	"adcD21  ",
+	"adcD22  ",
+	"adcD23  ",
+	"adcD24  ",
+	"adcD25  ",
+	"adcD26  ",
+	"adcD27  ",
+	"adcD28  ",
+	"adcD29  ",
+	"adcD30  ",
+	"adcD31  ",
+	"adcD32  ",
+	"adcD33  ",
+	"adcD34  ",
+	"adcD35  ",
+	"adcD36  ",
+	"adcD37  ",
+	"adcD38  ",
+	"adcD39  ",
+	"adcD40  ",
+	"adcD41  ",
+	"adcD42  ",
+	"adcD43  ",
+	"adcD44  ",
+	"adcD45  ",
+	"adcD46  ",
+	"adcD47  ",
+	"adcD48  ",
+	"adcU01  ",
+	"adcU02  ",
+	"adcU03  ",
+	"adcU04  ",
+	"adcU05  ",
+	"adcU06  ",
+	"adcU07  ",
+	"adcU08  ",
+	"adcU09  ",
+	"adcU10  ",
+	"adcU11  ",
+	"adcU12  ",
+	"adcU13  ",
+	"adcU14  ",
+	"adcU15  ",
+	"adcU16  ",
+	"adcU17  ",
+	"adcU18  ",
+	"adcU19  ",
+	"adcU20  ",
+	"adcU21  ",
+	"adcU22  ",
+	"adcU23  ",
+	"adcU24  ",
+	"adcU25  ",
+	"adcU26  ",
+	"adcU27  ",
+	"adcU28  ",
+	"adcU29  ",
+	"adcU30  ",
+	"adcU31  ",
+	"adcU32  ",
+	"adcU33  ",
+	"adcU34  ",
+	"adcU35  ",
+	"adcU36  ",
+	"adcU37  ",
+	"adcU38  ",
+	"adcU39  ",
+	"adcU40  ",
+	"adcU41  ",
+	"adcU42  ",
+	"adcU43  ",
+	"adcU44  ",
+	"adcU45  ",
+	"adcU46  ",
+	"adcU47  ",
+	"adcU48  "
   };
   float event[LENEVENT];
 
@@ -708,224 +699,6 @@ main(int argc, char **argv)
     runnum = atoi(ch);
     printf("run number is %s (%d)\n",ch,runnum);
   }
-
-  /*sprintf(HBOOKfilename,"ctofhist%d.his",runnum);*/
-  sprintf(HBOOKfilename,"ctofntup.his");
-  hropen_(&lun,"CTOF",HBOOKfilename,"N",&lrec,&istat,strlen("CTOF"),strlen(HBOOKfilename),1);
-  if(istat)
-  {
-    printf("\aError: cannot open RZ file %s for writing.\n", HBOOKfilename);fflush(stdout);
-    exit(0);
-  }
-  else
-  {
-    printf("RZ file >%s< opened for writing, istat = %d\n\n", HBOOKfilename, istat);fflush(stdout);
-  }
-
-
-
-
-
-
-  /*******************/
-  /* book histograms */
-
-
-  /* TDC for every slot/channel (1D) */
-  nbins=1800;
-  x1 = 0.;
-  x2 = 3600.;
-  ww = 0.;
-  for(ii=0; ii<6; ii++)
-  {
-    for(jj=0; jj<16; jj++)
-    {
-      idn = 100+ii*16+jj;
-      sprintf(title,"tdc%02d%02d",ii,jj);
-      hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
-    }
-  }
-  idn=11;
-  sprintf(title,"tdc_all");
-  hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
-
-  nbins=200;
-  x1 = 1400.;
-  x2 = 1600.;
-  ww = 0.;
-  idn=12;
-  sprintf(title,"tdc ref ns");
-  hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
-
-
-
-
-  /* ADC pedestals for every slot/channel (1D) */
-  nbins=100;
-  x1 = 0.;
-  x2 = 100.;
-  ww = 0.;
-  for(ii=0; ii<6; ii++)
-  {
-    for(jj=0; jj<16; jj++)
-    {
-      idn = 200+ii*16+jj;
-      sprintf(title,"adcraw%02d%02d",ii,jj);
-      hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
-    }
-  }
-
-
-  /* ADC pedestals for every slot/channel (1D) */
-  nbins=200;
-  x1 = 0.;
-  x2 = 400.;
-  ww = 0.;
-  for(ii=0; ii<6; ii++)
-  {
-    for(jj=0; jj<16; jj++)
-    {
-      idn = 300+ii*16+jj;
-      sprintf(title,"ped%02d%02d",ii,jj);
-      hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
-    }
-  }
-  idn=13;
-  sprintf(title,"adc_all");
-  hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
-
-
-  /* ADC for every slot/channel (1D) */
-  nbins=1000;
-  x1 = 0.;
-  x2 = 8000.;
-  ww = 0.;
-  for(ii=0; ii<6; ii++)
-  {
-    for(jj=0; jj<16; jj++)
-    {
-      idn = 400+ii*16+jj;
-      sprintf(title,"adc%02d%02d",ii,jj);
-      hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
-    }
-  }
-
-
-
-
-
-
-
-
-
-
-
-  /* TDC L and R for every layer/slab (1D) 23*6 idn=12100/12200/ 12300/12400/ 12500/12600 */
-  nbins=1800;
-  x1 = 0.;
-  x2 = 3600.;
-  ww = 0.;
-  for(jj=1; jj<=2; jj++)
-  {
-    for(kk=1; kk<=96; kk++)
-    {
-      idn = 1000+100*jj+kk;
-      sprintf(title,"tdc%02d%02d",jj,kk);
-      hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
-    }
-  }
-
-
-
-  /* ADC L and R for every layer/slab (1D) 23*6 idn= 13100/13200/ 13300/13400 /13500/13600 */
-  nbins=100;
-  x1 = 0.;
-  x2 = 8000.;
-  ww = 0.;
-  for(jj=1; jj<=2; jj++)
-  {
-    for(kk=1; kk<=96; kk++)
-    {
-      idn = 2000+100*jj+kk;
-      sprintf(title,"adc%02d%02d",jj,kk);
-      hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
-    }
-  }
-
-
-
-  /* TDCL vs TDCR for every layer/slab (2D) 23*3 vs 23*3 idn=14100/14200/14300 */
-  nbins=40;
-  nbins1=40;
-  x1 = 0.;
-  x2 = 360.;
-  y1 = 0.;
-  y2 = 360.;
-  ww = 0.;
-  for(kk=1; kk<=96; kk++)
-  {
-    idn = 3000+kk;
-    sprintf(title,"tdcLR%02d",kk);
-    hbook2_(&idn,title,&nbins,&x1,&x2,&nbins1,&y1,&y2,&ww,strlen(title));
-  }
-
-  /* TDCL minus TDCR for every layer/slab (2D) 23*3 vs 23*3 idn=14400/ 14500/ 14600 */
-  nbins=1000;
-  x1 = -500.;
-  x2 = 500.;
-  ww = 0.;
-  for(kk=1; kk<=96; kk++)
-  {
-    idn = 4000+kk;
-    sprintf(title,"tdcLminusR%02d",kk);
-    hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
-  }
-
-
-
-  /* ADCL vs ADCR for every layer/slab (2D) 23*3 vs 23*3 idn=5100/5200/5300 */
-  nbins=40;
-  nbins1=40;
-  x1 = 0.;
-  x2 = 8000.;
-  y1 = 0.;
-  y2 = 8000.;
-  ww = 0.;
-  for(kk=1; kk<=96; kk++)
-  {
-    idn = 5000+kk;
-    sprintf(title,"adcLR%02d",kk);
-    hbook2_(&idn,title,&nbins,&x1,&x2,&nbins1,&y1,&y2,&ww,strlen(title));
-  }
-
-
-
-  /* SQRT(ADCL * ADCR) for every layer/slab (1D) 23*3 idn=6100/6200/6300 */
-  nbins=1000;
-  x1 = 0.;
-  x2 = 8000.;
-  ww = 0.;
-  for(kk=1; kk<=96; kk++)
-  {
-    idn = 6000+kk;
-    sprintf(title,"sqrt%02d",kk);
-    hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
-  }
-
-
-  /* LN(ADCR/ADCL) for every layer/slab (1D) 23*3 idn=7100/7200/7300 */
-  nbins=200;
-  x1 = -10.;
-  x2 = 10.;
-  ww = 0.;
-  for(kk=1; kk<=96; kk++)
-  {
-    idn = 7000+kk;
-    sprintf(title,"ln%02d",kk);
-    hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
-  }
-
-
 
 
 
@@ -1010,6 +783,16 @@ while(1)
     if(status!=0)
     {
       printf("evOpen error %d - exit\n",status);
+
+      printf("Close ntyple file (event %d)\n",iev);
+
+      idn = 0;
+      printf("befor hrout_\n");fflush(stdout);
+      hrout_(&idn,&icycle," ",1);
+      printf("after hrout_\n");fflush(stdout);
+      hrend_("NTUPEL", 6);
+      printf("after hrend_\n");fflush(stdout);
+
       break;
     }
     maxevents = MAXEVENTS;
@@ -1130,13 +913,10 @@ a123:
         slot = (word>>27)&0x1F;
         edge = (word>>26)&0x1;
 	    chan = (word>>19)&0x3F;
-        val = (word&0x3FFFF)*TDCLSB;
+        val = word&0x3FFFF;
+        /*if(val>2000000)*/ /*printf("val=%d\n",val);*/
+        val = val * TDCLSB;
 
-        tmpx = ((float)val)/1000.;
-        ww = 1.;
-        idn = 100+(tdcslot2hist[slot]-1)*16+chan;
-        hf1_(&idn,&tmpx,&ww);
-		/*if(slot==16) printf("-- %d(%d) %d %d(%f)\n",slot,tdcslot2hist[slot],chan,val,tmpx);*/
         if(slot==9 && chan==14)
 		{
           /*printf("ot#2=%d\n",val)*/;
@@ -1145,12 +925,8 @@ a123:
 		{
           if(tdcref==0)
 		  {
-            tdcref=val;
-            /*printf("tdcref=%d\n",tdcref);*/
-            tmpx = ((float)tdcref)/1000.;
-            ww = 1.;
-            idn = 12;
-            hf1_(&idn,&tmpx,&ww);
+            tdcref = val;
+            /*printf("tdcref=%d\n",tdcref/TDCLSB);*/
 		  }
           else
 		  {
@@ -1171,8 +947,7 @@ a123:
         printf("TDC[0x%08x]:  slot=%2d  chan=%3d  edge=%1d  tdc=%5d(%f)  (hist_id=%d)\n",
 			   word,slot,chan,edge,val,(((float)val)/1000.),idn);
 #endif
-        idn = 11;
-	    hf1_(&idn,&tmpx,&ww);
+
 	  }
 	}
 
@@ -1232,7 +1007,7 @@ a123:
 #endif
 			}
 
-            if(mm>35 && mm<100)
+            if(mm>35 && mm<70)
             {
               if(summing_in_progress==0 && data>(baseline+20))
 			  {
@@ -1268,37 +1043,10 @@ a123:
 		  */
 
 
-		  /* fill raw adc hist only if there was a pulse */
-          if(/*1*/sum>0)
-		  {
-            for(mm=0; mm<nsamples; mm++)
-	        {
-              if(1/*slot < 17*/)
-              {
-                tmpx = (float)mm+0.5;
-                ww = (float)datasaved[mm];
-                idn = 200+(adcslot2hist[slot]-1)*16+chan;
-                hf1_(&idn,&tmpx,&ww);
-              }
-		    }
-		  }
-
 
 
 		  if(1/*slot < 17*/)
-		  {
-			ww = 1.;
-
-            tmpx = (float)sum;
-            idn = 400+(adcslot2hist[slot]-1)*16+chan;
-			/*printf("slot %d chan %d -> idn=%d tmpx=%f\n",slot,chan,idn,tmpx);*/
-            hf1_(&idn,&tmpx,&ww);
-
-            tmpx = (float)baseline;
-            idn = 300+(adcslot2hist[slot]-1)*16+chan;
-			/*printf("slot %d chan %d -> idn=%d tmpx=%f\n",slot,chan,idn,tmpx);*/
-            hf1_(&idn,&tmpx,&ww);
- 
+		  { 
             jj = adclr[slot][chan] - 1;
             kk = adcslab[slot][chan] - 1;
 			if(jj>=0 && sum > 0)
@@ -1346,12 +1094,6 @@ a123:
 		    /*printf("after: %d\n",tdc[jj][kk][nn]);*/
 		  }
 
-          if(ntdc[jj][kk]>1)
-		  {
-            ntdc[jj][kk] = 1;
-	  	    /*printf("ev %5d double tdc: %d %d %d -> %d\n",iev,jj,kk,tdc[jj][kk][1]);*/
-	  	  }
-
 	    }
 	  }
 	}
@@ -1386,8 +1128,11 @@ a123:
       hbookn_(&idn,"CTOF",&lenevent,"//NTUPEL",&nprime,chtags,strlen("CTOF"),8,8);
 	}
 
-	if(tdcref==0) goto a123456;
 
+
+	
+	if(tdcref==0) goto a123456;
+	
 
 
 
@@ -1400,8 +1145,15 @@ a123:
 		/*printf("tdc: jj=%d kk=%d ntup=%d\n",jj,kk,ntup);*/
         if(ntdc[jj][kk]>0 && event[ntup]<=0.00001)
         {
-          event[ntup] = (float)tdc[jj][kk][0];
-          /*printf("tdc=%f\n",event[ntup]);*/
+          for(nn=0; nn<ntdc[jj][kk]; nn++)
+		  {
+            if(tdc[jj][kk][nn]>0)
+			{
+              event[ntup] = (float)tdc[jj][kk][nn];
+              /*printf("tdc=%f\n",event[ntup]);*/
+		      if(event[ntup]<0.0001) {printf("tdc: jj=%d kk=%d ntup=%d\n",jj,kk,ntup);printf("tdc=%f\n",event[ntup]);}
+			}
+		  }
         }
         ntup += 96;
         /*printf("adc: jj=%d kk=%d ntup=%d\n",jj,kk,ntup);*/
@@ -1416,11 +1168,11 @@ a123:
 
 
 
-
-
-
-
 a123456:
+
+
+
+
 
 
     event[0] = iev;

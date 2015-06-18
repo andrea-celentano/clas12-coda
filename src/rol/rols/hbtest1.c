@@ -1,4 +1,16 @@
 
+/* TI before upgrade June 9 2015:
+TI firmware update via VME
+----------------------------
+tiGetSerialNumber: TI Serial Number is  (0x710000cd)
+ Board Serial Number from PROM usercode is: 0x710000cd (205) 
+  User ID: 0x7101       Firmware (version - revision): 0x2 - 0x024
+Press y to load firmware (mti91.svf) to the TI via VME...
+         or n to quit without update
+(y/n): y
+*/
+
+
 /* hbtest1.c - first readout list for VME64X crates with FADC250 and SDC (no SD) */
 
 #if defined(VXWORKS) || defined(Linux_vme)
@@ -29,6 +41,13 @@ coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 #undef USE_FADC250
 #undef DMA_TO_BIGBUF
 #endif
+
+
+
+
+#define USE_ADC792
+
+
 
 
 #undef DEBUG
@@ -106,7 +125,7 @@ void usrtrig_done();
 #include "coda.h"
 #include "tt.h"
 #include "scaler7201.h"
-#include "adc792.h"
+#include "c792Lib.h"
 #include "tdc1190.h"
 
 static char rcname[5];
@@ -123,6 +142,13 @@ static unsigned int *tdcbuf;
 #define NADCS 1
 static int nadcs;
 static unsigned long adcadr[4] = {0x180000, 0, 0, 0};
+#endif
+
+
+#ifdef USE_ADC792
+static int nadcs;
+#define ADC_ID 0
+#define MAX_ADC_DATA 34
 #endif
 
 
@@ -194,7 +220,6 @@ tsleep(int n)
 #else
 #endif
 }
-
 
 
 extern struct TI_A24RegStruct *TIp;
@@ -453,10 +478,13 @@ __download()
 
 
 
-
+#ifdef USE_ADC792
+  usrVmeDmaSetConfig(2,3,0); /*A32,MBLT*/
+#else
   usrVmeDmaSetConfig(2,5,1); /*A32,2eSST,267MB/s*/
   /*usrVmeDmaSetConfig(2,5,0);*/ /*A32,2eSST,160MB/s*/
   /*usrVmeDmaSetConfig(2,3,0);*/ /*A32,MBLT*/
+#endif
 
   tdcbuf = (unsigned int *)i2_from_rol1;
 
@@ -469,6 +497,8 @@ __download()
 #ifdef USE_ADC1182
   nadcs = adc1182init(adcadr, NADCS);
 #endif
+
+
 
 #ifdef USE_FADC250
 
@@ -725,9 +755,6 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
   BERR count (from module) = 0
 */
 
-
-
-
 #ifndef USE_SDC
   /***************************************
    *   SD SETUP
@@ -737,9 +764,15 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
   sdStatus();
 #endif
 
-
 #endif
 
+
+#ifdef USE_ADC792
+
+  nadcs = c792Init(0x11700000,0,1,0);
+  printf("ROL1: nadcs = %d\n\n",nadcs);
+
+#endif
 
   logMsg("INFO: User Download Executed\n",1,2,3,4,5,6);
 }
@@ -747,7 +780,7 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
 static void
 __prestart()
 {
-  int ii, i1, i2, i3;
+  int ii, jj, i1, i2, i3;
 #ifdef USE_FADC250
   int id, isl, ichan;
   unsigned short iflag;
@@ -896,6 +929,30 @@ faEnableSoftSync(0);
 faSync(0);
 /***********************************************/
 
+
+
+
+
+#ifdef USE_ADC792
+
+  /* CAEN v792 ADC start */
+
+  printf("Using ADC 792\n");
+
+  /* Setup ADCs (no sparcification, enable berr for block reads) */
+  c792Sparse(ADC_ID,0,0);
+  c792Clear(ADC_ID);
+  c792EnableBerr(ADC_ID);
+  c792Status(ADC_ID,0,0);
+
+  /* CAEN ADC end */
+
+#endif
+
+
+
+
+
   printf("INFO: Prestart1 Executed\n");fflush(stdout);
 
   *(rol->nevents) = 0;
@@ -987,10 +1044,15 @@ __go()
   for(jj=0; jj<nadcs; jj++) adc1182reset(jj);
 #endif
 
+#ifdef USE_ADC792
+  c792Clear(ADC_ID);
+#endif
+
   CDOENABLE(TIPRIMARY,TIR_SOURCE,0); /* bryan has (,1,1) ... */
 
   logMsg("INFO: Go 1 Executed\n",1,2,3,4,5,6);
 }
+
 
 #define NSSP 8
 
@@ -1010,6 +1072,10 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   int id;
   int idata;
   int stat, itime, gbready;
+#endif
+#ifdef USE_ADC792
+  unsigned int adcbuf[MAX_ADC_DATA];
+  int status, itimeout=0;
 #endif
 #ifdef DMA_TO_BIGBUF
     unsigned int pMemBase, uMemBase, mSize;
@@ -1265,9 +1331,6 @@ TIMERL_STOP(100000/block_level,1000+rol->pid);
 
 
 
-
-
-
 #ifdef USE_ADC1182
 
     /* wait for all ADCs to finish conversion */
@@ -1286,6 +1349,57 @@ TIMERL_STOP(100000/block_level,1000+rol->pid);
     for(ii=0; ii<nadcs; ii++) adc1182reset(ii);
 
 #endif
+
+
+#ifdef USE_ADC792
+
+    while(itimeout<1000)
+    {
+      itimeout++;
+vmeBusLock();
+      status = c792Dready(ADC_ID);
+vmeBusUnlock();
+      if(status>0) break;
+    }
+
+    if(status > 0) 
+    {
+vmeBusLock();
+      /*nwords = c792ReadEvent(ADC_ID,tdcbuf); */
+      /*nwords = c792ReadBlock(ADC_ID,tdcbuf,MAX_ADC_DATA);*/
+      nwords = c792ReadBlock(ADC_ID,tdcbuf,32768);
+vmeBusUnlock();
+      if(nwords<=0) 
+      {
+        printf("ERROR: ADC Read Failed - Status 0x%x\n",nwords);
+vmeBusLock();
+        c792Clear(ADC_ID);
+vmeBusUnlock();
+      } 
+      else 
+      {
+        /*printf("nwords=%d\n",nwords);*/
+        BANKOPEN(0xe117,1,rol->pid);
+        for(jj=0; jj</*34*/nwords; jj++) *rol->dabufp++ = tdcbuf[jj];
+        BANKCLOSE;
+      }
+    }
+    else
+    {
+      printf("ERROR: NO data in ADC792 datascan = 0x%x, itimeout=%d\n",status,itimeout);
+vmeBusLock();
+      c792Clear(ADC_ID);
+vmeBusUnlock();
+    }
+
+#endif
+
+
+
+
+
+
+
 
 #ifndef VXWORKS
 TIMERL_STOP(1000,0);

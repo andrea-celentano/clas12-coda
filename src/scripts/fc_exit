@@ -15,7 +15,7 @@ endif
 #set nn = 1$nnn
 
 set host_name = `echo $HOST `
-set nnn = 6
+set nnn = 2
 set nn = 1$nnn
 
 echo ""

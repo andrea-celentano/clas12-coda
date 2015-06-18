@@ -47,6 +47,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
 #include <X11/Shell.h>
@@ -608,36 +609,48 @@ static void script_dialog (w, data, cbs)
 }
 
 
+
+
+
 /************************************************************
- *    static void popdown_comp_attr_shell()                 *
+ *    static void popdown_comp_attr()                       *
  * Description:                                             *
  *    popdown component's attributes shell                  *
  ***********************************************************/
+
+/* Dismiss button callback */
 #if defined (__STDC__)
-static void popdown_comp_attr_shell(Widget w, 
+static void popdown_comp_attr(Widget w, 
 				    AttrWidgets* widgets, 
 				    XmAnyCallbackStruct* cbs)
 #else
-static void popdown_comp_attr_shell(w, widgets, cbs)
+bla
+static void popdown_comp_attr(w, widgets, cbs)
      Widget w;
      AttrWidgets *widgets;     
      XmAnyCallbackStruct *cbs;
 #endif
 {
-  Arg    args[10];
-  int    ac = 0, type;
-  Widget shell = XtParent(XtParent(w));
+  Widget   shell = XtParent(XtParent(w));
   drawComp *comp = widgets->comp;
 
-  /* Get type of this dialog */
-  XtSetArg (args[ac], XmNuserData, &type); ac++;
-  XtGetValues (w, args, ac);
+  XtArgVal type = 0; /* sergey: was 'int', somehow lead to memory overwriting after XtGetValues (w, arg, ac) ... */
+                     /* HAVE TO CHECK OTHER PLACES !!!!!!!!!!!!!!!!!!!! */
+  Arg    arg[10];
+  int    ac = 0;
+
+  printf("sizeof(XtArgVal)=%d\n",sizeof(XtArgVal));
+
+  XtSetArg (arg[ac], XmNuserData, &type); ac++;
+  XtGetValues (w, arg, ac);
   ac = 0;
-  if (type != 0){ /* Existing components dialog */
+  if (type != 0) /* Existing components dialog */
+  {
     XtRemoveGrab(shell);
     XtDestroyWidget(shell);
   }
-  else{ /* First popup. Cancel will remove this component from the list */
+  else /* First popup. Cancel will remove this component from the list */
+  {
     removeNodeFromCompList(&coda_graph, comp);
     (*comp->erase)(comp, xgc.dpy, XtWindow(sw_geometry.draw_area)); 
     /* free memories for this component */
@@ -649,13 +662,20 @@ static void popdown_comp_attr_shell(w, widgets, cbs)
     XtRemoveGrab(shell);
     XtDestroyWidget(shell);
   }
+
 }
 
+
+
+
+
+/* Ok button callback */
 #if defined (__STDC__)
 static void setup_comp_attr(Widget w, 
 			    AttrWidgets* widgets, 
 			    XmAnyCallbackStruct* cbs)
 #else
+bla
 static void setup_comp_attr(w, widgets, cbs)
      Widget w;
      AttrWidgets *widgets;
@@ -665,10 +685,11 @@ static void setup_comp_attr(w, widgets, cbs)
   char     *str;
   char     msg[256];
   Widget   shell = XtParent(XtParent(w));
-  daqComp  *daq = &(widgets->comp->comp);
   drawComp *comp = widgets->comp;
+  daqComp  *daq = &(widgets->comp->comp);
   ipPort   *port = &(widgets->comp->ip_port[0]);
-  int      id_num, i, type;
+  int      id_num, i;
+  XtArgVal type = 0;
   Arg      arg[10];
   int      ac = 0;
 
@@ -859,6 +880,7 @@ void popup_comp_attributes(comp, base, event,type)
 
   XtTranslateCoords(base,comp->x + comp->width, comp->y, &ret_x, &ret_y);
 
+  /* sergey: popup window on double-click to component (?) */
   XtSetArg(args[ac], XmNx, 100); ac++;
   XtSetArg(args[ac], XmNy, 200); ac++;
   XtSetArg(args[ac], XmNtitle, "Component Attributes"); ac++;
@@ -867,7 +889,8 @@ void popup_comp_attributes(comp, base, event,type)
   form = XmCreateFormDialog(base, "attributes_form", args, ac);
   shell = XtParent(form);
 
-  if (comp->comp.type != CODA_EBANA){
+  if (comp->comp.type != CODA_EBANA)
+  {
     XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
     XtSetArg(args[ac], XmNtopOffset, 10); ac++;
     XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
@@ -904,11 +927,13 @@ void popup_comp_attributes(comp, base, event,type)
     XtManageChild(sub_form0);
   }
     
-  if (comp->comp.type != CODA_EBANA){
+  if (comp->comp.type != CODA_EBANA)
+  {
     XtSetArg(args[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
     XtSetArg(args[ac], XmNtopWidget, sub_form0); ac++;
   }
-  else{
+  else
+  {
     XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
   }
   
@@ -1166,6 +1191,8 @@ void popup_comp_attributes(comp, base, event,type)
 					    form, args, ac);
   ac = 0;
   XmStringFree(t);
+
+
   /* try to center this widget */
   XtSetArg (args[ac], XmNwidth, &wwd); ac++;
   XtGetValues (atw.cancel_widget, args, ac);
@@ -1175,6 +1202,7 @@ void popup_comp_attributes(comp, base, event,type)
   XtSetArg (args[ac], XmNleftOffset, -wwd/2); ac++;
   XtSetValues (atw.cancel_widget, args, ac);
   ac = 0;
+
 
   t = XmStringCreateSimple("Scripts...");
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_NONE); ac++;
@@ -1214,16 +1242,29 @@ void popup_comp_attributes(comp, base, event,type)
   XtAddCallback(text_w6,XmNactivateCallback, XmProcessTraversal,
 		XmTRAVERSE_NEXT_TAB_GROUP);
 
-  XtAddCallback(atw.ok_widget, XmNactivateCallback, setup_comp_attr, &atw);
+
+  /* OK button callback */
+  XtAddCallback(atw.ok_widget, XmNactivateCallback,
+				setup_comp_attr,
+        &atw);
+
+  /* Dismiss button callback */
   XtAddCallback(atw.cancel_widget, XmNactivateCallback, 
-		popdown_comp_attr_shell,
+				popdown_comp_attr,
 		&atw);
-  XtAddCallback(atw.script_widget, XmNactivateCallback, script_dialog,
+
+  /* Script button callback */
+  XtAddCallback(atw.script_widget, XmNactivateCallback,
+        script_dialog,
 		&atw);
 		
 
+
+
+
 /* set up initial values for all attributes */
-  for (i = 0; i < 3; i++) {
+  for (i = 0; i < 3; i++)
+  {
     if(comp->comp.code[i] != NULL)
       XmTextFieldSetString(atw.code_widget[i], comp->comp.code[i]);
   }

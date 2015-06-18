@@ -1,4 +1,125 @@
 
+/*0xe118
+				NSE = sys_params_ptr->NbOfSmpPerEvt; 
+				NEB = sys_params_ptr->NbOfEvtPerBlk;
+				TTT = sys_params_ptr->Ti_Params[0].ExtEidTstp;
+				//NBB = sys_params_ptr->NbOfBeu; 
+				NBB = 2;
+				numblock  = 0;
+				numevent = 0; 
+				numsample = 0;
+				numfiller = 0; 
+				numfirstfiller = 0;
+				numend = 0;
+				nummarker = 0;		
+						
+				//find all markers				
+	
+				for(ii=0;ii<len;ii++) 
+				{	
+					previousWord = 	currentWord;		
+					currentWord = LSWAP(outEvent->data[ii]);
+
+					if  ( (currentWord & 0xFFFF0000 ) == 0xF3BB0000) { 
+						blockmarker[numblock] = ii;
+						numblock ++;
+					}	
+					if  ( (currentWord & 0xFFFF0000 ) == 0xF3EE0000) { 
+						eventmarker[numevent] = ii;
+						numevent ++ ;
+					}
+					if  ( (currentWord & 0xFFFF0000 ) == 0xF3550000) { 
+						samplemarker[numsample] = ii;
+						numsample ++;
+					}
+					if  ( (currentWord              ) == 0xFCCAFCAA) {						
+						endmarker[numend] = ii;
+						numend++;
+					}									
+					if  ( (currentWord              ) == 0xFAAAFAAA) { 
+						fillermarker[numfiller] = ii;
+						numfiller ++; 
+					}	
+					
+					if  ( (currentWord == 0xFAAAFAAA ) && ( previousWord != 0xFAAAFAAA ) )  { 
+						firstfillermarker[numfirstfiller] = ii;
+						numfirstfiller ++; 
+					}	
+					
+					if (( (currentWord & 0xFFFF0000 ) == 0xF3EE0000) || ( (currentWord & 0xFFFF0000 ) == 0xF3550000) ) {
+						marker[nummarker]=ii;
+						nummarker ++;
+					}		
+				}
+				
+				//do some basic data structure checks 
+				if ( numblock != NBB ) 						{ fprintf( stderr, "%s: UNEXPECTED number of BEU markers \n", __FUNCTION__ );      };
+				if ( numevent != ( NEB * NBB) ) 			{ fprintf( stderr, "%s: UNEXPECTED number of Event markers  \n", __FUNCTION__ );   };
+				if ( (numsample + numevent)!= NBB*NSE*NEB ) { fprintf( stderr, "%s: UNEXPECTED number of sample markers  \n", __FUNCTION__ );  };
+				if ( numend != NBB ) { fprintf( stderr, "%s: UNEXPECTED number of end markers  \n", __FUNCTION__ );  };
+				
+				 
+				//check that Ti and Beu blocks have same block index 
+
+
+				//some more consistency checks
+				//reshuffle the data eventwise 
+				outeventlength = 0;
+				for( numevent = 0; numevent < NEB; numevent ++ ) 
+				{
+				
+				
+				
+				
+				
+					if( TTT == 0 ){
+						currentWord = LSWAP(outEvent->data[6 + 3*numevent     ]);
+						*rol->dabufp++ = currentWord;
+						currentWord = LSWAP(outEvent->data[6 + 3*numevent + 1 ]);
+						*rol->dabufp++ = currentWord;
+						currentWord = LSWAP(outEvent->data[6 + 3*numevent + 2 ]);
+						*rol->dabufp++ = currentWord;	
+						outeventlength += 3;
+						}					
+						
+					else {
+						currentWord = LSWAP(outEvent->data[6 + 4*numevent     ]);
+						*rol->dabufp++ = currentWord;
+						currentWord = LSWAP(outEvent->data[6 + 4*numevent + 1 ]);
+						*rol->dabufp++ = currentWord;
+						currentWord = LSWAP(outEvent->data[6 + 4*numevent + 2 ]);
+						*rol->dabufp++ = currentWord;						
+						currentWord = LSWAP(outEvent->data[6 + 4*numevent + 3 ]);
+						*rol->dabufp++ = currentWord;  
+						outeventlength += 4;
+						}		
+											
+											
+					for( numsample = 0; numsample < NSE; numsample ++ ) {
+						for( numblock = 0; numblock < NBB; numblock ++ ){						
+						 	
+						 	if ( ( numevent == NEB-1 )&&( 	numsample == NSE-1 )) { 					
+								for ( ii = marker[numevent*NSE + numsample + numblock*NSE*NEB ]; ii < endmarker[numblock]; ii++){				//STOP on first filler if there is one !
+									currentWord = LSWAP(outEvent->data[ii]);
+									*rol->dabufp++ = currentWord;
+									outeventlength += 1;
+								}
+							}	
+							else { 
+								for ( ii = marker[numevent*NSE + numsample + numblock*NSE*NEB ]; ii < marker[numevent*NSE + numsample + numblock*NSE*NEB + 1]; ii++){
+									currentWord = LSWAP(outEvent->data[ii]);
+									*rol->dabufp++ = currentWord;
+									outeventlength += 1;
+								}
+					 		}		
+						}
+					}	
+					}
+
+				*/			
+
+
+
 /* hps2.c - second readout list for VXS crates with FADC250 boards */
 
 #include <math.h>
@@ -137,6 +258,13 @@ int mynev; /*defined in tttrans.c */
 #define DATA_TYPE_FSSREVT   0x18
 #define DATA_TYPE_DNV       0x1E
 #define DATA_TYPE_FILLER    0x1F
+
+/* mvt board data type defs */
+#define MVT_TYPE_BLKHDR    0xF3BB0000
+#define MVT_TYPE_BLKTLR    0xFCCAFCAA
+#define MVT_TYPE_EVTHDR    0xF3EE0000
+#define MVT_TYPE_SAMPLE    0xF3550000
+#define MVT_TYPE_FILLER    0xFAAAFAAA
 
 
 /* MUST COME FROM CONFIG FILE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
@@ -1541,6 +1669,224 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 	  } /* while() */
 
 	} /* else if(0xe10C) */
+
+
+
+
+
+
+
+
+
+
+
+    else if(banktag[jj] == 0xe118) /* MVT hardware format */
+	{
+      banknum = rol->pid;
+
+#ifdef DEBUG3
+      printf("\nFIRST PASS MVT\n\n");
+#endif
+
+      error = 0;
+      ndnv = 0;
+      ii=0;
+      printing=1;
+      a_slot_prev = -1;
+      have_time_stamp = 1;
+      nB[jj]=0; /*cleanup block counter*/
+      while(ii<lenin)
+      {
+#ifdef DEBUG3
+        printf("[%5d] 0x%08x (lenin=%d)\n",ii,datain[ii],lenin);
+#endif
+        if( (datain[ii]&0xFFFF0000) == MVT_TYPE_BLKHDR) /*block header*/
+        {
+          a_slot_prev = a_slot;
+          a_slot = ((datain[ii]>>22)&0x1F);
+          a_module_id = ((datain[ii]>>18)&0xF);
+          a_blocknumber = ((datain[ii]>>8)&0x3FF);
+          a_nevents = (datain[ii]&0xFF);
+#ifdef DEBUG3
+	      printf("[%3d] BLOCK HEADER: slot %d, nevents %d, block number %d module id %d\n",ii,
+				 a_slot,a_nevents,a_blocknumber,a_module_id);
+          printf(">>> update iB and nB\n");
+#endif
+          nB[jj]++;                  /*increment block counter*/
+          iB[jj][nB[jj]-1] = ii;     /*remember block start index*/
+          sB[jj][nB[jj]-1] = a_slot; /*remember slot number*/
+          nE[jj][nB[jj]-1] = 0;      /*cleanup event counter in current block*/
+
+#ifdef DEBUG3
+		  printf("0xe10c: jj=%d nB[jj]=%d\n",jj,nB[jj]);
+#endif
+
+	      ii++;
+        }
+        else if( ((datain[ii]>>27)&0x1F) == 0x11) /*block trailer*/
+        {
+          a_slot2 = ((datain[ii]>>22)&0x1F);
+          a_nwords = (datain[ii]&0x3FFFFF);
+#ifdef DEBUG3
+	      printf("[%3d] BLOCK TRAILER: slot %d, nwords %d\n",ii,
+				   a_slot2,a_nwords);
+          printf(">>> data check\n");
+#endif
+
+          /*"close" previous event if any*/
+          k = nB[jj]-1; /*current block index*/
+          if(nE[jj][k] > 0)
+	      {
+            m = nE[jj][k]-1; /*current event number*/
+            lenE[jj][k][m] = ii-iE[jj][k][m]; /*#words in current event*/
+	      }
+
+          if(a_slot2 != a_slot)
+	      {
+            error ++;
+            if(printing)
+            {
+              printf("[%3d][%3d] ERROR1 in MVT data: blockheader slot %d != blocktrailer slot %d\n",mynev,
+				 ii,a_slot,a_slot2);
+              printing=0;
+	        }
+	      }
+          if(a_nwords != ( (ii-iB[jj][nB[jj]-1]+1) - ndnv ) )
+          {
+            error ++;
+            if(printing)
+            {
+              printf("[%3d][%3d] ERROR2 in MVT data: trailer #words=%d != actual #words=%d - ndnv=%d)\n",
+					 mynev,ii,a_nwords,ii-iB[jj][nB[jj]-1]+1,ndnv);
+              printing=0;
+	        }
+          }
+          if(ndnv>0)
+          {
+            if(printing)
+            {
+              printf("[%3d] WARN in MVT data: ndnv=%d)\n",mynev,ndnv);
+              printing=0;
+	        }
+          }
+
+	      ii++;
+        }
+
+        else if( ((datain[ii]>>27)&0x1F) == 0x12) /*event header*/
+        {
+          a_triggernumber = (datain[ii]&0x7FFFFFF);
+#ifdef DEBUG3
+	      printf("[%3d] EVENT HEADER: trigger number %d\n",ii,
+				 a_triggernumber);
+          printf(">>> update iE and nE\n");
+#endif
+
+          /*"close" previous event if any*/
+          k = nB[jj]-1; /*current block index*/
+          if(nE[jj][k] > 0)
+	      {
+            m = nE[jj][k]-1; /*current event number*/
+            lenE[jj][k][m] = ii-iE[jj][k][m]; /*#words in current event*/
+	      }
+
+          /*"open" next event*/
+          nE[jj][k]++; /*increment event counter in current block*/
+          m = nE[jj][k]-1; /*current event number*/
+          iE[jj][k][m]=ii; /*remember event start index*/
+
+	      ii++;
+        }
+        else if( ((datain[ii]>>27)&0x1F) == 0x13) /*trigger time: remember timestamp*/
+        {
+          a_trigtime[0] = (datain[ii]&0xFFFFFF);
+#ifdef DEBUG3
+	      printf("[%3d] TRIGGER TIME: 0x%06x\n",ii,a_trigtime[0]);
+#endif
+	      ii++;
+          iii=1;
+          while( ((datain[ii]>>31)&0x1) == 0 && ii<lenin ) /*must be one more word*/
+	      {
+            a_trigtime[iii] = (datain[ii]&0xFFFFFF);
+#ifdef DEBUG3
+            printf("   [%3d] TRIGGER TIME: 0x%06x\n",ii,a_trigtime[iii]);
+            printf(">>> remember timestamp 0x%06x 0x%06x\n",a_trigtime[0],a_trigtime[1]);
+#endif
+            iii++;
+            if(iii>2) printf("ERROR1 in MVT: iii=%d\n",iii); 
+            ii++;
+	      }
+        }
+
+        else if( ((datain[ii]>>27)&0x1F) == 0x14) /*hps cluster*/
+        {
+          a_clusterN = ((datain[ii]>>23)&0xF);
+          a_clusterE = ((datain[ii]>>10)&0x1FFF);
+		  a_clusterY = ((datain[ii]>>6)&0xF);
+          a_clusterX = (datain[ii]&0x3F);
+#ifdef DEBUG3
+	      printf("[%3d] CLUSTER_(N,E,Y,X): %d %d %d %d\n",ii,a_clusterN,a_clusterE,a_clusterY,a_clusterX);
+#endif
+	      ii++;
+          iii=0;
+          while( ((datain[ii]>>31)&0x1) == 0 && ii<lenin ) /*must be one more word*/
+	      {
+            a_clusterT = (datain[ii]&0x3FF);
+#ifdef DEBUG3
+            printf("   [%3d] CLUSTER_T: %d\n",ii,a_clusterT);
+            printf(">>> remember timestamp 0x%06x 0x%06x\n",a_trigtime[0],a_trigtime[1]);
+#endif
+            iii++;
+            if(iii>1) printf("ERROR2 in MVT: iii=%d\n",iii); 
+
+            ii++;
+	      }
+        }
+
+        else if( ((datain[ii]>>27)&0x1F) == 0x15) /*hps trigger*/
+        {
+          a_type = ((datain[ii]>>23)&0xF);
+          a_data = ((datain[ii]>>16)&0x7F);
+		  a_time = (datain[ii]&0x3FF);
+#ifdef DEBUG3
+	      printf("[%3d] TYPE %d, DATA %d, TIME %d\n",ii,a_type,a_data,a_time);
+#endif
+	      ii++;
+		}
+
+        else if( ((datain[ii]>>27)&0x1F) == 0x1F)
+        {
+#ifdef DEBUG3
+	      printf("[%3d] FILLER WORD\n",ii);
+          printf(">>> do nothing\n");
+#endif
+	      ii++;
+        }
+        else if( ((datain[ii]>>27)&0x1F) == 0x1E)
+        {
+          ndnv ++;
+#ifdef DEBUG3
+	      printf("[%3d] DNV\n",ii);
+          printf(">>> do nothing\n");
+#endif
+	      ii++;
+        }
+        else
+		{
+          printf("MVT UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
+          ii++;
+		}
+
+	  } /* while() */
+
+	} /* else if(0xe118) */
+
+
+
+
+
+
+
 
 
 

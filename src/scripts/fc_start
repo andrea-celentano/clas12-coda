@@ -6,7 +6,7 @@
 #set nnn = `echo $HOST | cut -c 8-8 `
 #set nn = 1$nnn
 
-set nnn = 6
+set nnn = 2
 set nn = 1$nnn
 
 if ($HOST != "clondaq4" && $HOST != "clondaq4.jlab.org" ) then

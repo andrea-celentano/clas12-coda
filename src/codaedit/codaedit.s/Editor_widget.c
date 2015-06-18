@@ -146,6 +146,7 @@ CodaEditor(Widget toplevel,int withExit)
     exit(0);/*return;*/
   }
 
+
   /* initialize widgets poll */
   init_widget_poll();
 
@@ -264,14 +265,17 @@ CodaEditor(Widget toplevel,int withExit)
 
   ac = 0;
 
+printf("1\n");
   icon_box = XcodaEditorIconBox(right_form);
+printf("2\n");
+
   if (!hide_controls) {
     XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
     XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
     XtSetArg(args[ac], XmNbottomAttachment, XmATTACH_WIDGET); ac++;
     XtSetArg(args[ac], XmNbottomWidget, miscinfo); ac++;
     XtSetValues(XtParent(XtParent(icon_box)), args, ac);
-    
+
     ac = 0;  
     XtSetArg(args[ac], XmNleftAttachment, XmATTACH_WIDGET); ac++;
     XtSetArg(args[ac], XmNleftWidget, icon_box); ac++;

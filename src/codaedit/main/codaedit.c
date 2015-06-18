@@ -59,6 +59,8 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
+
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
 #include <Xm/Xm.h>
@@ -67,9 +69,11 @@
 #include <Xm/Separator.h>
 #include <Xm/Label.h>
 #include <Xm/PushB.h>
+
 #ifdef USE_CREG
 #include "codaRegistry.h"
 #endif
+
 #include "MixedLabel.h"
 #include "Editor_layout.h"
 #include "Editor_pixmap.h"
@@ -125,7 +129,7 @@ XtAppContext app_context;
 Widget toplevel;
 
 int
-Xhandler(Widget w,XtPointer p, XEvent *e,Boolean *b)
+Xhandler(Widget w, XtPointer p, XEvent *e, Boolean *b)
 {
   if (e->type == DestroyNotify) {
     printf("CEDIT:X window was destroyed\n");
@@ -137,7 +141,10 @@ Xhandler(Widget w,XtPointer p, XEvent *e,Boolean *b)
 void
 messageHandler(char *message)
 {
-  switch (message[0]) {
+  printf("codaedit::messageHandler reached, message >%s<\n",message);
+
+  switch (message[0])
+  {
   case 'c':
     EditorSelectConfig(&message[2]);
     break;
@@ -196,8 +203,9 @@ main(int argc, char **argv)
     {
       if (argv[ix] &&  (strcmp(argv[ix],"-embed") == 0))
       {
-		printf("wwwwwwwwwwwwwwwwwwwww CREG wwwwwwwwwwwwwww\n");
+		printf("wwwwwwwwwwwwwwwwwwwww CREG wwwwwwwwwwwwwww (-embed)\n");
         parent = CODAGetAppWindow(XtDisplay(toplevel),"codaedit_WINDOW");
+        printf("parent=0x%08x\n",parent);
       }
     }
 
@@ -210,6 +218,8 @@ main(int argc, char **argv)
       XWithdrawWindow(XtDisplay(toplevel), XtWindow(toplevel),0);
 
       sprintf(cmd,"r:0x%08x 0x%08x",XtWindow(toplevel),parent);      
+      printf("cmd >%s<\n",cmd);
+
       coda_Send(XtDisplay(toplevel),"RUNCONTROL",cmd);
       CodaEditor(toplevel,1);
       codaSendInit(toplevel,"CEDIT");

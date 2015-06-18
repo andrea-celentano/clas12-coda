@@ -430,7 +430,7 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
   }
   rolP->nounload = 0;
 
-  res = (long) dlsym (rolP->id, &ObjInitName[1]);
+  res = (int) dlsym (rolP->id, &ObjInitName[1]);
   rolP->rol_code = (VOIDFUNCPTR) res;
   if((res != (-1)) && (res != 0))
   {
@@ -654,8 +654,8 @@ Recover_Init ()
 
 char *user_flag1 = NULL;
 char *user_flag2 = NULL;
-unsigned long user_flag3 = 0;
-unsigned long user_flag4 = 0;
+unsigned int user_flag3 = 0;
+unsigned int user_flag4 = 0;
 
 
 int
@@ -687,8 +687,8 @@ printf("\n\ncoda_constructor reached\n");fflush(stdout);
 	 localobject->className,
 	 localobject->codaid);
 
-  eventNumber = (unsigned long *) &localobject->nevents;
-  dataSent = (unsigned long *) &localobject->nlongs;
+  eventNumber = (unsigned int *) &localobject->nevents;
+  dataSent = (unsigned int *) &localobject->nlongs;
 
   /* set state to booted and update 'state' field in database*/
   if(codaUpdateStatus("booted") != CODA_OK) return(CODA_ERROR);
@@ -1068,21 +1068,21 @@ CODA_Execute ()
  */
 int
 CODA_bswap(cbuf, nlongs)
-  long *cbuf;
+  int *cbuf;
   int nlongs;
 {
     int ii, jj, ix;
     int tlen, blen, dtype;
-    long lwd;
+    int lwd;
     short shd;
     char cd;
     char *cp;
     short *sp;
-    long *lp;
+    int *lp;
 
     ii = 0;
     while (ii<nlongs) {
-      lp = (long *)&cbuf[ii];
+      lp = (int *)&cbuf[ii];
       blen = cbuf[ii] - 1;
       dtype = ((cbuf[ii+1])&0xff00)>>8;
       lwd = LSWAP(*lp);    /* Swap the length      */
@@ -1106,8 +1106,8 @@ CODA_bswap(cbuf, nlongs)
 	  ii += blen;
 	  break;
 	case 2:
-          /* long swap */
-	  lp = (long *)&cbuf[ii];
+          /* int swap */
+	  lp = (int *)&cbuf[ii];
 	  for(jj=0; jj<blen; jj++) {
 	    lwd = LSWAP(*lp);
 	    *lp++ = lwd;
@@ -1115,7 +1115,7 @@ CODA_bswap(cbuf, nlongs)
 	  ii += blen;
 	  break;
 	case 3:
-	  /* double swap */
+	  /* double swap - Sergey: WRONG */
 	  lp = (long *)&cbuf[ii];
 	  for(jj=0; jj<blen; jj++) {
 	    lwd = LSWAP(*lp);
@@ -1190,6 +1190,8 @@ getConfFile(char *configname, char *conffile, int lname)
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 static pthread_mutex_t udp_lock;
 
@@ -2483,16 +2485,16 @@ codaExecute(char *command)
 
 /* to handle 128-bit words, needed by event building process */
 
-#define MY_LONG_BIT 32
+#define MY_INT_BIT 32
 
 static void
-Print32(unsigned long k)
+Print32(unsigned int k)
 {
   int i, lastbit;
   uint32_t j, jj;
 
   j = 1;
-  lastbit = 8*sizeof(long) - 1;
+  lastbit = 8*sizeof(int) - 1;
   for(i = 0; i < lastbit; i++) j *= 2;
 
   jj = j;
@@ -2582,8 +2584,8 @@ CheckBit128(WORD128 *hw, int n)
   int whatword, whatbit;
   uint32_t mask = 1;
 
-  whatword = n / MY_LONG_BIT;
-  whatbit = n % MY_LONG_BIT;
+  whatword = n / MY_INT_BIT;
+  whatbit = n % MY_INT_BIT;
   mask <<= whatbit;
 
   return((w[whatword] & mask) == mask);
@@ -2596,8 +2598,8 @@ SetBit128(WORD128 *hw, int n)
   int whatword, whatbit;
   uint32_t mask = 1;
 
-  whatword = n / MY_LONG_BIT;
-  whatbit = n % MY_LONG_BIT;
+  whatword = n / MY_INT_BIT;
+  whatbit = n % MY_INT_BIT;
   mask <<= whatbit;
   w[whatword] |= mask;
 

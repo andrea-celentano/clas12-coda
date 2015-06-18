@@ -1648,8 +1648,8 @@ faReadBlock(int id, volatile UINT32 *data, int nwrds, int rflag)
       /* Don't Bother checking if there is valid data - that should be done prior
 	 to calling the read routine */
 
-      /* Check for 8 byte boundary for address - insert dummy word (Slot 0 FADC Dummy DATA)*/
-      if((unsigned long) (data)&0x7) 
+    /* Check for 8 byte boundary for address - insert dummy word (Slot 0 FADC Dummy DATA)*/
+    if((unsigned long) (data)&0x7) 
 	{
 #ifdef VXWORKS
 	  *data = FA_DUMMY_DATA;
@@ -1659,24 +1659,24 @@ faReadBlock(int id, volatile UINT32 *data, int nwrds, int rflag)
 	  dummy = 1;
 	  laddr = (data + 1);
 	} 
-      else 
+    else 
 	{
 	  dummy = 0;
 	  laddr = data;
 	}
 
-      FALOCK;
-      if(rmode == 2) 
+    FALOCK;
+    if(rmode == 2) 
 	{ /* Multiblock Mode */
 	  if((vmeRead32(&(FAp[id]->ctrl1))&FA_FIRST_BOARD)==0) 
-	    {
-	      logMsg("faReadBlock: ERROR: FADC in slot %d is not First Board\n",id,0,0,0,0,0);
-	      FAUNLOCK;
-	      return(ERROR);
-	    }
+	  {
+	    logMsg("faReadBlock: ERROR: FADC in slot %d is not First Board\n",id,0,0,0,0,0);
+	    FAUNLOCK;
+	    return(ERROR);
+	  }
 	  vmeAdr = (unsigned int)(FApmb) - fadcA32Offset;
 	}
-      else
+    else
 	{
 	  vmeAdr = (unsigned int)(FApd[id]) - fadcA32Offset;
 	}

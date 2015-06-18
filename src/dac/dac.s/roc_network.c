@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/time.h>
 #include <errno.h>
 #include <string.h>
@@ -187,12 +189,12 @@ LINK_establish(char *host, int port)
 /* sized_write() from dpnetwork.c */
 /* returns number of data bytes written or -1 if error */
 int
-LINK_sized_write(int fd, unsigned int *buffer, unsigned long nbytes)
+LINK_sized_write(int fd, unsigned int *buffer, unsigned int nbytes)
 {
   int cc;
   int rembytes;
   char *buffer2 = (char *) buffer;
-  unsigned long netlong;	/* network byte ordered length */
+  unsigned int netlong;	/* network byte ordered length */
 
 /* timing */
 #ifndef Darwin
@@ -330,7 +332,7 @@ net_thread(BIGNET *bignetptrin)
   unsigned int offsetin = 0;
   static int length, status, fd, ifend;
   int i, jj, llen, llenw, evsz, res, nevent;
-  unsigned long lwd;
+  unsigned int lwd;
   unsigned int *bigbuf;
   static BIGNET *bignetptr;
   static unsigned int offset;

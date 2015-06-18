@@ -80,7 +80,7 @@ int compHostOk (comp, host)
 #endif
 {
   struct hostent *ret;
-  unsigned long inaddr;
+  unsigned int inaddr;
 
   return 1;
 }

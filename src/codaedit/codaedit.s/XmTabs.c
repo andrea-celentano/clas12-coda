@@ -20,9 +20,13 @@ static XtActionsRec actionsList[] = {
 {"activate", activate},
 };
 
+
+
 static char defaultTranslations[] = "\
 <Btn1Down>,<Btn1Up>: activate() \n\
 ";
+
+
 static void _resolve_inheritance(
 #if NeedFunctionPrototypes
 WidgetClass

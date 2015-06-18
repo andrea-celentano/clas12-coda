@@ -1,9 +1,14 @@
 #!/bin/sh
 #\
-exec /usr/bin/tixwish -f "$0" ${1+"$@"}
+exec /usr/bin/wish -f "$0" ${1+"$@"}
+#
+###exec /usr/bin/tixwish -f "$0" ${1+"$@"}
 #
 
 # standard packages
+
+package require Tix
+
 package require Itcl
 package require Itk
 package require mysqltcl
@@ -720,7 +725,10 @@ proc NoteBook {w} {
 puts "111 $top"
     tixNoteBook ${top}.n -ipadx 6 -ipady 6
 puts "222"
+
+# Sergey: need it ? if yes, need about.xpm
     set img0 [tix getimage about]
+
     ${top}.n add editors:dbedit -label dbedit
 
     # We use these options to set the sizes of the subwidgets inside the

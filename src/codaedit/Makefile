@@ -13,6 +13,9 @@ MAIN = codaedit
 #------------------
 include $(CODA)/src/Makefile.include
 
+#debugging
+CFLAGS = -g -fPIC -DLinux -DLINUX
+
 #LDCC = $(FC)
 #LDFC = $(FC)
 LDCC = $(LDCXX)

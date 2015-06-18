@@ -141,7 +141,7 @@ struct {
 } quest_;
 
 
-#define MAXEVENTS 1000000
+#define MAXEVENTS 10000000
 
 #define MAXBUF 10000000
 unsigned int buf[MAXBUF];
@@ -588,9 +588,9 @@ main(int argc, char **argv)
 
 
   /* ADC for every slot/channel (1D) */
-  nbins=1000;
-  x1 = 0.;
-  x2 = 8000.;
+  nbins=100;
+  x1 = 2000.;
+  x2 = 12000.;
   ww = 0.;
   for(ii=0; ii<6; ii++)
   {
@@ -1021,7 +1021,7 @@ a123:
 #endif
 			}
 
-            if(mm>35 && mm<100)
+            if(mm>35 && mm<70/*100*/)
             {
               if(summing_in_progress==0 && data>(baseline+20))
 			  {
@@ -1078,7 +1078,15 @@ a123:
 		  {
 			ww = 1.;
 
+
             tmpx = (float)sum;
+			/*
+			if(slot==15&&(chan==0||chan==4))
+			{
+              if(tmpx>1000.) printf("slot %d chan %d -> idn=%d tmpx=%f\n",slot,chan,idn,tmpx);
+			}
+			*/
+
             idn = 400+(adcslot2hist[slot]-1)*16+chan;
 			/*printf("slot %d chan %d -> idn=%d tmpx=%f\n",slot,chan,idn,tmpx);*/
             hf1_(&idn,&tmpx,&ww);

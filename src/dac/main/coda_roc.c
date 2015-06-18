@@ -74,7 +74,7 @@ static ROLPARAMS *rolPs[2]; /* will be allocated once in constructor */
 int rocMask = 0;
 
 /*static*/ int object_nlongs; /* instead of object->nlongs*/
-/*static*/ long clear_to_send = 0;
+/*static*/ int clear_to_send = 0;
 /*static*/ int last_event_check = 0;
 /*static*/ int rocp_primefd;
 /*static*/ int rocp_recNb;
@@ -117,7 +117,7 @@ static int print_output_buffers_are_full = 1; /* enable warning message */
 
 /*static*/ int tsendBufSize = 0; /* total buffer size; can be <= SEND_BUF_SIZE */
 
-/*static*/ unsigned long g_events_in_buffer = 0;
+/*static*/ unsigned int g_events_in_buffer = 0;
 
 /* socket number */
 static int socketnum = 0;
@@ -1279,14 +1279,14 @@ printf("DB command >%s<\n",tmpp);
  */
 
 void
-informEB(objClass object, ulong mTy, ulong mA, ulong mB)
+informEB(objClass object, unsigned int mTy, unsigned int mA, unsigned int mB)
 {
   ROLPARAMS  *rolP;
 
-  unsigned long *data, len;
+  unsigned int *data, len;
   rocParam rocp = (rocParam) object->privated;
   int res, ii;
-  unsigned long id;
+  unsigned int id;
   unsigned int *bigbuf;
   char *chbuf;
   int len_in_words;
@@ -1310,7 +1310,7 @@ informEB(objClass object, ulong mTy, ulong mA, ulong mB)
   /* if TS/Standalone and Prestart, insert run confFile */
 #ifdef INSERT_CONFIG_FILE
 
-  if(mTy==(ulong)EV_PRESTART)
+  if(mTy==(unsigned int)EV_PRESTART)
   {
     printf("confFile >%s<\n",confFile);
     if( strncmp(confFile,"none",4) && strncmp(confFile,"NONE",4) )
@@ -1343,7 +1343,7 @@ informEB(objClass object, ulong mTy, ulong mA, ulong mB)
   bigbuf[BBIROCID]  = object->codaid;
   bigbuf[BBIEVENTS] = 1;  /* # events in buffer = 1 */
   bigbuf[BBIFD]     = rocp_primefd;
-  if(mTy == (ulong) EV_END)
+  if(mTy == (unsigned int) EV_END)
   {
     bigbuf[BBIEND]  = 1;
   }
@@ -1631,8 +1631,8 @@ printf("unix2\n");
   tcpState = rocp->state = DA_PRESTARTED;
   if(rocp->async_roc_flag == 0)
   {
-    informEB(object, (ulong) EV_PRESTART, (ulong) object->runNumber,
-             (ulong) object->runType);
+    informEB(object, (unsigned int) EV_PRESTART, (unsigned int) object->runNumber,
+             (unsigned int) object->runType);
   }
 
   if(codaUpdateStatus("paused") != CODA_OK)
@@ -1824,7 +1824,7 @@ codaGo()
 
   if(rocp->async_roc_flag == 0)
   {
-    informEB(object, (ulong) EV_GO, (ulong) 0, (ulong) object->nevents);
+    informEB(object, (unsigned int) EV_GO, (unsigned int) 0, (unsigned int) object->nevents);
   }
 
 
@@ -2297,7 +2297,7 @@ TRANSITION_UNLOCK;
       if(rocp->async_roc_flag == 0)
       {
         /*ERROR??? can be a problem if ROL1 still filling big buffer ???*/
-        informEB(object, (ulong) EV_PAUSE, (ulong) 0, (ulong) object->nevents);
+        informEB(object, (unsigned int) EV_PAUSE, (unsigned int) 0, (unsigned int) object->nevents);
       }
     }
     if(codaUpdateStatus("paused") != CODA_OK)
@@ -2351,8 +2351,8 @@ TRANSITION_UNLOCK;
       if(rocp->async_roc_flag == 0)
       {
         printf("coda_roc: call informEB(EV_END)\n");
-        informEB(object, (ulong) EV_END, (ulong) object->runNumber,
-                 (ulong) object->nevents);
+        informEB(object, (unsigned int) EV_END, (unsigned int) object->runNumber,
+                 (unsigned int) object->nevents);
       }
       printf("Inserted End event on queue\n");
       rocp->active = 1;

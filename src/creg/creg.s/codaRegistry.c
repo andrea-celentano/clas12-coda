@@ -2,6 +2,8 @@
 /* codaRegistry.c; flag USE_TK is used to distinguish C version from Tk one */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <stdint.h>
 
 #include <X11/Intrinsic.h>
@@ -188,63 +190,96 @@ static int		ValidateWindowName _ANSI_ARGS_((Display *dispPtr,
  *----------------------------------------------------------------------
  */
 
-NameRegistry *
-codaRegOpen(display, lock)
-    Display *display;		/* Display whose name registry is to be
-				 * opened. */
-    int lock;			/* Non-zero means lock the window server
-				 * when opening the registry, so no-one
-				 * else can use the registry until we
-				 * close it. */
-{
-    NameRegistry *regPtr;
-    int result, actualFormat;
-    uint32_t bytesAfter;
-    Atom registryProperty, actualType;
-    
-    regPtr = (NameRegistry *) malloc(sizeof(NameRegistry));
-    regPtr->dispPtr = display;
-    regPtr->locked = 0;
-    regPtr->modified = 0;
-    regPtr->allocedByX = 1;
+/*
+int XGetWindowProperty(display, w, property, long_offset, long_length, delete, req_type, 
+                        actual_type_return, actual_format_return, nitems_return, bytes_after_return, 
+                        prop_return)
+      Display *display;
+      Window w;
+      Atom property;
+      long long_offset, long_length;
+      Bool delete;
+      Atom req_type; 
+      Atom *actual_type_return;
+      int *actual_format_return;
+      unsigned long *nitems_return;
+      unsigned long *bytes_after_return;
+      unsigned char **prop_return;
+*/
 
-    if (lock) {
-      XGrabServer(display);
-      regPtr->locked = 1;
-    }
+
+/*
+   display: Display whose name registry is to be opened
+   lock: Non-zero means lock the window server when opening the registry, so no-one
+		 else can use the registry until we close it
+*/
+NameRegistry *
+codaRegOpen(Display *display, int lock)
+{
+  NameRegistry *regPtr;
+  int result, actualFormat;
+  unsigned long bytesAfter;
+  Atom registryProperty, actualType;
+  long long_offset, long_length;
+
+  regPtr = (NameRegistry *) malloc(sizeof(NameRegistry));
+  regPtr->dispPtr = display;
+  regPtr->locked = 0;
+  regPtr->modified = 0;
+  regPtr->allocedByX = 1;
+
+  if (lock)
+  {
+    printf(">>> codaRegistry::codaRegOpen: lock !!!!!!!!!!!!!\n");
+    XGrabServer(display);
+    regPtr->locked = 1;
+  }
     
-    /*
-     * Read the registry property.
-     */
-    registryProperty = XInternAtom(display,"CODARegistry",False);
-    
-    defaultHandler = XSetErrorHandler(ErrorProc);
-    result = XGetWindowProperty(display,
-				RootWindow(display, 0),
-				registryProperty, 0, 10000,
-				False, XA_STRING, &actualType, &actualFormat,
-				&regPtr->propLength, &bytesAfter,
-				(unsigned char **) &regPtr->property);
-    
-    XSetErrorHandler(defaultHandler);
-    if (actualType == None) {
-      regPtr->propLength = 0;
-      regPtr->property = NULL;
-    } else if ((result != Success) || (actualFormat != 8)
-	       || (actualType != XA_STRING)) {
+  /* Read the registry property */
+  registryProperty = XInternAtom(display,"CODARegistry",False);
+
+regPtr->propLength = 0; /* sergey : ??? */
+long_offset = 0;
+long_length = 10000;
+
+  defaultHandler = XSetErrorHandler(ErrorProc);
+  result = XGetWindowProperty(display,
+				              (Window)RootWindow(display, 0),
+				              (Atom)registryProperty,
+				              long_offset, long_length,
+				              (Bool)False,
+                              (Atom)XA_STRING,
+                              (Atom *)&actualType,
+                              (int *)&actualFormat,
+				              (unsigned long *)&regPtr->propLength,
+                              (unsigned long *)&bytesAfter,
+				              (unsigned char **) &regPtr->property);
+
+
+  printf(">>> codaRegistry::codaRegOpen: regPtr->propLength=%d\n",regPtr->propLength);
+
+  XSetErrorHandler(defaultHandler);
+  if (actualType == None)
+  {
+    regPtr->propLength = 0;
+    regPtr->property = NULL;
+  }
+  else if ((result != Success) || (actualFormat != 8) || (actualType != XA_STRING))
+  {
       /*
        * The property is improperly formed;  delete it.
        */
       
-      if (regPtr->property != NULL) {
-	XFree(regPtr->property);
-	regPtr->propLength = 0;
-	regPtr->property = NULL;
-      }
-      XDeleteProperty(display,
+    if (regPtr->property != NULL)
+    {
+	  XFree(regPtr->property);
+	  regPtr->propLength = 0;
+	  regPtr->property = NULL;
+    }
+    XDeleteProperty(display,
 		      RootWindow(display, 0),
 		      registryProperty);
-    }
+  }
     
     /*
      * Xlib placed an extra null byte after the end of the property, just
@@ -254,14 +289,14 @@ codaRegOpen(display, lock)
      * like it shouldn't be).
      */
     
-    if ((regPtr->propLength > 0)
-	&& (regPtr->property[regPtr->propLength-1] != 0)) {
-      regPtr->propLength++;
-    }
+  if ((regPtr->propLength > 0) && (regPtr->property[regPtr->propLength-1] != 0))
+  {
+    regPtr->propLength++;
+  }
 
-    return regPtr;
+  return(regPtr);
 }
-
+
 /*
  *----------------------------------------------------------------------
  *
@@ -282,34 +317,39 @@ codaRegOpen(display, lock)
  *----------------------------------------------------------------------
  */
 
+/*
+  regPtr - Pointer to a registry opened with a previous call to RegOpen
+  name - Name of an application
+*/
+
 static Window
-RegFindName(regPtr, name)
-    NameRegistry *regPtr;	/* Pointer to a registry opened with a
-				 * previous call to RegOpen. */
-    char *name;			/* Name of an application. */
+RegFindName(NameRegistry *regPtr, char *name)
 {
     char *p, *entry;
     Window commWindow;
 
     commWindow = None;
-    for (p = regPtr->property; (p-regPtr->property) < regPtr->propLength; ) {
-	entry = p;
-	while ((*p != 0) && (!isspace((unsigned char)(*p)))) {
+    for (p = regPtr->property; (p-regPtr->property) < regPtr->propLength; )
+    {
+	  entry = p;
+	  while ((*p != 0) && (!isspace((unsigned char)(*p))))
+      {
 	    p++;
-	}
-	if ((*p != 0) && (strcmp(name, p+1) == 0)) {
-	    if (sscanf(entry, "%x", (unsigned int *) &commWindow) == 1) {
-		return commWindow;
+	  }
+	  if ((*p != 0) && (strcmp(name, p+1) == 0))
+      {
+	    if (sscanf(entry, "%x", (unsigned int *) &commWindow) == 1)
+        {
+		  return commWindow;
 	    }
 	}
-	while (*p != 0) {
-	    p++;
-	}
+	while (*p != 0) p++;
 	p++;
-    }
-    return None;
+  }
+
+  return(None);
 }
-
+
 /*
  *----------------------------------------------------------------------
  *
@@ -531,7 +571,7 @@ ValidateWindowName(display, name, commWindow, oldOK)
 				 * 0 means consider these invalid. */
 {
     int result, actualFormat, argc, i;
-    uint32_t length, bytesAfter;
+    unsigned long length, bytesAfter;
     Atom appNameProperty,actualType;
     char *property;
 
@@ -766,54 +806,67 @@ CODAGetAppWindow(Display *display,char *name)
   Window commWindow;
   int count;
 
-  /*
-   * Read the registry property, then scan through all of its entries.
-   * Validate each entry to be sure that its application still exists.
-   
-   */
+  /* Read the registry property, then scan through all of its entries.
+     Validate each entry to be sure that its application still exists. */
+
   regPtr = codaRegOpen(display, 1);
-  
-  for (p = regPtr->property; (p-regPtr->property) < regPtr->propLength; ) {
+  printf("codaRegistry::CODAGetAppWindow: regPtr=0x%08x\n",regPtr);
+
+  printf("\ncodaRegistry::CODAGetAppWindow: regPtr->property >%s<\n",regPtr->property);
+  printf("codaRegistry::CODAGetAppWindow: regPtr->propLength=%d\n\n",regPtr->propLength);
+
+  for(p = regPtr->property; (p-regPtr->property) < regPtr->propLength; )
+  {
     entry = p;
-    if (sscanf(p,  "%x",(unsigned int *) &commWindow) != 1) {
-      commWindow =  None;
+
+    if (sscanf(p,"%x",(unsigned int *) &commWindow) != 1)
+    {
+      commWindow = None;
     }
-    while ((*p != 0) && (!isspace((unsigned char)(*p)))) {
-      p++;
-    }
-    if (*p != 0) {
-      p++;
-    }
-    entryName = p;
-    while (*p != 0) {
-      p++;
-    }
-    p++;
-    if (strcmp(entryName,name) == 0) {
-      if (ValidateWindowName(display, entryName, commWindow, 1)) {
-	codaRegClose(regPtr);
-	
-	return commWindow; 
-      } else {
-	/*
-	 * This name is bogus (perhaps the application died without
-	 * cleaning up its entry in the registry?).  Delete the name.
-	 */
-	
-	count = regPtr->propLength - (p - regPtr->property);
-	if (count > 0)  {
-	  memmove((void *) entry, (void *) p, (size_t) count);
+    else
+	{
+      printf("codaRegistry::CODAGetAppWindow: p >%s<\n",p);
 	}
-	regPtr->propLength -= p - entry;
-	regPtr->modified = 1;
-	p = entry;
+
+    while((*p != 0) && (!isspace((unsigned char)(*p)))) p++;
+
+    if(*p != 0) p++;
+
+    entryName = p;
+
+    while (*p != 0) p++;
+    p++;
+
+    printf("codaRegistry::CODAGetAppWindow: entryName >%s<, name >%s<\n",entryName,name);
+    if (strcmp(entryName,name) == 0)
+    {
+      if (ValidateWindowName(display, entryName, commWindow, 1))
+      {
+	    codaRegClose(regPtr);
+	    return(commWindow); 
+      }
+      else
+      {
+	    /* This name is bogus (perhaps the application died without
+	       cleaning up its entry in the registry?).  Delete the name. */
+	
+	    count = regPtr->propLength - (p - regPtr->property);
+	    if (count > 0)
+        {
+	      memmove((void *) entry, (void *) p, (size_t) count);
+	    }
+	    regPtr->propLength -= p - entry;
+	    regPtr->modified = 1;
+	    p = entry;
       }
     }
   }
+
   codaRegClose(regPtr);
-  return 0;
+
+  return(0);
 }
-
+
 /*
  *--------------------------------------------------------------
  *
@@ -957,10 +1010,12 @@ coda_Send(Display *display,char *destName,char *cmd)
 
 #ifndef USE_TK
 
-static void 
-resizeHandler(Widget w,Window target,XEvent *eventPtr)
+static void
+resizeHandler(Widget w, Window target, XEvent *eventPtr)
 {
   XWindowChanges wc;
+
+  printf("codaRegistry::resizeHandler reached\n");fflush(stdout);
 
   wc.x = 0;
   wc.y = 0;
@@ -969,11 +1024,14 @@ resizeHandler(Widget w,Window target,XEvent *eventPtr)
   wc.border_width = 0;
   wc.sibling = None;
   wc.stack_mode = Above;
-  XConfigureWindow(XtDisplay(w),target, CWWidth | CWHeight, &wc);
+	  /*
+int XConfigureWindow(Display *display, Window w, unsigned value_mask, XWindowChanges *changes); 
+	  */
+  XConfigureWindow(XtDisplay(w), target, CWWidth | CWHeight, &wc);
 }
 
 static void 
-exposeHandler(Widget w,Window target,XEvent *eventPtr)
+exposeHandler(Widget w, Window target, XEvent *eventPtr)
 {
   XWindowChanges wc;
 
@@ -996,77 +1054,218 @@ codaRegisterMsgCallback(void *callback)
   messageCallback = (MSG_FUNCPTR) callback;
 }
 
-static void 
-motifHandler(Widget w,XtPointer p,XEvent *eventPtr)
+
+static void
+motifHandler(Widget w, XtPointer p, XEvent *eventPtr)
+/*
+XtEventHandler
+motifHandler(Widget w, XtPointer p, XEvent *eventPtr)
+*/
 {
-  Atom commProperty = XInternAtom(XtDisplay(w),"COMM",False);
+  Atom commProperty;
   char *propInfo;
   int result, actualFormat;
-  uint32_t numItems, bytesAfter;
-  Atom actualType;
+  unsigned long numItems, bytesAfter;
+  long long_offset, long_length;
 
-  if ((eventPtr->xproperty.atom != commProperty)
-      || (eventPtr->xproperty.state != PropertyNewValue)) {
+  /*int abc1[100];*/
+  Atom actualType;
+  /*int abc2[100];*/
+
+  Widget w1;
+  Widget w2;
+  Display *dis;
+  Window win;
+  /*int abc[100];*/
+
+  int x, y, wid, hit, bw, d;
+  Window root;
+
+	  /*sergey
+	  Widget target;
+	  */
+      Window target;
+
+	  /*sergey
+      Widget parent;
+	  */
+      Drawable parent;
+
+	  int counter1;
+	  XWindowChanges wc;
+
+
+
+
+
+
+  /*
+  abc[0] = -1;
+  */
+
+  printf("codaRegistry::motifHandler reached\n");fflush(stdout);
+  printf("codaRegistry::motifHandler input params: 0x%08x 0x%08x 0x%08x\n", w, p, eventPtr);fflush(stdout);
+  printf("codaRegistry::motifHandler Atom sizes: %d %d\n",sizeof(Atom),sizeof(actualType));fflush(stdout);
+
+
+  dis = XtDisplay(w);
+  win = XtWindow(w);
+
+
+
+/*
+printf("abc1 %d\n",abc[0]);fflush(stdout);
+*/
+/*
+Atom XInternAtom(display, atom_name, only_if_exists)
+      Display *display;
+      char *atom_name;
+      Bool only_if_exists;
+*/
+  commProperty = XInternAtom(XtDisplay(w),"COMM",False);
+
+  if ((eventPtr->xproperty.atom != commProperty) || (eventPtr->xproperty.state != PropertyNewValue))
+  {
+    /*XFree(commProperty);*/ /*sergey ??? */
     return;
   }
-  
-    /*
-     * Read the comm property and delete it.
-     */
 
-    propInfo = NULL;
-    {
-      result = XGetWindowProperty(XtDisplay(w),
-				  XtWindow(w),
-				  commProperty, 0, MAX_PROP_WORDS, True,
-				  XA_STRING, &actualType, &actualFormat,
+/*
+int XGetWindowProperty(display, w, property, long_offset, long_length, delete, req_type, 
+                        actual_type_return, actual_format_return, nitems_return, bytes_after_return, 
+                        prop_return)
+      Display *display;
+      Window w;
+      Atom property;
+      long long_offset, long_length;
+      Bool delete;
+      Atom req_type; 
+      Atom *actual_type_return;
+      int *actual_format_return;
+      unsigned long *nitems_return;
+      unsigned long *bytes_after_return;
+      unsigned char **prop_return;
+*/
+
+  /* Read the comm property and delete it */
+  propInfo = NULL;
+  long_offset = 0;
+  long_length = MAX_PROP_WORDS;
+  result = XGetWindowProperty(dis,
+				              win,
+                              commProperty, long_offset, long_length, True,
+							  (Atom)XA_STRING, &actualType, &actualFormat,
 				  &numItems, &bytesAfter, (unsigned char **) &propInfo);
-    }
-    if (propInfo) {
-      if (propInfo[0] == 'r') {
-	int x,y,wid,hit,bw,d;
-	Window root;
-	Widget target,parent;
-	int counter1;
-	XWindowChanges wc;
 
-	sscanf(&propInfo[2],"%x %x",&target,&parent);
-	XGetGeometry(XtDisplay(w),parent,&root,&x,&y,&wid,&hit,&bw,&d);
-	wc.x = 0;
-        wc.y = 0;
-        wc.width  = wid;
-        wc.height = hit;
-        wc.border_width = 0;
-        wc.sibling = None;
-        wc.stack_mode = Above;
-	XConfigureWindow(XtDisplay(w),target, CWWidth | CWHeight, &wc);
+/*
+printf("abc2 %d\n",abc[0]);fflush(stdout);
+*/
 
-	XWithdrawWindow(XtDisplay(w), target,0);
-	for (counter1 = 0; counter1 < 25; counter1++) {
-	  XReparentWindow(XtDisplay(w),target,parent,0,0);
-	  XSync(XtDisplay(w), False);
-	}
+  printf("codaRegistry::motifHandler: propInfo = 0x%08x\n",propInfo);fflush(stdout);
+  printf("codaRegistry::motifHandler: propInfo >%s<\n",propInfo);fflush(stdout);
+  if (propInfo)
+  {
+    if (propInfo[0] == 'r')
+    {
+
+	  sscanf(&propInfo[2],"%x %x",&target,&parent);
+
+
+	  printf("sizes: target=%d parent=%d\n",sizeof(target),sizeof(parent));
+	  printf("target=0x%08x parent=0x%08x\n",target,parent);
+
+	  /*
+Status XGetGeometry(display, d, root_return, x_return, y_return, width_return, 
+                      height_return, border_width_return, depth_return)
+        Display *display;
+        Drawable d;
+        Window *root_return;
+        int *x_return, *y_return;
+        unsigned int *width_return, *height_return;
+        unsigned int *border_width_return;
+        unsigned int *depth_return;
+	  */
+
+	  XGetGeometry(XtDisplay(w),parent,&root,&x,&y,&wid,&hit,&bw,&d);
+	  wc.x = 0;
+      wc.y = 0;
+      wc.width  = wid;
+      wc.height = hit;
+      wc.border_width = 0;
+      wc.sibling = None;
+      wc.stack_mode = Above;
+	  /*
+int XConfigureWindow(Display *display, Window w, unsigned value_mask, XWindowChanges *changes); 
+	  */
+      XConfigureWindow(XtDisplay(w),target, CWWidth | CWHeight, &wc);
+
+	  XWithdrawWindow(XtDisplay(w), target,0);
+	  for (counter1 = 0; counter1 < 25; counter1++)
+      {
+	    XReparentWindow(XtDisplay(w),target,parent,0,0);
+	    XSync(XtDisplay(w), False);
+	  }
 	   
-	XMapWindow(XtDisplay(w), target);  
-	XtAddEventHandler(XtParent(XtWindowToWidget(XtDisplay(w),parent)),StructureNotifyMask, False, resizeHandler, target);
-	/*XtAddEventHandler(XtWindowToWidget(XtDisplay(w),parent),ExposureMask, False, exposeHandler, target);*/
-      } else if (messageCallback) 
-	(*messageCallback)(propInfo);
-      XFree(propInfo);
+	  XMapWindow(XtDisplay(w), target);  
+	  /*
+void XtAddEventHandler(Widget w, EventMask event_mask, Boolean nonmaskable, XtEventHandler proc, XtPointer client_data);
+	  */
+
+/*
+printf("abc3 %d\n",abc[0]);fflush(stdout);
+*/
+/*
+      Display *XtDisplay(Widget w); 
+      Widget XtWindowToWidget(Display *display, Window window); 
+	  Widget XtParent(Widget w);
+*/
+
+	  printf("BEFOR ?\n");fflush(stdout);
+
+      dis = XtDisplay(w);
+
+	  printf("BEFOR ?? (0x%08x) (0x%08x)\n",dis,parent);fflush(stdout);
+
+      w2 = XtWindowToWidget(dis, parent);
+
+	  printf("BEFOR ??? (0x%08x)\n",w2);fflush(stdout);
+      if(w2==NULL)
+	  {
+        printf("codaRegistry::motifHandler: ERROR: w2=0x%08x\n",w2);fflush(stdout);
+	  }
+
+	  w1 = XtParent(w2);
+
+/*
+printf("abc4 %d\n",abc[0]);fflush(stdout);
+*/
+	  printf("BEFOR !\n");fflush(stdout);	  
+
+	  XtAddEventHandler( (Widget)w1, (EventMask)StructureNotifyMask, (Boolean)False, (XtEventHandler)resizeHandler, (XtPointer)target);
+
+	  printf("AFTER\n");fflush(stdout);
+
+	  /*XtAddEventHandler(XtWindowToWidget(XtDisplay(w),parent),ExposureMask, False, exposeHandler, target);*/
     }
+    else if (messageCallback)
+	{
+	  (*messageCallback)(propInfo);
+	}
+
+    XFree(propInfo); /*release memory*/
+  }
 }
 
 int
 codaSendInit(Widget w, char *name)
 {
-    XSetWindowAttributes atts;
+  XSetWindowAttributes atts;
 
-    XtAddEventHandler(w, PropertyChangeMask, False,
-		      motifHandler, (XtPointer)NULL);
+  XtAddEventHandler(w, PropertyChangeMask, False, (XtEventHandler)motifHandler, (XtPointer)NULL);
 
-    CODASetAppName(XtDisplay(w),XtWindow(w),name);
+  CODASetAppName(XtDisplay(w),XtWindow(w),name);
 
-    return TCL_OK;
+  return TCL_OK;
 }
 
 /*
@@ -1102,7 +1301,7 @@ SendEventProc(ClientData clientData, XEvent *eventPtr)
   char *propInfo;
   register char *p;
   int result, actualFormat;
-  uint32_t numItems, bytesAfter;
+  unsigned long numItems, bytesAfter;
   Atom actualType;
   Atom commProperty = XInternAtom(Tk_Display(window),"COMM",False);
 
@@ -1312,7 +1511,7 @@ SendEventProc(clientData, eventPtr)
     char *propInfo;
     register char *p;
     int result, actualFormat;
-    uint32_t numItems, bytesAfter;
+    unsigned long numItems, bytesAfter;
     Atom actualType;
     Atom commProperty = XInternAtom(Tk_Display(window),"COMM",False);
 

@@ -50,9 +50,9 @@ Pixmap XcodaCreatePixmapFromXpm(parent,data,type)
   int            depth = DefaultDepthOfScreen(scr);
   Colormap       cmap = DefaultColormapOfScreen(scr);
   XpmAttributes  attr;
-  unsigned long  valuemask = 0;
+  unsigned int  valuemask = 0;
   int            err;
-  unsigned long  pixmap_ret,pixmap_mask;
+  unsigned int  pixmap_ret,pixmap_mask;
   XpmColorSymbol col_symbol[1];
   Arg            arg[5];
   int            ac = 0;
@@ -85,9 +85,11 @@ Pixmap XcodaCreatePixmapFromXpm(parent,data,type)
   attr.valuemask |= XpmColorSymbols;
   attr.valuemask |= XpmDepth;
   attr.valuemask |= XpmCloseness;
+  /*
+  printf("Calling XpmCreatePixmapFromData ...\n");
+  */
+  err = XpmCreatePixmapFromData(dpy, win, data, &pixmap_ret, &pixmap_mask, &attr);
   
-  err = XpmCreatePixmapFromData(dpy,win,data,&pixmap_ret,&pixmap_mask,
-				&attr);
   free (col_symbol[0].value);
   if(err != XpmSuccess){
     pixmap_ret = NULL;

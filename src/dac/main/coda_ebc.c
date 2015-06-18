@@ -215,7 +215,7 @@ typedef struct EBpriv
   WORD128 roc_mask;
   WORD128 ctl_mask;
 
-  unsigned long cur_cntl;
+  unsigned int cur_cntl;
 
   void *out_id[NTHREADMAX];
   char out_name[200];
@@ -230,7 +230,7 @@ typedef struct bank_part
 {
   int bank;
   int length;
-  unsigned long *data;
+  unsigned int *data;
   evDesc desc;
 } BANKPART;
 

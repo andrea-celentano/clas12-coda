@@ -65,7 +65,7 @@ typedef struct data_description
                 which ROC the data came from it matches the ID in the process
                 table. */
 
-  unsigned long time; /* (R) Integer time since epoch - set by the EB for use
+  unsigned int time; /* (R) Integer time since epoch - set by the EB for use
                          in *_encode_* routines. */
 
   int rocs[32]; /* (R) Reserved space: to be defined */
@@ -78,7 +78,7 @@ typedef struct data_description
                   *_encode_* NB. do not modify in encode, this information is
                   used by the EB to move pointers after *_encode_* is called.*/
 
-  unsigned long *soe; /* (R) pointer to start of event */
+  unsigned int *soe; /* (R) pointer to start of event */
 
 
 
@@ -87,13 +87,13 @@ typedef struct data_description
 
 
 
-  unsigned long *fragments[32]; 
+  unsigned int *fragments[32]; 
                /* (W) For each fragment from a ROC there may be several banks
                   or fragments thereof, here the _decode_fragment routine
                   stores pointers to the banks (bank fragments) in the order
                   in which they occur in the event fragment. */
 
-  unsigned long bankTag[32];
+  unsigned int bankTag[32];
                /* (W) Bank tag - for each bank or (bank fragment) identified
                   in 'fragments' here are the corresponding bank tags (See sub
                   tags below). */
@@ -108,10 +108,10 @@ typedef struct data_description
 
 
 
-  unsigned long *last; /* (Internal to EB only, i.e. not R or W) set to 1 if
+  unsigned int *last; /* (Internal to EB only, i.e. not R or W) set to 1 if
                           this is last event in buffer. USER'S DON'T TOUCH! */
 
-  unsigned long user[16];
+  unsigned int user[16];
                      /* mostly user defined variables, except user[0] which is
                         the length (in bytes) of the event fragment header.
                         This lets the EB skip the headers for bank fragments
@@ -123,9 +123,9 @@ typedef struct data_description
   int lenbuf; /* the length of buffer in words */
 
   /* former 'static' stuff from CODA_format.c - CODA stuff */
-  unsigned long *frag_start;
-  unsigned long *head_start;
-  unsigned long *desc_start;
+  unsigned int *frag_start;
+  unsigned int *head_start;
+  unsigned int *desc_start;
 
 } DATA_DESC;
 
@@ -134,33 +134,33 @@ typedef struct data_description
 first word after the end of the header. This routine is called TWICE once to
 calculate what size of buffer is required an then to place pointers within that
 buffer. */
-int CODA_reserv_frag(unsigned long **datap, evDesc desc); /* Space for a bank header */
+int CODA_reserv_frag(unsigned int **datap, evDesc desc); /* Space for a bank header */
 
-int CODA_reserv_desc(unsigned long **datap, evDesc desc); /* Space for the descriptor (bank 0) */
+int CODA_reserv_desc(unsigned int **datap, evDesc desc); /* Space for the descriptor (bank 0) */
 
-int CODA_reserv_head(unsigned long **datap, evDesc desc); /* Space for the global event header. */
+int CODA_reserv_head(unsigned int **datap, evDesc desc); /* Space for the global event header. */
 
 /* Given the descriptor (See above) These routines decode the event or fragment headers and fill
 up the empty gaps in the descriptor.
 */
-int CODA_decode_frag(unsigned long **datap, evDesc desc); /* Generate the contents of "desc" from
+int CODA_decode_frag(unsigned int **datap, evDesc desc); /* Generate the contents of "desc" from
                                                              the event fragment header, */
                                                                     
-int CODA_decode_desc(unsigned long **datap, evDesc desc); /* Generate the contents of"desc" from
+int CODA_decode_desc(unsigned int **datap, evDesc desc); /* Generate the contents of"desc" from
                                                              the descriptor (bank 0) (NOT USED) */
-int CODA_decode_head(unsigned long **datap, evDesc desc); /* Generate the contents of "desc" from
+int CODA_decode_head(unsigned int **datap, evDesc desc); /* Generate the contents of "desc" from
                                                              the event header (NOT USED) */
-int CODA_decode_spec(unsigned long **datap, evDesc desc); /* Generate the contents of "desc" from
+int CODA_decode_spec(unsigned int **datap, evDesc desc); /* Generate the contents of "desc" from
                                                              "special" (or "control") events. */
 
 /* Given the descriptor (See above) These routines generate the event headers
 */
-int CODA_encode_frag(unsigned long **datap, evDesc desc); /* Generate a bank header from a descriptor. */
-int CODA_encode_desc(unsigned long **datap, evDesc desc); /* Generate the descriptor (bank 0 (head bank)) 
+int CODA_encode_frag(unsigned int **datap, evDesc desc); /* Generate a bank header from a descriptor. */
+int CODA_encode_desc(unsigned int **datap, evDesc desc); /* Generate the descriptor (bank 0 (head bank)) 
                                                              from a descriptor. */
-int CODA_encode_head(unsigned long **datap, evDesc desc); /* Generate the global event header from 
+int CODA_encode_head(unsigned int **datap, evDesc desc); /* Generate the global event header from 
                                                              a descriptor. */
-int CODA_encode_spec(unsigned long **datap, evDesc desc); /* Generate the "special" (or "control") event
+int CODA_encode_spec(unsigned int **datap, evDesc desc); /* Generate the "special" (or "control") event
                                                              header from a descriptor. */
 
 

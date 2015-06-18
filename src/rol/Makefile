@@ -105,7 +105,7 @@ $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
 LDCC = $(LDCXX)
 LDFC = $(LDCXX)
 
-CLON_FLAGS += -I./inc -I./code.s -I../codatt/codatt.s/ -I$(CODA)/common/include
+CLON_FLAGS += -I./inc -I./code.s -I./mvt.s -I../codatt/codatt.s/ -I$(CODA)/common/include
 
 
 ifeq ("$(OSTYPE)","Linux")

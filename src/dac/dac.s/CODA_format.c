@@ -44,7 +44,7 @@ extern char confFile[256]; /* defined in coda_ebc.c */
 
 /* decode fragment header */
 int 
-CODA_decode_frag(unsigned long **datap, evDesc desc)
+CODA_decode_frag(unsigned int **datap, evDesc desc)
 {
   desc->length = ((*datap)[0] - 1) << 2;
   desc->evnb   = (*datap)[1] & 0xff;
@@ -93,9 +93,9 @@ CODA_decode_frag(unsigned long **datap, evDesc desc)
 
 /* decode special event header */
 int 
-CODA_decode_spec(unsigned long **datap, evDesc desc)
+CODA_decode_spec(unsigned int **datap, evDesc desc)
 {
-  unsigned long marker;
+  unsigned int marker;
 
   desc->length = ((*datap)[0] - 1) << 2;
   desc->type  = ((*datap)[1] >> 16) & 0x00ff;
@@ -154,9 +154,9 @@ desc->soe = *datap;
 
 /* reserve space for event header */
 int 
-CODA_reserv_head(unsigned long **datap, evDesc desc)
+CODA_reserv_head(unsigned int **datap, evDesc desc)
 {
-  /* CODA headers are two long words */
+  /* CODA headers are two int words */
 
   desc->head_start = *datap;
   *datap +=2;
@@ -164,9 +164,9 @@ CODA_reserv_head(unsigned long **datap, evDesc desc)
 
 /* reserve space for event 'ID bank' */
 int 
-CODA_reserv_desc(unsigned long **datap, evDesc desc)
+CODA_reserv_desc(unsigned int **datap, evDesc desc)
 {
-  /* CODA ID banks are five long words */
+  /* CODA ID banks are five int words */
 
   desc->desc_start = *datap;
   *datap +=5;
@@ -174,9 +174,9 @@ CODA_reserv_desc(unsigned long **datap, evDesc desc)
 
 /* reserve space for */
 int 
-CODA_reserv_frag(unsigned long **datap, evDesc desc)
+CODA_reserv_frag(unsigned int **datap, evDesc desc)
 {
-  /* CODA headers are two long words */
+  /* CODA headers are two int words */
 
   desc->frag_start = *datap;
   *datap +=2;
@@ -206,7 +206,7 @@ create two banks for special event, for example:
  */
 
 int 
-CODA_encode_spec(unsigned long **datap, evDesc desc)
+CODA_encode_spec(unsigned int **datap, evDesc desc)
 {
   int len, ii, nw, *ptr;
   char *chbuf;
@@ -323,7 +323,7 @@ create bank-of-banks header for every fragment (one fragment corresponds to one 
 
 */
 int 
-CODA_encode_frag(unsigned long **datap, evDesc desc)
+CODA_encode_frag(unsigned int **datap, evDesc desc)
 {
   /* CODA event lengths are "non inclusive" i.e. don't include
      the length itself */
@@ -350,7 +350,7 @@ CODA_encode_frag(unsigned long **datap, evDesc desc)
      <event format="evio" count="3" content="bank" data_type="0x10" tag="253" padding="0" num="204" length="10520" ndata="10518">
  */
 int
-CODA_encode_head(unsigned long **datap, evDesc desc)
+CODA_encode_head(unsigned int **datap, evDesc desc)
 {
   /* CODA event lengths are "non inclusive" i.e. don't include
      the length itself */
@@ -378,7 +378,7 @@ CODA_encode_head(unsigned long **datap, evDesc desc)
    </bank>  
 */
 int
-CODA_encode_desc(unsigned long **datap, evDesc desc)
+CODA_encode_desc(unsigned int **datap, evDesc desc)
 {
   /* CODA event lengths are "non inclusive" i.e. don't include
      the length itself */

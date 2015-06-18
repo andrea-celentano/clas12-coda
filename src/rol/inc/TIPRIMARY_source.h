@@ -27,6 +27,8 @@
 #define SSP_READ_CONF_FILE  {sspConfig("");    if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) sspConfig(rol->confFile);}
 #define GTP_READ_CONF_FILE  {gtpConfig("");    if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) gtpConfig(rol->confFile);}
 #define TDC_READ_CONF_FILE  {tdc1190Config("");/*if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) tdc1190Config(rol->confFile);*/}
+#define MVT_READ_CONF_FILE  {mvtConfig("");    if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) mvtConfig(rol->confFile);}
+#define FTT_READ_CONF_FILE  {fttConfig("");    if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) fttConfig(rol->confFile);}
 
 
 

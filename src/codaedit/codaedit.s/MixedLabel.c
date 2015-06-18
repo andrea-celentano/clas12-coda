@@ -68,9 +68,12 @@ static XtResource resources[]={
 };
 #undef Offset
 
+
+
 static char defaultTranslations[]=
   "<Btn1Down> : highlight()      \n\
    <Btn1Up>   : activate() unhighlight()";
+
 
 static void Highlight(), Activate(), Unhighlight();
 

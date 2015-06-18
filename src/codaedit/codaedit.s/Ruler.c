@@ -28,6 +28,7 @@
  */
 #include <stdio.h>
 #include <math.h>
+
 #include <X11/IntrinsicP.h>
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
@@ -47,7 +48,7 @@ static Boolean SetValues();
 static void calculate_marker_pos();
 static void SetLabelAttributes();
 
-static char defaultTranslations[]="<Btn1Down>:select()";
+static char defaultTranslations[] = "<Btn1Down>:select()";
 static XtActionsRec actionsList[] ={
   {"select",   (XtActionProc)select_marker},
 };

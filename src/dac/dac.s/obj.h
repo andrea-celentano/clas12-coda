@@ -138,7 +138,7 @@ static char *action_Names[] =
 typedef struct rcMsgStruct *rcMsg;
 typedef struct rcMsgStruct
 {
-  long type;
+  /*long*/int type;
   int action;
   char *p1;
   char *p2;

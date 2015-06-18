@@ -68,6 +68,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
 #include <X11/cursorfont.h>

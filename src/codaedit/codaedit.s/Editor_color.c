@@ -284,7 +284,7 @@ XColor *color;
     exit (1);
   }
   for (i = 0; i < dc; i++)
-    ctab[i].pixel = (unsigned long)i;
+    ctab[i].pixel = (unsigned int)i;
 
   XQueryColors (dpy, cmap, ctab, dc);
 
