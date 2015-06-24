@@ -877,6 +877,9 @@ a123:
     }
 
 
+    /* check trigger bits*/
+	/*printf("bufptr[5]=%d\n",bufptr[5]);*/
+    if(bufptr[5]!=130) continue;
 
 
     /*if(iev < 3) continue;*/ /*skip first 2 events*/
@@ -891,6 +894,20 @@ a123:
 	}
 
     tdcref = 0;
+
+	/*
+    printf("bufptr[0-7]: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+		   bufptr[0],bufptr[1],bufptr[2],bufptr[3],bufptr[4],bufptr[5],bufptr[6],bufptr[7]);
+
+    printf("bufptr[8-15]: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+		   bufptr[8],bufptr[9],bufptr[10],bufptr[11],bufptr[12],bufptr[13],bufptr[14],bufptr[15]);
+
+    printf("bufptr[0-7]: %d %d %d %d %d %d %d %d\n",
+		   bufptr[0],bufptr[1],bufptr[2],bufptr[3],bufptr[4],bufptr[5],bufptr[6],bufptr[7]);
+
+    printf("bufptr[8-15]: %d %d %d %d %d %d %d %d\n",
+		   bufptr[8],bufptr[9],bufptr[10],bufptr[11],bufptr[12],bufptr[13],bufptr[14],bufptr[15]);
+	*/
 
 	/*TDCs*/
     if((ind1 = evNlink(bufptr, 68, 0xe107, 0, &nbytes)) > 0)

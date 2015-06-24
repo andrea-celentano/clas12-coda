@@ -33,7 +33,10 @@
 // GLOBAL EXTERNAL VARIABLES 
 DMA_MEM_ID vmeIN,vmeOUT;
 extern DMANODE *the_event;
-extern unsigned int *dma_dabufp;
+//extern unsigned int *dma_dabufp;
+unsigned int *dma_dabufp;
+unsigned int i2_from_rol1;
+
 
 extern char *optarg;
 extern int   optind;
@@ -170,9 +173,9 @@ int main(void )
 
  //vmeOpenDefaultWindows();
 
+//// stat = vmeOpenDefaultWindows();
+////  if(stat != OK) goto CLOSE;
 
-
- 
  	/***********************/
 	/* Set signal hendler  */
 	/***********************/
@@ -300,15 +303,44 @@ int main(void )
    *  sstMode  = 0 (SST160) 1 (SST267) 2 (SST320)
    */
  /* vmeDmaConfig(2,5,1); */
-usrVmeDmaSetConfig(2,5,1);
+//usrVmeDmaSetConfig(2,5,1);
+
+
+{
+    int i1, i2, i3;
+
+    usrVmeDmaInit();
+
+    usrVmeDmaMemory(&i1, &i2, &i3);
+    i2_from_rol1 = i2;
+    printf("tiprimarytinit: i2_from_rol1 = 0x%08x\n",i2_from_rol1);
+    i2_from_rol1 = (i2_from_rol1 & 0xFFFFFFF0);
+    printf("tiprimarytinit: i2_from_rol1 = 0x%08x\n",i2_from_rol1);
+    i2_from_rol1 = i2_from_rol1 + 0x10;
+    printf("tiprimarytinit: i2_from_rol1 = 0x%08x\n",i2_from_rol1);
+  }
+
+
+
+  /* dma */
+  usrVmeDmaSetConfig(2,5,1); /*A32,MBLT*/
+  printf("!!!!!!!!! set DMA as A32,MBLT\n");
+
+  dma_dabufp=(unsigned int *)i2_from_rol1;
+  // static unsigned int *tdcbuf;
+
+
+
+
 
   /* Initialize the event buffers (required for DMA) */
-  dmaPFreeAll();
-  vmeIN  = dmaPCreate("vmeIN",MAX_BLOCK_SIZE,50,0);
-  vmeOUT = dmaPCreate("vmeOUT",0,0,0);
+  
+//dmaPFreeAll();
+//  vmeIN  = dmaPCreate("vmeIN",MAX_BLOCK_SIZE,50,0);
+//  vmeOUT = dmaPCreate("vmeOUT",0,0,0);
     
-  dmaPStatsAll();
-  dmaPReInitAll();
+//  dmaPStatsAll();
+//  dmaPReInitAll();
 
 	//After tiInit, some default values may need to be corrected to fit specific needs.
 	// tiDisableDataReadout();
@@ -365,15 +397,43 @@ usrVmeDmaSetConfig(2,5,1);
    *  sstMode  = 0 (SST160) 1 (SST267) 2 (SST320)
    */
 /*  vmeDmaConfig(2,5,1); */
-usrVmeDmaSetConfig(2,5,1);
+//usrVmeDmaSetConfig(2,5,1);
+
+
+{
+    int i1, i2, i3;
+
+    usrVmeDmaInit();
+
+    usrVmeDmaMemory(&i1, &i2, &i3);
+    i2_from_rol1 = i2;
+    printf("tiprimarytinit: i2_from_rol1 = 0x%08x\n",i2_from_rol1);
+    i2_from_rol1 = (i2_from_rol1 & 0xFFFFFFF0);
+    printf("tiprimarytinit: i2_from_rol1 = 0x%08x\n",i2_from_rol1);
+    i2_from_rol1 = i2_from_rol1 + 0x10;
+    printf("tiprimarytinit: i2_from_rol1 = 0x%08x\n",i2_from_rol1);
+  }
+
+
+
+  /* dma */
+  usrVmeDmaSetConfig(2,5,1); /*A32,MBLT*/
+  printf("!!!!!!!!! set DMA as A32,MBLT\n");
+
+  dma_dabufp=(unsigned int *)i2_from_rol1;
+  // static unsigned int *tdcbuf;
+
+
+
+
 
   /* Initialize the event buffers (required for DMA) */
-  dmaPFreeAll();
-  vmeIN  = dmaPCreate("vmeIN",MAX_BLOCK_SIZE,50,0);
-  vmeOUT = dmaPCreate("vmeOUT",0,0,0);
+//  dmaPFreeAll();
+//  vmeIN  = dmaPCreate("vmeIN",MAX_BLOCK_SIZE,50,0);
+//  vmeOUT = dmaPCreate("vmeOUT",0,0,0);
     
-  dmaPStatsAll();
-  dmaPReInitAll();
+//  dmaPStatsAll();
+//  dmaPReInitAll();
 
  			/*	beusspInitMblk(beu_reg_control, &BEUSSPmblk);
   				beusspEnableA32m(beu_reg_control[1]);
@@ -465,7 +525,9 @@ usrVmeDmaSetConfig(2,5,1);
 				beusspBZRDHigh(beu_reg_control[2]);
 			
  				/* Grab an event buffer off of the queue */
- 				GETEVENT(vmeIN,beusspIntCnt);
+ //				GETEVENT(vmeIN,beusspIntCnt);
+			  dma_dabufp=(unsigned int *)i2_from_rol1;
+
  				
  				dCnt = tiReadBlock( dma_dabufp, 8+5*30, 1 );
 				//printf("%d	",dCnt);
@@ -517,14 +579,14 @@ usrVmeDmaSetConfig(2,5,1);
     				}
 
   				/* Push this buffer to the outgoing queue */
-  				PUTEVENT(vmeOUT);
+  //				PUTEVENT(vmeOUT);
   				/* Grab a buffer off of the outgoing queue */
-				outEvent = dmaPGetItem(vmeOUT);
+//				outEvent = dmaPGetItem(vmeOUT);
 
 				//fwrite( outEvent->data, 4, outEvent->length, fp);
 
   				/* Free up the buffer (puts it back into the incoming queue) */
-				dmaPFreeItem(outEvent);
+//				dmaPFreeItem(outEvent);
 
 				//set bzrd low ( acknowledge second step : fin relecture data bloc)
 				beusspBZRDLow(beu_reg_control[1]);
@@ -657,9 +719,10 @@ usrVmeDmaSetConfig(2,5,1);
 				//beusspGetBlockSize(beu_reg_control[2], &blocksize_1);
 										
  				/* Grab an event buffer off of the queue */
- 				GETEVENT(vmeIN,beusspIntCnt);
- 			printf("dma_dabufp = 0x%08x\n",	dma_dabufp);
-getchar();
+// 				GETEVENT(vmeIN,beusspIntCnt);
+// 			printf("dma_dabufp = 0x%08x\n",	dma_dabufp);
+			  dma_dabufp=(unsigned int *)i2_from_rol1;
+
 				dCnt = tiReadBlock( dma_dabufp, 8+5*30, 1 );
 				if(dCnt<=0)
 				{
@@ -713,13 +776,13 @@ getchar();
 */
 
   				/* Push this buffer to the outgoing queue */
-  				PUTEVENT(vmeOUT);
+//  				PUTEVENT(vmeOUT);
   				/* Grab a buffer off of the outgoing queue */
-				outEvent = dmaPGetItem(vmeOUT);
+//				outEvent = dmaPGetItem(vmeOUT);
 				//fwrite( outEvent->data, 4, outEvent->length, fp);
 
   				/* Free up the buffer (puts it back into the incoming queue) */
-				dmaPFreeItem(outEvent);
+//				dmaPFreeItem(outEvent);
 				//set bzrd low ( acknowledge second step : fin relecture data bloc)
 				beusspBZRDLow(beu_reg_control[1]);
 				//beusspBZRDLow(beu_reg_control[2]);			

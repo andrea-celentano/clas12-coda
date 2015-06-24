@@ -426,7 +426,7 @@ vmeBusUnlock();
 
 
   /*
-if(rol->pid==58)
+if(rol->pid==18)
 {
   usrVmeDmaSetConfig(2,3,0);
 }
