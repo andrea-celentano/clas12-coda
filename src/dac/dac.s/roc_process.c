@@ -51,7 +51,7 @@ typedef void 		(*VOIDFUNCPTR) (); /* ptr to function returning void */
 static ROLPARAMS rolP2;
 
 
-extern TTSPtr ttp; /* pointer to TTS structures for current roc */
+/*extern TTSPtr ttp;*/ /* pointer to TTS structures for current roc */
 
 /* copy 'bufin' to 'bufout' */
 /* input: bufout[0] - max length of output event */
