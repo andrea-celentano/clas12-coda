@@ -81,7 +81,7 @@ else
 
 #?????????? for TT_Go etc
 ###LIBNAMES += $(globallib)/libcodatt.a 
-  LIBNAMES += $(CODA)/src/codatt/$(OSTYPE_MACHINE)/lib/libcodatt.a 
+############  LIBNAMES += $(CODA)/src/codatt/$(OSTYPE_MACHINE)/lib/libcodatt.a 
 
 ##################  LIBNAMES += $(globallib)/libbosio.a 
   LIBNAMES += $(globallib)/libcreg.a
