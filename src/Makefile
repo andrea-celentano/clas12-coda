@@ -34,8 +34,8 @@ all:
 	- cd rol;                            $(MAKE) install
 	- cd rc;                             $(MAKE)
 	- cd rc;                             $(MAKE) install
-	- cd diaggui;                        $(MAKE)
-	- cd diaggui;                        $(MAKE) install
+##	- cd diaggui;                        $(MAKE)
+##	- cd diaggui;                        $(MAKE) install
 
 clean:
 	cd scripts;                          $(MAKE) clean
@@ -52,7 +52,7 @@ clean:
 	- cd rol;                            $(MAKE) clean
 	- cd rol/jvme;                       $(MAKE) clean
 	- cd rc;                             $(MAKE) clean
-	- cd diaggui;                        $(MAKE) clean
+##	- cd diaggui;                        $(MAKE) clean
 
 
 distclean:
