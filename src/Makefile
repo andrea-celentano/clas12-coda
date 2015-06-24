@@ -12,8 +12,8 @@ all:
 	- cd et-14.0;                        $(MAKE)
 	- cd et-14.0;                        $(MAKE) ulib
 	- cd et-14.0;                        $(MAKE) install
-#	- cd bosio;                          $(MAKE)
-#	- cd bosio;                          $(MAKE) install
+##	- cd bosio;                          $(MAKE)
+##	- cd bosio;                          $(MAKE) install
 	- cd mysql4.1.20;                    $(MAKE)
 	- cd mysql4.1.20;                    $(MAKE) install
 	- cd creg;                           $(MAKE)
@@ -22,8 +22,8 @@ all:
 	- cd codatcl1.0;                     $(MAKE) install
 	- cd codaedit;                       $(MAKE)
 	- cd codaedit;                       $(MAKE) install
-	- cd codatt;                         $(MAKE)
-	- cd codatt;                         $(MAKE) install
+##	- cd codatt;                         $(MAKE)
+##	- cd codatt;                         $(MAKE) install
 #	- cd rol;                            $(MAKE) jvmes
 	- cd rol/jvme;                       $(MAKE)
 	- cd dac;                            $(MAKE)
