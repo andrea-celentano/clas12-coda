@@ -39,10 +39,10 @@ void usrtrig_done();
 
 /************************/
 /************************/
-
+/*
 #include "coda.h"
 #include "tt.h"
-
+*/
 static char rcname[5];
 
 /*

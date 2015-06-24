@@ -61,11 +61,11 @@ void usrtrig_done();
 
 
 /* user code */
-
+/*
 #include "uthbook.h"
 #include "coda.h"
 #include "tt.h"
-
+*/
 #include "vscmLib.h"
 
 

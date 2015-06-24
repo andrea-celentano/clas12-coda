@@ -24,10 +24,10 @@
 
 /************************/
 /************************/
-
+/*
 #include "coda.h"
 #include "tt.h"
-
+*/
 
 int mynev; /*defined in tttrans.c */
 

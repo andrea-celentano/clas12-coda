@@ -48,10 +48,10 @@ char confFileFeb[SVTDAQMAXSTRLEN];
 
 /************************/
 /************************/
-
+/*
 #include "coda.h"
 #include "tt.h"
-
+*/
 static char rcname[5];
 
 /* for compatibility with hps1.c */

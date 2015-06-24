@@ -23,7 +23,9 @@ tcpClient adcecal1 'tiInit(0xa80000,3,0)'
 coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 */
 
-#define SSIPC
+
+#undef SSIPC
+
 
 #undef DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
 
@@ -108,11 +110,13 @@ void usrtrig_done();
 
 /* user code */
 
+/*
 #include "uthbook.h"
 #include "coda.h"
 #include "tt.h"
+*/
 #include "scaler7201.h"
-#include "adc792.h"
+#include "c792Lib.h"
 #include "tdc1190.h"
 #include "vscmLib.h"
 

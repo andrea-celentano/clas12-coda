@@ -49,10 +49,10 @@ char confFileThr[SVTDAQMAXSTRLEN];
 
 /************************/
 /************************/
-
+/*
 #include "coda.h"
 #include "tt.h"
-
+*/
 static char rcname[5];
 
 

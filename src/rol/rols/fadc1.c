@@ -100,12 +100,13 @@ void usrtrig_done();
 
 
 /* user code */
-
+/*
 #include "uthbook.h"
 #include "coda.h"
 #include "tt.h"
+*/
 #include "scaler7201.h"
-#include "adc792.h"
+#include "c792Lib.h"
 #include "tdc1190.h"
 
 static char rcname[5];

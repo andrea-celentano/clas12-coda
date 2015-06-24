@@ -43,10 +43,10 @@ void usrtrig_done();
 
 /************************/
 /************************/
-
+/*
 #include "coda.h"
 #include "tt.h"
-
+*/
 static char rcname[5];
 static int block_level = 1;
 
