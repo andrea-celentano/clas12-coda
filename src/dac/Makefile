@@ -83,7 +83,7 @@ else
 ###LIBNAMES += $(globallib)/libcodatt.a 
   LIBNAMES += $(CODA)/src/codatt/$(OSTYPE_MACHINE)/lib/libcodatt.a 
 
-  LIBNAMES += $(globallib)/libbosio.a 
+##################  LIBNAMES += $(globallib)/libbosio.a 
   LIBNAMES += $(globallib)/libcreg.a
 
 #use system mysql, and then remaining calls from our mysql
