@@ -15,7 +15,9 @@ bigbufcheck_dummy()
 
 #include "da.h"
 #include "circbuf.h"
+/*
 #include "etbosio.h"
+*/
 
 int deflt; /* 1 for CODA format, 0 for BOS format (see deb_component.c) */
 
