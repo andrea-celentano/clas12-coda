@@ -64,6 +64,7 @@ int mynev; /*defined in tttrans.c */
 
 #undef SLOTWORKAROUND
 
+#define ABS(x)      ((x) < 0 ? -(x) : (x))
 
 /* open composite bank */
 #define CCOPEN(btag,fmt,bnum) \

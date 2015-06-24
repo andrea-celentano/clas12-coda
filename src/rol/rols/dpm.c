@@ -55,6 +55,7 @@ char confFileThr[SVTDAQMAXSTRLEN];
 */
 static char rcname[5];
 
+#define ABS(x)      ((x) < 0 ? -(x) : (x))
 
 #define TIMERL_VAR \
   static hrtime_t startTim, stopTim, dTim; \

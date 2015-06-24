@@ -142,6 +142,8 @@ extern int rocMask; /* defined in roc_component.c */
 
 #ifndef VXWORKS
 
+#define ABS(x)      ((x) < 0 ? -(x) : (x))
+
 #define TIMERL_VAR \
   static hrtime_t startTim, stopTim, dTim; \
   static int nTim; \
