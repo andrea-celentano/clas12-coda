@@ -50,6 +50,7 @@ public:
 		    int      numRetries);
 
   ~rcServerLocater (void);
+
   // return master server host name and requested port number
   // called provide buffer and buffer size for hostName
   // return 0 for success
@@ -61,7 +62,7 @@ public:
 private:
   unsigned short brdPort_;
   int            numRetries_;
-  int           req_;
+  int            req_;
   char           exptname_[MAX_STRING_LEN];
   char           serverHost_[MAX_HOSTNAME_LEN];
   // update external function

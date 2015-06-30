@@ -86,7 +86,7 @@ public:
 
   // retrieve values all conversion operators
   operator int           (void);
-  operator long          (void);
+  operator int64_t       (void);
   operator float         (void);
   operator double        (void);
   operator char*         (void); // no content copy, just a pointer
@@ -95,7 +95,7 @@ public:
 
   // set value
   daqData& operator =    (int val);
-  daqData& operator =    (long val);
+  daqData& operator =    (int64_t val);
   daqData& operator =    (float val);
   daqData& operator =    (double val);
   daqData& operator =    (char* val);
@@ -122,7 +122,7 @@ public:
   // retrive name informations
   char *attrname         (void) const;
   char *compname         (void) const;
-  long count             (void) const;
+  int64_t count          (void) const;
   // key string used in the hash
   char *key              (void) const;
 

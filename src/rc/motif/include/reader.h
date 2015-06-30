@@ -70,7 +70,7 @@ float getfloat P_((int count));
 int checkfloat P_((int loc));
 void clearfield P_((void));
 int reads P_((int fd, char *buf, int num));
-int getline P_((FILE *file, char *loc));
+int mygetline P_((FILE *file, char *loc));
 
 #undef P_
 

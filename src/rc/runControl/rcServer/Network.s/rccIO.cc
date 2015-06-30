@@ -41,7 +41,7 @@
 #include <daqNetData.h>
 #include "rccIO.h"
 
-/*#define  _CODA_DEBUG 1*/
+#define  _CODA_DEBUG 1
 
 rccIO::rccIO (Reactor& r)
 :clientStream_ (), master_ (0), acceptor_ (0), reactor_ (r)
@@ -119,9 +119,13 @@ rccIO::handle_input (int)
   int funcst = 0;
   long type, size;
   daqNetData ndata;
+
+  printf("rccIO::handle_input 1\n");
   rcMsg *recver = new rcMsg (DAUNKNOWN, ndata);
+  printf("rccIO::handle_input 2\n");
 
   n = clientStream_ >> *recver;
+  printf("rccIO::handle_input 3\n");
 
 
 #ifdef _CODA_DEBUG

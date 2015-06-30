@@ -3152,6 +3152,65 @@ tiSetTriggerPulse(int trigger, int delay, int width)
   return OK;
 }
 
+/**
+ *  @ingroup Config
+ *  @brief Set the width of the prompt trigger from OT#2
+ *
+ *  @param width Output width will be set to (width + 2) * 4ns
+ *
+ *    This routine is only functional for Firmware type=2 (modTI)
+ *
+ *  @return OK if successful, otherwise ERROR
+ */
+int
+tiSetPromptTriggerWidth(int width)
+{
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((width<0) || (width>TI_PROMPT_TRIG_WIDTH_MASK))
+    {
+      printf("%s: ERROR: Invalid prompt trigger width (%d)\n",
+	     __FUNCTION__,width);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->eventNumber_hi, width);
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ *  @ingroup Status
+ *  @brief Get the width of the prompt trigger from OT#2
+ *
+ *    This routine is only functional for Firmware type=2 (modTI)
+ *
+ *  @return Output width set to (return value + 2) * 4ns, if successful. Otherwise ERROR
+ */
+int
+tiGetPromptTriggerWidth()
+{
+  unsigned int rval=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->eventNumber_hi) & TI_PROMPT_TRIG_WIDTH_MASK;
+  TIUNLOCK;
+
+  return OK;
+}
+
+
 /*******************************************************************************
  *
  *  tiSetSyncDelayWidth

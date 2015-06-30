@@ -54,17 +54,20 @@ SOCK_Dgram::open (const Addr &local, int protocol_family, int protocol)
     return this->shared_open (local, protocol_family);
 }
 
+
 /* Send an iovec of size N to ADDR as a datagram (connectionless version). */
 
 ssize_t
 SOCK_Dgram::send (const iovec iov[], size_t n, const Addr &addr, int flags) const
 {
   msghdr send_msg;  
+  printf("SOCK_Dgram::send 1\n");
 
   send_msg.msg_iov          = (iovec *) iov;
   send_msg.msg_iovlen       = n;
-  send_msg.msg_name	       = (char *) addr.get_addr ();
+  send_msg.msg_name	        = (char *) addr.get_addr ();
   send_msg.msg_namelen      = addr.get_size ();
+
   return ::sendmsg (this->get_handle (), &send_msg, flags);
 }
 

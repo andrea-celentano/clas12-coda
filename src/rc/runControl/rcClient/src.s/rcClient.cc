@@ -57,6 +57,8 @@
 //   run control source
 //
 //
+#define _CODA_DEBUG
+
 #include <unistd.h>
 #include <pwd.h>
 #include <rcServerLocater.h>
@@ -75,10 +77,16 @@ extern "C" int gethostname (char*, int);
 #endif
 extern "C" void setCompState(char *comp,int state);
 
-const int NUM_CONN_RETRIES = 40;
+
+
+const int NUM_CONN_RETRIES = 2; /*sergey: was 40*/
+
 const int DEFAULT_SYNC_TIMEOUT = 4;
 const int DEFAULT_SYNC_NUM_RETRIES = 5;
 const int CODA_CMDCBK_TABLE_SIZE = 256;
+
+
+
 
 static codaRcCallback *statCbk = NULL;
 
@@ -293,40 +301,45 @@ rcClient::connect (char* database, char* session, char* msqld)
     fprintf (stderr, "Cannot connect to msql server, Quit. \n");
     ::exit (1);
   }
-  else if (mst == CODA_ERROR) {
+  else if (mst == CODA_ERROR)
+  {
 #ifdef _CODA_DEBUG
-    fprintf (stderr, "RunControl server with session %s is not running\n",
+    fprintf (stderr, "rcClient::connect: RunControl server with session %s is not running\n",
 	     session);
 #endif
     return CODA_ERROR;
   }
-  else {
-    rcServerLocater svcl (DAFINDSERVER, host, session, port,
-			  NUM_CONN_RETRIES);
+  else
+  {
+    rcServerLocater svcl (DAFINDSERVER, host, session, port, NUM_CONN_RETRIES);
     unsigned short svcport = 0;
-    if (svcl.locatingServer (svcport) == 0) {
+    printf("rcClient::connect: svcport=%d\n",svcport);
+    if (svcl.locatingServer (svcport) == 0)
+    {
 #ifdef _CODA_DEBUG
-      printf ("Try to connect to server at host %s and port %d\n",
-	      host, svcport);
+      printf ("rcClient::connect: Try to connect to server at host %s and port %d\n", host, svcport);
 #endif
       INET_Addr addr (svcport, host);
 
-      if (conServer_.connect (toServer_, addr) != -1) {
-	connected_ = 1;
+      if (conServer_.connect (toServer_, addr) != -1)
+      {
+	    connected_ = 1;
 #ifdef _CODA_DEBUG
-	printf ("Connected to the server\n");
+	    printf ("rcClient::connect: Connected to the server\n");
 #endif
-	reactor_.register_handler (this, Event_Handler::READ_MASK);
+	    reactor_.register_handler (this, Event_Handler::READ_MASK);
       }
     }
-    else {
+    else
+    {
       connected_ = 0;
     }
     // free host memory
     delete []host;
-
   }
-  if (connected_) {
+
+  if (connected_)
+  {
     // set exptname
     if (exptname_)
       delete []exptname_;
@@ -342,7 +355,9 @@ rcClient::connect (char* database, char* session, char* msqld)
     return sendClientInfo ();
   }
   else
+  {
     return CODA_ERROR;
+  }
 }
 
 
@@ -355,7 +370,7 @@ rcClient::connect (char* database, char* session, char* msqld)
 int
 rcClient::disconnect (void)
 {
-  static long opcode = DADISCONNECT;
+  static int64_t opcode = DADISCONNECT;
   daqNetData data (exptname_, "command", (int)DADISCONNECT);
   rcMsg msg(opcode,data,0);
   int n = toServer_ << msg;
@@ -377,7 +392,7 @@ rcClient::disconnect (void)
 void
 rcClient::killServer (void)
 {
-  static long opcode = DAZAP;
+  static int64_t opcode = DAZAP;
   daqNetData data (exptname_, "command", (int)DAZAP);
   rcMsg msg(opcode,data,0);
   int n = toServer_ << msg;
@@ -416,7 +431,7 @@ rcClient::disconnectCallback (rcCallback callback, void* arg)
 int
 rcClient::handle_timeout (const Time_Value&, const void* arg)
 {
-  long opcode = *(long *)arg;
+  int64_t opcode = *(int64_t *)arg;
   int status = 0;
 
   switch (opcode){
@@ -455,7 +470,7 @@ int
 rcClient::handle_input (int)
 {
   int n, status = 0;
-  long type, size;
+  int64_t type, size;
   daqNetData data;
   rcMsg recver (DAUNKNOWN, data);
 
@@ -464,13 +479,13 @@ rcClient::handle_input (int)
 
   n = toServer_ >> recver;
 #ifdef _CODA_DEBUG
-  printf ("%d bytes received from server side\n", n);
+  printf ("rcClient::handle_input: %d bytes received from server side\n", n);
 #endif
   switch (n) {
   case -1:
   case 0:
 #ifdef _CODA_DEBUG
-    printf ("Client to Server Connection is Broken\n");
+    printf ("rcClient::handle_input: Client to Server Connection is Broken\n");
 #endif
     status = -1;
     break;
@@ -574,7 +589,7 @@ rcClient::sendCmdCallback (int cmd, daqData& data,
 			   rcCallback callback, void* arg)
 {
   codaRcCallback* cbk = new codaRcCallback (callback, arg);
-  rcMsg msg (cmd, (daqNetData &)data, (long)cbk);
+  rcMsg msg (cmd, (daqNetData &)data, (int64_t)cbk);
 
   int n = toServer_ << msg;
 #ifdef _CODA_DEBUG
@@ -582,7 +597,7 @@ rcClient::sendCmdCallback (int cmd, daqData& data,
 #endif
   if (n > 0) {
     // register callback to the callback table
-    cmdCbkTable_.add ((long)cbk, (void *)cbk);
+    cmdCbkTable_.add ((int64_t)cbk, (void *)cbk);
     return CODA_SUCCESS;
   }
   else
@@ -612,20 +627,23 @@ rcClient::sendClientInfo (void)
   // set default callback for notification of server
   codaRcCallback* cbk = new codaRcCallback (&(rcClient::regInfoCbk), 
 					    (void *)this);
-  rcMsg msg (DAREG_CLIENT_INFO, data, (long)cbk);
+  rcMsg msg (DAREG_CLIENT_INFO, data, (int64_t)cbk);
   
   int n = toServer_ << msg;
 #ifdef _CODA_DEBUG
-  printf (" send %d bytes register client info data to server\n", n);
+  printf ("rcClient::sendClientInfo: send %d bytes register client info data to server\n", n);
 #endif
   if (n > 0) {
     // register callback to the callback table
-    cmdCbkTable_.add ((long)cbk, (void *)cbk);
+    cmdCbkTable_.add ((int64_t)cbk, (void *)cbk);
     int i = 0;
-    while (!infoRegistered_ && i < DEFAULT_SYNC_NUM_RETRIES) {
+
+    while (!infoRegistered_ && i < DEFAULT_SYNC_NUM_RETRIES)
+    {
       pendIO (DEFAULT_SYNC_TIMEOUT);
       i++;
     }
+
     if (infoRegistered_)
       return CODA_SUCCESS;
     else
@@ -647,32 +665,37 @@ rcClient::getValueCallback (char* compname,
     return CODA_ERROR;
   daqNetData data (compname, attrname, 0);
   codaRcCallback* cbk = new codaRcCallback (callback, arg);
-  rcMsg msg (DAGET_VAL, data, (long)cbk);
+  rcMsg msg (DAGET_VAL, data, (int64_t)cbk);
 
   int n = toServer_ << msg;
 #ifdef _CODA_DEBUG
-  printf ("send %d bytes data on getValueCallback to server\n", n);
+  printf ("rcClient::getValueCallback: send %d bytes data on getValueCallback to server\n", n);
 #endif
-  if (n > 0) {
+  if (n > 0)
+  {
     // register this callback to this data variables
     daqData *tdata = 0;
     dataManager_.findData (compname, attrname, tdata);
-    if (tdata == 0) { // should never happen
+    if (tdata == 0) // should never happen
+    {
       fprintf (stderr,"Fatal: Soemthing is wrong at getValueCallback\n");
       return CODA_ERROR;
     }
-    else {
+    else
+    {
       // get callback list needs void* ugly
       tdata->registerGetCbk ((void *)cbk);
 #ifdef _CODA_DEBUG
-      printf ("number of get value callback of %s %s is %d\n", 
+      printf ("rcClient::getValueCallback: number of get value callback of %s %s is %d\n", 
 	      tdata->compname(), tdata->attrname(),tdata->numGetCbks ());
 #endif
       return CODA_SUCCESS;
     }
   }
   else
+  {
     return CODA_ERROR;
+  }
 }
 
 int
@@ -692,17 +715,18 @@ rcClient::setValueCallback (daqData& data,
   }
 
   codaRcCallback* cbk = new codaRcCallback (callback, arg);
-  rcMsg msg (DASET_VAL, (daqNetData &)data, (long)cbk);
+  rcMsg msg (DASET_VAL, (daqNetData &)data, (int64_t)cbk);
 
   int n = toServer_ << msg;
 #ifdef _CODA_DEBUG
-  printf ("send %d bytes data on setValueCallback to server\n", n);
+  printf ("rcClient::setValueCallback: send %d bytes data on setValueCallback to server\n", n);
 #endif
-  if (n > 0) {
+  if (n > 0)
+  {
     // set callback list needs void*
     tdata->registerSetCbk ((void *)cbk);
 #ifdef _CODA_DEBUG
-    printf ("number of set value callback of %s %s is %d\n", 
+    printf ("rcClient::setValueCallback: number of set value callback of %s %s is %d\n", 
 	    tdata->compname(), tdata->attrname(),tdata->numSetCbks ());
 #endif
     return CODA_SUCCESS;
@@ -727,11 +751,11 @@ rcClient::monitorOnCallback (char* compname,
     
   daqNetData data (compname, attrname, 0);
   
-  rcMsg msg (DAMONITOR_VAL_ON, data, (long)cbk);
+  rcMsg msg (DAMONITOR_VAL_ON, data, (int64_t)cbk);
   
   int n = toServer_ << msg;
 #ifdef _CODA_DEBUG
-  printf ("send %d bytes data on monitor Callback to server\n", n);
+  printf ("rcClient::monitorOnCallback: send %d bytes data on monitor Callback to server\n", n);
 #endif
   if (n > 0) {
     // register this callback to this data variables
@@ -745,7 +769,7 @@ rcClient::monitorOnCallback (char* compname,
       // monitor callback list needs void* 
       tdata->monitorOn ((void *)cbk);
 #ifdef _CODA_DEBUG
-      printf ("number of monitor on callback of %s %s is %d\n", 
+      printf ("rcClient::monitorOnCallback: number of monitor on callback of %s %s is %d\n", 
 	      tdata->compname(), tdata->attrname(),tdata->numMonitorCbks ());
 #endif
       return CODA_SUCCESS;
@@ -786,16 +810,16 @@ rcClient::monitorOffCallback (char* compname,
 #endif
   // all callback information is inside offcbk
   codaRcCallback* offcbk = new codaRcCallback (callback, arg);
-  rcMsg msg (DAMONITOR_VAL_OFF, data, (long)offcbk);
+  rcMsg msg (DAMONITOR_VAL_OFF, data, (int64_t)offcbk);
   
   int n = toServer_ << msg;
 #ifdef _CODA_DEBUG
-  printf ("send %d bytes data on monitor off to server\n", n);
+  printf ("rcClient::monitorOffCallback: send %d bytes data on monitor off to server\n", n);
 #endif
   if (n > 0) {
     edata->registerMonOffCbk ((void *)offcbk);
 #ifdef _CODA_DEBUG
-    printf ("number of monitor off callback of %s %s is %d\n",
+    printf ("rcClient::monitorOffCallback: number of monitor off callback of %s %s is %d\n",
 	    edata->compname(), edata->attrname(), edata->numMonOffCbks ());
 #endif
     return CODA_SUCCESS;
@@ -810,7 +834,7 @@ rcClient::getValCbkFromServer (rcMsg& cmsg)
   int status = 0;
   int cbkSt = CODA_SUCCESS;
   // callback id actually is pointer of codaRcCallback pointer
-  long cbkId = cmsg.reqId (); 
+  int64_t cbkId = cmsg.reqId (); 
   daqNetData& ndata = (daqNetData &)cmsg;
   daqData* sdata = 0;
   dataManager_.findData (ndata.name(), ndata.attribute(), sdata);
@@ -832,7 +856,7 @@ rcClient::getValCbkFromServer (rcMsg& cmsg)
       // assign new data to the data inside data manager
       *sdata = ndata;
 #ifdef _CODA_DEBUG
-      printf ("number of get callbacks for %s %s is %d\n",sdata->compname(),
+      printf ("rcClient::getValCbkFromServer: number of get callbacks for %s %s is %d\n",sdata->compname(),
 	      sdata->attrname(), sdata->numGetCbks());
 #endif
     }
@@ -850,7 +874,7 @@ rcClient::setValCbkFromServer (rcMsg& cmsg)
 {
   int status = 0;
   int cbkSt = CODA_SUCCESS;
-  long cbkId = cmsg.reqId ();
+  int64_t cbkId = cmsg.reqId ();
   daqNetData& ndata = (daqNetData &)cmsg;
   daqData* sdata = 0;
   dataManager_.findData (ndata.name(), ndata.attribute(), sdata);
@@ -869,7 +893,7 @@ rcClient::setValCbkFromServer (rcMsg& cmsg)
       // memory associated with cbkId will be freed
       sdata->removeSetCbk ((void *)cbkId);
 #ifdef _CODA_DEBUG
-      printf ("number of set callbacks for %s %s is %d\n",sdata->compname(),
+      printf ("rcClient::setValCbkFromServer: number of set callbacks for %s %s is %d\n",sdata->compname(),
 	      sdata->attrname(), sdata->numSetCbks());
 #endif
     }
@@ -886,7 +910,7 @@ rcClient::monitoredValFromServer (rcMsg& cmsg)
 {
   int status = 0;
   int cbkSt = CODA_SUCCESS;
-  long cbkId = cmsg.reqId ();
+  int64_t cbkId = cmsg.reqId ();
   daqNetData& ndata = (daqNetData &)cmsg;
   daqData* sdata = 0;
   dataManager_.findData (ndata.name(), ndata.attribute(), sdata);
@@ -905,7 +929,7 @@ rcClient::monitoredValFromServer (rcMsg& cmsg)
       *sdata = ndata;
 #ifdef _CODA_DEBUG
       if (strcmp(sdata->attrname(),DYN_ATTR2) == 0)
-	printf ("here number of monitor callbacks for %s %s is %d %08x\n",
+	printf ("rcClient::monitoredValFromServer: here number of monitor callbacks for %s %s is %d %08x\n",
 		sdata->compname(), 
 		sdata->attrname(), 
 		sdata->numMonitorCbks(),
@@ -929,9 +953,9 @@ rcClient::monitorOffFromServer (rcMsg& cmsg)
   daqNetData& ndata = (daqNetData &)cmsg;
   // the server side puts status or callback id 
   // which is casted codaRcCallback inside ndata
-  long moncbk = (long)ndata;
+  int64_t moncbk = (int64_t)ndata;
   // the server side puts monitor off callback information in the request id
-  long cbkId = cmsg.reqId ();
+  int64_t cbkId = cmsg.reqId ();
   daqData* sdata = 0;
   dataManager_.findData (ndata.name(), ndata.attribute(), sdata);
 
@@ -953,7 +977,7 @@ rcClient::monitorOffFromServer (rcMsg& cmsg)
     // memory associated with this cbkId will be freed inside the following
     sdata->removeMonOffCbk ((void *)cbkId);
 #ifdef _CODA_DEBUG
-    printf ("number of monitor off callbacks for %s %s is %d\n",
+    printf ("rcClient::monitorOffFromServer: number of monitor off callbacks for %s %s is %d\n",
 	    sdata->compname(), sdata->attrname(),
 	    sdata->numMonOffCbks());
 #endif
@@ -966,7 +990,7 @@ rcClient::monitorOffFromServer (rcMsg& cmsg)
 int
 rcClient::commandCbkFromServer (rcMsg& cmsg)
 {
-  long cbkId = cmsg.reqId ();
+  int64_t cbkId = cmsg.reqId ();
   if (cmdCbkTable_.find (cbkId, (void *)cbkId)) {
     codaRcCallback *cbk = (codaRcCallback *)cbkId;
     rcCallback func = cbk->callbackFunction ();
@@ -980,7 +1004,7 @@ rcClient::commandCbkFromServer (rcMsg& cmsg)
     delete cbk;
 
 #ifdef _CODA_DEBUG
-    printf ("Has Command callback number %d\n",numCmdCbks());
+    printf ("rcClient::commandCbkFromServer: Has Command callback number %d\n",numCmdCbks());
 #endif
     return 0;
   }
@@ -1008,7 +1032,7 @@ if(state != 0) return;
 
 #ifdef USE_CREG
   sprintf(cmd,"s:%d %s",state,data->name());
-  printf("coda_Send(): cmd=>%s<\n",cmd);
+  printf("rcClient::attr2Callback: coda_Send() cmd=>%s<\n",cmd);
   coda_Send(MainDisplay,"CEDIT",cmd);
 #endif
 }
@@ -1023,9 +1047,9 @@ rcClient::addDynamicVars (rcMsg& cmsg)
   char *names[1000];
   daqData* data = 0;
 
-  #ifdef _CODA_DEBUG
-  printf ("add all variables %s\n", (char *)ndata);
-  #endif
+#ifdef _CODA_DEBUG
+  printf ("rcClient::addDynamicVars: add all variables %s\n", (char *)ndata);
+#endif
   if (ndata.getData (names, count) != CODA_ERROR) {
     for (int i = 0; i < count; i++) {
       daqData* ldata = new rccDaqData (names[i], DYN_ATTR0, 0);
@@ -1037,9 +1061,9 @@ rcClient::addDynamicVars (rcMsg& cmsg)
       /*sergey*/
       daqData* livetime = new rccDaqData (names[i], DYN_ATTR5, 0);
 
-      #ifdef _CODA_DEBUG
-      printf ("Add variables %s\n",names[i]);
-      #endif
+#ifdef _CODA_DEBUG
+      printf ("rcClient::addDynamicVars: Add variables %s\n",names[i]);
+#endif
       if (ldata->connect (dataManager_) != CODA_SUCCESS) // already here
 	delete ldata;
       if (edata->connect (dataManager_) != CODA_SUCCESS)
@@ -1062,7 +1086,7 @@ rcClient::addDynamicVars (rcMsg& cmsg)
 				 (void *)this);
       if (monitorOnCallback (names[i],DYN_ATTR2,(rcCallback)&(rcClient::attr2Callback),(void*)this) != CODA_SUCCESS) {
 #ifdef _CODA_DEBUG
-	printf ("Cannot register monitor on %s %s\n", 
+	printf ("rcClient::addDynamicVars: Cannot register monitor on %s %s\n", 
 		 names[i], DYN_ATTR2);
 #endif
       }
@@ -1093,7 +1117,7 @@ rcClient::removeDynamicVars (rcMsg& cmsg)
   if (ndata.getData (names, count) != CODA_ERROR) {
     for (int i = 0; i < count; i++) {
 #ifdef _CODA_DEBUG
-      printf ("Vars %s disconnected\n",names[i]);
+      printf ("rcClient::removeDynamicVars: Vars %s disconnected\n",names[i]);
 #endif
       if (dataManager_.findData (names[i], DYN_ATTR0, data) == CODA_SUCCESS) {
 	rccdata = (rccDaqData *)data;
@@ -1143,13 +1167,13 @@ rcClient::addAnaLogVars (rcMsg& cmsg)
   daqData* data = 0;
 
 #ifdef _CODA_DEBUG
-  printf ("add all variables %s\n", (char *)ndata);
+  printf ("rcClient::addAnaLogVars: add all variables %s\n", (char *)ndata);
 #endif
   if (ndata.getData (names, count) != CODA_ERROR) {
     for (int i = 0; i < count; i++) {
       daqData* ldata = new rccDaqData (names[i], DYN_ANA_LOG, "unknown");
 #ifdef _CODA_DEBUG
-      printf ("Add ANA Log variables %s %s\n",names[i], DYN_ANA_LOG);
+      printf ("rcClient::addAnaLogVars: Add ANA Log variables %s %s\n",names[i], DYN_ANA_LOG);
 #endif
       if (ldata->connect (dataManager_) == CODA_SUCCESS)
 	ldata->enableWrite ();
@@ -1181,7 +1205,7 @@ rcClient::removeAnaLogVars (rcMsg& cmsg)
   if (ndata.getData (names, count) != CODA_ERROR) {
     for (int i = 0; i < count; i++) {
 #ifdef _CODA_DEBUG
-      printf ("Vars %s %s disconnected\n",names[i], DYN_ANA_LOG);
+      printf ("rcClient::removeAnaLogVars: Vars %s %s disconnected\n",names[i], DYN_ANA_LOG);
 #endif
       if (dataManager_.findData (names[i], DYN_ANA_LOG, data)
 	  == CODA_SUCCESS) {
@@ -1227,7 +1251,7 @@ rcClient::regInfoCbk (int status, void* arg, daqNetData* )
     rcClient* obj = (rcClient *)arg;
     obj->infoRegistered_ = 1;
 #ifdef _CODA_DEBUG
-    printf ("Client Information registered to server\n");
+    printf ("rcClient::regInfoCbk: Client Information registered to server\n");
 #endif
   }
 }
@@ -1262,7 +1286,7 @@ rcClientLocker::rcClientLocker (rcClient* client)
 :client_ (client)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create rcClientLocker Class Object\n");
+  printf ("rcClientLocker::rcClientLocker: Create rcClientLocker Class Object\n");
 #endif
   client_->lock ();
 }
@@ -1270,7 +1294,7 @@ rcClientLocker::rcClientLocker (rcClient* client)
 rcClientLocker::~rcClientLocker (void)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Delete rcClientLocker Class Object\n");
+  printf ("rcClientLocker::~rcClientLocker: Delete rcClientLocker Class Object\n");
 #endif
   client_->unlock ();
 }

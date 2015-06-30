@@ -443,6 +443,7 @@ struct TI_A24RegStruct
 #define TI_SYNCEVENTCTRL_ENABLE       0x005A0000
 
 /* 0xD8 eventNumber_hi bits and masks */
+#define TI_PROMPT_TRIG_WIDTH_MASK     0x0000007F
 #define TI_EVENTNUMBER_HI_MASK        0xFFFF0000
 
 /* 0x100 reset bits and masks */
@@ -564,6 +565,8 @@ int  tiGetPrescale();
 int  tiSetInputPrescale(int input, int prescale);
 int  tiGetInputPrescale(int input);
 int  tiSetTriggerPulse(int trigger, int delay, int width);
+int  tiSetPromptTriggerWidth(int width);
+int  tiGetPromptTriggerWidth();
 void tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep);
 void tiTrigLinkReset();
 void tiSyncReset(int bflag);

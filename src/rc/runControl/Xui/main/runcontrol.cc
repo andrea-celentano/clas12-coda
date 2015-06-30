@@ -517,11 +517,14 @@ Display *MainDisplay;
 rcMenuWindow *menW;
 
 
-void messageHandler(char *message)
+void
+messageHandler(char *message)
 {
+  printf("runcontrol::messageHandler reached, message >%s<\n",message);
   
-  switch (message[0]) {
-  case 't':
+  switch (message[0])
+  {
+    case 't':
     {
       char name[200];
       int pid;
@@ -529,8 +532,9 @@ void messageHandler(char *message)
       //menW->createTabFrame(name,pid);
     }
     break;
-  default:
-    printf("unknown message : %s\n",message);
+
+    default:
+      printf("runcontrol::messageHandler: unknown message : %s\n",message);
     
   }
 }
@@ -578,8 +582,7 @@ main (int argc, char** argv)
   app->open (&argc, argv);
   
   
-  // create a network handler which register itself to x window
-  // event loop
+  /* create a network handler which register itself to x window event loop */
   app_context = app->appContext ();
   
   rcClientHandler netHandler (app->appContext ());
@@ -667,7 +670,6 @@ main (int argc, char** argv)
 	*/
 
     ac = 0;
-
     XtSetArg (arg[ac], XmNresizePolicy, XmRESIZE_ANY); ac++;
 
 #ifdef USE_CREG
@@ -686,28 +688,35 @@ main (int argc, char** argv)
     }
 
     {
-      char temp2[100],temp3[100];
+      char temp2[256],temp3[256];
 
       if (option->startCedit_)
       {
         if (option->noEdit_)
         {
           sprintf(temp2,
-            "(echo \"start codaedit\"; sleep 3; %s/codaedit -embed -noedit )&",
-            getenv("CODA_BIN"));
+            "(echo \"start codaedit\"; sleep 3; %s/codaedit -embed -noedit )&",getenv("CODA_BIN"));
         }
         else
         {
+		  
           sprintf(temp2,
             "(echo \"start codaedit\"; sleep 3; %s/codaedit -embed )&",getenv("CODA_BIN"));
-        }
+		  
+		  /*		  
+          sprintf(temp2,
+				  "(echo \"start codaedit\"; sleep 3;  %s/src/codaedit/%s/bin/codaedit -embed )&",getenv("CODA"),getenv("OSTYPE_MACHINE"));
+		  */
+       }
 
+        printf("Executing >%s<\n",temp2);
         system(temp2);
       }
 
       if (option->startDbedit_)
       {
         sprintf (temp2,"(echo \"start dbedit\";sleep 4; %s/common/scripts/dbedit -embed )&",getenv("CODA"));
+        printf("Executing >%s<\n",temp2);
         system(temp2);
       }
 

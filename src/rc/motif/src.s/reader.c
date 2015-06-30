@@ -187,7 +187,7 @@ reads(int fd, char *buf, int num)
  * ** break the line up into fields.
  */
 int
-getline(FILE * file, char *loc)
+mygetline(FILE * file, char *loc)
 {
   char command[64], *remaining, c;
   int count, i, more, loop;

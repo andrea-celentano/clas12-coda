@@ -699,7 +699,7 @@ ReadDataFile(Widget parent, FILE * fd)
 
   loc = NULL;
   working = NULL;
-  count = getline(fd, loc);
+  count = mygetline(fd, loc);
   while (count > 0) {
     if (count > 0) {
       readnext = True;
@@ -768,7 +768,7 @@ ReadDataFile(Widget parent, FILE * fd)
 	  }
 	  line[0] = SciPlotListCreateFromFloat(working->plot, 0, NULL, NULL, field[1]);
 	  do {
-	    count = getline(fd, loc);
+	    count = mygetline(fd, loc);
 	    readnext = False;
 
 	    num = checkfloat(0);
@@ -801,7 +801,7 @@ ReadDataFile(Widget parent, FILE * fd)
 	  maxlines = count;
 
 	  do {
-	    count = getline(fd, loc);
+	    count = mygetline(fd, loc);
 	    readnext = False;
 
 	    num = checkfloat(0);
@@ -841,7 +841,7 @@ ReadDataFile(Widget parent, FILE * fd)
       }
     }
     if (readnext)
-      count = getline(fd, loc);
+      count = mygetline(fd, loc);
   }
   if (working) SciPlotDialogInternalPopup(working);
 }

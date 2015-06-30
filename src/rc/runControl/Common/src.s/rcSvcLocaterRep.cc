@@ -41,6 +41,9 @@ rcSvcLocaterRep::rcSvcLocaterRep (Reactor& r,
 #endif
   ::strncpy (exptname_, exptname, sizeof (exptname_));
   ::strncpy (serverHost_, hostname, sizeof (serverHost_));
+
+  printf("rcSvcLocaterRep::rcSvcLocaterRep: port=%d, req=%d, hostname >%s< exptname >%s<\n",
+		 port,req,serverHost_,exptname_);
 }
 
 int
@@ -76,10 +79,13 @@ rcSvcLocaterRep::handle_input (int)
   unsigned  short port;
   int       n;
 
-  if ( (n = brdcaster_.recv (&port, sizeof (unsigned short), sa)) == -1){
-    return -1;
+  if ( (n = brdcaster_.recv (&port, sizeof (unsigned short), sa)) == -1)
+  {
+    printf("rcSvcLocaterRep::handle_input: server did not respond ?\n");
+    return(-1);
   }
-  else {
+  else
+  {
     serverPort_ = ntohs (port);
 
     printf("rcSvcLocaterRep::handle_input: server is on %s and at TCP port %d\n",
@@ -98,17 +104,20 @@ rcSvcLocaterRep::handle_input (int)
 int
 rcSvcLocaterRep::sendRequest (void)
 {
-  char   buffer[128];
-  
+  char buffer[128];
+  int ret;  
+
   int   req = htonl (req_);
   memcpy (buffer, &req, sizeof (int));
   int i = sizeof (int);
   memcpy (&(buffer[i]), exptname_, MAX_STRING_LEN);
   i += MAX_STRING_LEN;
   INET_Addr addr (port_, serverHost_);
-printf("rcSvcLocaterRep::sendRequest: port=%d buffer>%s<\n",port_,&(buffer[sizeof (int)]));
+  ret = brdcaster_.send (buffer, i, addr);
+  printf("rcSvcLocaterRep::sendRequest: port=%d buffer>%s<, return=%d\n",
+		 port_,&(buffer[sizeof (int)]),ret);
 
-  return brdcaster_.send (buffer, i, addr);
+  return(ret);
 }
 
 

@@ -24,7 +24,7 @@ INET_Addr::INET_Addr (const INET_Addr &sa)
 /* Initializes a INET_Addr from a PORT_NUMBER and an Internet address. */
 
 INLINE int
-INET_Addr::set (unsigned short port_number, long inet_address, int encode)
+INET_Addr::set (unsigned short port_number, int32_t inet_address, int encode)
 {
   this->Addr::base_set (AF_INET, sizeof this->inet_addr_);
   (void) ::memset ((void *) &this->inet_addr_, 0, sizeof this->inet_addr_);
@@ -47,25 +47,33 @@ INLINE int
 INET_Addr::set (unsigned short port_number, const char host_name[], int encode)
 {
   hostent *server_info;  
-  long	  addr;
+  int32_t addr;
   
+  printf("INET_Addr.i: INET_Addr::set: port=%d host >%s<\n",port_number,host_name);
+
   this->Addr::base_set (AF_INET, sizeof this->inet_addr_);
   (void) ::memset ((void *) &this->inet_addr_, 0, sizeof this->inet_addr_);
 
   // Yow, someone gave us a NULL host_name!
   if (host_name == 0)
-    {
-      errno = EINVAL;
-      return -1;
-    }
-  else if ((addr = ::inet_addr (host_name)) != -1 
-	   || ::strcmp (host_name, "255.255.255.255") == 0) // Broadcast addresses are weird...
+  {
+    printf("INET_Addr.i: INET_Addr::set 1\n");
+    errno = EINVAL;
+    return -1;
+  }
+  else if ((addr = ::inet_addr (host_name)) != -1 ||
+		   ::strcmp (host_name, "255.255.255.255") == 0) /*we are here if host_name is in form 'xxx.xxx.xxx.xxx'*/
+  {
+    printf("INET_Addr.i: INET_Addr::set 2\n");
     return this->set (port_number, addr, encode);
-  else if ((server_info = ::gethostbyname (host_name)) != 0)
-    {
-      (void) ::memcpy ((void *) &addr, server_info->h_addr, server_info->h_length);
-      return this->set (port_number, addr, encode);
-    }
+  }
+  else if ((server_info = ::gethostbyname (host_name)) != 0) /*we are here if host_name is in form 'blabla.jlab.org'*/
+  {
+    printf("INET_Addr.i: INET_Addr::set 3\n");
+    (void) ::memcpy ((void *) &addr, server_info->h_addr, server_info->h_length);
+    return this->set (port_number, addr, encode);
+  }
+  printf("INET_Addr.i: INET_Addr::set 4\n");
 }
 
 /* Initializes a INET_Addr from a PORT_NAME and the remote HOST_NAME. */
@@ -84,7 +92,7 @@ INET_Addr::set (const char port_name[], const char host_name[])
 /* Initializes a INET_Addr from a PORT_NAME and an Internet address. */
 
 INLINE int
-INET_Addr::set (const char port_name[], long inet_address)
+INET_Addr::set (const char port_name[], int32_t  inet_address)
 {
   servent *sp;
 
@@ -99,6 +107,7 @@ INET_Addr::set (const char port_name[], long inet_address)
 INLINE
 INET_Addr::INET_Addr (unsigned short port_number, const char host_name[])
 {
+  printf("INET_Addr.i: INET_Addr::INET_Addr\n");
   if (this->set (port_number, host_name) == -1)
     LM_ERROR ((LOG_ERROR, "INET_Addr::INET_Addr"));
 }
@@ -124,7 +133,7 @@ INET_Addr::INET_Addr (const sockaddr_in *addr, int len)
 /* Creates a INET_Addr from a PORT_NUMBER and an Internet address. */
 
 INLINE
-INET_Addr::INET_Addr (unsigned short port_number, long inet_address)
+INET_Addr::INET_Addr (unsigned short port_number, int32_t  inet_address)
 {
   if (this->set (port_number, inet_address) == -1)
     LM_ERROR ((LOG_ERROR, "INET_Addr::INET_Addr"));
@@ -142,7 +151,7 @@ INET_Addr::INET_Addr (const char port_name[], const char host_name[])
 /* Creates a INET_Addr from a PORT_NAME and an Internet address. */
 
 INLINE
-INET_Addr::INET_Addr (const char* port_name, long inet_address)
+INET_Addr::INET_Addr (const char* port_name, int32_t  inet_address)
 {
   if (this->set (port_name, inet_address) == -1)
     LM_ERROR ((LOG_ERROR, "INET_Addr::INET_Addr"));
@@ -209,10 +218,10 @@ INET_Addr::get_host_addr (void) const
 
 /* Return the 4-byte IP address. */
 
-INLINE unsigned long
+INLINE uint32_t 
 INET_Addr::get_ip_address (void) const
 {
-  return (unsigned long) this->inet_addr_.sin_addr.s_addr;
+  return (uint32_t) this->inet_addr_.sin_addr.s_addr;
 }
 
 /* Return the port number. */

@@ -57,20 +57,21 @@ static void codaSplitBuffer (char **s, char *buffer, int count, int& size)
   }
 }
   
+/*sergey: changed type for 'data' from 'int' to 'int64_t*/
 #ifdef Linux_x86_64
-daqNetData::daqNetData (char* compname, char* attrname, int data)
-:type_ (CODA_INT), count_ (1)
+daqNetData::daqNetData (char* compname, char* attrname, int64_t data)
+:type_ (CODA_INT64), count_ (1)
 {
 #ifdef _TRACE_OBJECTS
   printf ("Create daqNetData Class Object\n");
 #endif
   ctrNameAndAttr (compname, attrname);
-  u_.ival = data;
+  u_.lval = data;
 }
 #endif
 
 daqNetData::daqNetData (char* compname, char* attrname, int data)
-:type_ (CODA_INT), count_ (1)
+:type_ (CODA_INT32), count_ (1)
 {
 #ifdef _TRACE_OBJECTS
   printf ("Create daqNetData Class Object\n");
@@ -127,8 +128,32 @@ daqNetData::daqNetData (char* compname, char* attrname, daqArbStruct* data)
   u_.arb = data->dup ();
 }
 
+#ifdef Linux_x86_64
+daqNetData::daqNetData (char* compname, char* attrname, int64_t* data, int count)
+:type_ (CODA_INT64), count_ (count)
+{
+#ifdef _TRACE_OBJECTS
+  printf ("Create daqNetData Class Object\n");
+#endif
+  // data cannot be null
+  assert (data);
+  assert (count > 0);
+
+  ctrNameAndAttr (compname, attrname);
+
+  if (count_ == 1) 
+    u_.lval = data[0];
+  else {
+    int64_t *tdata = new int64_t[count];
+    for (int i = 0; i < count; i++)
+      tdata[i] = data[i];
+    u_.data = (void *)tdata;
+  }
+}
+#endif
+
 daqNetData::daqNetData (char* compname, char* attrname, int* data, int count)
-:type_ (CODA_INT), count_ (count)
+:type_ (CODA_INT32), count_ (count)
 {
 #ifdef _TRACE_OBJECTS
   printf ("Create daqNetData Class Object\n");
@@ -234,8 +259,27 @@ daqNetData::daqNetData (const daqNetData& data)
     attrname_ = 0;
   }
 
-  switch (type_) {
-  case CODA_INT:
+  switch (type_)
+  {
+
+  case CODA_INT64:
+    if (count_ == 1)
+    {
+      u_.lval = data.u_.lval;
+    }
+    else
+    {
+      int64_t *tdata = new int64_t[count_];
+      int64_t *cdata = (int64_t *)data.u_.data;
+      for (int i = 0; i < count_; i++)
+      {
+	    tdata[i] = cdata[i];
+      }
+      u_.data = (void *)tdata;
+    }
+    break;
+
+  case CODA_INT32:
     if (count_ == 1) {
       u_.ival = data.u_.ival;
     }
@@ -248,6 +292,7 @@ daqNetData::daqNetData (const daqNetData& data)
       u_.data = (void *)tdata;
     }
     break;
+
   case CODA_FLT:
     if (count_ == 1) {
       u_.fval = data.u_.fval;
@@ -336,8 +381,23 @@ daqNetData::operator = (const daqNetData& data)
     count_ = data.count_;
     
     if (count_ != 0 && type_ != CODA_UNKNOWN) {
-      switch (type_) {
-      case CODA_INT:
+      switch (type_)
+      {
+
+      case CODA_INT64:
+	if (count_ == 1) 
+	  u_.lval = data.u_.lval;
+	else {
+	  int64_t *tdata = new int64_t[count_];
+	  int64_t *cdata = (int64_t *)data.u_.data;
+	  for (int i = 0; i < count_; i++) {
+	    tdata[i] = cdata[i];
+	  }
+	  u_.data = (void *)tdata;
+	}
+	break;
+
+      case CODA_INT32:
 	if (count_ == 1) 
 	  u_.ival = data.u_.ival;
 	else {
@@ -349,6 +409,7 @@ daqNetData::operator = (const daqNetData& data)
 	  u_.data = (void *)tdata;
 	}
 	break;
+
       case CODA_FLT:
 	if (count_ == 1) 
 	  u_.fval = data.u_.fval;
@@ -430,8 +491,10 @@ daqNetData::~daqNetData (void)
       delete u_.arb;
   }
   else if (count_ > 1) {
-    switch (type_){
-    case CODA_INT:
+    switch (type_)
+    {
+    case CODA_INT64:
+    case CODA_INT32:
     case CODA_FLT:
     case CODA_DBL:
       delete []u_.data;
@@ -466,7 +529,8 @@ void
 daqNetData::freeBufferMemory (void)
 {
   switch (type_){
-  case CODA_INT:
+  case CODA_INT64:
+  case CODA_INT32:
   case CODA_FLT:
   case CODA_DBL:
     delete []u_.data;
@@ -498,13 +562,16 @@ daqNetData::operator = (int val)
   else {
     if (type_ == CODA_STRUCT) {
       delete u_.arb;
-      type_ = CODA_INT;
+      type_ = CODA_INT32;
     }
   }
 
   count_ = 1;
   switch (type_) {
-  case CODA_INT:
+  case CODA_INT64:
+    u_.lval = val;
+    break;
+  case CODA_INT32:
     u_.ival = val;
     break;
   case CODA_FLT:
@@ -525,7 +592,7 @@ daqNetData::operator = (int val)
 }
 
 daqNetData&
-daqNetData::operator = (long val)
+daqNetData::operator = (int64_t val)
 {
   if (count_ == 0)
     return *this;
@@ -538,13 +605,16 @@ daqNetData::operator = (long val)
   else {
     if (type_ == CODA_STRUCT) {
       delete u_.arb;
-      type_ = CODA_INT;
+      type_ = CODA_INT32;
     }
   }
 
   count_ = 1;
   switch (type_) {
-  case CODA_INT:
+  case CODA_INT64:
+    u_.lval = (int)val;
+    break;
+  case CODA_INT32:
     u_.ival = (int)val;
     break;
   case CODA_FLT:
@@ -584,7 +654,10 @@ daqNetData::operator = (float val)
 
   count_ = 1;
   switch (type_) {
-  case CODA_INT:
+  case CODA_INT64:
+    u_.lval = (int)val;
+    break;
+  case CODA_INT32:
     u_.ival = (int)val;
     break;
   case CODA_FLT:
@@ -624,7 +697,10 @@ daqNetData::operator = (double val)
 
   count_ = 1;
   switch (type_) {
-  case CODA_INT:
+  case CODA_INT64:
+    u_.lval = (int)val;
+    break;
+  case CODA_INT32:
     u_.ival = (int)val;
     break;
   case CODA_FLT:
@@ -667,7 +743,15 @@ daqNetData::operator = (char* val)
   count_ = 1;
 
   switch (type_) {
-  case CODA_INT:
+  case CODA_INT64:
+    {
+      int64_t tval;
+      status = sscanf (val, "%lld", &tval);
+      if (status == 1) 
+	u_.lval = tval;
+    }
+    break;
+  case CODA_INT32:
     {
       int tval;
       status = sscanf (val, "%d", &tval);
@@ -726,6 +810,78 @@ daqNetData::operator = (daqArbStruct* val)
 }
   
 void
+daqNetData::assignData (int64_t* data, int count)
+{
+  if (count_ == 0)
+    return;
+
+  if (count == 1) {
+    operator = (*data);
+    return;
+  }
+  if (count_ > 1)
+    freeBufferMemory ();
+  else {
+    if (type_ == CODA_STR)
+      delete []u_.sval;
+    else if (type_ == CODA_STRUCT) {
+      delete u_.arb;
+      type_ = CODA_INT32;
+    }
+  }
+      
+  count_ = count;
+  switch (type_) {
+  case CODA_INT64:
+    {
+      int64_t *tdata = new int64_t[count];
+      for (int i = 0; i < count; i++)
+	tdata[i] = data[i];
+      u_.data = (void *)tdata;
+    }
+    break;
+  case CODA_INT32:
+    {
+      int *tdata = new int[count];
+      for (int i = 0; i < count; i++)
+	tdata[i] = data[i];
+      u_.data = (void *)tdata;
+    }
+    break;
+  case CODA_FLT:
+    {
+      float *tdata = new float[count];
+      for (int i = 0; i < count; i++)
+	tdata[i] = (float)data[i];
+      u_.data = (void *)tdata;
+    }
+    break;
+  case CODA_DBL:
+    {
+      double *tdata = new double[count];
+      for (int i = 0; i < count; i++)
+	tdata[i] = (double)data[i];
+      u_.data = (void *)tdata;
+    }
+    break;
+  case CODA_STR:
+    {
+      char **tdata = new char*[count];
+      char temp[32];
+      for (int i = 0; i < count; i++) {
+	sprintf (temp, "%-12d", data[i]);
+	tdata[i] = new char[::strlen (temp) + 1];
+	::strcpy (tdata[i], temp);
+      }
+      u_.data = (void *)tdata;
+    }
+    break;
+  default:
+    break;
+  }
+}
+
+void
 daqNetData::assignData (int* data, int count)
 {
   if (count_ == 0)
@@ -742,13 +898,21 @@ daqNetData::assignData (int* data, int count)
       delete []u_.sval;
     else if (type_ == CODA_STRUCT) {
       delete u_.arb;
-      type_ = CODA_INT;
+      type_ = CODA_INT32;
     }
   }
       
   count_ = count;
   switch (type_) {
-  case CODA_INT:
+  case CODA_INT64:
+    {
+      int64_t *tdata = new int64_t[count];
+      for (int i = 0; i < count; i++)
+	tdata[i] = data[i];
+      u_.data = (void *)tdata;
+    }
+    break;
+  case CODA_INT32:
     {
       int *tdata = new int[count];
       for (int i = 0; i < count; i++)
@@ -812,7 +976,15 @@ daqNetData::assignData (float* data, int count)
 
   count_ = count;
   switch (type_) {
-  case CODA_INT:
+  case CODA_INT64:
+    {
+      int64_t *tdata = new int64_t[count];
+      for (int i = 0; i < count; i++)
+	tdata[i] = (int64_t)data[i];
+      u_.data = (void *)tdata;
+    }
+    break;
+  case CODA_INT32:
     {
       int *tdata = new int[count];
       for (int i = 0; i < count; i++)
@@ -875,7 +1047,15 @@ daqNetData::assignData (double* data, int count)
   }
   count_ = count;
   switch (type_) {
-  case CODA_INT:
+  case CODA_INT64:
+    {
+      int64_t *tdata = new int64_t[count];
+      for (int i = 0; i < count; i++)
+	tdata[i] = (int64_t)data[i];
+      u_.data = (void *)tdata;
+    }
+    break;
+  case CODA_INT32:
     {
       int *tdata = new int[count];
       for (int i = 0; i < count; i++)
@@ -938,7 +1118,17 @@ daqNetData::assignData (char** data, int count)
   }
   count_ = count;
   switch (type_) {
-  case CODA_INT:
+  case CODA_INT64:
+    {
+      int64_t *tdata = new int64_t[count];
+      for (int i = 0; i < count; i++) {
+	if (::sscanf (data[i], "%lld", &tdata[i]) != 1)
+	  tdata[i] = 0;
+      }
+      u_.data = (void *)tdata;
+    }
+    break;
+  case CODA_INT32:
     {
       int *tdata = new int[count];
       for (int i = 0; i < count; i++) {
@@ -987,7 +1177,13 @@ void
 daqNetData::assignData (const daqNetData& data)
 {
   switch (data.type_) {
-  case CODA_INT:
+  case CODA_INT64:
+    if (data.count_ > 1)
+      assignData ((int64_t *)data.u_.data, data.count_);
+    else if (data.count_ == 1)
+      operator = (data.u_.lval);
+    break;
+  case CODA_INT32:
     if (data.count_ > 1)
       assignData ((int *)data.u_.data, data.count_);
     else if (data.count_ == 1)
@@ -1025,7 +1221,10 @@ daqNetData::operator int (void)
 
   if (count_ == 1) {
     switch (type_){
-    case CODA_INT:
+    case CODA_INT64:
+      val = u_.lval;
+      break;
+    case CODA_INT32:
       val = u_.ival;
       break;
     case CODA_FLT:
@@ -1046,7 +1245,13 @@ daqNetData::operator int (void)
   }
   else if (count_ > 1){
     switch (type_){
-    case CODA_INT:
+    case CODA_INT64:
+      {
+	int64_t* cdata = (int64_t *)u_.data;
+	val = cdata[0];
+      }
+      break;
+    case CODA_INT32:
       {
 	int* cdata = (int *)u_.data;
 	val = cdata[0];
@@ -1082,21 +1287,24 @@ daqNetData::operator int (void)
   return val;
 }
 
-daqNetData::operator long (void)
+daqNetData::operator int64_t (void)
 {
-  long val;
+  int64_t val;
   int status;
 
   if (count_ == 1) {
     switch (type_){
-    case CODA_INT:
-      val = (long)u_.ival;
+    case CODA_INT64:
+      val = (int64_t)u_.lval; /*sergey: error */
+      break;
+    case CODA_INT32:
+      val = (int64_t)u_.ival;
       break;
     case CODA_FLT:
-      val = (long)(u_.fval);
+      val = (int64_t)(u_.fval);
       break;
     case CODA_DBL:
-      val = (long)(u_.dval);
+      val = (int64_t)(u_.dval);
       break;
     case CODA_STR:
       status = sscanf (u_.sval,"%ld",&val);
@@ -1110,22 +1318,28 @@ daqNetData::operator long (void)
   }
   else if (count_ > 1){
     switch (type_){
-    case CODA_INT:
+    case CODA_INT64:
+      {
+	int64_t* cdata = (int64_t *)u_.data;
+	val = (int64_t)cdata[0];
+      }
+      break;
+    case CODA_INT32:
       {
 	int* cdata = (int *)u_.data;
-	val = (long)cdata[0];
+	val = (int64_t)cdata[0];
       }
       break;
     case CODA_FLT:
       {
 	float *cdata = (float *)u_.data;
-	val = (long)cdata[0];
+	val = (int64_t)cdata[0];
       }
       break;
     case CODA_DBL:
       {
 	double *cdata = (double *)u_.data;
-	val = (long)cdata[0];
+	val = (int64_t)cdata[0];
       }
       break;
     case CODA_STR:
@@ -1153,7 +1367,10 @@ daqNetData::operator float (void)
 
   if (count_ == 1) {
     switch (type_){
-    case CODA_INT:
+    case CODA_INT64:
+      val = (float)(u_.lval);
+      break;
+    case CODA_INT32:
       val = (float)(u_.ival);
       break;
     case CODA_FLT:
@@ -1174,7 +1391,13 @@ daqNetData::operator float (void)
   }
   else if (count_ > 1) {
     switch (type_){
-    case CODA_INT:
+    case CODA_INT64:
+      {
+	int64_t* cdata = (int64_t *)u_.data;
+	val = (float)cdata[0];
+      }
+      break;
+    case CODA_INT32:
       {
 	int* cdata = (int *)u_.data;
 	val = (float)cdata[0];
@@ -1218,7 +1441,10 @@ daqNetData::operator double (void)
 
   if (count_ == 1) {
     switch (type_){
-    case CODA_INT:
+    case CODA_INT64:
+      val = (double)(u_.lval);
+      break;
+    case CODA_INT32:
       val = (double)(u_.ival);
       break;
     case CODA_FLT:
@@ -1241,7 +1467,13 @@ daqNetData::operator double (void)
   }
   else if (count_ > 1) {
     switch (type_){
-    case CODA_INT:
+    case CODA_INT64:
+      {
+	int64_t* cdata = (int64_t *)u_.data;
+	val = (double)cdata[0];
+      }
+      break;
+    case CODA_INT32:
       {
 	int* cdata = (int *)u_.data;
 	val = (double)cdata[0];
@@ -1284,7 +1516,10 @@ daqNetData::operator char* (void)
   if (count_ == 1) {
     static char buffer[CODA_CONV_LEN];
     switch (type_){
-    case CODA_INT:
+    case CODA_INT64:
+      sprintf (buffer,"%lld",u_.lval);
+      break;
+    case CODA_INT32:
       sprintf (buffer,"%d",u_.ival);
       break;
     case CODA_FLT:
@@ -1312,7 +1547,14 @@ daqNetData::operator char* (void)
     buffer[0] = '\0';
     int i = 0;
     switch (type_) {
-    case CODA_INT:
+    case CODA_INT64:
+      {
+	int64_t *cdata = (int64_t *)u_.data;
+	for (i = 0; i < count_; i++)
+	  sprintf (&(buffer[i*12]), "%-12lld", cdata[i]);
+      }
+      break;
+    case CODA_INT32:
       {
 	int *cdata = (int *)u_.data;
 	for (i = 0; i < count_; i++)
@@ -1376,7 +1618,10 @@ daqNetData::getData (int data[], int& count)
 
   if (count_ == 1) {
     switch (type_) {
-    case CODA_INT:
+    case CODA_INT64:
+      data[0] = u_.lval;
+      break;
+    case CODA_INT32:
       data[0] = u_.ival;
       break;
     case CODA_FLT:
@@ -1396,7 +1641,7 @@ daqNetData::getData (int data[], int& count)
   else if (count_ > 1) {
     int realCount = (count_ < count) ? count_ : count;
     switch (type_) {
-    case CODA_INT:
+    case CODA_INT32:
       {
 	int *cdata = (int *)u_.data;
 	for (int i = 0; i < realCount; i++) 
@@ -1445,7 +1690,7 @@ daqNetData::getData (float data[], int& count)
 
   if (count_ == 1) {
     switch (type_) {
-    case CODA_INT:
+    case CODA_INT32:
       data[0] = (float)u_.ival;
       break;
     case CODA_FLT:
@@ -1465,7 +1710,7 @@ daqNetData::getData (float data[], int& count)
   else {
     int realCount = (count_ < count) ? count_ : count;
     switch (type_) {
-    case CODA_INT:
+    case CODA_INT32:
       {
 	int *cdata = (int *)u_.data;
 	for (int i = 0; i < realCount; i++) 
@@ -1514,7 +1759,7 @@ daqNetData::getData (double data[], int& count)
 
   if (count_ == 1) {
     switch (type_) {
-    case CODA_INT:
+    case CODA_INT32:
       data[0] = (double)u_.ival;
       break;
     case CODA_FLT:
@@ -1534,7 +1779,7 @@ daqNetData::getData (double data[], int& count)
   else {
     int realCount = (count_ < count) ? count_ : count;
     switch (type_) {
-    case CODA_INT:
+    case CODA_INT32:
       {
 	int *cdata = (int *)u_.data;
 	for (int i = 0; i < realCount; i++) 
@@ -1583,7 +1828,7 @@ daqNetData::getData (char* data[], int& count)
 
   if (count_ == 1) {
     switch (type_) {
-    case CODA_INT:
+    case CODA_INT32:
       {
 	char temp[32];
 	::sprintf (temp, "%d",u_.ival);
@@ -1618,7 +1863,7 @@ daqNetData::getData (char* data[], int& count)
   else {
     int realCount = (count_ < count) ? count_ : count;
     switch (type_) {
-    case CODA_INT:
+    case CODA_INT32:
       {
 	int *cdata = (int *)u_.data;
 	char temp[32];
@@ -1675,19 +1920,19 @@ daqNetData::type (void) const
   return type_;
 }
 
-long
+int64_t
 daqNetData::namelength (void) const
 {
   return nameLen_;
 }
 
-long
+int64_t
 daqNetData::attrlength (void) const
 {
   return attrLen_;
 }
 
-long
+int64_t
 daqNetData::count (void) const
 {
   return count_;
@@ -1706,10 +1951,10 @@ daqNetData::attribute (void) const
 }
 
 // return size which rounded to word boundary
-long
+int64_t
 daqNetData::size (void) const
 {
-  long size = RC_DAQ_NETDATA_SIZE;
+  int64_t size = RC_DAQ_NETDATA_SIZE;
 
   if (count_ == 0)
     return size;
@@ -1719,7 +1964,7 @@ daqNetData::size (void) const
   
   if (count_ > 1) {
     switch (type_) {
-    case CODA_INT:
+    case CODA_INT32:
       size += (sizeof (int) * count_);
       break;
     case CODA_FLT:
@@ -1747,7 +1992,7 @@ daqNetData::size (void) const
       size += CODA_FDCONV_LEN;
       break;
     case CODA_STRUCT:
-      size += 2*sizeof (long);  // run time id + size 
+      size += 2*sizeof (int64_t);  // run time id + size 
       size += u_.arb->size ();
       break;
     default:
@@ -1756,7 +2001,7 @@ daqNetData::size (void) const
   }
   // roundup size to align with word boundary
   // now put everything into the buffer
-  long bufsize = roundLen (size);
+  int64_t bufsize = roundLen (size);
   return bufsize;
 }
 
@@ -1766,15 +2011,15 @@ daqNetData::size (void) const
 void
 encodeNetData (daqNetData& data, 
 	       char* &buffer, 
-	       long& bufsize)
+	       int64_t& bufsize)
 {
-  long size = RC_DAQ_NETDATA_SIZE;
+  int64_t size = RC_DAQ_NETDATA_SIZE;
   size += data.nameLen_;
   size += data.attrLen_;
   
   if (data.count_ > 1) {
     switch (data.type_) {
-    case CODA_INT:
+    case CODA_INT32:
       size += (sizeof (int) * data.count_);
       break;
     case CODA_FLT:
@@ -1802,7 +2047,7 @@ encodeNetData (daqNetData& data,
       size += CODA_FDCONV_LEN;
       break;
     case CODA_STRUCT:
-      size += 2*sizeof (long); // run time id + size info
+      size += 2*sizeof(int64_t); // run time id + size info
       size += data.u_.arb->size ();
       break;
     default:
@@ -1815,7 +2060,7 @@ encodeNetData (daqNetData& data,
   buffer = new char[bufsize];
 
   // convert all integer values into the network byte ordering
-  if (data.count_ == 1 && data.type_ == CODA_INT)
+  if (data.count_ == 1 && data.type_ == CODA_INT32)
     data.u_.ival = htonl (data.u_.ival);
   data.type_ = (dataType) htonl (data.type_);
   data.nameLen_ = htonl (data.nameLen_);
@@ -1832,7 +2077,7 @@ encodeNetData (daqNetData& data,
   data.nameLen_ = ntohl (data.nameLen_);
   data.attrLen_ = ntohl (data.attrLen_);
   data.count_ = ntohl (data.count_);
-  if (data.count_ == 1 && data.type_ == CODA_INT)
+  if (data.count_ == 1 && data.type_ == CODA_INT32)
     data.u_.ival = ntohl (data.u_.ival);
 
   if (data.count_ == 0) // no need to go more for an empty data
@@ -1847,7 +2092,7 @@ encodeNetData (daqNetData& data,
   // put array of data
   if (data.count_ > 1) {
     switch (data.type_) {
-    case CODA_INT:
+    case CODA_INT32:
       {
 	int *cdata = (int *)data.u_.data;
 	int tmp;
@@ -1922,14 +2167,14 @@ encodeNetData (daqNetData& data,
       break;
     case CODA_STRUCT:
       {
-	long tmp[2];
+	int64_t tmp[2];
 	tmp[0] = data.u_.arb->id ();
 	tmp[1] = data.u_.arb->size ();
 
 	tmp[0] = htonl (tmp[0]); tmp[1] = htonl (tmp[1]);
 	// copy prefix information
-	::memcpy (&(buffer[i]), (void *)tmp, 2*sizeof (long));
-	i = i + 2*sizeof (long);
+	::memcpy (&(buffer[i]), (void *)tmp, 2*sizeof (int64_t));
+	i = i + 2*sizeof (int64_t);
 
 	// copy structure
 	size_t bufsize = 0;
@@ -1951,10 +2196,12 @@ encodeNetData (daqNetData& data,
 void
 decodeNetData (daqNetData& data, 
 	       char* buffer, 
-	       long bufsize)
+	       int64_t bufsize)
 {
+  printf("decodeNetData: bufsize=%lld\n",bufsize);
+
   // first clean up old information and remember old count value
-  long oldcount = data.count_;
+  int64_t oldcount = data.count_;
   char *comp = 0;
   char *attr = 0;
 
@@ -1983,21 +2230,24 @@ decodeNetData (daqNetData& data,
   data.nameLen_ = ntohl (data.nameLen_);
   data.attrLen_ = ntohl (data.attrLen_);
   data.count_ = ntohl (data.count_);
-  if (data.count_ == 1 && data.type_ == CODA_INT)
+  if (data.count_ == 1 && data.type_ == CODA_INT32)
     data.u_.ival = ntohl (data.u_.ival);
 
-  if (oldcount == 0) { // get component name and attribute name
+  if (oldcount == 0) // get component name and attribute name
+  {
     assert (data.nameLen_ > 0);
     assert (data.attrLen_ > 0);
 
     data.compname_ = new char[data.nameLen_];
     data.attrname_ = new char[data.attrLen_];
+  printf("decodeNetData: data.attrLen_=%d\n",data.attrLen_);
     ::memcpy (data.compname_, &(buffer[i]), data.nameLen_);
     i += data.nameLen_;
     ::memcpy (data.attrname_, &(buffer[i]), data.attrLen_);
     i += data.attrLen_;
   }
-  else {
+  else
+  {
     // do not get component name and attribute name
     // since this data already has component name and attribute
     // restore the name and attribute address
@@ -2009,7 +2259,7 @@ decodeNetData (daqNetData& data,
   // get values
   if (data.count_ > 1) {
     switch (data.type_) {
-    case CODA_INT:
+    case CODA_INT32:
       {
 	int *tdata = new int [data.count_];
 	for (int j = 0; j < data.count_; j++) {
@@ -2090,13 +2340,13 @@ decodeNetData (daqNetData& data,
     case CODA_STRUCT:
       {
 	// first get prefix information
-	long tmp[2];
-	::memcpy ((void *)tmp, &(buffer[i]), 2*sizeof (long));
+	int64_t tmp[2];
+	::memcpy ((void *)tmp, &(buffer[i]), 2*sizeof (int64_t));
 
 	tmp[0] = ntohl (tmp[0]);
 	tmp[1] = ntohl (tmp[1]);
 
-	i = i + 2*sizeof (long);
+	i = i + 2*sizeof (int64_t);
 
 	// create comp boot struct
 	daqArbStructFactory factory;

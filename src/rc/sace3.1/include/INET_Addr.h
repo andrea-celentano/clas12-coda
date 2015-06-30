@@ -29,14 +29,14 @@ public:
   INET_Addr (const INET_Addr &);
   INET_Addr (const sockaddr_in *, int len);
   INET_Addr (unsigned short port_number, const char host_name[]);
-  INET_Addr (unsigned short port_number, long ip_addr = INADDR_ANY);
+  INET_Addr (unsigned short port_number, int32_t ip_addr = INADDR_ANY);
   INET_Addr (const char port_name[], const char host_name[]);
-  INET_Addr (const char port_name[], long ip_addr = INADDR_ANY);
+  INET_Addr (const char port_name[], int32_t ip_addr = INADDR_ANY);
 
   int set (unsigned short port_number, const char host_name[], int encode = 1);
-  int set (unsigned short port_number, long ip_addr = INADDR_ANY, int encode = 1);
+  int set (unsigned short port_number, int32_t ip_addr = INADDR_ANY, int encode = 1);
   int set (const char port_name[], const char host_name[]);
-  int set (const char port_name[], long ip_addr = INADDR_ANY);
+  int set (const char port_name[], int32_t ip_addr = INADDR_ANY);
   int set (const sockaddr_in *, int len);
 
   virtual void   *get_addr (void) const;
@@ -46,7 +46,7 @@ public:
 
   const char     *get_host_name (void) const;
   const	char     *get_host_addr (void) const;
-  unsigned long  get_ip_address (void) const;
+  uint32_t       get_ip_address (void) const;
   unsigned short get_port_number (void) const;
 
 private:

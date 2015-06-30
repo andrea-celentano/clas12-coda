@@ -1,4 +1,5 @@
 
+
 /* TI before upgrade June 9 2015:
 TI firmware update via VME
 ----------------------------
@@ -479,6 +480,8 @@ __download()
   tiSetUserSyncResetReceive(1);
 
 
+  /* pulse width from prompt output: (width + 2) * 4ns, max is 0x7f */
+  tiSetPromptTriggerWidth(0x18);
 
 
 #ifdef USE_ADC792

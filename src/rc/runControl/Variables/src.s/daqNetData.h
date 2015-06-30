@@ -32,6 +32,7 @@
 #define CODA_MAX_STRLEN 1280
 
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <assert.h>
 #include <daqArbStruct.h>
@@ -41,14 +42,13 @@
 #define ALIGN_WORDB        8      /* word boundary alignment            */
                                   /* align a string to word boundary    */
 
-inline long roundLen (long len)
+inline int64_t roundLen (int64_t len)
 {
   return ((len + ALIGN_WORDB - 1) & ~ (ALIGN_WORDB - 1));
 }
 
 // data types
-enum dataType {CODA_INT, CODA_FLT, CODA_DBL, CODA_STR, CODA_STRUCT,
-	       CODA_UNKNOWN};
+enum dataType {CODA_INT64, CODA_INT32, CODA_FLT, CODA_DBL, CODA_STR, CODA_STRUCT, CODA_UNKNOWN};
 
 // real daqNetData size without those vritual function pointer size which
 // is trouble some on different machines
@@ -64,16 +64,17 @@ public:
   // constructor and destructor
   // construtor for an empty data
   daqNetData (void);
+
   // constructors for all valid data
-#ifdef Linux_x86_64
   daqNetData (char* compname, char* attrname, int64_t data);
-#endif
   daqNetData (char* compname, char* attrname, int data);
   daqNetData (char* compname, char* attrname, float  data);
   daqNetData (char* compname, char* attrname, double data);
   daqNetData (char* compname, char* attrname, char*  data);
   daqNetData (char* compname, char* attrname, daqArbStruct* data);
+
   // constructors for array of elements
+  daqNetData (char* compname, char* attrname, int64_t* data, int count);
   daqNetData (char* compname, char* attrname, int* data, int count);
   daqNetData (char* compname, char* attrname, float* data, int count);
   daqNetData (char* compname, char* attrname, double* data, int count);
@@ -84,17 +85,17 @@ public:
   virtual ~daqNetData (void);
 
   // operation
-  int      type           (void) const;
-  long     namelength     (void) const;
-  long     attrlength     (void) const;
-  long     count          (void) const;
-  char*    name           (void) const;
-  char*    attribute      (void) const;
-  long     size           (void) const;
+  int         type           (void) const;
+  int64_t     namelength     (void) const;
+  int64_t     attrlength     (void) const;
+  int64_t     count          (void) const;
+  char*       name           (void) const;
+  char*       attribute      (void) const;
+  int64_t     size           (void) const;
 
   // conversion operator
+  operator int64_t        (void);
   operator int            (void);
-  operator long           (void);
   operator float          (void);
   operator double         (void);
   // return a new object
@@ -105,18 +106,19 @@ public:
   
 
   // assignment operations
-  daqNetData& operator =  (int    val);
-  daqNetData& operator =  (long   val);
-  daqNetData& operator =  (float  val);
-  daqNetData& operator =  (double val);
-  daqNetData& operator =  (char*  val);
+  daqNetData& operator =  (int64_t val);
+  daqNetData& operator =  (int     val);
+  daqNetData& operator =  (float   val);
+  daqNetData& operator =  (double  val);
+  daqNetData& operator =  (char*   val);
   daqNetData& operator =  (daqArbStruct* val);
 
   // assignment for array of elements
-  void assignData         (int*    data, int count);
-  void assignData         (float*  data, int count);
-  void assignData         (double* data, int count);
-  void assignData         (char**  data, int count);  
+  void assignData         (int64_t* data, int count);
+  void assignData         (int*     data, int count);
+  void assignData         (float*   data, int count);
+  void assignData         (double*  data, int count);
+  void assignData         (char**   data, int count);  
   // just assign value without changing component name and attribute
   void assignData         (const   daqNetData& data);
 
@@ -131,18 +133,18 @@ public:
   int  getData            (char*  data[], int& count);
 
   // network byte ordering operation
-  // encode data into a buffer with size long
+  // encode data into a buffer with size int64_t
   // caller free memory pointed by buffer if bufsize > 0
   // datalen is actually the data inside the buffer. 
   // Note:
   // data value will not be changed.
   friend void encodeNetData (daqNetData& data, 
 			     char* &buffer, 
-			     long& bufsize);
+			     int64_t& bufsize);
   // decode data from a buffer with a buffer size 'bufsize' 
   friend void decodeNetData (daqNetData& data, 
 			     char *buffer, 
-			     long bufsize);
+			     int64_t bufsize);
 
   virtual const char* className (void) const {return "daqNetData";}
 
@@ -159,14 +161,16 @@ private:
   int      count_;
   char     *compname_;
   char     *attrname_;
+
   union    utype {
+    int64_t       lval;
     int           ival;
     float         fval;
     double        dval;
     char*         sval;
     void*         data;  // for array of simple data type
     daqArbStruct* arb;
-  }u_;
+  } u_;
   
   // friend class
   friend class daqData;

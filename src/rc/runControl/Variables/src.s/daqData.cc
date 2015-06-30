@@ -195,9 +195,9 @@ daqData::operator int (void)
   return (int)data_;
 }
 
-daqData::operator long (void)
+daqData::operator int64_t (void)
 {
-  return (long)data_;
+  return (int64_t)data_;
 }
 
 daqData::operator float (void)
@@ -237,7 +237,7 @@ daqData::operator = (int val)
 }
 
 daqData&
-daqData::operator = (long val)
+daqData::operator = (int64_t val)
 {
   data_ = val;
   notifyChannels ();
@@ -397,9 +397,18 @@ daqData::active (void) const
 void
 daqData::update (void)
 {
-  if (data_.count_ == 1) {
-    switch (data_.type_){
-    case CODA_INT:
+  if (data_.count_ == 1)
+  {
+    switch (data_.type_)
+    {
+#ifdef Linux_x86_64
+    case CODA_INT64:
+      if (updater_) 
+	(*updater_)(data_.compname_, data_.attrname_, 
+		    (void *)&(data_.u_.lval), 1);
+      break;
+#endif
+    case CODA_INT32:
       if (updater_) 
 	(*updater_)(data_.compname_, data_.attrname_, 
 		    (void *)&(data_.u_.ival), 1);
@@ -474,7 +483,7 @@ daqData::notifyChannels (void)
   // empty for now
 }
 
-long
+int64_t
 daqData::count (void) const
 {
   return data_.count ();

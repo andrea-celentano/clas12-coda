@@ -2013,7 +2013,7 @@ daqRun::monitorOffValue (rccIO* chan, rcMsg* cmsg)
 
 	// get monitor on callback id which was originally registered by 
 	// monitorOnValue --jie chen Nov 29, 1995
-	long cbkid = (long)ndata;
+	int64_t cbkid = (int64_t)ndata;
 	// server side data are all rcsDaqData, so it is safe to do the following
 	rcsDaqData *rcsdata = (rcsDaqData *)data;
 
@@ -2035,7 +2035,7 @@ daqRun::monitorOffValue (rccIO* chan, rcMsg* cmsg)
 		delete cmsg;
 	}
 	else {
-		ndata = (long)0;
+		ndata = (int64_t)0;
 		chan->sendResult ((int)DAMONITOR_VAL_OFF, ndata, cmsg->reqId ());
 	}
 	return 0;

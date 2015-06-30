@@ -43,21 +43,21 @@ inline int roundUp (int a, int b)
   return ((a + b -1)/b)*b;
 }
 
-const int RCMSG_PREDATA_SIZE = 4*sizeof(long);
+const int RCMSG_PREDATA_SIZE = 4*sizeof(int64_t);
 
 class rcMsg
 {
 public:
   // constructor and destructor
-  rcMsg  (long type, daqNetData& data, long reqId = 0);
+  rcMsg  (int64_t type, daqNetData& data, int64_t reqId = 0);
   rcMsg  (const rcMsg&);
   rcMsg& operator = (const rcMsg&);
 
   ~rcMsg (void);
 
-  long   type     (void) const;
-  long   dataSize (void) const;
-  long   reqId    (void) const;
+  int64_t   type     (void) const;
+  int64_t   dataSize (void) const;
+  int64_t   reqId    (void) const;
 
   char*  compname (void);
   char*  attrname (void);
@@ -79,14 +79,14 @@ protected:
 
 private:
   // command type
-  long        type_;
+  int64_t        type_;
   // user callback pointer casted into long 
   // may not be portable for 64 bit arch.
-  long        arg_;
+  int64_t        arg_;
   // size of network data to follow
-  long        size_;
+  int64_t        size_;
   // padding
-  long        unused_;
+  int64_t        unused_;
   // real network data
   daqNetData  data_;
 };

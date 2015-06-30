@@ -237,7 +237,7 @@ inline void CLR_BITS (short &word, int bits) { word &= ~bits; }
 #endif
 
 #include <string.h>
-#include <iostream.h>
+/*#include <iostream.h>*/
 #include <assert.h>
 #include <memory.h>
 #include <stdarg.h>
@@ -250,77 +250,6 @@ inline void CLR_BITS (short &word, int bits) { word &= ~bits; }
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-
-#if defined (IRIX4)
-extern "C"
-{
-  int writev(int d, struct iovec *iov, int iovcnt);
-  int readv(int d, struct iovec *iov, int iovcnt);
-}
-#endif /* IRIX4 */
-
-#if 0
-extern "C"
-{
-  int madvise (const caddr_t addr, size_t len, int advice);
-  int poll (struct pollfd *, unsigned long, int);
-  int sigfillset(sigset_t *set);
-  int sigemptyset(sigset_t *set);
-#if defined (__GNUG__)
-  int sigaction(int sig, const struct sigaction *act, struct sigaction *oact);
-  int sigprocmask(int how, const sigset_t *set, sigset_t *oset);
-#else
-  int sigaction(int sig, struct sigaction *act, struct sigaction *oact);
-  int sigprocmask(int how, sigset_t *set, sigset_t *oset);
-  int mkfifo(char *path, unsigned short mode);
-#endif /* __GNUG__ */
-}
-
-extern int t_errno;
-#define LOCALNAME 0
-#define REMOTENAME 1
-#include <mon/openprom.h>
-#include <mon/sunromvec.h>
-#endif /* SunOS 4 */
-
-#if defined (__GNUG__)
-#if defined (ultrix)
-extern "C"{
-int  ioctl (int d, int request, void *argp);
-void bzero (char *b1, int length);
-int  writev (int fd, struct iovec *iov, int ioveclen);
-int  readv (int fd, struct iovec *iov, int ioveclen);
-int  recv (int s, char *buf, int len, int flags);
-int  recvfrom (int s, char *buf, int len, int flags, struct sockaddr *from,
-	       int *fromlen);
-int  send (int s, const char *msg, int len, int flags);
-int  sendto (int s, const char *msg, int len, int flag, struct sockaddr *to, 
-	     int tolen);
-int  sendmsg (int s, struct msghdr msg[], int flags);
-int  recvmsg (int s, struct msghdr msg[], int flags);
-int  setsockopt (int s, int level, int optname, char *optval, int optlen);
-int  getsockopt (int s, int level, int optname, char *optval, int *optlen);
-int  getsockname (int s, struct sockaddr *name, int *namelen);
-int  shutdown (int s, int how);
-caddr_t mmap (caddr_t addr, size_t len, int prot, int flags, int fd, 
-	      off_t off);
-caddr_t munmap (caddr_t addr, size_t len);
-int     ftruncate (int fd, int length);
-int     madvise (caddr_t addr, size_t len, int behaviour);
-char    *sbrk (int incr);
-int     getrlimit (int resource, struct rlimit *rlp);
-int     setrlimit (int resource, struct rlimit *rlp);
-int     select (int nfds, fd_set *, fd_set *, fd_set *, struct timeval *);
-int     getpeername (int s, struct sockaddr *name, int *namelen);
-int     connect (int s, struct sockaddr *name, int namelen);
-int     bind (int s, struct sockaddr *name, int namelen);
-char    *strdup (char *s);
-int     socket (int af, int type, int protocol);
-int     accept (int s, struct sockaddr *addr, int *addrlen);
-int     listen (int s, int backlog);
-};
-#endif
-#endif /* __GNUG__ */
 
 /* Create some useful typedefs */
 typedef void *(*THR_FUNC)(void *);

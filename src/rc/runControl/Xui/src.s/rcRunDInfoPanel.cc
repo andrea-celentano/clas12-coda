@@ -857,7 +857,7 @@ rcRunDInfoPanel::timeCallback (int status, void* arg, daqNetData* data)
   rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
 
   if (status == CODA_SUCCESS) 
-    obj->time_ = (long)(*data);
+    obj->time_ = (int64_t)(*data);
 }
 
 void
@@ -866,7 +866,7 @@ rcRunDInfoPanel::startTimeCallback (int status, void* arg, daqNetData* data)
   rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
 
   if (status == CODA_SUCCESS) {
-    obj->startTime_ = (long)(*data);
+    obj->startTime_ = (int64_t)(*data);
   }
 }
 
@@ -876,7 +876,7 @@ rcRunDInfoPanel::endTimeCallback (int status, void* arg, daqNetData* data)
   rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
 
   if (status == CODA_SUCCESS) {
-    obj->endTime_ = (long)(*data);
+    obj->endTime_ = (int64_t)(*data);
   }
 }
 

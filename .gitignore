@@ -13,4 +13,6 @@ common/
 *.so
 *.a
 *.his
-src/rc64/
+src/rc64_old
+src/rc_old
+src/rc/sace3.1_new

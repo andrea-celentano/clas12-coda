@@ -27,7 +27,7 @@
 //============================================================================
 //               Implementation of rcMsg
 //============================================================================
-rcMsg::rcMsg (long type, daqNetData& data, long reqId)
+rcMsg::rcMsg (int64_t type, daqNetData& data, int64_t reqId)
 :type_ (type), data_ (data), arg_ (reqId), unused_ (0)
 {
 #ifdef _TRACE_OBJECTS
@@ -65,19 +65,19 @@ rcMsg::~rcMsg (void)
 #endif
 }
 
-long
+int64_t
 rcMsg::type (void) const
 {
   return type_;
 }
 
-long
+int64_t
 rcMsg::dataSize (void) const
 {
   return size_;
 }
 
-long
+int64_t
 rcMsg::reqId (void) const
 {
   return arg_;
@@ -112,7 +112,7 @@ int
 operator << (SOCK_Stream& out, rcMsg& msg)
 {
   char *buffer = 0;
-  long bufsize = 0;
+  int64_t bufsize = 0;
   int  n = 0;
   iovec iovp[2];
 
@@ -166,7 +166,7 @@ int
 operator << (int out, rcMsg& msg)
 {
   char *buffer = 0;
-  long bufsize = 0;
+  int64_t bufsize = 0;
   int  n = 0;
   iovec iovp[2];
 

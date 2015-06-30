@@ -260,12 +260,12 @@ main(int argc, char **argv)
   }
   else if (mst == CODA_SUCCESS)
   {
-    // there is an entry in the database process table entry for this
+    // there is an entry in the database process table for this
     // run control server, but we have to talk to it to determine whether
     // it is really alive or not
     fprintf (stderr, "Warning: RunControl Server: %s may be running already\n",
              session);
-    rcServerLocater svcl (DAFINDSERVER, host, session, udpPort, 10);
+    rcServerLocater svcl (DAFINDSERVER, host, session, udpPort, 1/*sergey: was 10*/);
     unsigned short svcport = 0;
 
     if (svcl.locatingServer (svcport) == 0)

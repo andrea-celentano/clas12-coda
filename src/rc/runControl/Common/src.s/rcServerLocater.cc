@@ -74,7 +74,8 @@ rcServerLocater::locatingServer (unsigned short& port)
   Reactor r_;
   rcSvcLocaterRep svcl(r_, brdPort_, req_, serverHost_, exptname_);
 
-  if (r_.register_handler (&svcl, Event_Handler::READ_MASK) == -1){
+  if (r_.register_handler (&svcl, Event_Handler::READ_MASK) == -1)
+  {
     fprintf (stderr, "Cannot register svc locater \n");
     return -1;
   }
@@ -85,23 +86,30 @@ rcServerLocater::locatingServer (unsigned short& port)
   {
     status = svcl.sendRequest ();
     if (status == -1)
+	{
+      printf("rcServerLocater::locatingServer: svcl.sendRequest returns %d\n",status);
       break;
+	}
     Time_Value tv (0, 250000); // 0.25 seconds
     r_.handle_events (tv);
 
     // call the external function 
-    if (ufunc_) {
+    if (ufunc_)
+    {
       if((*ufunc_)(uarg_) == -1)
-	return -1;
+	  {
+        printf("rcServerLocater::locatingServer: 2\n");
+	    return(-1);
+	  }
     }
     i++;
   }
-  if (i >= numRetries_ || status == -1){
-#ifdef _CODA_DEBUG
-    fprintf (stderr, "Cannot find server\n");
-#endif
-    return -1;
+  if (i >= numRetries_ || status == -1)
+  {
+    printf("rcServerLocater::locatingServer: Cannot find server, #retries=%d\n",i);
+    return(-1);
   }
   port = svcl.serverPort_;
-  return 0;
-} 
+  printf("rcServerLocater::locatingServer: Found server, port=%d\n",port);
+  return(0);
+}
