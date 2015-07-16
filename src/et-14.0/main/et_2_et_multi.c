@@ -149,7 +149,7 @@ struct timespec getAbsoluteTime(struct timespec *deltaTime);
 
 /* Main program */
 int
-main(int argc,char **argv)
+main(int argc, char **argv)
 {
     int i, status;
     pthread_t tid;
@@ -210,7 +210,7 @@ main(int argc,char **argv)
     /* open event-consuming (output) ET system */
 
 	/*sergey*/
-    et_open_config_sethost(openConfig, "clondaq5");
+    et_open_config_sethost(openConfig, "clondaq4");
 
     if (et_open(&outId, etOut, openConfig) != ET_OK) {
         fprintf(stdout, "%s: cannot open output ET system\n", argv[0]);
@@ -253,7 +253,7 @@ main(int argc,char **argv)
         /*sergey: replace following
         et_open_config_sethost(openConfig, ET_HOST_ANYWHERE);
 		*/
-        et_open_config_sethost(openConfig, "clondaq3");
+        et_open_config_sethost(openConfig, "clondaq5");
 
         if (et_open(&inId[i], etIn, openConfig) != ET_OK) {
             fprintf(stdout, "%s: cannot open input ET system\n", argv[0]);

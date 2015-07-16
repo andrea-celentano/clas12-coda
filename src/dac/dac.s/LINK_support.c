@@ -1137,6 +1137,7 @@ printf("++++++2+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
 
 
 
+  /*SERGEY: DOES NOT MESS WITH TCP ANY MORE !!!
   slen = 65535;
   if(setsockopt (s, SOL_SOCKET, SO_SNDBUF, &slen, sizeof(slen)) < 0)
   {
@@ -1155,6 +1156,8 @@ printf("++++++2+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[
       nbytes,nbytes);
   }
 printf("++++++3+ 0x%08x 0x%08x 0x%08x\n",roc_queues[0],roc_queues[1],roc_queues[2]);
+  */
+
 
   /*
   optval = 0;

@@ -40,6 +40,9 @@
  *	  
  */
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
 #include <Xm/Xm.h>
@@ -112,7 +115,7 @@ typedef struct _def_option_
 {
   char* option_name;
   char* option_val;
-}codaDefOption;
+} codaDefOption;
 
 static codaDefOption defOptions[] = {
   {"eventLimit", "0"},
@@ -124,13 +127,8 @@ static codaDefOption defOptions[] = {
 static int numDefOptions = 4;
 
 
-#if defined (__STDC__)
-void XcodaEditorCreateMenus(Widget menu_bar,int withExit)
-#else
-void XcodaEditorCreateMenus(menu_bar,withExit)
-     Widget menu_bar;
-     int withExit;
-#endif
+void
+XcodaEditorCreateMenus(Widget menu_bar, int withExit)
 {
   Widget pulldown0, pulldown1, pulldown2, pulldown3, pulldown4;
   Widget m_cas0, m_cas1, m_cas2, m_cas3, m_cas4;
@@ -177,6 +175,7 @@ void XcodaEditorCreateMenus(menu_bar,withExit)
 
   end of file menu */
 
+
   /* create configure menu */
   ac = 0;
   pulldown1 = XmCreatePulldownMenu(menu_bar,"_pulldown", NULL, 0);
@@ -190,12 +189,14 @@ void XcodaEditorCreateMenus(menu_bar,withExit)
 				 menu_bar,args, ac);
   ac = 0;
   XmStringFree(t);
-  for(i=0; i< XtNumber(config_menus) - 1; i++){
+  for(i=0; i< XtNumber(config_menus) - 1; i++)
+  {
     t = XmStringCreateSimple(config_menus[i]);
     XtSetArg(args[ac], XmNlabelString,t); ac++;
     pushb[i] = XtCreateManagedWidget("menu_push",xmPushButtonWidgetClass,
 				     pulldown1,args, ac);
-    switch(i){
+    switch(i)
+    {
     case 0:
       manager.newdbase = pushb[i];
       break;
@@ -238,7 +239,8 @@ void XcodaEditorCreateMenus(menu_bar,withExit)
   ac = 0;
   XmStringFree(t);
   manager.option = pushb[i];
-  if (withExit == 0) {
+  if (withExit == 0)
+  {
     sep = XtCreateManagedWidget("sep", xmSeparatorWidgetClass,
 				pulldown1, NULL, 0);
     ac = 0;
@@ -249,7 +251,9 @@ void XcodaEditorCreateMenus(menu_bar,withExit)
     ac = 0;
     XmStringFree(t);
     manager.exit_menu = pushb[i];
-  } else {
+  }
+  else
+  {
     manager.exit_menu = NULL;
   }
 
@@ -265,7 +269,8 @@ void XcodaEditorCreateMenus(menu_bar,withExit)
   ac = 0;
   XmStringFree(t);
 
-  for(i=0; i< XtNumber(edit_menus)-3; i++){
+  for(i=0; i< XtNumber(edit_menus)-3; i++)
+  {
     t = XmStringCreateSimple(edit_menus[i]);
     XtSetArg(args[ac], XmNlabelString, t); ac++;
     edit_b[i] = XtCreateManagedWidget("edit_b", xmPushButtonWidgetClass,
@@ -387,30 +392,22 @@ void XcodaEditorCreateMenus(menu_bar,withExit)
 
 }
 
+
+
+
+
 /*******************Create popup menus**********************/
-#if defined (__STDC__)
-static void popup_edit_menu(Widget w,Widget menu,
-			    XButtonPressedEvent* event)
-#else
-static void popup_edit_menu(w,menu,event)
-     Widget w;
-     Widget menu;
-     XButtonPressedEvent *event;
-#endif
+static void
+popup_edit_menu(Widget w, Widget menu, XButtonPressedEvent* event)
 {
-  if(event->button != Button3)
-    return;
+  if(event->button != Button3) return;
 
   XmMenuPosition(menu, event);
   XtManageChild(menu);
 }
 
-#if defined (__STDC__)
-void XcodaEditorCreatePopupMenu(Widget parent)
-#else
-void XcodaEditorCreatePopupMenu(parent)
-     Widget parent;
-#endif
+void
+XcodaEditorCreatePopupMenu(Widget parent)
 {
   Widget menu,label,sep;
   Widget edit_b[20];
@@ -428,7 +425,8 @@ void XcodaEditorCreatePopupMenu(parent)
   sep = XtCreateManagedWidget("sep", xmSeparatorWidgetClass,
 			      menu, NULL, 0);
 
-  for(i=0; i< XtNumber(edit_menus)-3; i++){
+  for(i=0; i< XtNumber(edit_menus)-3; i++)
+  {
     t = XmStringCreateSimple(edit_menus[i]);
     XtSetArg(args[ac], XmNlabelString, t); ac++;
     edit_b[i] = XtCreateManagedWidget("edit_b", xmPushButtonWidgetClass,
@@ -468,39 +466,39 @@ void XcodaEditorCreatePopupMenu(parent)
 
   {
     extern int hide_controls;
-    if (!hide_controls) {
-      XtAddEventHandler(parent, ButtonPressMask, False, popup_edit_menu,
-			menu);
+    if (!hide_controls)
+    {
+      XtAddEventHandler(parent, ButtonPressMask, False, (XtEventHandler)popup_edit_menu, menu);
       
-      XtAddCallback(edit_b[0], XmNactivateCallback, XcodaEditorSetDeleteCompMode,
+      XtAddCallback(edit_b[0], XmNactivateCallback, (XtCallbackProc)XcodaEditorSetDeleteCompMode,
 		    (XtPointer)DELETE_NODE_ACTION);
       manager.pop_delete_comp_menu = edit_b[0];
       
-      XtAddCallback(edit_b[1], XmNactivateCallback, XcodaEditorSetDeleteArcMode,
+      XtAddCallback(edit_b[1], XmNactivateCallback, (XtCallbackProc)XcodaEditorSetDeleteArcMode,
 		    (XtPointer)DELETE_ARC_ACTION);
       manager.pop_delete_arc_menu = edit_b[1];
       
-      XtAddCallback(edit_b[2], XmNactivateCallback, XcodaEditorDeleteAllArcs,
+      XtAddCallback(edit_b[2], XmNactivateCallback, (XtCallbackProc)XcodaEditorDeleteAllArcs,
 		    (XtPointer)NULL);
       manager.pop_delete_allarc_menu = edit_b[2];
       
-      XtAddCallback(edit_b[3], XmNactivateCallback, XcodaEditorDeleteAll,
+      XtAddCallback(edit_b[3], XmNactivateCallback, (XtCallbackProc)XcodaEditorDeleteAll,
 		    (XtPointer)NULL);
       manager.pop_delete_all_menu = edit_b[3];
       
-      XtAddCallback(edit_b[4], XmNactivateCallback, XcodaEditorUndoAction,
+      XtAddCallback(edit_b[4], XmNactivateCallback, (XtCallbackProc)XcodaEditorUndoAction,
 		    (XtPointer)UNDO_ACTION);
       manager.pop_undo_menu = edit_b[4];
       
-      XtAddCallback(edit_b[5], XmNactivateCallback, XcodaEditorRedraw,
+      XtAddCallback(edit_b[5], XmNactivateCallback, (XtCallbackProc)XcodaEditorRedraw,
 		    (XtPointer)NULL);
       manager.pop_redraw_menu = edit_b[5];
       
-      XtAddCallback(edit_b[6], XmNactivateCallback, XcodaEditorResizeComp,
+      XtAddCallback(edit_b[6], XmNactivateCallback, (XtCallbackProc)XcodaEditorResizeComp,
 		    (XtPointer)RESIZE_COMP_ACTION);
       manager.pop_resize_comp_menu = edit_b[6];
       
-      XtAddCallback(edit_b[7], XmNactivateCallback, XcodaEditorConn2Cols,
+      XtAddCallback(edit_b[7], XmNactivateCallback, (XtCallbackProc)XcodaEditorConn2Cols,
 		    (XtPointer)CONN_2COLS_ACTION);
       manager.pop_connect2cols_menu = edit_b[7];
     }
@@ -508,30 +506,18 @@ void XcodaEditorCreatePopupMenu(parent)
 }
 
 /*******************Delete all arcs************************************/
-#if defined (__STDC__)
-static void popdown_dialog(Widget w, 
+static void
+popdown_dialog(Widget w, 
 			   XtPointer client_data, 
 			   XmAnyCallbackStruct* cbs)
-#else
-static void popdown_dialog(w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   XtDestroyWidget(XtParent(w));
 }
 					 
-#if defined (__STDC__)
-void XcodaEditorDeleteAllArcs(Widget w, 
-			      XtPointer client_data, 
-			      XmAnyCallbackStruct* cbs) 
-#else
-void XcodaEditorDeleteAllArcs(w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
+void
+XcodaEditorDeleteAllArcs(Widget w, 
+						 XtPointer client_data, 
+						 XmAnyCallbackStruct* cbs) 
 {
   Widget warning_dialog;
   XmString yes, no;
@@ -548,32 +534,23 @@ void XcodaEditorDeleteAllArcs(w, client_data, cbs)
   XtSetArg(args[ac], XmNokLabelString, yes); ac++;
   XtSetArg(args[ac], XmNcancelLabelString, no); ac++;
   
-  warning_dialog = XmCreateWarningDialog(sw_geometry.draw_area,
-		  "delete_warning", args, ac);
+  warning_dialog = XmCreateWarningDialog(sw_geometry.draw_area, "delete_warning", args, ac);
 
   XmStringFree(yes);
   XmStringFree(no);
   XmStringFree(message);
   XtUnmanageChild(XmMessageBoxGetChild(warning_dialog, XmDIALOG_HELP_BUTTON));
 		  
-  XtAddCallback(warning_dialog, XmNokCallback, delete_all_arcs, 
-		(XtPointer)NULL);
-  XtAddCallback(warning_dialog, XmNcancelCallback, popdown_dialog,
-		(XtPointer)NULL);
+  XtAddCallback(warning_dialog, XmNokCallback, (XtCallbackProc)delete_all_arcs, (XtPointer)NULL);
+  XtAddCallback(warning_dialog, XmNcancelCallback, (XtCallbackProc)popdown_dialog, (XtPointer)NULL);
   XtManageChild(warning_dialog);
   XtPopup(XtParent(warning_dialog), XtGrabNone);
 }
 
-#if defined (__STDC__)
-void XcodaEditorDeleteAll(Widget w, 
+void
+XcodaEditorDeleteAll(Widget w, 
 			  XtPointer client_data, 
 			  XmAnyCallbackStruct* cbs)
-#else
-void XcodaEditorDeleteAll(w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   Widget warning_dialog;
   XmString yes, no;
@@ -591,21 +568,22 @@ void XcodaEditorDeleteAll(w, client_data, cbs)
   XtSetArg(args[ac], XmNokLabelString, yes); ac++;
   XtSetArg(args[ac], XmNcancelLabelString, no); ac++;
   
-  warning_dialog = XmCreateWarningDialog(sw_geometry.draw_area,
-		  "delete_warning", args, ac);
+  warning_dialog = XmCreateWarningDialog(sw_geometry.draw_area, "delete_warning", args, ac);
 
   XmStringFree(yes);
   XmStringFree(no);
   XmStringFree(message);
   XtUnmanageChild(XmMessageBoxGetChild(warning_dialog, XmDIALOG_HELP_BUTTON));
 		  
-  XtAddCallback(warning_dialog, XmNokCallback, delete_everything,
+  XtAddCallback(warning_dialog, XmNokCallback, (XtCallbackProc)delete_everything,
 		(XtPointer)NULL);
-  XtAddCallback(warning_dialog, XmNcancelCallback, popdown_dialog,
+  XtAddCallback(warning_dialog, XmNcancelCallback, (XtCallbackProc)popdown_dialog,
 		(XtPointer)NULL);
   XtManageChild(warning_dialog);
   XtPopup(XtParent(warning_dialog), XtGrabNone);
 }
+
+
 
 /**********************File menus*******************************/
 
@@ -614,16 +592,10 @@ void XcodaEditorDeleteAll(w, client_data, cbs)
  * Description:                                                 *
  *    callback function for "New" config menu                   *
  ***************************************************************/
-#if defined (__STDC__)
-void XcodaEditorNewConfigCbk (Widget w, 
+void
+XcodaEditorNewConfigCbk (Widget w, 
 			      XtPointer clientData, 
 			      XmAnyCallbackStruct* cbs)
-#else
-void XcodaEditorNewConfigCbk (w, clientData, cbs)
-     Widget w;
-     XtPointer clientData;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   XcodaEditorResetGraphCmd();
 
@@ -636,16 +608,10 @@ void XcodaEditorNewConfigCbk (w, clientData, cbs)
  * Description:                                                 *
  *    callback function for "Open" config menu                  *
  ***************************************************************/
-#if defined (__STDC__)
-void XcodaEditorOpenConfigCbk (Widget w, 
+void
+XcodaEditorOpenConfigCbk (Widget w, 
 			       XtPointer clientData, 
 			       XmAnyCallbackStruct* cbs)
-#else
-void XcodaEditorOpenConfigCbk (w, clientData, cbs)
-     Widget w;
-     XtPointer clientData;
-     XmAnyCallbackStruct* cbs;
-#endif
 {
   XcodaEditorResetGraphCmd();
 
@@ -658,18 +624,12 @@ void XcodaEditorOpenConfigCbk (w, clientData, cbs)
 /****************************************************************
  *        void XcodaEditorRemoveConfigCbk()                     *
  * Description:                                                 *
- *    callback function for "Open" config menu                  *
+ *    callback function for "Remove" config menu                  *
  ***************************************************************/
-#if defined (__STDC__)
-void XcodaEditorRemoveConfigCbk (Widget w, 
+void
+XcodaEditorRemoveConfigCbk (Widget w, 
 				 XtPointer clientData, 
 				 XmAnyCallbackStruct* cbs)
-#else
-void XcodaEditorRemoveConfigCbk (w, clientData, cbs)
-     Widget w;
-     XtPointer clientData;
-     XmAnyCallbackStruct* cbs;
-#endif
 {
   XcodaEditorResetGraphCmd();
 
@@ -688,22 +648,17 @@ typedef struct config_widget{
   Widget input_;
   Widget ok_;
   Widget cancel_;
-}ConfigWidgets;
+} ConfigWidgets;
 
-#if defined (__STDC__)
-static void confirm_overwrite(Widget w, 
+static void
+confirm_overwrite(Widget w, 
 			      ConfigWidgets* info, 
 			      XmAnyCallbackStruct* cbs)
-#else
-static void confirm_overwrite(w, info, cbs)
-     Widget w;
-     ConfigWidgets *info;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   char *config_name;
 
-  if(cbs->reason == XmCR_OK){
+  if(cbs->reason == XmCR_OK)
+  {
     config_name = XmTextFieldGetString(info->input_);
     XcodaEditorWriteToConfig (config_name, &coda_graph);
     XcodaEditorInsertAllComps (&coda_graph);
@@ -723,16 +678,10 @@ static void confirm_overwrite(w, info, cbs)
   XtPopdown (XtParent (info->dialog_));
 }
 
-#if defined (__STDC__)
-static void saveConfigOverwritePopup(Widget w, 
+static void
+saveConfigOverwritePopup(Widget w, 
 				     char* filename, 
 				     ConfigWidgets* info)
-#else
-static void saveConfigOverwritePopup(w, filename, info)
-     Widget w;
-     char   *filename;
-     ConfigWidgets *info;
-#endif
 {
   static Widget q_dialog = 0;
   Widget help_b;
@@ -745,7 +694,8 @@ static void saveConfigOverwritePopup(w, filename, info)
   strcat (temp,"\nOver write it ?");
   message = XmStringCreateLtoR(temp,XmSTRING_DEFAULT_CHARSET);
 
-  if (!q_dialog) {
+  if (!q_dialog)
+  {
     yes = XmStringCreateSimple("Yes");
     no = XmStringCreateSimple("No");
 
@@ -762,12 +712,13 @@ static void saveConfigOverwritePopup(w, filename, info)
     help_b = XmMessageBoxGetChild(q_dialog, XmDIALOG_HELP_BUTTON);
     XtUnmanageChild(help_b);
   
-    XtAddCallback(q_dialog, XmNokCallback, confirm_overwrite, info);
-    XtAddCallback(q_dialog, XmNcancelCallback, confirm_overwrite, info);
+    XtAddCallback(q_dialog, XmNokCallback, (XtCallbackProc)confirm_overwrite, info);
+    XtAddCallback(q_dialog, XmNcancelCallback, (XtCallbackProc)confirm_overwrite, info);
 
     XtManageChild(q_dialog);
   }
-  else {
+  else
+  {
     XtUnmanageChild(q_dialog);
 
     XtSetArg (args[ac], XmNmessageString, message); ac++;
@@ -785,29 +736,27 @@ static void saveConfigOverwritePopup(w, filename, info)
 
      
 /*******Save config: ok button callback of the saveConfig cbks *********/
-#if defined (__STDC__)
-static void saveConfig (Widget w, 
+static void
+saveConfig (Widget w, 
 			XtPointer clientData, 
 			XmAnyCallbackStruct* cbs)
-#else
-static void saveConfig (w, clientData, cbs)
-     Widget w;
-     XtPointer clientData;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   char *config;
   ConfigWidgets* obj = (ConfigWidgets *)clientData;
 
   config = XmTextFieldGetString (obj->input_);
-  if (!config || !*config) {
+  if (!config || !*config)
+  {
     pop_error_message ("No Configuration name entered", sw_geometry.draw_area);
     XtFree (config);
     return;
   }
   if (isConfigCreated (config) > 0 )  /* overwrite existing configuration */
+  {
     saveConfigOverwritePopup(sw_geometry.draw_area, config, obj);
-  else {
+  }
+  else
+  {
     XcodaEditorWriteToConfig (config, &coda_graph);
     XcodaEditorInsertAllComps (&coda_graph);
 
@@ -825,16 +774,10 @@ static void saveConfig (w, clientData, cbs)
   XtPopdown (XtParent (obj->dialog_));
 }
 
-#if defined (__STDC__)
-static void popdownSaveConfigDialog (Widget w, 
+static void
+popdownSaveConfigDialog (Widget w, 
 				     XtPointer clientData, 
 				     XmAnyCallbackStruct* cbs)
-#else
-static void popdownSaveConfigDialog (w, clientData, cbs)
-     Widget w;
-     XtPointer clientData;
-     XmAnyCallbackStruct* cbs;
-#endif
 {
   ConfigWidgets* obj = (ConfigWidgets *)clientData;
   XtPopdown (XtParent (obj->dialog_));
@@ -843,16 +786,10 @@ static void popdownSaveConfigDialog (w, clientData, cbs)
 /**********************Config Menu: save as... callback*******************/
 static ConfigWidgets saveInfoW;
 
-#if defined (__STDC__)
-void XcodaEditorSaveConfig(Widget w, 
+void
+XcodaEditorSaveConfig(Widget w, 
 			   XtPointer client_data, 
 			   XmAnyCallbackStruct* cbs)
-#else
-void XcodaEditorSaveConfig(w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   Widget sep, pushb0, pushb1;
   Widget label, top_label, act_form;
@@ -861,10 +798,10 @@ void XcodaEditorSaveConfig(w, client_data, cbs)
   int    ac = 0, len;
   static int saveDialogCreated = 0;
 
-  if(isEmptyGraph(&coda_graph))
-    return;
+  if(isEmptyGraph(&coda_graph)) return;
 
-  if (!saveDialogCreated){
+  if (!saveDialogCreated)
+  {
     saveDialogCreated = 1;
     saveInfoW.dialog_ = XmCreateFormDialog (sw_geometry.draw_area, "Save Config", NULL, 0);
 
@@ -956,9 +893,9 @@ void XcodaEditorSaveConfig(w, client_data, cbs)
 
     /* add callbacks for all push buttons */
     XtAddCallback (saveInfoW.ok_, XmNactivateCallback,
-		   saveConfig, (XtPointer)&(saveInfoW));
+		   (XtCallbackProc)saveConfig, (XtPointer)&(saveInfoW));
     XtAddCallback (saveInfoW.cancel_, XmNactivateCallback,
-		   popdownSaveConfigDialog, (XtPointer)&(saveInfoW));
+		   (XtCallbackProc)popdownSaveConfigDialog, (XtPointer)&(saveInfoW));
 
     XtManageChild(act_form);
     XtManageChild(saveInfoW.dialog_);
@@ -978,23 +915,18 @@ void XcodaEditorSaveConfig(w, client_data, cbs)
 void (*Editor_save_callback)(void *) = NULL;
 void *Editor_rc_object = NULL;
 
-#if defined (__STDC__)
-void XcodaEditorSaveDefault(Widget w, 
+void
+XcodaEditorSaveDefault(Widget w, 
 			    XtPointer client_data, 
 			    XmAnyCallbackStruct* cbs)
-#else
-void XcodaEditorSaveDefault(w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   XcodaEditorResetGraphCmd();
 
   if(isEmptyGraph(&coda_graph))
     return;
 
-  if (currentConfigTable ()) { /* already has current configuration */
+  if (currentConfigTable ()) /* already has current configuration */
+  {
     XcodaEditorWriteToConfig (currentConfigTable(), &coda_graph);
     XcodaEditorInsertAllComps (&coda_graph);
 
@@ -1007,7 +939,9 @@ void XcodaEditorSaveDefault(w, client_data, cbs)
     
   }
   else  /* no default selected */
+  {
     XcodaEditorSaveConfig (w, client_data, cbs);
+  }
 }
 
 
@@ -1016,47 +950,29 @@ void XcodaEditorSaveDefault(w, client_data, cbs)
  * Description:                                                   *
  *     Popup a question dialog to ask user to save or not         *
  *****************************************************************/
-#if defined (__STDC__)
-static void popdown_shell(Widget w, 
+static void
+popdown_shell(Widget w, 
 			  XtPointer client_data, 
 			  XmAnyCallbackStruct* cbs)
-#else
-static void popdown_shell(w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   Widget shell = XtParent(XtParent(w));
 
   XtDestroyWidget(shell);
 }
 
-#if defined (__STDC__)
-static void saveAction(Widget w, 
+static void
+saveAction(Widget w, 
 		       XtPointer client_data, 
 		       XmAnyCallbackStruct* cbs)
-#else
-static void saveAction(w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   popdown_shell(w, client_data, cbs);
   XcodaEditorSaveConfig(w, client_data, cbs);
 }
 
-#if defined (__STDC__)
-static void noSaveAction(Widget w, 
+static void
+noSaveAction(Widget w, 
 			 XtPointer client_data, 
 			 XmAnyCallbackStruct* cbs)
-#else
-static void noSaveAction(w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   int type = (int)client_data;
 
@@ -1066,16 +982,10 @@ static void noSaveAction(w, client_data, cbs)
 
 }
 
-#if defined (__STDC__)
-static void popupSaveQDialog(Widget parent, 
+static void
+popupSaveQDialog(Widget parent, 
 			     XmString msg, 
 			     XtPointer client_data)
-#else
-static void popupSaveQDialog(parent, msg, client_data)
-     Widget parent;
-     XmString msg;
-     XtPointer client_data;
-#endif
 {
   XmString yes, no, cancel;
   Position ret_x, ret_y;
@@ -1132,7 +1042,7 @@ static void popupSaveQDialog(parent, msg, client_data)
   XtSetArg(args[ac], XmNbottomOffset, 5); ac++;
   pushb0 = XtCreateManagedWidget("ok", xmPushButtonWidgetClass, form,
 				 args, ac);
-  XtAddCallback(pushb0, XmNactivateCallback, saveAction, (XtPointer)pas);
+  XtAddCallback(pushb0, XmNactivateCallback, (XtCallbackProc)saveAction, (XtPointer)pas);
   ac = 0;
   XmStringFree(yes);
 
@@ -1148,7 +1058,7 @@ static void popupSaveQDialog(parent, msg, client_data)
   XtSetArg(args[ac], XmNbottomOffset, 5); ac++;
   pushb1 = XtCreateManagedWidget("no", xmPushButtonWidgetClass, form,
 				 args, ac);
-  XtAddCallback(pushb1, XmNactivateCallback, noSaveAction, (XtPointer)pas);
+  XtAddCallback(pushb1, XmNactivateCallback, (XtCallbackProc)noSaveAction, (XtPointer)pas);
   ac = 0;
   XmStringFree(no);
 
@@ -1164,7 +1074,7 @@ static void popupSaveQDialog(parent, msg, client_data)
   XtSetArg(args[ac], XmNbottomOffset, 5); ac++;
   pushb2 = XtCreateManagedWidget("cancel", xmPushButtonWidgetClass, form,
 				 args, ac);
-  XtAddCallback(pushb2, XmNactivateCallback, popdown_shell, (XtPointer)NULL);
+  XtAddCallback(pushb2, XmNactivateCallback, (XtCallbackProc)popdown_shell, (XtPointer)NULL);
   ac = 0;
   XmStringFree(cancel);    
   
@@ -1189,38 +1099,30 @@ typedef struct _editor_config_option_w
   Widget label;
   char   runtype[80];
   int    saved;
-}editorConfigOptionW;
+} editorConfigOptionW;
 
 static editorConfigOptionW opW;
 static int opwCreated = 0;
 static int numOptions = 0;
 
-#if defined (__STDC__)
-static void saveOptions (Widget w, XtPointer clientData, 
+static void
+saveOptions (Widget w, XtPointer clientData, 
 			 XmAnyCallbackStruct* cbs)
-#else
-static void saveOptions (w, clientData, cbs)
-     Widget w;
-     XtPointer clientData;
-     XmAnyCallbackStruct* cbs;
-#endif
-{     
+{
+  printf("Editor_menu::saveOptions reached\n");
+
   editorConfigOptionW *obj = (editorConfigOptionW *)clientData;
 
   obj->saved = 1;
   XtPopdown (obj->shell);
 }
 
-#if defined (__STDC__)
-static void cancelOptionDialog (Widget w, XtPointer clientData, 
+static void
+cancelOptionDialog (Widget w, XtPointer clientData, 
 				XmAnyCallbackStruct* cbs)
-#else
-static void cancelOptionDialog (w, clientData, cbs)
-     Widget w;
-     XtPointer clientData;
-     XmAnyCallbackStruct* cbs;
-#endif
 {     
+  printf("Editor_menu::cancelOptionDialog reached\n");
+
   editorConfigOptionW *obj = (editorConfigOptionW *)clientData;
   
   obj->saved = 0;
@@ -1228,13 +1130,10 @@ static void cancelOptionDialog (w, clientData, cbs)
   XtPopdown (obj->shell);
 }
 
-#if defined (__STDC__)
-static void updateOptionWidgets (char* runtype)
-#else
-static void updateOptionWidgets (runtype)
-     char* runtype;
-#endif
+static void
+updateOptionWidgets (char* runtype)
 {
+  printf("Editor_menu::updateOptionWidget reached\n");
   char  temp[128];
   Arg   arg[20];
   int   ac = 0;
@@ -1245,13 +1144,16 @@ static void updateOptionWidgets (runtype)
   int realnum;
 
   /* first unmanage all old information */
-  for (i = 0; i < EDITOR_MAX_NUM_OPTIONS; i++) {
+  for (i = 0; i < EDITOR_MAX_NUM_OPTIONS; i++)
+  {
+printf("\n\nEditor_menu 1111111111111111\n\n\n\n");
     XmTextFieldSetString (opW.option[i], "");
     XmTextFieldSetString (opW.value[i], "");
   }
 
   /* set saved flag to 0 and set widget config name to run type */
   strncpy (opW.runtype, runtype, sizeof (opW.runtype));
+printf("\n\nEditor_menu:updateOptionWidgets: >%s< >%s<\n\n\n\n",opW.runtype, runtype);
   opW.saved = 0;
   
   sprintf (temp, "Options for run type %s", runtype);
@@ -1264,17 +1166,21 @@ static void updateOptionWidgets (runtype)
   numOptions = getAllOptionInfos (runtype, &options, &values);
   realnum = (numOptions < EDITOR_MAX_NUM_OPTIONS) ? numOptions : EDITOR_MAX_NUM_OPTIONS;
   
-  for (i = 0; i < realnum; i++) {
+  for (i = 0; i < realnum; i++)
+  {
     /* update label for option name */
     /* option name */
+printf("\n\nEditor_menu 111111111111111122222222222222\n\n\n\n");
     XmTextFieldSetString (opW.option[i], options[i]);
     /* option value */
     XmTextFieldSetString (opW.value[i], values[i]);
   }
 
   /* free memory */
-  if (numOptions > 0) {
-    for (i = 0; i < numOptions; i++) {
+  if (numOptions > 0)
+  {
+    for (i = 0; i < numOptions; i++)
+    {
       free (options[i]);
       free (values[i]);
     }
@@ -1283,17 +1189,18 @@ static void updateOptionWidgets (runtype)
   }
 }
 
-#if defined (__STDC__)
-void XcodaEditorResetOptionDialog (void)
-#else
-void XcodaEditorResetOptionDialog ()
-#endif
+void
+XcodaEditorResetOptionDialog (void)
 {
   int i = 0;
 
-  if (opwCreated) {
+  printf("Editor_menu::XcodaEditorResetOptionDialog reached\n");
+  if (opwCreated)
+  {
     /* first unmanage all old information */
-    for (i = 0; i < EDITOR_MAX_NUM_OPTIONS; i++) {
+    for (i = 0; i < EDITOR_MAX_NUM_OPTIONS; i++)
+    {
+printf("\n\nEditor_menu 1111111111111111333333333333333333\n\n\n\n");
       XmTextFieldSetString (opW.option[i], "");
       XmTextFieldSetString (opW.value[i], "");
     }
@@ -1305,42 +1212,57 @@ void XcodaEditorResetOptionDialog ()
   }
 }
 
-#if defined (__STDC__)
-void XcodaEditorSaveConfigOption (char* runtype)
-#else
-void XcodaEditorSaveConfigOption (runtype)  
-     char* runtype;
-#endif
+void
+XcodaEditorSaveConfigOption (char* runtype)
 {
+  int lenopt, lenval;
   int  i = 0;
   char* value = 0;
   char* option = 0;
+
+  printf("Editor_menu::XcodaEditorSaveConfigOption reached\n");
+
+printf("Editor_menu:insertValToOptionTable ???\n");
   
-  if (opW.saved && strcmp (opW.runtype, runtype) == 0) 
-    for (i = 0; i < EDITOR_MAX_NUM_OPTIONS; i++) {
+printf("Editor_menu 1: opW.saved=%d, >%s< >%s<\n",opW.saved,opW.runtype, runtype);
+
+/* sergey: opW.saved is never true,  opW.runtype nevet set ... */
+/* if used, segfault in 'XmTextFieldGetString (opW.option[i]);' */
+  if (!opW.saved && strcmp (opW.runtype, runtype) == 0)
+  {
+printf("Editor_menu 2\n");
+    for (i = 0; i < EDITOR_MAX_NUM_OPTIONS; i++)
+    {
+printf("Editor_menu 3 (%d)\n",i);fflush(stdout);
+printf("\n\nEditor_menu 1111111111111111444444444444444\n\n\n\n");
+
       option = XmTextFieldGetString (opW.option[i]);
+printf("Editor_menu 31 %d\n",option);fflush(stdout);
       value =  XmTextFieldGetString (opW.value[i]);
-      if (option && *option) {
-	if (value && *value) {
-	  insertValToOptionTable (runtype, option, value);
-	  XtFree (value);
-	}
-	else
-	  insertValToOptionTable (runtype, option, 0);
-	XtFree (option);
+	  printf("Editor_menu 32 %d\n",value);fflush(stdout);
+      if (option && (*option))
+      {
+printf("Editor_menu 4\n");fflush(stdout);
+	    if (value && *value)
+        {
+printf("Editor_menu 5\n");fflush(stdout);
+          /*insertValToOptionTable (runtype, option, value);*/
+	      XtFree (value);
+	    }
+	    else
+		{
+printf("Editor_menu 6\n");fflush(stdout);
+	      /*insertValToOptionTable (runtype, option, 0);*/
+		}
+	    XtFree (option);
       }
     }
+  }
 }
       
-#if defined (__STDC__)
-void XcodaEditorConfigOption (Widget w, XtPointer client_data,
-			      XmAnyCallbackStruct* cbs)
-#else
-void XcodaEditorConfigOption (w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct* cbs;
-#endif
+void
+XcodaEditorConfigOption (Widget w, XtPointer client_data,
+						 XmAnyCallbackStruct* cbs)
 {
   Widget form, sep;
   Widget ok, cancel, subform, subform1;
@@ -1350,12 +1272,16 @@ void XcodaEditorConfigOption (w, client_data, cbs)
   XmString t;
   int    i = 0;
 
-  if (currentConfigTable () == 0) {
+  printf("Editor_menu::XcodaEditorConfigOption reached\n");
+
+  if (currentConfigTable () == 0)
+  {
     pop_error_message ("Select a run type first.", sw_geometry.draw_area);
     return;
   }
 
-  if (!opwCreated) {
+  if (!opwCreated)
+  {
     opwCreated = 1;
     opW.saved = 0;  /* options will be saved */
 
@@ -1478,7 +1404,8 @@ void XcodaEditorConfigOption (w, client_data, cbs)
     XmStringFree (t);
 
 
-    for (i = 0; i < EDITOR_MAX_NUM_OPTIONS; i++) {
+    for (i = 0; i < EDITOR_MAX_NUM_OPTIONS; i++)
+    {
       opW.holder[i] = XtCreateWidget ("holder", xmFormWidgetClass,
 				      rowcol, NULL, 0);
       
@@ -1520,11 +1447,12 @@ void XcodaEditorConfigOption (w, client_data, cbs)
     opW.shell = XtParent (form);
 
     /* add callback for ok and cancel */
-    XtAddCallback (ok, XmNactivateCallback, saveOptions,
+    XtAddCallback (ok, XmNactivateCallback, (XtCallbackProc)saveOptions,
 		   (XtPointer)&opW);
-    XtAddCallback (cancel, XmNactivateCallback, cancelOptionDialog,
+    XtAddCallback (cancel, XmNactivateCallback, (XtCallbackProc)cancelOptionDialog,
 		   (XtPointer)&opW);
   }
+
   /* update contents of the display */
   updateOptionWidgets (currentConfigTable ());
   XtPopup (opW.shell, XtGrabNone);
@@ -1542,22 +1470,18 @@ typedef struct _newdbase_info
   Widget input_;
   Widget ok_;
   Widget cancel_;
-}newDbaseDialog;
+} newDbaseDialog;
 
-#if defined (__STDC__)
-static void openNewDatabase (Widget w, 
+static void
+openNewDatabase (Widget w, 
 			     XtPointer clientData,
 			     XmAnyCallbackStruct* cbs)
-#else
-static void openNewDatabase (w, clientData, cbs)
-     Widget w;
-     XtPointer clientData;
-     XmAnyCallbackStruct* cbs;
-#endif
 {
   char* str;
   char  msg[80];
   newDbaseDialog* obj = (newDbaseDialog *)clientData;
+
+  printf("Editor_menu::openNewDatabase reached\n");
 
   str = XmTextFieldGetString (obj->input_);
   if (!str || !*str) {
@@ -1578,28 +1502,18 @@ static void openNewDatabase (w, clientData, cbs)
   XtPopdown (XtParent (obj->dialog_));
 }
 
-#if defined (__STDC__)
-static void popdownNdbaseDialog (Widget w, 
+static void
+popdownNdbaseDialog (Widget w, 
 				 XtPointer clientData, 
 				 XmAnyCallbackStruct* cbs)
-#else
-static void popdownNdbaseDialog (w, clientData, cbs)
-     Widget w;
-     XtPointer clientData;
-     XmAnyCallbackStruct* cbs;
-#endif
 {
   newDbaseDialog* obj = (newDbaseDialog *)clientData;
 
   XtPopdown (XtParent (obj->dialog_));
 }
 
-#if defined (__STDC__)
-void XcodaEditorNewDbaseEntry (Widget w)
-#else
-void XcodaEditorNewDbaseEntry (w)
-     Widget w;
-#endif
+void
+XcodaEditorNewDbaseEntry (Widget w)
 {
   static newDbaseDialog ndbaseDialog;
   static int ndbaseCreated = 0;
@@ -1700,9 +1614,9 @@ void XcodaEditorNewDbaseEntry (w)
 
     /* add callbacks */
     XtAddCallback (ndbaseDialog.ok_, XmNactivateCallback, 
-		   openNewDatabase, (XtPointer)&(ndbaseDialog));
+		   (XtCallbackProc)openNewDatabase, (XtPointer)&(ndbaseDialog));
     XtAddCallback (ndbaseDialog.cancel_, XmNactivateCallback,
-		   popdownNdbaseDialog, (XtPointer)&(ndbaseDialog));
+		   (XtCallbackProc)popdownNdbaseDialog, (XtPointer)&(ndbaseDialog));
 
     XtManageChild (act_form);
     XtManageChild (ndbaseDialog.dialog_);
@@ -1710,16 +1624,10 @@ void XcodaEditorNewDbaseEntry (w)
   XtPopup (XtParent (ndbaseDialog.dialog_), XtGrabNone);
 }
 
-#if defined (__STDC__)
-void XcodaEditorNewDbaseCbk(Widget w, 
+void
+XcodaEditorNewDbaseCbk(Widget w, 
 			    XtPointer client_data, 
 			    XmAnyCallbackStruct* cbs)
-#else
-void XcodaEditorNewDbaseCbk(w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   if (isEmptyGraph (&coda_graph))
     XcodaEditorNewDbaseEntry (sw_geometry.draw_area);
@@ -1734,16 +1642,10 @@ void XcodaEditorNewDbaseCbk(w, client_data, cbs)
  * Description:                                                   *
  *     Callback function for Open Database Button in the File Menu*
  *****************************************************************/
-#if defined (__STDC__)
-void XcodaEditorOpenDbaseCbk(Widget w, 
+void
+XcodaEditorOpenDbaseCbk(Widget w, 
 			     XtPointer client_data, 
 			     XmAnyCallbackStruct* cbs)
-#else
-void XcodaEditorOpenDbaseCbk(w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   XcodaEditorResetGraphCmd();
   
@@ -1760,16 +1662,10 @@ void XcodaEditorOpenDbaseCbk(w, client_data, cbs)
  * Description:                                                       *
  *     Callback function for Remove Database Button in the File Menu  *
  *********************************************************************/
-#if defined (__STDC__)
-void XcodaEditorRemoveDbaseCbk(Widget w, 
+void
+XcodaEditorRemoveDbaseCbk(Widget w, 
 			       XtPointer client_data, 
 			       XmAnyCallbackStruct* cbs)
-#else
-void XcodaEditorRemoveDbaseCbk(w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   XcodaEditorResetGraphCmd();
 
@@ -1782,16 +1678,10 @@ void XcodaEditorRemoveDbaseCbk(w, client_data, cbs)
  * Description:                                                 *
  *      Remove all unused components from database              *
  ***************************************************************/
-#if defined (__STDC__)
-void XcodaEditorCleanDbase (Widget w, 
+void
+XcodaEditorCleanDbase (Widget w, 
 			    XtPointer client_data, 
 			    XmAnyCallbackStruct* cbs)
-#else
-void XcodaEditorCleanDbase (w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   /* check all the components inside icon list
      forward task to iconlist
@@ -1800,16 +1690,10 @@ void XcodaEditorCleanDbase (w, client_data, cbs)
 }
 
 /*********************Exit Menu CAllback*************************/
-#if defined (__STDC__)
-static void exit_coda_editor(Widget w, 
+static void
+exit_coda_editor(Widget w, 
 			     XtPointer client_data, 
 			     XmAnyCallbackStruct* cbs)
-#else
-static void exit_coda_editor(w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   XFreeGC(xgc.dpy, xgc.erase_gc);
   XFreeGC(xgc.dpy, xgc.r_gc);
@@ -1861,16 +1745,10 @@ static void exit_coda_editor(w, client_data, cbs)
   exit(0);
 }
   
-#if defined (__STDC__)
-void XcodaEditorExitMenuCbk(Widget w, 
+void
+XcodaEditorExitMenuCbk(Widget w, 
 			    XtPointer client_data, 
 			    XmAnyCallbackStruct* cbs)
-#else
-void XcodaEditorExitMenuCbk(w, client_data, cbs)
-     Widget w;
-     XtPointer client_data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   Widget dialog, help_w;
   XmString message, yes, no;
@@ -1895,8 +1773,8 @@ void XcodaEditorExitMenuCbk(w, client_data, cbs)
   help_w = XmMessageBoxGetChild(dialog, XmDIALOG_HELP_BUTTON);
   XtSetSensitive(help_w, False);
   
-  XtAddCallback(dialog, XmNokCallback, exit_coda_editor,(XtPointer)NULL);
-  XtAddCallback(dialog, XmNcancelCallback, popdown_dialog, (XtPointer)NULL);
+  XtAddCallback(dialog, XmNokCallback, (XtCallbackProc)exit_coda_editor,(XtPointer)NULL);
+  XtAddCallback(dialog, XmNcancelCallback, (XtCallbackProc)popdown_dialog, (XtPointer)NULL);
   
   XtManageChild(dialog);
   XtPopup(XtParent(dialog), XtGrabNone);

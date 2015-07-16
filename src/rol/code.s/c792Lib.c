@@ -91,6 +91,9 @@ int c792EvtReadCnt[20];                       /* Count of events read from speci
 
 unsigned int c792MemOffset = 0;               /* CPUs A24 or A32 address space offset */
 
+static int use792[20] = {
+  0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0};
+
 #ifdef VXWORKS
 FP_CONTEXT c792Fpr;
 
@@ -163,7 +166,8 @@ c792Init (UINT32 addr, UINT32 addr_inc, int nadc, UINT16 crateID)
   lladdr = laddr;
 
   Nc792 = 0;
-  for (ii=0;ii<nadc;ii++) {
+  for (ii=0;ii<nadc;ii++)
+  {
     c792p[ii] = (struct c792_struct *)(laddr + ii*addr_inc);
     c792pl[ii]  = (struct c792_struct *)(lladdr + ii*addr_inc);
     /* Check if Board exists at that address */
@@ -172,19 +176,27 @@ c792Init (UINT32 addr, UINT32 addr_inc, int nadc, UINT16 crateID)
 #else
     res = vmeMemProbe((char *) &(c792p[ii]->rev),2,(char *)&rdata);
 #endif
-    if(res < 0) {
+    if(res < 0)
+    {
       printf("c792Init: ERROR: No addressable board at addr=0x%x\n",(UINT32) c792p[ii]);
       c792p[ii] = NULL;
-      errFlag = 1;
+      /*sergey: errFlag = 1;*/
       break;
-    } else {
+    }
+    else
+    {
       /* Check if this is a Model 792 */
       rp = (struct c792_ROM_struct *)((UINT32)c792p[ii] + C792_ROM_OFFSET);
       boardID = ((c792Read(&rp->ID_3)&(0xff))<<16) + 
-	((c792Read(&rp->ID_2)&(0xff))<<8) + (c792Read(&rp->ID_1)&(0xff)); 
-      if(boardID != C792_BOARD_ID) {
-	printf(" ERROR: Board ID does not match: %d \n",boardID);
-	return(ERROR);
+	     ((c792Read(&rp->ID_2)&(0xff))<<8) + (c792Read(&rp->ID_1)&(0xff)); 
+
+      /* set 1 for tdc, 2 for adc */
+      if(boardID == C775_BOARD_ID)      use792[Nc792] = 1;
+      else if(boardID == C792_BOARD_ID) use792[Nc792] = 2;
+      else
+      {
+	    printf(" ERROR: Board ID does not match: %d \n",boardID);
+	    return(ERROR);
       }
     }
     Nc792++;
@@ -246,6 +258,18 @@ c792Init (UINT32 addr, UINT32 addr_inc, int nadc, UINT16 crateID)
     return(Nc792);
   }
 
+}
+
+/*sergey*/
+int
+c792Type(int id)
+{
+  if((id<0) || (c792p[id] == NULL)) {
+    printf("c792Type: ERROR : QDC id %d not initialized \n",id);
+    return(0);
+  }
+
+  if(id>=0 && id<Nc792) return(use792[id]);
 }
 
 /*******************************************************************************
@@ -320,7 +344,28 @@ c792Status( int id, int reg, int sflag)
   }else{
     printf("  Status  = 0x%04x 0x%04x\n",stat1,stat2);
   }
-  printf("  BitSet  = 0x%04x 0x%04x\n",bit1,bit2);
+
+  printf("  BitSet1  = 0x%04x\n",bit1);
+
+  printf("  BitSet2  = 0x%04x, in particular:\n",bit2);
+
+  if(bit2&C792_OVERFLOW_SUP) printf("     NO Overflow suppression\n");
+  else                       printf("     Overflow suppression\n");
+
+  if(bit2&C792_UNDERFLOW_SUP) printf("     NO Zero suppression\n");
+  else                        printf("     Zero suppression\n");
+
+  if(bit2&C792_SLIDE_ENABLE) printf("     Sliding scale\n");
+  else                       printf("     NO Sliding scale\n");
+
+  if(use792[id]==1) /* v775 only */
+  {
+    if(bit2&C775_START_STOP) printf("     Common Stop mode\n");
+    else                     printf("     Common Start mode\n");
+ 
+   if(bit2&C775_VALID_CONTROL) printf("     NO Valid suppression\n");
+    else                        printf("     Valid suppression\n");
+  }
 
   if(Berr && BlkEnd) {
     printf("  Control = 0x%04x         (Bus Error,Block End Enabled)\n",cntl1);
@@ -1051,6 +1096,37 @@ c792Sparse(int id, int over, int under)
   return(rval);
 }
 
+/* sergey: v775-specific settings */
+
+UINT16
+c775Modes(int id, int valid, int start_stop)
+{
+  UINT16 rval;
+
+  if((id<0) || (c792p[id] == NULL)) {
+    printf("c792Sparse: ERROR : QDC id %d not initialized \n",id);
+    return(0xffff);
+  }
+  
+  C792LOCK;
+  if(!valid) {  /* Set valid control */
+    c792Write(&c792p[id]->bitSet2, C775_VALID_CONTROL);
+  }else{
+    c792Write(&c792p[id]->bitClear2, C775_VALID_CONTROL);
+  }
+
+  if(!start_stop) {  /* Set common start or common stop modes */
+    c792Write(&c792p[id]->bitSet2, C775_START_STOP);
+  }else{
+    c792Write(&c792p[id]->bitClear2, C775_START_STOP);
+  }
+
+  rval = c792Read(&c792p[id]->bitSet2)&C792_BITSET2_MASK;
+  C792UNLOCK;
+
+  return(rval);
+}
+
 
 /*******************************************************************************
 *
@@ -1142,9 +1218,15 @@ c792SetThresh(int id, int chan, short val)
     return (-1);
   }  
 
+  if(val > 0x1FF)
+  {
+    logMsg("c792SetThresh: channel id %d, val=%d - out of range (0-0x1FF) \n",chan,val,0,0,0,0);
+    return(-1);
+  }
+
   C792LOCK;
   c792Write(&c792p[id]->threshold[chan], val);
-  rval = c792Read(&c792p[id]->threshold[chan]);
+  rval = c792Read(&c792p[id]->threshold[chan]) & 0x1FF;
   C792UNLOCK;
 
   return (rval);
@@ -1331,6 +1413,8 @@ c792Reset(int id)
   c792EventCount[id] =  0;
 }
 
+
+
 /* Register Read/Write routines */
 static unsigned short
 c792Read(volatile unsigned short *addr)
@@ -1363,6 +1447,95 @@ c792Write(volatile unsigned short *addr, unsigned short val)
   *addr = val;
   return;
 }
+
+
+
+/* sergey: some functions from old library */
+
+
+/* Pedestal operations (ADC only) */
+
+int
+c792SetPedestal(int id, UINT16 value)
+{
+  if((id<0) || (c792p[id] == NULL)) {
+    logMsg("c792Reset: ERROR : QDC id %d not initialized \n",id,0,0,0,0,0);
+    return;
+  }
+
+  if(value > 0xFF) return(-1);
+
+  C792LOCK;
+  c792Write(&c792p[id]->iped, value&0xFF);
+  C792UNLOCK;
+
+  return(0);
+}
+
+int
+c792GetPedestal(int id)
+{
+  int ret;
+
+  if((id<0) || (c792p[id] == NULL)) {
+    logMsg("c792Reset: ERROR : QDC id %d not initialized \n",id,0,0,0,0,0);
+    return;
+  }
+
+  C792LOCK;
+  ret = c792Read(&c792p[id]->iped) & 0xFF;
+  C792UNLOCK;
+
+  return(ret);
+}
+
+
+/* Scale range operations (TDC only) */
+/* 0xFF -> 35ps LSB, 140ns full scale range */
+/* 0x1E -> 300ps LSB, 1200ns full scale range */
+/* linear interpolation for intermediate values */
+
+int
+c775SetResolution(int id, UINT16 value)
+{
+  if((id<0) || (c792p[id] == NULL)) {
+    logMsg("c792Reset: ERROR : QDC id %d not initialized \n",id,0,0,0,0,0);
+    return;
+  }
+
+  if(value > 0xFF) return(-1);
+  if(value < 0x1E) return(-2);
+
+  C792LOCK;
+  c792Write(&c792p[id]->iped, value&0xFF);
+  C792UNLOCK;
+
+  return(0);
+}
+
+int
+c775GetResolution(int id)
+{
+  int ret;
+
+  if((id<0) || (c792p[id] == NULL)) {
+    logMsg("c792Reset: ERROR : QDC id %d not initialized \n",id,0,0,0,0,0);
+    return;
+  }
+
+  C792LOCK;
+  ret = c792Read(&c792p[id]->iped) & 0xFF;
+  C792UNLOCK;
+
+  return(ret);
+}
+
+
+
+
+
+
+
 
 #else /* dummy version*/
 

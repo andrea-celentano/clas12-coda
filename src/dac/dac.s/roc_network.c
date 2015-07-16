@@ -105,7 +105,8 @@ LINK_establish(char *host, int port)
 
   /* socket buffer size */
 
-  slen = 48000/*29200*/;
+  /*SERGEY: DOES NOT MESS WITH TCP ANY MORE !!!
+  slen = 48000;
   if(setsockopt (s, SOL_SOCKET, SO_SNDBUF, &slen, sizeof(slen)) < 0)
   {
 	printf("LINK_establish: setsockopt SO_SNDBUF failed\n");
@@ -122,11 +123,13 @@ LINK_establish(char *host, int port)
     printf("LINK_establish: socket buffer size is %d(0x%08x) bytes\n",
       nbytes,nbytes);
   }
+  */
 
   {
     int optval, lbytes;
 
 	optval = 1; /* 1-yes, 0-no */
+    /*SERGEY: DOES NOT MESS WITH TCP ANY MORE !!!
     if(setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, &optval, sizeof(optval)) < 0)
 	{
 	  printf("LINK_establish: setsockopt SO_KEEPALIVE failed\n");
@@ -137,6 +140,7 @@ LINK_establish(char *host, int port)
     lbytes = 4;
     getsockopt(s, SOL_SOCKET, SO_KEEPALIVE, (int *) &optval, &lbytes);
     printf("LINK_establish: keepAlive is %d\n",optval);
+	*/
   }
 
 #ifdef VXWORKS_needheaderfiles
@@ -418,10 +422,8 @@ fflush(stdout);
 	  /*
       setsockopt(bigbuf[BBIFD], SOL_SOCKET, SO_SNDBUF, 
                  (int *) &nbytes, lbytes); 
-	  */
       getsockopt(bigbuf[BBIFD], SOL_SOCKET, SO_SNDBUF, 
                  (int *) &nbytes, &lbytes); 
-	  /*
       printf("socket buffer size is %d(0x%08x) bytes\n",nbytes,nbytes);
 	  */
     }

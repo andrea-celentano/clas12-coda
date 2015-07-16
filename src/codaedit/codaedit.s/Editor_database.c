@@ -820,6 +820,8 @@ isTableCreated (char* name)
 }
 
 
+
+
 /**********************************************************/
 /***************** remove table operations ****************/
 /**********************************************************/
@@ -829,9 +831,11 @@ removePositionTable (char* config)
 {
   char queryString[1024];
   
-  if (databaseSelected ()) {
+  if (databaseSelected ())
+  {
     sprintf (queryString, "drop table %s_pos", config);
-    if (mysql_query (mysql, queryString) != 0) {
+    if (mysql_query (mysql, queryString) != 0)
+    {
 #ifdef _CODA_DEBUG
       printf ("Cannot remove %s position table: %s\n", config, mysql_error(mysql));
 #endif
@@ -847,9 +851,11 @@ removeScriptTable (char* config)
 {
   char queryString[1024];
   
-  if (databaseSelected ()) {
+  if (databaseSelected ())
+  {
     sprintf (queryString, "drop table %s_script", config);
-    if (mysql_query (mysql, queryString) != 0) {
+    if (mysql_query (mysql, queryString) != 0)
+    {
 #ifdef _CODA_DEBUG
       printf ("Cannot remove %s script table: %s\n", config, mysql_error(mysql));
 #endif
@@ -866,9 +872,11 @@ removeOptionTable (char* config)
 {
   char queryString[1024];
   
-  if (databaseSelected ()) {
+  if (databaseSelected ())
+  {
     sprintf (queryString, "drop table %s_option", config);
-    if (mysql_query (mysql, queryString) != 0) {
+    if (mysql_query (mysql, queryString) != 0)
+    {
 #ifdef _CODA_DEBUG
       printf ("Cannot remove %s option table: %s\n", config, mysql_error(mysql));
 #endif
@@ -878,6 +886,7 @@ removeOptionTable (char* config)
   }
   return -1;
 }
+
 
 int
 removeConfigTable (char* config)
@@ -894,23 +903,37 @@ removeConfigTable (char* config)
   {
 
     sprintf (queryString, "drop table %s", config);
-    if (mysql_query (mysql, queryString) != 0) {
+    if (mysql_query (mysql, queryString) != 0)
+    {
 #ifdef _CODA_DEBUG
       printf ("Cannot remove %s config table: %s\n", config, mysql_error(mysql));
 #endif
     }
+
     sprintf (queryString, "drop table %s_script", config);
-    if (mysql_query (mysql, queryString) != 0) {
+    if (mysql_query (mysql, queryString) != 0)
+    {
 #ifdef _CODA_DEBUG
       printf ("Cannot remove %s_script table: %s\n", config, mysql_error(mysql));
 #endif
     }
+
+    sprintf (queryString, "drop table %s_option", config);
+    if (mysql_query (mysql, queryString) != 0)
+    {
+#ifdef _CODA_DEBUG
+      printf ("Cannot remove %s_option table: %s\n", config, mysql_error(mysql));
+#endif
+    }
+
     sprintf (queryString, "drop table %s_pos", config);
-    if (mysql_query (mysql, queryString) != 0) {
+    if (mysql_query (mysql, queryString) != 0)
+    {
 #ifdef _CODA_DEBUG
       printf ("Cannot remove %s_pos table: %s\n", config, mysql_error(mysql));
 #endif
     }
+
 
     /* delete this config from run type table */
     sprintf (queryString, "delete from %s\n", RUNTYPE_TABLE_NAME);
@@ -980,6 +1003,8 @@ insertValToOptionTable (char* config, char* name, char* value)
   char queryString[1024];
   char valString[256];
 
+  printf("Editor_database: insertValToOptionTable(%s,%s,%s)\n",config,name,value);
+
   if (databaseSelected ())
   {
     /* delete old entry */
@@ -1045,7 +1070,10 @@ insertValToConfigTable (char* config, char* name, char* code,
   char queryString[1024];
   char valString[512];  
 
-  if (databaseSelected ()) {
+  printf("Editor_database: insertValToConfigTable(%s,%s,%s,%s,%s,%s,%d)\n",config,name,code,inputs,outputs,next,first);
+
+  if (databaseSelected ())
+  {
     sprintf (queryString, "insert into %s\n",config);
     if (next) {
       if (first) 

@@ -255,7 +255,7 @@ TcpServer(void)
   MYSQL *dbsock = NULL;
   MYSQL_RES *result;
   int numRows;
-  char tmp[256], *myname, *hname;
+  char tmp[256], *myname, *hname, *ch;
   
   printf("TcpServer reached\n");fflush(stdout);
 
@@ -335,6 +335,9 @@ TcpServer(void)
     mysql_free_result(result);
 
 	hname = getenv("HOST");
+    /* remove everything starting from first dot */
+    ch = strstr(hname,".");
+    *ch = '\0';
 
     /*printf("nrow=%d\n",numRows);*/
     if(numRows == 0)
@@ -415,7 +418,8 @@ usrNetStackDataPoolStatus("tcpServer",1);
         targ.newFd, targ.address, targ.port); fflush(stdout);
 	  */
       /* block annoying IP address(es) */
-      if(!strncmp((int) inet_ntoa (clientAddr.sin_addr),"129.57.71.",10))
+      /*if(!strncmp((int) inet_ntoa (clientAddr.sin_addr),"129.57.71.",10))*/
+      if(!strncmp(targ.address,"129.57.71.",10))
 	  {
         printf("WARN: ignore request from %s\n",targ.address);
         close(targ.newFd);

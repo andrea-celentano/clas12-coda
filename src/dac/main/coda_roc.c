@@ -109,7 +109,7 @@ extern char    *session; /* coda_component.c */
 
 /* the number of output buffers */
 /* buffer size defined in circbuf.h */
-#define NUM_SEND_BUFS        16
+#define NUM_SEND_BUFS        16   /* 16 */
 
 
 static int print_output_buffers_are_full = 1; /* enable warning message */

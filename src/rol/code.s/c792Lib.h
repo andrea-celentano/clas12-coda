@@ -135,7 +135,8 @@ struct c792_ROM_struct {
 };
 
 
-#define C792_BOARD_ID   0x00000318
+#define C792_BOARD_ID   0x00000318 /* 792 */
+#define C775_BOARD_ID   0x00000307 /* 775 */
 
 /* Define Address offset for 68K based A24/D32 VME addressing */
 /* default VMEChip2 programming only supports A24/D16 */
@@ -166,8 +167,10 @@ struct c792_ROM_struct {
 #define C792_OFFLINE             0x2
 #define C792_OVERFLOW_SUP        0x8
 #define C792_UNDERFLOW_SUP      0x10
+#define C775_VALID_CONTROL      0x20 /* TDC v775 only */
 #define C792_TEST_MODE          0x40
 #define C792_SLIDE_ENABLE       0x80
+#define C775_START_STOP        0x400 /* TDC v775 only */
 #define C792_AUTO_INCR         0x800
 #define C792_INC_HEADER       0x1000
 #define C792_SLIDE_SUB_ENABLE 0x2000
@@ -259,5 +262,13 @@ void   c792Enable(int id);
 void   c792Disable(int id);
 void   c792Clear(int id);
 void   c792Reset(int id);
+
+int    c792Type(int id);
+UINT16 c775Modes(int id, int valid, int start_stop);
+int c792SetPedestal(int id, UINT16 value);
+int c792GetPedestal(int id);
+int c775SetResolution(int id, UINT16 value);
+int c775GetResolution(int id);
+
 
 #endif /* __C792LIB__ */

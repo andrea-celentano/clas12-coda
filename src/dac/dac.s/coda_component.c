@@ -29,6 +29,8 @@
 #include <sys/types.h>
 #include <time.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
+
 
 #ifdef __cplusplus
 typedef int 		(*FUNCPTR) (...);     /* ptr to function returning int */
@@ -271,6 +273,60 @@ checkHeartBeats()
 /*******************************************************/
 /*******************************************************/
 
+/* returns free TCP port */
+int
+codaFindFreeTcpPort()
+{
+  int port = 0;
+  int sock;
+  struct sockaddr_in serv_addr;
+  socklen_t len;
+
+  sock = socket(AF_INET, SOCK_STREAM, 0);
+  if(sock < 0)
+  {
+    printf("socket error\n");
+    return;
+  }
+
+  bzero((char *) &serv_addr, sizeof(serv_addr));
+  serv_addr.sin_family = AF_INET;
+  serv_addr.sin_addr.s_addr = INADDR_ANY;
+  serv_addr.sin_port = 0;
+  if (bind(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
+  {
+    if(errno == EADDRINUSE)
+    {
+      printf("the port is not available. already to other process\n");
+      return;
+    }
+    else
+    {
+      printf("could not bind to process (%d) %s\n", errno, strerror(errno));
+      return;
+    }
+  }
+
+  len = sizeof(serv_addr);
+  if (getsockname(sock, (struct sockaddr *)&serv_addr, &len) == -1)
+  {
+    perror("getsockname");
+    return;
+  }
+
+  port = ntohs(serv_addr.sin_port);
+
+  if (close (sock) < 0 )
+  {
+    printf("did not close: %s\n", strerror(errno));
+    return;
+  }
+
+  return(port);
+}
+
+
+
 /* read whole text file */
 char *
 loadwholefile(char *file, int *size)
@@ -299,6 +355,10 @@ loadwholefile(char *file, int *size)
     printf("loadwholefile: memory alloc fails\n");
     return(NULL);
   }
+  else
+  {
+    printf("loadwholefile: allocated %d bytes output buffer\n",nbytes+5);
+  }
 
   /* fill end of buffer with \004 */
   buffer[nbytes-2] = '\n';
@@ -323,7 +383,7 @@ loadwholefile(char *file, int *size)
   *size = (nbytes+4)/4; /* align to 4-byte boundary and return #words */
   fclose(fp);
 
-  printf("loadwholefile: nbytes=%d, *size=%d\n",nbytes,*size);
+  printf("loadwholefile: nbytes=%d, *size=%d words\n",nbytes,*size);
 
   return(buffer);
 }
@@ -2070,6 +2130,15 @@ printf("WorkTask: alloc 0x%08x\n",targ.address);fflush(stdout);
           close(targ.newFd);
           coda_request_in_progress = 0;
         }
+		/*
+		else
+		{
+#ifdef Linux
+      pthread_setname_np(&id, "coda_er");
+#endif
+	      ;
+		}
+		*/
 	  }
 	}
  
@@ -2099,9 +2168,11 @@ CODAtcpServerWorkTask(TWORK *targ)
   int itmp;
 
 #ifdef Linux
-  prctl(PR_SET_NAME,"coda_tcp_work");
+  prctl(PR_SET_NAME,"coda_er1");
 #endif
   /*setHeartBeat(HB_TCP,0,2);*/
+
+  printf("CODAtcpServerWorkTask entry\n");
 
   /*
   printf("CODAtcpServerWorkTask: socket=%d address>%s< port=%d\n",
@@ -2144,10 +2215,13 @@ CODAtcpServerWorkTask(TWORK *targ)
 
   coda_request_in_progress = 0;
 
+  printf("CODAtcpServerWorkTask exit ?\n");
+
   /* terminate calling thread */
-  pthread_exit(NULL);
+  /*pthread_exit(NULL); need it ? */
 
   /*setHeartBeat(HB_TCP,0,-1);*/
+  printf("CODAtcpServerWorkTask exit !\n");
 
   return;
 }

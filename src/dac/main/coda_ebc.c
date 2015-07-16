@@ -1077,7 +1077,6 @@ exit(0);
 
     /* then set 'soe' pointer and update event counters */
     soe = dabufp = (unsigned int *) etevents[nevents2put]->pdata;
-
     nevents2put++;
     neventsfree--;
 
@@ -2276,8 +2275,7 @@ static trArg args[NTHREADMAX];
   /* get 'inuse' ROCs from DB */
   /****************************/
 
-  /* get all rows with 'inuse'='yes' */
-  /*sprintf(tmp,"SELECT name,outputs,inuse FROM %s WHERE inuse='yes'",configname);*/
+  /* get all rows from config table */
   sprintf(tmp,"SELECT name,outputs,inuse FROM %s",configname);
   if(mysql_query(dbsocket, tmp) != 0)
   {

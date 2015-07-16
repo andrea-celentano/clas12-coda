@@ -43,17 +43,19 @@
 static void * signal_thread (void *arg);
 
 
-#define MAXBUF 100000
+#define MAXBUF 500000
 static int maxbufbytes = MAXBUF*4;;
 static unsigned int buf[MAXBUF];
 
 int
 main(int argc,char **argv)
 {
-  int handle, handle1, len;
-  int             i, ii, j, status, nevents_max, event_size, buflen;
+  int             handle, handle1, len;
+  int             i, ii, j, status, nevents_max, buflen;
+  size_t          event_size;
   double          freq=0.0, freq_tot=0.0, freq_avg=0.0, datafreq=0.0, datafreq_tot=0.0, datafreq_avg=0.0;
-  int             iterations=1, count, evcount, datacount;
+  int             iterations=1, count, evcount;
+  double          datacount;
   et_att_id	  attach1;
   et_sys_id       id;
   et_openconfig   openconfig;
@@ -146,6 +148,7 @@ restartLinux:
   }
 
 
+
   /* attach to grandcentral station */
   if (et_station_attach(id, ET_GRANDCENTRAL, &attach1) < 0)
   {
@@ -176,7 +179,7 @@ restartLinux:
 
     /* loop NUMLOOPS times before printing out statistics */
     evcount = 0;
-    datacount = 0;
+    datacount = 0.0;
     for (j=0; j < NUMLOOPS ; j++)
     {
       status = et_events_new(id, attach1, pe, ET_SLEEP, NULL, event_size, CHUNK, &count);
@@ -248,11 +251,19 @@ restartLinux:
           exit(1);
 		}
 
+		
         status = evWrite(handle1, buf);
         if(status!=0) printf("evWrite returns %d\n",status);
+
         evGetBufferLength(handle1,&len);
+		/*printf("len=%d buflen=%d\n",len, buflen);*/
+/*sergey: evGetBufferLength() returns len=32, use buflen instead*/
+        len = buflen<<2;
+
         status = evClose(handle1);
         if(status!=0) printf("evClose returns %d\n",status);
+		
+
 		/*			
         printf("---> len=%d\n",len);
         printf("2 data(hex): 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
@@ -261,7 +272,7 @@ restartLinux:
 			   pdata[0],pdata[1],pdata[2],pdata[3],pdata[4],pdata[5],pdata[6],pdata[7],pdata[8],pdata[9]);
 		*/
 
-        datacount += len;
+        datacount += (double)len;
         et_event_setlength(pe[i], len);
 	  }
       evcount += count;
@@ -296,8 +307,9 @@ restartLinux:
     clock_gettime(CLOCK_REALTIME, &t2);
     time = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
 #endif
-    freq = evcount/time;
-    datafreq = datacount/time;
+    freq = evcount / time;
+    datafreq = datacount / time;
+
     if ((DOUBLE_MAX - freq_tot) < freq)
     {
       freq_tot   = 0.0;

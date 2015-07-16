@@ -83,7 +83,7 @@ typedef struct ERpriv
   void *mod_id;
   char mod_name[30];
   int  record_length;
-  int  split;
+  /*int*/long  split;
   char filename[128];
   pthread_t write_thread;
   objClass object;
@@ -92,7 +92,7 @@ typedef struct ERpriv
   IFUNCPTR open_proc;
   int splitnb;
   int nevents;
-  int nlongs;
+  /*int*/long nlongs;
   int nerrors;
   int nend;
   char *runConfig;
@@ -431,6 +431,8 @@ outputEvents(ERp erp, et_event **pe, int start, int stop)
     ptr = (unsigned int *)pe[i]->pdata;
     ptr += 8;
     len -= 32;
+
+	
     status = evWrite(erp->fd, ptr);
     if(status!=0) {printf("evWrite returns %d\n",status);return(status);}
 	

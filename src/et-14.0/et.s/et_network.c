@@ -370,7 +370,7 @@ int et_findserver2(const char *etname, char *ethost, int *port, uint32_t *inetad
                    et_response **allETinfo, et_open_config *config, int trys, struct timeval *waittime)
 {
     int          i, j, k, l, m, n, err, version, addrCount, castType, gotMatch=0, subnetCount=0, ipAddrCount=0;
-    int          length, len_net, lastdelay, maxtrys=6, serverport=0, debug=0, magicInts[3];
+    int          length, len_net, lastdelay, maxtrys=6, serverport=0, debug=1, magicInts[3];
     const int    on=1, timeincr[]={0,1,2,3,4,5};
     uint32_t     addr;
     codaIpList   *baddr;
@@ -461,6 +461,8 @@ int et_findserver2(const char *etname, char *ethost, int *port, uint32_t *inetad
     if ((config->cast == ET_BROADCAST) ||
         (config->cast == ET_BROADANDMULTICAST)) {
         
+	  printf("et_findserver2 1\n");
+
         /* for each listed broadcast address ... */
         baddr = config->bcastaddrs;
         while (baddr != NULL) {
@@ -525,6 +527,8 @@ int et_findserver2(const char *etname, char *ethost, int *port, uint32_t *inetad
     /* if also configured for multicast, send that too */
     if ((config->cast == ET_MULTICAST) ||
         (config->cast == ET_BROADANDMULTICAST)) {
+
+	  printf("et_findserver2 2\n");
 
         /* for each listed address ... */
         for (i=0; i < config->mcastaddrs.count; i++) {
@@ -611,6 +615,8 @@ int et_findserver2(const char *etname, char *ethost, int *port, uint32_t *inetad
         trys = maxtrys;
     }
      
+	printf("et_findserver2 9\n");
+
     /* Prepare output buffer that we send to servers:
      * (1) ET magic numbers (3 ints),
      * (2) ET version #,

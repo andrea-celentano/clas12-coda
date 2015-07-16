@@ -3952,7 +3952,7 @@ if (debug) printf("evWriteDict: buf size (bytes) = %d, needed for event + header
         /* Increase buffer size to at least this. */
         size = 4*(nToWrite + 2*EV_HDSIZ);
 
-        /* Increase buffer size and DON"T copy first header from old to new */
+        /* Increase buffer size and DON'T copy first header from old to new */
         status = expandBuffer(a, size);
         if (status != S_SUCCESS) {
             return status;
@@ -4040,7 +4040,8 @@ static void resetBuffer(EVFILE *a) {
  * @return S_EVFILE_BADHANDLE if bad handle arg
  * @return S_EVFILE_ALLOCFAIL if cannot allocate memory
  */
-static int evWriteImpl(int handle, const uint32_t *buffer, int useMutex, int isDictionary)
+static int
+evWriteImpl(int handle, const uint32_t *buffer, int useMutex, int isDictionary)
 {
     EVFILE   *a;
     uint32_t nToWrite, size;

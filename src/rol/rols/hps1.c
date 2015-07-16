@@ -1430,6 +1430,7 @@ vmeBusLock();
 vmeBusUnlock();
 #endif
 
+
 #ifdef USE_FADC250
 
 
@@ -2778,29 +2779,29 @@ vmeBusUnlock();
 	  /*printf("ndsc2_daq=%d\n",ndsc2_daq);*/
 	  if(ndsc2_daq>0)
 	  {
-      BANKOPEN(0xe115,1,rol->pid);
-      for(jj=0; jj<ndsc2_daq; jj++)
-      {
-        slot = dsc2Slot_daq(jj);
+        BANKOPEN(0xe115,1,rol->pid);
+        for(jj=0; jj<ndsc2_daq; jj++)
+        {
+          slot = dsc2Slot_daq(jj);
 vmeBusLock();
-        /* in following argument 4 set to 0xFF means latch and read everything, 0x3F - do not latch and read everything */
-        nwords = dsc2ReadScalers(slot, tdcbuf, 0x10000, 0xFF, 1);
-        /*printf("nwords=%d, nwords = 0x%08x 0x%08x 0x%08x 0x%08x\n",nwords,tdcbuf[0],tdcbuf[1],tdcbuf[2],tdcbuf[3]);*/
+          /* in following argument 4 set to 0xFF means latch and read everything, 0x3F - do not latch and read everything */
+          nwords = dsc2ReadScalers(slot, tdcbuf, 0x10000, 0xFF, 1);
+          /*printf("nwords=%d, nwords = 0x%08x 0x%08x 0x%08x 0x%08x\n",nwords,tdcbuf[0],tdcbuf[1],tdcbuf[2],tdcbuf[3]);*/
 vmeBusUnlock();
 
 #ifdef SSIPC
-	  {
-        int status, mm;
-        unsigned int dd[72];
-        for(mm=0; mm<72; mm++) dd[mm] = tdcbuf[mm];
-        status = epics_msg_send("hallb_dsc2_hps2_slot2","uint",72,dd);
-	  }
+	      {
+            int status, mm;
+            unsigned int dd[72];
+            for(mm=0; mm<72; mm++) dd[mm] = tdcbuf[mm];
+            status = epics_msg_send("hallb_dsc2_hps2_slot2","uint",72,dd);
+	      }
 #endif
-        /* unlike other boards, dcs2 scaler readout already swapped in 'dsc2ReadScalers', so swap it back, because
-        hps2.c expects big-endian format*/
-        for(ii=0; ii<nwords; ii++) *rol->dabufp ++ = LSWAP(tdcbuf[ii]);
-      }
-      BANKCLOSE;
+          /* unlike other boards, dcs2 scaler readout already swapped in 'dsc2ReadScalers', so swap it back, because
+          hps2.c expects big-endian format*/
+          for(ii=0; ii<nwords; ii++) *rol->dabufp ++ = LSWAP(tdcbuf[ii]);
+        }
+        BANKCLOSE;
 	  }
 
 #endif

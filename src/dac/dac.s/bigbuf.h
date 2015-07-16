@@ -4,7 +4,8 @@
 
 /* bigbuf.h */
 
-#define NBIGBUFFERS 16
+/* max number of buffers allowed */
+#define NBIGBUFFERS 32 /* 16 */
 
 #define SEND_BUF_MARGIN  (SEND_BUF_SIZE/4) /*(MAX_EVENT_LENGTH + 128)*/
 

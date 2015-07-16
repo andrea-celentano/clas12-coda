@@ -1534,30 +1534,32 @@ int
 tiGetCrateID(int port)
 {
   int rval=0;
+
   if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
+  {
+    printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+    return ERROR;
+  }
 
   if((port<0) || (port>8))
-    {
-      printf("%s: ERROR: Invalid port (%d)\n",
-	     __FUNCTION__,port);
-    }
+  {
+    printf("%s: ERROR: Invalid port (%d)\n",__FUNCTION__,port);
+  }
 
   TILOCK;
   if(port==0)
-    {
-      rval = (vmeRead32(&TIp->master_tiID) & TI_ID_CRATEID_MASK)>>8;
-    }
+  {
+    rval = (vmeRead32(&TIp->master_tiID) & TI_ID_CRATEID_MASK)>>8;
+  }
   else
-    {
-      rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_CRATEID_MASK)>>8;
-    }
+  {
+    rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_CRATEID_MASK)>>8;
+  }
   TIUNLOCK;
 
-  return rval;
+  printf("===> tiGetCrateID: port %d, id=%d\n",port,rval);
+
+  return(rval);
 }
 
 /*******************************************************************************
@@ -3196,7 +3198,7 @@ tiSetPromptTriggerWidth(int width)
 int
 tiGetPromptTriggerWidth()
 {
-  unsigned int rval=0;
+  int rval=0;
   if(TIp==NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -3207,7 +3209,7 @@ tiGetPromptTriggerWidth()
   rval = vmeRead32(&TIp->eventNumber_hi) & TI_PROMPT_TRIG_WIDTH_MASK;
   TIUNLOCK;
 
-  return OK;
+  return(rval);
 }
 
 

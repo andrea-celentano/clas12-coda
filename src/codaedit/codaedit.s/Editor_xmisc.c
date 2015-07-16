@@ -670,17 +670,10 @@ static void popdown_comp_attr(w, widgets, cbs)
 
 
 /* Ok button callback */
-#if defined (__STDC__)
-static void setup_comp_attr(Widget w, 
+static void
+setup_comp_attr(Widget w, 
 			    AttrWidgets* widgets, 
 			    XmAnyCallbackStruct* cbs)
-#else
-bla
-static void setup_comp_attr(w, widgets, cbs)
-     Widget w;
-     AttrWidgets *widgets;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   char     *str;
   char     msg[256];
@@ -699,11 +692,14 @@ static void setup_comp_attr(w, widgets, cbs)
   ac = 0;
 
   str = XmTextFieldGetString(widgets->name_widget);
-  if(!str || !*str){
+  if(!str || !*str)
+  {
     pop_error_message("Nothing typed for component name!", w);
     return;
   }
-  if(daq->comp_name != NULL){
+
+  if(daq->comp_name != NULL)
+  {
     (*comp->erase_name)(comp, xgc.dpy, XtWindow(sw_geometry.draw_area));
     free(daq->comp_name);
     daq->comp_name = (char *)0;
@@ -711,33 +707,43 @@ static void setup_comp_attr(w, widgets, cbs)
   daq->comp_name = strsave(str);
   XtFree(str);
   
-  if (type == 0 && !compNameOk (comp, daq->comp_name)){
+  if (type == 0 && !compNameOk (comp, daq->comp_name))
+  {
     sprintf(msg, "Duplicated component name \"%s\"", daq->comp_name);
     free (daq->comp_name);
     daq->comp_name = (char *)0;
     pop_error_message(msg, w);
     return;
   }
-  if (daq->type < 11 ){
+
+  if (daq->type < 11 )
+  {
     (*comp->write_name)(comp, xgc.dpy, XtWindow(sw_geometry.draw_area));
   }
   
   str = XmTextFieldGetString(widgets->host_widget);
-  if(!str || !*str){
+  if(!str || !*str)
+  {
     pop_error_message("Nothing typed for Ethernet Host !", w);
     return;
   }
-  if (!compHostOk (comp, str)){
+
+  if (!compHostOk (comp, str))
+  {
     sprintf(msg, "Cannot find host machine \"%s\"",str);
     pop_error_message (msg, w);
     return;
   }
-  if(daq->node_name != NULL){
+
+  if(daq->node_name != NULL)
+  {
     (*comp->erase_hostname)(comp, xgc.dpy, XtWindow(sw_geometry.draw_area));
     free(daq->node_name);
     daq->node_name = (char *)0;
   }
-  if (daq->type <11) {
+
+  if (daq->type <11)
+  {
     daq->node_name = strsave(str);
     (*comp->write_hostname)(comp, xgc.dpy, XtWindow(sw_geometry.draw_area));
     if (!type) {/* add new node mode */
@@ -748,7 +754,9 @@ static void setup_comp_attr(w, widgets, cbs)
       }
     }
     XtFree(str);
-  } else {
+  }
+  else
+  {
     printf("here for %s\n",daq->comp_name);
     daq->node_name = strdup(daq->comp_name);
     comp->num_ports = 1;
@@ -756,23 +764,31 @@ static void setup_comp_attr(w, widgets, cbs)
   }
   
   str = XmTextFieldGetString(widgets->id_widget);
-  if(!str || !*str){
+  if(!str || !*str)
+  {
     pop_error_message("Nothing typed for id number !", w);
     return;
   }
-  if((sscanf(str, "%d", &id_num)) < 1){
+
+  if((sscanf(str, "%d", &id_num)) < 1)
+  {
     pop_error_message("Wrong syntax for id number !", w);
     return;
   }
-  if(id_num < 0) {
+
+  if(id_num < 0)
+  {
     pop_error_message("Id number must be > 0 !", w);
     return;
   }
-  if (!compIdOk (comp, id_num)){
+
+  if (!compIdOk (comp, id_num))
+  {
     sprintf(msg,"Duplicated id number %d",id_num);
     pop_error_message (msg, w);
     return;
   }
+
   daq->id_num = id_num;
   XtFree(str);
 
@@ -787,24 +803,29 @@ static void setup_comp_attr(w, widgets, cbs)
   XtFree(str);
 
   str = XmTextFieldGetString(widgets->code_widget[0]);
-  if(daq->type == CODA_ROC){
-    if(!str || !*str) {
+  if(daq->type == CODA_ROC)
+  {
+    if(!str || !*str)
+    {
       pop_error_message("Nothing typed for ROC code !", w);
       return;
     }
   }
 
-  if(daq->code[0] != NULL) {
+  if(daq->code[0] != NULL)
+  {
     free(daq->code[0]);
     daq->code[0] = 0;
   }
+
   if (str && *str) 
     daq->code[0] = strsave(str);
   else
     daq->code[0] = 0;
   XtFree(str);
 
-  if(daq->code[1] != NULL) {
+  if(daq->code[1] != NULL)
+  {
     free(daq->code[1]);
     daq->code[1] = 0;
   }
@@ -815,7 +836,8 @@ static void setup_comp_attr(w, widgets, cbs)
     daq->code[1] = 0;
   XtFree(str);
 
-  if(daq->code[2] != NULL) {
+  if(daq->code[2] != NULL)
+  {
     free(daq->code[2]);
     daq->code[2] = 0;
   }
@@ -826,15 +848,16 @@ static void setup_comp_attr(w, widgets, cbs)
     daq->code[2] = 0;
   XtFree(str);
 
-  if (type){ /* editing mode */
+  if (type) /* editing mode */
+  {
     updateInfoToIconList(comp);
   }
 
   XtRemoveGrab(shell);
   XtDestroyWidget(shell);
+
   /* split coda_ebana into two parts, one eb and one ana */
-  if (daq->type == CODA_EBANA)
-    SplitEbana (comp);
+  if (daq->type == CODA_EBANA) SplitEbana (comp);
 }
 
 /*********************************************************************
@@ -846,18 +869,11 @@ static void setup_comp_attr(w, widgets, cbs)
  ********************************************************************/
 static AttrWidgets atw;
     
-#if defined (__STDC__)
-void popup_comp_attributes(drawComp* comp, 
-			   Widget base, 
-			   XEvent* event,
-			   int type)
-#else
-void popup_comp_attributes(comp, base, event,type)
-     drawComp *comp;
-     Widget   base;
-     XEvent   *event;
-     int      type;
-#endif
+void
+popup_comp_attributes(drawComp* comp, 
+			          Widget base, 
+			          XEvent* event,
+			          int type)
 {
   Position ret_x, ret_y;
   Arg      args[20];
@@ -937,6 +953,7 @@ void popup_comp_attributes(comp, base, event,type)
     XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
   }
   
+
   XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
   XtSetArg(args[ac], XmNleftOffset, 5); ac++;
   XtSetArg(args[ac], XmNrightAttachment, XmATTACH_FORM); ac++;  
@@ -1229,6 +1246,7 @@ void popup_comp_attributes(comp, base, event,type)
   if (comp->comp.type != CODA_EBANA)
     XtAddCallback(text_w0,XmNactivateCallback, XmProcessTraversal,
 		  XmTRAVERSE_NEXT_TAB_GROUP);
+
   XtAddCallback(text_w1,XmNactivateCallback, XmProcessTraversal,
 		XmTRAVERSE_NEXT_TAB_GROUP);
   XtAddCallback(text_w2,XmNactivateCallback, XmProcessTraversal,
@@ -1246,17 +1264,17 @@ void popup_comp_attributes(comp, base, event,type)
   /* OK button callback */
   XtAddCallback(atw.ok_widget, XmNactivateCallback,
 				setup_comp_attr,
-        &atw);
+				&atw);
 
   /* Dismiss button callback */
   XtAddCallback(atw.cancel_widget, XmNactivateCallback, 
 				popdown_comp_attr,
-		&atw);
+				&atw);
 
   /* Script button callback */
   XtAddCallback(atw.script_widget, XmNactivateCallback,
-        script_dialog,
-		&atw);
+				script_dialog,
+				&atw);
 		
 
 
@@ -1270,14 +1288,15 @@ void popup_comp_attributes(comp, base, event,type)
   }
 
  
-  if (comp->comp.type == CODA_ROC) {
-    
-  if(comp->comp.boot_string != NULL)
-    XmTextFieldSetString(text_w3, comp->comp.boot_string);
-  else
-    XmTextFieldSetString(text_w3, "$CODA_BIN/coda_roc");
-  
-  } else if (comp->comp.type == CODA_EB) {
+  if (comp->comp.type == CODA_ROC)
+  {
+    if(comp->comp.boot_string != NULL)
+      XmTextFieldSetString(text_w3, comp->comp.boot_string);
+    else
+      XmTextFieldSetString(text_w3, "$CODA_BIN/coda_roc");
+  }
+  else if (comp->comp.type == CODA_EB)
+  {
     if(comp->comp.boot_string != NULL)
       XmTextFieldSetString(text_w3, comp->comp.boot_string);
     else
@@ -1307,11 +1326,14 @@ void popup_comp_attributes(comp, base, event,type)
 
     XtUnmanageChild(label_w6);
     XtUnmanageChild(text_w6);
-  } else if (comp->comp.type == CODA_ER) {
+  }
+  else if (comp->comp.type == CODA_ER)
+  {
     if(comp->comp.boot_string != NULL)
       XmTextFieldSetString(text_w3, comp->comp.boot_string);
     else
       XmTextFieldSetString(text_w3, "$CODA_BIN/coda_er");
+
     XtUnmanageChild(label_w4);
     XtUnmanageChild(text_w4);
     XtUnmanageChild(label_w5);
@@ -1330,14 +1352,17 @@ void popup_comp_attributes(comp, base, event,type)
       XmTextFieldSetString(text_w4, "CODA");
 
     
-  } else if ((comp->comp.type == CODA_FILE)||(comp->comp.type == CODA_CODAFILE)) {
+  }
+  else if ((comp->comp.type == CODA_FILE)||(comp->comp.type == CODA_CODAFILE))
+  {
     char     *temp = (char *)malloc(200);
-    if (comp->comp.type == CODA_FILE) {
+    if (comp->comp.type == CODA_FILE)
+    {
       sprintf (temp, "file_%d", outputFileNum);
-
     }
 
-    if (comp->comp.type == CODA_CODAFILE) {
+    if (comp->comp.type == CODA_CODAFILE)
+    {
       sprintf (temp, "coda_%d", outputFileNum);
     }
 
@@ -1358,6 +1383,7 @@ void popup_comp_attributes(comp, base, event,type)
       XmTextFieldSetString(text_w2, (char *) comp->comp.id_num);
     else
       XmTextFieldSetString(text_w2, temp);
+
     XtUnmanageChild(label_w1);
     XtUnmanageChild(text_w1);
     XtUnmanageChild(label_w2);
@@ -1367,26 +1393,36 @@ void popup_comp_attributes(comp, base, event,type)
     XtUnmanageChild(label_w6);
     XtUnmanageChild(text_w6);
 
+
+
+
     t = XmStringCreateSimple("Data File Name");
     ac = 0;
     XtSetArg(args[ac], XmNlabelString, t); ac++;
     XtSetValues (label_w4, args, ac);
-    XmStringFree(t);
-    
-    XmTextFieldSetString(text_w4, "test.dat");
+    XmStringFree(t);    
+
+    /* sergey: will goto file_x in config table and in dataFile field in option table */
+    /*XmTextFieldSetString(text_w4, "test.dat");*/
+
+
 
     t = XmStringCreateSimple("Data File Format");
     ac = 0;
     XtSetArg(args[ac], XmNlabelString, t); ac++;
     XtSetValues (label_w5, args, ac);
     XmStringFree(t);
+
+    /* sergey: will goto both ER and file_x in config table */
     if (comp->comp.type == CODA_FILE)
       XmTextFieldSetString(text_w5, "CODA");
     else 
       XmTextFieldSetString(text_w5, "CODA");
 
+
   }
-  else if (comp->comp.type == CODA_MON) {
+  else if (comp->comp.type == CODA_MON)
+  {
     char     *temp = (char *) malloc(200);
     XtUnmanageChild(label_w1);
     XtUnmanageChild(text_w1);
@@ -1420,7 +1456,8 @@ void popup_comp_attributes(comp, base, event,type)
     XmTextFieldSetString(text_w3, "$CODA_BIN/coda_mon");
     
   }
-  else if (comp->comp.type == CODA_NONE) {
+  else if (comp->comp.type == CODA_NONE)
+  {
     char     *temp = (char *) malloc(200);
     XtUnmanageChild(label_w1);
     XtUnmanageChild(text_w1);
@@ -1444,7 +1481,8 @@ void popup_comp_attributes(comp, base, event,type)
     XmTextFieldSetString(text_w3, "N/A");
     
   }
-  else if (comp->comp.type == CODA_DEBUG) {
+  else if (comp->comp.type == CODA_DEBUG)
+  {
     char     *temp = (char *) malloc(200);
     sprintf (temp, "debugger_%d", debuggerNum);
     /*XtUnmanageChild(label_w0);

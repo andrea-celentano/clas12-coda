@@ -45,9 +45,8 @@ coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 
 
 
-
+/* enable 792 here */
 #define USE_ADC792
-
 
 
 
@@ -149,8 +148,6 @@ static unsigned long adcadr[4] = {0x180000, 0, 0, 0};
 
 #ifdef USE_ADC792
 static int nadcs;
-#define ADC_ID 0
-#define MAX_ADC_DATA 34
 #endif
 
 
@@ -482,14 +479,15 @@ __download()
 
   /* pulse width from prompt output: (width + 2) * 4ns, max is 0x7f */
   tiSetPromptTriggerWidth(0x18);
+  printf("TI prompt trigger width set to %d\n",tiGetPromptTriggerWidth());
 
 
-#ifdef USE_ADC792
-  usrVmeDmaSetConfig(2,3,0); /*A32,MBLT*/
-#else
   usrVmeDmaSetConfig(2,5,1); /*A32,2eSST,267MB/s*/
   /*usrVmeDmaSetConfig(2,5,0);*/ /*A32,2eSST,160MB/s*/
   /*usrVmeDmaSetConfig(2,3,0);*/ /*A32,MBLT*/
+
+#ifdef USE_ADC792
+  usrVmeDmaSetConfig(2,3,0); /*A32,MBLT*/
 #endif
 
   tdcbuf = (unsigned int *)i2_from_rol1;
@@ -774,10 +772,13 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
 
 
 #ifdef USE_ADC792
+  /* both tdc775 and adc792 */
+  nadcs = c792Init(0x11600000,0x100000,3,0);
 
-  nadcs = c792Init(0x11700000,0,1,0);
+  /* adc792 only */
+  /*nadcs = c792Init(0x11700000,0x100000,3,0);*/
+
   printf("ROL1: nadcs = %d\n\n",nadcs);
-
 #endif
 
   logMsg("INFO: User Download Executed\n",1,2,3,4,5,6);
@@ -787,7 +788,6 @@ static void
 __prestart()
 {
   int ii, jj, i1, i2, i3;
-#ifdef USE_FADC250
   int id, isl, ichan;
   unsigned short iflag;
   int iFlag = 0;
@@ -795,7 +795,11 @@ __prestart()
   unsigned short aa = 0;
   unsigned short bb;
   unsigned short thr = 400;
-#endif
+  unsigned short v16, o16;
+  int overflow_suppression;
+  int zero_suppression;
+  int valid;
+  int start_stop;
 
   /* Clear some global variables etc for a clean start */
   *(rol->nevents) = 0;
@@ -810,6 +814,7 @@ __prestart()
 
   sprintf(rcname,"RC%02d",rol->pid);
   printf("rcname >%4.4s<\n",rcname);
+
 
 
 
@@ -938,26 +943,56 @@ faSync(0);
 
 
 
-
 #ifdef USE_ADC792
 
   /* CAEN v792 ADC start */
 
-  printf("Using ADC 792\n");
+  for(id=0; id<nadcs; id++)
+  {
+    if(c792Type(id)==1) printf("\nSetting TDC775, id=%d\n",id);
+    else printf("\nSetting ADC792, id=%d\n",id);
 
-  /* Setup ADCs (no sparcification, enable berr for block reads) */
-  c792Sparse(ADC_ID,0,0);
-  c792Clear(ADC_ID);
-  c792EnableBerr(ADC_ID);
-  c792Status(ADC_ID,0,0);
+    overflow_suppression = 0;
+    zero_suppression = 0;
+    c792Sparse(id,overflow_suppression,zero_suppression);
 
-  /* CAEN ADC end */
+    /* set thresholds */
+    v16 = 0;
+    for(ich=0; ich<32; ich++)
+	{
+      o16 = c792SetThresh(id,ich,v16);
+      printf("v792: ch[%2d] threshold=%d\n",ich,o16);
+	}
+
+    if(c792Type(id)==1) /* TDC v775 only */
+	{
+      /* for TDC only */
+      valid = 0; /* 0-disable valid suppression */
+      start_stop = 0; /* 0-Common Start, 1-Common Stop */
+      c775Modes(id, valid, start_stop);
+
+      /* set resolution (0xFF for 35 ps, 0x1E for 300 ps) */
+      v16 = 0xFF;
+      c775SetResolution(id, v16);
+      o16 = c775GetResolution(id);
+      printf("v775: resolution: set %d  get %d\n",v16,o16);
+	}
+    else /* ADC v792 only */
+	{
+      /* set pedestal */
+      v16 = 255;
+      c792SetPedestal(id, v16);
+      o16 = c792GetPedestal(id);
+      printf("v792: pedestal: set %d  get %d\n",v16,o16);
+	}
+
+    c792Clear(id);
+    c792EnableBerr(id);
+    c792Status(id,0,0);
+
+  }
 
 #endif
-
-
-
-
 
   printf("INFO: Prestart1 Executed\n");fflush(stdout);
 
@@ -1051,7 +1086,7 @@ __go()
 #endif
 
 #ifdef USE_ADC792
-  c792Clear(ADC_ID);
+  for(jj=0; jj<nadcs; jj++) c792Clear(jj);
 #endif
 
   CDOENABLE(TIPRIMARY,TIR_SOURCE,0); /* bryan has (,1,1) ... */
@@ -1078,10 +1113,7 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   int id;
   int idata;
   int stat, itime, gbready;
-#endif
-#ifdef USE_ADC792
-  unsigned int adcbuf[MAX_ADC_DATA];
-  int status, itimeout=0;
+  int status, itimeout;
 #endif
 #ifdef DMA_TO_BIGBUF
     unsigned int pMemBase, uMemBase, mSize;
@@ -1359,47 +1391,51 @@ TIMERL_STOP(100000/block_level,1000+rol->pid);
 
 #ifdef USE_ADC792
 
-    while(itimeout<1000)
-    {
-      itimeout++;
-vmeBusLock();
-      status = c792Dready(ADC_ID);
-vmeBusUnlock();
-      if(status>0) break;
-    }
-
-    if(status > 0) 
-    {
-vmeBusLock();
-      /*nwords = c792ReadEvent(ADC_ID,tdcbuf); */
-      /*nwords = c792ReadBlock(ADC_ID,tdcbuf,MAX_ADC_DATA);*/
-      nwords = c792ReadBlock(ADC_ID,tdcbuf,32768);
-vmeBusUnlock();
-      if(nwords<=0) 
+    BANKOPEN(0xe117,1,rol->pid);
+    for(id=0; id<nadcs; id++)
+	{
+      itimeout = 0;
+      while(itimeout<1000)
       {
-        printf("ERROR: ADC Read Failed - Status 0x%x\n",nwords);
+        itimeout++;
 vmeBusLock();
-        c792Clear(ADC_ID);
+        status = c792Dready(id);
 vmeBusUnlock();
-      } 
-      else 
-      {
-        /*printf("nwords=%d\n",nwords);*/
-        BANKOPEN(0xe117,1,rol->pid);
-        for(jj=0; jj</*34*/nwords; jj++) *rol->dabufp++ = tdcbuf[jj];
-        BANKCLOSE;
+        if(status>0) break;
       }
-    }
-    else
-    {
-      printf("ERROR: NO data in ADC792 datascan = 0x%x, itimeout=%d\n",status,itimeout);
+
+      if(status > 0) 
+      {
 vmeBusLock();
-      c792Clear(ADC_ID);
+        nwords = c792ReadBlock(id,tdcbuf,32768);
 vmeBusUnlock();
-    }
+        if(nwords<=0) 
+        {
+          printf("ERROR: ADC Read Failed - Status 0x%x\n",nwords);
+vmeBusLock();
+          c792Clear(id);
+vmeBusUnlock();
+        } 
+        else 
+        {
+          /*printf("nwords=%d\n",nwords);*/
+          for(jj=0; jj</*34*/nwords; jj++) *rol->dabufp++ = tdcbuf[jj];
+        }
+      }
+      else
+      {
+		/*
+        printf("ERROR: NO data in ADC792/TDC775 id=%d, datascan = 0x%08x, itimeout=%d\n",
+          id,status,itimeout);
+		*/
+vmeBusLock();
+        c792Clear(id);
+vmeBusUnlock();
+      }
+	}
+    BANKCLOSE;
 
 #endif
-
 
 
 

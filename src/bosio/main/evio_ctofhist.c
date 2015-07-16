@@ -141,7 +141,7 @@ struct {
 } quest_;
 
 
-#define MAXEVENTS 10000000
+#define MAXEVENTS 20000000
 
 #define MAXBUF 10000000
 unsigned int buf[MAXBUF];
@@ -879,8 +879,9 @@ a123:
 
     /* check trigger bits*/
 	/*printf("bufptr[5]=%d\n",bufptr[5]);*/
-    if(bufptr[5]!=130) continue;
-
+	/*
+    if(bufptr[5]!=129) continue;
+	*/
 
     /*if(iev < 3) continue;*/ /*skip first 2 events*/
 

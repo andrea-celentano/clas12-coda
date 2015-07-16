@@ -255,6 +255,7 @@ try_again1:
   /* check if any of fiber connections were lost; if so, resync */
 vmeBusLock();
   connectmask = tiGetConnectedFiberMask();
+  printf("FIBER CONNECT MASK: 0x%08x\n",connectmask);
   slavemask = tiGetSlaveMask();
 vmeBusUnlock();
   for(ii=0; ii<8; ii++)

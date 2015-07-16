@@ -35,34 +35,24 @@
 
 static editorRmConfigSel  rmconfigSel;
 
-#if defined (__STDC__)
 static void
 removeConfigSelPopdown (void)
-#else
-static void
-removeConfigSelPopdown ()
-#endif
 {
   int i = 0;
 
-  if (rmconfigSel.managed_) 
-    XtPopdown (XtParent (rmconfigSel.w_));
+  if (rmconfigSel.managed_) XtPopdown (XtParent (rmconfigSel.w_));
   rmconfigSel.managed_ = 0;
   for (i = 0; i < EDITOR_MAX_DATABASES; i++)
+  {
     XtUnmanageChild (rmconfigSel.pushb[i]);
+  }
   /* reset ok button sensitivity */
   XtSetSensitive (rmconfigSel.ok_, TRUE);
 }
 
 
-#if defined (__STDC__)
 static Widget 
 createOptionMenu (Widget parent)
-#else
-static Widget 
-createOptionMenu (parent)
-     Widget parent;
-#endif
 {
   Arg arg[20];
   int ac = 0;
@@ -82,7 +72,8 @@ createOptionMenu (parent)
 
   t = XmStringCreateSimple ("              ");
   XtSetArg (arg[ac], XmNlabelString, t); ac++;
-  for (i = 0; i < EDITOR_MAX_CONFIGS; i++) {
+  for (i = 0; i < EDITOR_MAX_CONFIGS; i++)
+  {
     rmconfigSel.pushb[i] = XtCreateWidget ("optionButton", 
 					 xmPushButtonGadgetClass,
 					 menu, arg, ac);
@@ -95,16 +86,10 @@ createOptionMenu (parent)
   return option;
 }
 
-#if defined (__STDC__)
+
+/* sergey: remove configuration */
 static void
 rmconfigSelOk (Widget w, XtPointer data, XmAnyCallbackStruct* cbs)
-#else
-static void
-rmconfigSelOk (w, data, cbs)
-     Widget w;
-     XtPointer data;
-     XmAnyCallbackStruct* cbs;
-#endif
 {
   int  i = 0;
   char* currconfig;
@@ -128,48 +113,36 @@ rmconfigSelOk (w, data, cbs)
   XtGetValues (sel->option_, arg, ac);
   ac = 0;
   
-  for (i = 0; i < sel->numConfigs_; i++) {
-    if (curr == sel->pushb[i])
-      break;
+  for (i = 0; i < sel->numConfigs_; i++)
+  {
+    if (curr == sel->pushb[i]) break;
   }
   currconfig = sel->configs_[i];
 
-  if (currentConfigTable ()) {
-    if (strcmp (currconfig, currentConfigTable ()) == 0)
-      delete_everything (w, data, cbs);
+  if (currentConfigTable ())
+  {
+    if (strcmp (currconfig, currentConfigTable ()) == 0) delete_everything (w, data, cbs);
+
     /* reset selected config table */
     removeMiscConfigInfo ();
     XcodaEditorShowConfigName (0);
   }
   
-  if (removeConfigTable (currconfig) < 0) {
+  if (removeConfigTable (currconfig) < 0)
+  {
     sprintf (temp, "Cannot remove configuration: %s", currconfig);
     pop_error_message (temp, sw_geometry.draw_area);
   }
 }
 
-#if defined (__STDC__)
 static void
 rmconfigSelCancel (Widget w, XtPointer data, XmAnyCallbackStruct* cbs)
-#else
-static void
-rmconfigSelCancel (w, data, cbs)
-     Widget w;
-     XtPointer data;
-     XmAnyCallbackStruct* cbs;
-#endif
 {
   removeConfigSelPopdown ();
 }
   
-#if defined (__STDC__)
 void
 initRemoveConfigSel (Widget parent)
-#else
-void
-initRemoveConfigSel (parent)
-     Widget parent;
-#endif
 {
   Arg arg[20];
   int ac = 0;
@@ -298,13 +271,8 @@ initRemoveConfigSel (parent)
   removeConfigSelInited = 1;
 }
 
-#if defined (__STDC__)
 void
 removeConfigSelPopup (void)
-#else
-void
-removeConfigSelPopup ()
-#endif
 {
   int  status;
   int  i;
@@ -316,25 +284,28 @@ removeConfigSelPopup ()
     removeConfigSelPopdown ();
   
   /* remove old database information */
-  for (i = 0; i < rmconfigSel.numConfigs_; i++)
-    free (rmconfigSel.configs_[i]);
+  for (i = 0; i < rmconfigSel.numConfigs_; i++) free (rmconfigSel.configs_[i]);
 
   /* get all database names */
   status = listAllConfigs (rmconfigSel.configs_, &(rmconfigSel.numConfigs_));
 
-  if (status == 0) {
-    if (rmconfigSel.numConfigs_ > 0) {
-      for (i = 0; i < rmconfigSel.numConfigs_; i++) {
-	ac = 0;
-	t = XmStringCreateSimple (rmconfigSel.configs_[i]);
-	XtSetArg (arg[ac], XmNlabelString, t); ac++;
-	XtSetValues (rmconfigSel.pushb[i], arg, ac);
-	ac = 0;
-	XmStringFree (t);
-	XtManageChild (rmconfigSel.pushb[i]);
+  if (status == 0)
+  {
+    if (rmconfigSel.numConfigs_ > 0)
+    {
+      for (i = 0; i < rmconfigSel.numConfigs_; i++)
+      {
+	    ac = 0;
+	    t = XmStringCreateSimple (rmconfigSel.configs_[i]);
+	    XtSetArg (arg[ac], XmNlabelString, t); ac++;
+	    XtSetValues (rmconfigSel.pushb[i], arg, ac);
+	    ac = 0;
+	    XmStringFree (t);
+	    XtManageChild (rmconfigSel.pushb[i]);
       }
     }
-    else {
+    else
+    {
       t = XmStringCreateSimple ("no runtypes");
       XtSetArg (arg[ac], XmNlabelString, t); ac++;
       XtSetValues (rmconfigSel.pushb[0], arg, ac);
@@ -345,8 +316,10 @@ removeConfigSelPopup ()
     }
   }
   else
-    rmconfigSel.numConfigs_ = 0;
-      
+  {
+    rmconfigSel.numConfigs_ = 0;   
+  }
+
   XtManageChild (rmconfigSel.w_);
   XtPopup (XtParent (rmconfigSel.w_), XtGrabNone);
   rmconfigSel.managed_ = 1;

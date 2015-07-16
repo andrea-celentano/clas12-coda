@@ -27,6 +27,9 @@
 #include "CODA_format.h"
 #include "circbuf.h"
 
+char *loadwholefile(char *file, int *size);
+
+
 /* on arrival from ROCs: bit 7 - coda control events, bit 6 - sync bit, bits 0-5 - TI bit pattern */
 /* following hack makes TIs softtrig etc types in according to that scheme */
 #define SOFT_TRIG_FIX \
@@ -257,6 +260,7 @@ CODA_encode_spec(unsigned int **datap, evDesc desc)
       if( strncmp(confFile,"none",4) && strncmp(confFile,"NONE",4) )
       {
 	    chbuf = loadwholefile(confFile, &len_in_words);
+		printf("chbuf=0x%08x\n",chbuf);
         if(chbuf == NULL)
 	    {
           printf("ERROR: coda_roc: cannot read conffile - does not insert it into data stream !!!\n");
@@ -268,7 +272,13 @@ CODA_encode_spec(unsigned int **datap, evDesc desc)
           (*datap)[8] = 0xe10E0300; /* bank tag '0xe100E', bank type is 'char', bank number is '0' */
           /* bank data */
           ptr = (int *)chbuf;
-          for(ii=0; ii<len_in_words; ii++) (*datap)[9+ii] = ptr[ii];
+		  printf("CODA_encode_spec: len_in_words1=%d\n",len_in_words);fflush(stdout);
+          for(ii=0; ii<len_in_words; ii++)
+		  {
+            /*printf("[%4d] 0x%08x\n",ii,ptr[ii]);*/
+            (*datap)[9+ii] = ptr[ii];
+		  }
+		  printf("CODA_encode_spec: len_in_words2=%d\n",len_in_words);fflush(stdout);
           free(chbuf);
           (*datap)[0] += (len_in_words + 2);
 	    }

@@ -315,16 +315,10 @@ static void findDefaultDrawCompPosition(graph, dc, row, col)
  * Description:                                                                   *
  *      Create graph draw component from rcNetwork component                      *
  *********************************************************************************/
-#if defined (__STDC__)
-static drawComp *createDrawCompFromRcnetComp(XcodaEditorGraph* graph, 
+static drawComp *
+createDrawCompFromRcnetComp(XcodaEditorGraph* graph, 
 					     rcNetComp* rc, 
 					     ConfigInfo* cinfo)
-#else
-static drawComp *createDrawCompFromRcnetComp(graph, rc, cinfo)
-     XcodaEditorGraph *graph;
-     rcNetComp        *rc;
-     ConfigInfo       *cinfo;     
-#endif
 {
   drawComp *p;
   daqComp  *daq;
@@ -345,9 +339,12 @@ static drawComp *createDrawCompFromRcnetComp(graph, rc, cinfo)
   daq = &(rc->daq);
   daq->status = 0;
   p->comp.comp_name = strsave(daq->comp_name);
-  if ( p->comp.type == CODA_NONE) {
+  if ( p->comp.type == CODA_NONE)
+  {
     p->comp.node_name = strsave("none");
-  } else {
+  }
+  else
+  {
     p->comp.node_name = strsave(daq->node_name);
   }
   p->comp.id_num = daq->id_num;
@@ -393,7 +390,8 @@ static drawComp *createDrawCompFromRcnetComp(graph, rc, cinfo)
   p->num_col = 1;
   
   p->num_ports = rc->num_ports;
-  for(i=0;i<MAX_NUM_PORTS;i++){
+  for(i=0;i<MAX_NUM_PORTS;i++)
+  {
     port = &(p->ip_port[i]);
     port->index = i;
     port->left_selected = 0;
@@ -421,16 +419,8 @@ static drawComp *createDrawCompFromRcnetComp(graph, rc, cinfo)
  * Description:                                                                   *
  *      Create extra graph draw component (debug file) from config info           *
  *********************************************************************************/
-#if defined (__STDC__)
-static drawComp *createExtraDrawCompFromCinfo(XcodaEditorGraph* graph, 
-					      ConfigInfo* cinfo,
-					      int type)
-#else
-static drawComp *createExtraDrawCompFromCinfo(graph, cinfo, type)
-     XcodaEditorGraph *graph;
-     ConfigInfo       *cinfo;     
-     int              type;
-#endif
+static drawComp *
+createExtraDrawCompFromCinfo(XcodaEditorGraph* graph, ConfigInfo* cinfo, int type)
 {
   drawComp *p;
   daqComp  *daq;
@@ -441,20 +431,25 @@ static drawComp *createExtraDrawCompFromCinfo(graph, cinfo, type)
   ipPort   *port;
   char     hname[80];
 
-  if (gethostname (hname, sizeof (hname)) != 0)
-    strcpy (hname, "unknown");
+  printf("Editor_converter::createExtraDrawCompFromCinfo reached\n");
+
+  if (gethostname (hname, sizeof (hname)) != 0) strcpy (hname, "unknown");
   
   p = (drawComp *)malloc(sizeof(drawComp));
-  if(p == NULL){
+  if(p == NULL)
+  {
     fprintf(stderr,"Cannot allocate memory for drawComp object!!!\n");
     exit(1);
   }
   setup_drawcomp_func(p); /* setup functions for this draw comp */
 
   p->comp.comp_name = strsave(cinfo->comp_name);
-  if ( p->comp.type == CODA_NONE) {
+  if ( p->comp.type == CODA_NONE)
+  {
     p->comp.node_name = strsave("none");
-  } else {
+  }
+  else
+  {
     p->comp.node_name = strsave(hname);
   }
   p->comp.id_num = 0;
@@ -466,13 +461,22 @@ static drawComp *createExtraDrawCompFromCinfo(graph, cinfo, type)
   /* if cinfo->scrips == 0, the following return 0 */
   p->scripts = duplicateCodaScriptList (cinfo->scripts);
 
-  if (cinfo->code[0]) {
+  /* code[] contains 'code' field from config table, for file it is '{filename} {CODA}' */
+  if(cinfo->code[0])
+  {
     char *config = currentConfigTable();
     if (config)
+	{
+      /* sergey: now it is done already when config was saved (see XcodaEditorWriteToConfig), will not harm through ... */
+      printf("Editor_converter:insertValToOptionTable(%s,%s,%s)\n",config,"dataFile",cinfo->code[0]);
       insertValToOptionTable (config,"dataFile",cinfo->code[0]);
+	}
     p->comp.code[0] = strsave(cinfo->code[0]);
-  } else
+  }
+  else
+  {
     p->comp.code[0] = (char *)NULL;
+  }
 
   if (cinfo->code[1])
     p->comp.code[1] = strsave(cinfo->code[1]);
@@ -484,13 +488,19 @@ static drawComp *createExtraDrawCompFromCinfo(graph, cinfo, type)
   else
     p->comp.code[2] = (char *)NULL;
   
+  printf("Editor_converter::createExtraDrawCompFromCinfo: code >%s< >%s< >%s<\n",p->comp.code[0],p->comp.code[1],p->comp.code[2]);
+
   p->editable = 0;
   if (cinfo->row == -1 && cinfo->col == -1)
+  {
     findDefaultDrawCompPosition(graph, p, &row, &col);
-  else{
+  }
+  else
+  {
     row = cinfo->row;
     col = cinfo->col;
   }
+
   p->row = row;
   p->col = col;
   abs_row = row - sw_geometry.zoomyoff;
@@ -503,7 +513,8 @@ static drawComp *createExtraDrawCompFromCinfo(graph, cinfo, type)
   p->num_col = 1;
   
   p->num_ports = 1;
-  for(i=0;i<MAX_NUM_PORTS;i++){
+  for(i=0; i<MAX_NUM_PORTS; i++)
+  {
     port = &(p->ip_port[i]);
     port->index = i;
     port->left_selected = 0;
@@ -523,7 +534,8 @@ static drawComp *createExtraDrawCompFromCinfo(graph, cinfo, type)
     port->height = p->height/4.0;
     setup_ipport_func(port);
   }
-  return p;
+
+  return(p);
 }
 
 /*******************ConfigInfo related routines******************/
@@ -1214,6 +1226,8 @@ XcodaEditorWriteToConfig(char* config_name, XcodaEditorGraph* graph)
   int      err = 0;
   char     temp[1024];
 
+  printf("Editor_converter::XcodaEditorWriteToConfig reached\n");
+
   if (isEmptyGraph (graph)) return;
 
 
@@ -1250,7 +1264,7 @@ XcodaEditorWriteToConfig(char* config_name, XcodaEditorGraph* graph)
   /*         left->right, this way, it is easy to assign        */
   /*         to a perticular component                          */
   maxrow = maxcol = 0;
-  for(p = graph->comp_list_head->next; p != graph->comp_list_tail;p=p->next)
+  for(p = graph->comp_list_head->next; p != graph->comp_list_tail; p=p->next)
   {
     comp = p->draw_comp;
     if (comp->row > maxrow) maxrow = comp->row;
@@ -1258,7 +1272,7 @@ XcodaEditorWriteToConfig(char* config_name, XcodaEditorGraph* graph)
   }
   mesh = meshCreate (maxrow, maxcol);
   
-  for(p = graph->comp_list_head->next; p != graph->comp_list_tail;p=p->next)
+  for(p = graph->comp_list_head->next; p != graph->comp_list_tail; p=p->next)
   {
     comp = p->draw_comp;
     mesh[comp->row - 1][comp->col - 1] = comp;
@@ -1275,7 +1289,7 @@ XcodaEditorWriteToConfig(char* config_name, XcodaEditorGraph* graph)
         daq = &(comp->comp);
 
         /* update position table first */
-        err = insertValToPosTable (config_name, daq->comp_name, n+1,m+1);
+        err = insertValToPosTable (config_name, daq->comp_name, n+1, m+1);
 
         /* update script table */
         err = insertValToScriptTable (config_name, daq->comp_name,
@@ -1293,8 +1307,10 @@ XcodaEditorWriteToConfig(char* config_name, XcodaEditorGraph* graph)
 	      }
 	    }
 	    else
+		{
 	      strcpy (inputStr, "");
-	
+		}
+
 	    outputs = XcodaEditorCompGetAllOutputs(graph, comp, &num_outputs);
 	    if(num_outputs != 0)
         {
@@ -1306,33 +1322,38 @@ XcodaEditorWriteToConfig(char* config_name, XcodaEditorGraph* graph)
 	      }
 	    }
 	    else
+		{
 	      strcpy (outputStr, "");
+		}
 
-	    if (daq->code[0]) 
-	      sprintf (c[0], "{%s}", daq->code[0]);
-	    else
-	      sprintf (c[0], "");
+	    if (daq->code[0]) sprintf (c[0], "{%s}", daq->code[0]);
+	    else              sprintf (c[0], "");
 
-	    if (daq->code[1]) 
-	      sprintf (c[1], "{%s}", daq->code[1]);
-	    else
-	      sprintf (c[1], "");
+	    if (daq->code[1]) sprintf (c[1], "{%s}", daq->code[1]);
+	    else              sprintf (c[1], "");
 
-	    if (daq->code[2]) 
-	      sprintf (c[2], "{%s}", daq->code[2]);
-	    else
-	      sprintf (c[2], "");
+	    if (daq->code[2]) sprintf (c[2], "{%s}", daq->code[2]);
+	    else              sprintf (c[2], "");
+
 	    sprintf (code, "%s %s %s", c[0], c[1], c[2]);
 
 	    /* find next the same type of component on the list */
 	    nextComp = findNextComp (daq->type, mesh, m, n, maxcol, maxrow);
+
 	    /* find whether this component is the first one */
 	    fComp = firstComp (daq->type, mesh, m, n);
+
 	    /* update the configuration table */
-	    err = insertValToConfigTable (config_name, daq->comp_name, code, 
-				      inputStr, outputStr,
-				      nextComp, fComp);
+        printf("Editor_converter::XcodaEditorWriteToConfig: insertValToConfigTable(%s,%s,%s,%s,%s)\n",config_name, daq->comp_name, code, inputStr, outputStr);
+	    err = insertValToConfigTable (config_name, daq->comp_name, code, inputStr, outputStr, nextComp, fComp);
 	
+		/* sergey: if name starts from "coda_", use daq->code[0] as filename to update _option table */
+        if(!strncmp(daq->comp_name,"coda_",5))
+		{
+          printf("Editor_converter::XcodaEditorWriteToConfig:insertValToOptionTable(%s,%s,%s)\n",config_name,"dataFile",daq->code[0]);
+          insertValToOptionTable (config_name,"dataFile",daq->code[0]);
+		}
+
 	    /* free memories */
 	    if (num_inputs)
         {
@@ -1433,55 +1454,66 @@ static void updateCompAuxInfo(cinfo, num_cinfo, comp)
   daqComp    *daq = &(comp->daq);
   IoId       *io;
   daq->status = 0;
+
   /* update code and user_string first */
-  for(i=0;i<num_cinfo;i++){
-    if(strcmp(daq->comp_name, cinfo[i]->comp_name)==0){
+  for(i=0;i<num_cinfo;i++)
+  {
+    if(strcmp(daq->comp_name, cinfo[i]->comp_name)==0)
+    {
       if(daq->code[0] != NULL)
-	free(daq->code[0]);
+	    free(daq->code[0]);
       if(cinfo[i]->code[0] != NULL){
-	daq->code[0] = strsave(cinfo[i]->code[0]);
+	    daq->code[0] = strsave(cinfo[i]->code[0]);
       }
 
       if(daq->code[1] != NULL)
-	free(daq->code[1]);
+	    free(daq->code[1]);
       if(cinfo[i]->code[1] != NULL){
-	daq->code[1] = strsave(cinfo[i]->code[1]);
+	    daq->code[1] = strsave(cinfo[i]->code[1]);
       }
 
       if(daq->code[2] != NULL)
-	free(daq->code[2]);
+	    free(daq->code[2]);
       if(cinfo[i]->code[2] != NULL){
-	daq->code[2] = strsave(cinfo[i]->code[2]);
+	    daq->code[2] = strsave(cinfo[i]->code[2]);
       }
       break;
     }
   }
+
   /* update port name and num_port here */
-  for(i = 0; i < num_cinfo; i++){
-    for(j = 0; j < cinfo[i]->num_inputs; j++){
+  for(i = 0; i < num_cinfo; i++)
+  {
+    for(j = 0; j < cinfo[i]->num_inputs; j++)
+    {
       io = cinfo[i]->inputs[j];
-      if(strcmp(daq->comp_name,io->comp_name) == 0){
-	for(k=0;k<comp->num_ports;k++){
-	  if(strcmp(comp->port_name[k],io->port_name) == 0)
-	    break;
-	}
-	if(k >= comp->num_ports){
-	  comp->port_name[k] = strsave(io->port_name);
-	  comp->num_ports = comp->num_ports + 1;
-	}
+      if(strcmp(daq->comp_name,io->comp_name) == 0)
+      {
+	    for(k=0;k<comp->num_ports;k++)
+        {
+	      if(strcmp(comp->port_name[k],io->port_name) == 0) break;
+	    }
+	    if(k >= comp->num_ports)
+        {
+	      comp->port_name[k] = strsave(io->port_name);
+	      comp->num_ports = comp->num_ports + 1;
+	    }
       }
     }
-    for(j=0;j<cinfo[i]->num_outputs;j++){
+    for(j=0;j<cinfo[i]->num_outputs;j++)
+    {
       io = cinfo[i]->outputs[j];
-      if(strcmp(daq->comp_name,io->comp_name) == 0){
-	for(k=0;k<comp->num_ports;k++){
-	  if(strcmp(comp->port_name[k],io->port_name) == 0)
-	    break;
-	}
-	if (k >= comp->num_ports) {
-	  comp->port_name[k] = strsave(io->port_name);
-	  comp->num_ports = comp->num_ports + 1;
-	}
+      if(strcmp(daq->comp_name,io->comp_name) == 0)
+      {
+	    for(k=0;k<comp->num_ports;k++)
+        {
+	      if(strcmp(comp->port_name[k],io->port_name) == 0) break;
+	    }
+	    if (k >= comp->num_ports)
+        {
+	      comp->port_name[k] = strsave(io->port_name);
+	      comp->num_ports = comp->num_ports + 1;
+	    }
       }
     }
   }
@@ -1582,21 +1614,12 @@ int constructRcnetComps(config, comps, num, cinfos, num_cinfo)
  *     This routine must be called after constructRcnetComps()              *
  *     and getConfigurationInfo()                                           *
  ***************************************************************************/
-#if defined (__STDC__)
-void XcodaEditorConstructGraphFromConfig(XcodaEditorGraph* graph, 
+void
+XcodaEditorConstructGraphFromConfig(XcodaEditorGraph* graph, 
 					 rcNetComp** daq_list, 
 					 int num_daqs, 
 					 ConfigInfo** cinfo, 
 					 int num_cinfos)
-#else
-void XcodaEditorConstructGraphFromConfig(graph, daq_list, num_daqs, 
-					 cinfo, num_cinfos)
-     XcodaEditorGraph *graph;
-     rcNetComp        **daq_list;
-     int              num_daqs;
-     ConfigInfo       **cinfo;
-     int              num_cinfos;
-#endif
 {
   rcNetComp *rc;
   drawComp  *dc;
@@ -1605,27 +1628,38 @@ void XcodaEditorConstructGraphFromConfig(graph, daq_list, num_daqs,
   Arc       *arc;
   int       i, j, error;
   
-  for(i=0;i<num_cinfos;i++){
-    for(j=0;j<num_daqs;j++){
-      if(strcmp(cinfo[i]->comp_name, daq_list[j]->daq.comp_name) == 0)
-	break;
+  printf("Editor_converter::XcodaEditorConstructGraphFromConfig reached\n");
+
+  for(i=0;i<num_cinfos;i++)
+  {
+    for(j=0;j<num_daqs;j++)
+    {
+      if(strcmp(cinfo[i]->comp_name, daq_list[j]->daq.comp_name) == 0) break;
     }
-    if (j < num_daqs) {
+
+    if (j < num_daqs)
+    {
       rc = daq_list[j];
       dc = createDrawCompFromRcnetComp(graph,rc, cinfo[i]);
     }
-    else {
+    else
+    {
+
+	  /* draw data file component */
       if (strstr (cinfo[i]->comp_name, "coda") != 0) 
-	dc = createExtraDrawCompFromCinfo (graph, cinfo[i], CODA_CODAFILE);
+	    dc = createExtraDrawCompFromCinfo (graph, cinfo[i], CODA_CODAFILE);
       else 
-	dc = createExtraDrawCompFromCinfo (graph, cinfo[i], CODA_FILE);
+	    dc = createExtraDrawCompFromCinfo (graph, cinfo[i], CODA_FILE);
+
     }
+
     insertNodeToCompList(graph, dc);
   }
   createArcsFromCinfos(graph,cinfo,num_cinfos, &error);
   if(error != 0)
     pop_error_message("Error:Inconsistent database, can't create graph.", 
 		      sw_geometry.draw_area);
+
   /* reset modified flag */
   graph->modified = 0;
 }

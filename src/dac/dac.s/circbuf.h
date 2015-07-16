@@ -46,7 +46,7 @@
 #define MAX_EVENT_LENGTH (NWBOS*4)
 #define MAX_EVENT_POOL   400
 
-#define SEND_BUF_SIZE  (3 * 1024 * 1024) /*sergey: use 3 for CLAS !!!!!*/
+#define SEND_BUF_SIZE  (4 * 1024 * 1024) /*sergey: use 3 for CLAS !!!!!*/
 #define TOTAL_RECEIVE_BUF_SIZE  SEND_BUF_SIZE
 
 #else
@@ -55,19 +55,14 @@
 #define MAX_EVENT_LENGTH (NWBOS*4) /* event buffer length in bytes */
 #define MAX_EVENT_POOL   /*400*/200       /* the number of event buffers */
 
-#define SEND_BUF_SIZE  (3 * 1024 * 1024)
+#define SEND_BUF_SIZE  (4 * 1024 * 1024) /*sergey: use 3 for CLAS !!!!!*/
 #define TOTAL_RECEIVE_BUF_SIZE  SEND_BUF_SIZE
 
 #endif
 
-/* decrease it if have small memory */
-#ifdef SunOS_sun4u
-#define MAX_ROCS 19 /* must accomodate biggest roc id, not the number of rocs !!! */
-#else
-#define MAX_ROCS 70
-#endif
+#define MAX_ROCS 70 /* must accomodate biggest roc id, not the number of rocs !!! */
 
-#define QSIZE 6 /* was 8, trying to decrease memory usage on clondaq5 */
+#define QSIZE 16 /* the number of buffers in EB, normally 8, was set to 6 trying to decrease memory usage on clondaq5 */
 
 
 #define NTHREADMAX 7

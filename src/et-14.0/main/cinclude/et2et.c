@@ -300,7 +300,7 @@ main(int argc,char **argv)
 
 
 
-  /*sergey: increase tcp buffersize */
+  /*sergey: increase tcp buffersize 
   {
 	int rBufSize;
     int sBufSize;
@@ -317,7 +317,7 @@ main(int argc,char **argv)
 	et_open_config_gettcp(openconfig, &rBufSize, &sBufSize, &noDelay);
     printf("et2et: set rBufSize=%d, sBufSize=%d, noDelay=%d\n", rBufSize, sBufSize, noDelay);
   }
-
+*/
 
 
 
@@ -357,7 +357,7 @@ main(int argc,char **argv)
 
 
 
-  /*sergey: increase tcp buffersize */
+  /*sergey: increase tcp buffersize 
   {
 	int rBufSize;
     int sBufSize;
@@ -374,6 +374,7 @@ main(int argc,char **argv)
 	et_open_config_gettcp(openconfig, &rBufSize, &sBufSize, &noDelay);
     printf("et2et: set rBufSize=%d, sBufSize=%d, noDelay=%d\n", rBufSize, sBufSize, noDelay);
   }
+*/
 
 
 

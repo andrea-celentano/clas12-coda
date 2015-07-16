@@ -1339,24 +1339,29 @@ dbaseReader::configure (char* runtype)
 			     runtype, mysql_error(dbaseSock_));
     return CODA_ERROR;
   }
-  // get every row of the table
+
+
+  /* get every row of the config table */
   MYSQL_ROW row;
   reporter->cmsglog (CMSGLOG_INFO,"Parsing %s configuration\n", runtype);
-  while ((row = mysql_fetch_row (res))) {
-    if (!compInsideHash (row[0])) {
+  while ((row = mysql_fetch_row (res)))
+  {
+    if (!compInsideHash (row[0]))
+    {
       rcNetConfig* cf = 0;
-      if (emptyLine (row[1])) 
-	cf = new rcNetConfig (row[0], 0);
-      else 
-	cf = new rcNetConfig (row[0], row[1]);
+      if (emptyLine (row[1])) cf = new rcNetConfig (row[0], 0);
+      else                    cf = new rcNetConfig (row[0], row[1]);
 
       cinfos_.add (row[0], (void *)cf);
       reporter->cmsglog (CMSGLOG_INFO,"   activate component %s\n",row[0]);
     }
-    else 
+    else
+	{ 
       reporter->cmsglog (CMSGLOG_WARN,"Duplicated entry %s\n", row[0]);
+	}
   }
   reporter->cmsglog (CMSGLOG_INFO,"Parsing %s finished\n", runtype);
+
 
   // free memory
   mysql_free_result (res);

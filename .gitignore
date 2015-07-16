@@ -16,3 +16,6 @@ common/
 src/rc64_old
 src/rc_old
 src/rc/sace3.1_new
+src/bosio/*.his*
+src/bosio/last.*
+src/bosio/paw.*

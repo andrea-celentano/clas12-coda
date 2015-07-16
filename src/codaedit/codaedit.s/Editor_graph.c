@@ -570,12 +570,12 @@ Widget XcodaEditorDrawingArea (parent)
   XtAddCallback(manager.removeconfig, XmNactivateCallback, 
 		XcodaEditorRemoveConfigCbk,
 		(XtPointer)0); 
-  XtAddCallback(manager.saveconfig, XmNactivateCallback, 
-		XcodaEditorSaveDefault,	(XtPointer)NULL); 
-  XtAddCallback(manager.saveasconfig, XmNactivateCallback, 
-		XcodaEditorSaveConfig,(XtPointer)NULL);
-  XtAddCallback(manager.option, XmNactivateCallback,
-		XcodaEditorConfigOption, (XtPointer)NULL);
+  XtAddCallback(manager.saveconfig, XmNactivateCallback, XcodaEditorSaveDefault,	(XtPointer)NULL);
+
+  XtAddCallback(manager.saveasconfig, XmNactivateCallback, XcodaEditorSaveConfig,(XtPointer)NULL);
+
+  XtAddCallback(manager.option, XmNactivateCallback, XcodaEditorConfigOption, (XtPointer)NULL);
+
   if (manager.exit_menu)
     XtAddCallback(manager.exit_menu, XmNactivateCallback, XcodaEditorExitMenuCbk,
 		  (XtPointer)NULL);
@@ -1131,7 +1131,8 @@ static void XcodaEditorEnterWindowAction(w,client_data, event)
      XEvent    *event;
 #endif
 {
-  switch(coda_graph.current_action){
+  switch(coda_graph.current_action)
+  {
   case ADD_ROC_ACTION:
   case ADD_TRIG_ACTION:
   case ADD_EB_ACTION:
@@ -2208,16 +2209,10 @@ static void EndAddExistingNode(graph, w, event)
  * Description:                                                           *
  *     end moving a node process                                          *
  *************************************************************************/
-#if defined (__STDC__)
-static void EndMovingNode(XcodaEditorGraph* graph,
+static void
+EndMovingNode(XcodaEditorGraph* graph,
 			  Widget w, 
 			  XEvent* event)
-#else
-static void EndMovingNode(graph,w, event)
-     XcodaEditorGraph *graph;
-     Widget           w;
-     XEvent           *event;
-#endif
 {
   int col, row;
   int xx,  yy;
@@ -2297,7 +2292,8 @@ static void EndMovingNode(graph,w, event)
     port->row = row;
     port->col = col;
   }
-  for(i=0;i<num_arcs;i++){
+  for(i=0; i<num_arcs; i++)
+  {
     update_arc_geometry(arcs[i],arcs[i]->from, arcs[i]->to);
     if(arcs[i]->selected)
       (*arcs[i]->high_light)(arcs[i],xgc.dpy,XtWindow(sw_geometry.draw_area));
@@ -2376,16 +2372,10 @@ static void EndMovingArc(graph,w, event)
  * Description:                                                       *
  *     End Connecting ports                                           *
  *********************************************************************/
-#if defined (__STDC__)
-static void EndConnectingPorts(XcodaEditorGraph* graph, 
+static void
+EndConnectingPorts(XcodaEditorGraph* graph, 
 			       Widget w, 
 			       XEvent* event)
-#else
-static void EndConnectingPorts(graph, w, event)
-     XcodaEditorGraph *graph;
-     Widget           w;
-     XEvent           *event;
-#endif
 {
   ipPort *to_port, *from_port;
   drawComp *to_node, *from_node;
@@ -2405,7 +2395,8 @@ static void EndConnectingPorts(graph, w, event)
   to_port = XcodaEditorClickedPort(graph, event);
   if(to_port != NULL && to_port != from_port && 
      to_port->comp_ptr != from_port->comp_ptr && (
-     from_port->comp_ptr->type < 11 || from_port->comp_ptr->type == CODA_MON)){
+     from_port->comp_ptr->type < 11 || from_port->comp_ptr->type == CODA_MON))
+  {
     to_node = findDrawCompFromPort(graph,to_port);
     from_node = findDrawCompFromPort(graph, from_port);
     /*
@@ -2417,13 +2408,16 @@ static void EndConnectingPorts(graph, w, event)
 
     (*new_arc->draw_original)(new_arc, xgc.dpy, XtWindow(sw_geometry.draw_area));
 
-    if (from_port->comp_ptr->type == CODA_ER && (to_port->comp_ptr->type == CODA_FILE ||to_port->comp_ptr->type == CODA_CODAFILE)) {
+    if (from_port->comp_ptr->type == CODA_ER && (to_port->comp_ptr->type == CODA_FILE ||to_port->comp_ptr->type == CODA_CODAFILE))
+    {
       char *config;
       from_port->comp_ptr->code[0] = strdup(to_port->comp_ptr->code[1]);
       config = currentConfigTable();
 
-      if (config)
-	insertValToOptionTable (config,"dataFile",to_port->comp_ptr->code[0]);
+      if(config)
+	  {
+	    insertValToOptionTable (config,"dataFile",to_port->comp_ptr->code[0]);
+	  }
     }
     insertArcToWholeArcList(graph, new_arc);
 
@@ -2432,7 +2426,9 @@ static void EndConnectingPorts(graph, w, event)
     if(to_port->ip_addr == NULL){/*ports may have no name */
       to_port->ip_addr = strsave (to_port->comp_ptr->node_name);
     }
-  } else {
+  }
+  else
+  {
     XBell(xgc.dpy, 0);
   }
 
@@ -4169,31 +4165,33 @@ char **XcodaEditorCompGetAllInputs(graph, comp, num_inputs)
   }
   
   i = 0;
-  for(j=0;j<comp->num_ports;j++){
+  for(j=0;j<comp->num_ports;j++)
+  {
     port = &(comp->ip_port[j]);
     to_arcs = XcodaEditorGetToArcs(graph, port, &num_to_arcs);
     bzero(temp,sizeof(temp));
-    for(k=i;k<i+ num_to_arcs;k++){
+    for(k=i;k<i+ num_to_arcs;k++)
+    {
       if (to_arcs[k-i]->from->comp_ptr->type == CODA_FILE)
-	strcpy(temp,to_arcs[k-i]->from->comp_ptr->comp_name);
+	    strcpy(temp,to_arcs[k-i]->from->comp_ptr->comp_name);
       else if (to_arcs[k-i]->from->comp_ptr->type == CODA_CODAFILE)
-	strcpy(temp,to_arcs[k-i]->from->comp_ptr->comp_name);		
+	    strcpy(temp,to_arcs[k-i]->from->comp_ptr->comp_name);		
       else if (to_arcs[k-i]->from->comp_ptr->type == CODA_DEBUG)
-	strcpy(temp, "DEBUG");
+	    strcpy(temp, "DEBUG");
       else if (to_arcs[k-i]->from->comp_ptr->type == CODA_MON)
-	strcpy(temp, "MON");
+	    strcpy(temp, "MON");
       else if (to_arcs[k-i]->from->comp_ptr->type == CODA_NONE)
-	strcpy(temp, "NONE");
-      else {
-	strcpy(temp,to_arcs[k-i]->from->comp_ptr->comp_name);
-	strcat(temp,":");
-	strcat(temp,to_arcs[k-i]->from->ip_addr);
+	    strcpy(temp, "NONE");
+      else
+      {
+	    strcpy(temp,to_arcs[k-i]->from->comp_ptr->comp_name);
+	    strcat(temp,":");
+	    strcat(temp,to_arcs[k-i]->from->ip_addr);
       }
       inputs[k] = strsave(temp);
     }
     i = i + num_to_arcs;
-    if (num_to_arcs)
-      free (to_arcs);
+    if (num_to_arcs) free (to_arcs);
   }
   return inputs;
 }
@@ -4225,50 +4223,55 @@ char **XcodaEditorCompGetAllOutputs(graph, comp, num_outputs)
   
 
   i = 0;
-  for(j=0;j<comp->num_ports;j++){
+  for(j=0;j<comp->num_ports;j++)
+  {
     port = &(comp->ip_port[j]);
     from_arcs = XcodaEditorGetFromArcs(graph, port, &num_from_arcs);
     i = i + num_from_arcs;
     if (num_from_arcs)
       free (from_arcs);
   }
-  if((i == 0)||(comp->comp.type > 11)){
+  if((i == 0)||(comp->comp.type > 11))
+  {
     *num_outputs = 0;
     return (char **)NULL;
   }
   *num_outputs = i;
   outputs = (char **)malloc(i*sizeof(char *));
-  if(outputs == NULL){
+  if(outputs == NULL)
+  {
     fprintf(stderr,"cannot allocate memory for inputs\n");
     exit(1);
   }
   
   i = 0;
-  for(j=0;j<comp->num_ports;j++){
+  for(j=0;j<comp->num_ports;j++)
+  {
     port = &(comp->ip_port[j]);
     from_arcs = XcodaEditorGetFromArcs(graph, port, &num_from_arcs);
     bzero(temp,sizeof(temp));
-    for(k=i;k<i+ num_from_arcs;k++){
+    for(k=i;k<i+ num_from_arcs;k++)
+    {
       if (from_arcs[k-i]->to->comp_ptr->type == CODA_FILE)
-	strcpy(temp,from_arcs[k-i]->to->comp_ptr->comp_name);	
+	    strcpy(temp,from_arcs[k-i]->to->comp_ptr->comp_name);	
       else if (from_arcs[k-i]->to->comp_ptr->type == CODA_CODAFILE)
-	strcpy(temp,from_arcs[k-i]->to->comp_ptr->comp_name);	
+	    strcpy(temp,from_arcs[k-i]->to->comp_ptr->comp_name);	
       else if (from_arcs[k-i]->to->comp_ptr->type == CODA_DEBUG) 
-	strcpy(temp,from_arcs[k-i]->to->comp_ptr->comp_name);
+	    strcpy(temp,from_arcs[k-i]->to->comp_ptr->comp_name);
       else if (from_arcs[k-i]->to->comp_ptr->type == CODA_MON) 
-	strcpy(temp,from_arcs[k-i]->to->comp_ptr->comp_name);
+	    strcpy(temp,from_arcs[k-i]->to->comp_ptr->comp_name);
       else if (from_arcs[k-i]->to->comp_ptr->type == CODA_NONE) 
-	strcpy(temp,from_arcs[k-i]->to->comp_ptr->comp_name);
-      else {
-	strcpy(temp,from_arcs[k-i]->to->comp_ptr->comp_name);
-	strcat(temp,":");
-	strcat(temp,from_arcs[k-i]->to->ip_addr);
+	    strcpy(temp,from_arcs[k-i]->to->comp_ptr->comp_name);
+      else
+      {
+	    strcpy(temp,from_arcs[k-i]->to->comp_ptr->comp_name);
+	    strcat(temp,":");
+	    strcat(temp,from_arcs[k-i]->to->ip_addr);
       }
       outputs[k] = strsave(temp);
     }
     i = i + num_from_arcs;
-    if (num_from_arcs)
-      free (from_arcs);
+    if (num_from_arcs) free (from_arcs);
   }
   return outputs;
 }
