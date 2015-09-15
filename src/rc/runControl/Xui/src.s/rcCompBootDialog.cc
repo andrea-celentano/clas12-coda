@@ -104,7 +104,7 @@ void
 rcCompBootDialog::popup (void)
 {
   char** components = 0;
-  long* autoboot = 0;
+  /*long*/int64_t* autoboot = 0;
   long  numComp = netHandler_.compBootInfo (components, autoboot);
 
   assert (numComp < RCXUI_MAX_COMPONENTS);

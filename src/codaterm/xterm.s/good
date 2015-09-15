@@ -1,0 +1,229 @@
+clonpc0:codarocs> ./Linux_i686/bin/codaterm -into 00_00
+
+codaterm: argc=3
+codaterm: argv[0] >./Linux_i686/bin/codaterm<
+codaterm: argv[1] >-into<
+codaterm: argv[2] >00_00<
+
+
+main: toplevel=0x09e47c58
+>>> embedded window requested >00_00<
+VTInitialize: shell(toplevel)=0x09e47c58
+main: term=0x09e4ebc8
+VTInit reached, term=0x09e4ebc8
+wwwwwwwwwwwwwwwwwwwww CREG wwwwwwwwwwwwwww (-embed)
+name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow >00_00_WINDOW<
+codaRegistry::codaRegOpen reached
+>>> codaRegistry::codaRegOpen: lock !!!!!!!!!!!!!
+>>> codaRegistry::codaRegOpen 1
+>>> codaRegistry::codaRegOpen 2
+>>> codaRegistry::codaRegOpen 3
+>>> codaRegistry::codaRegOpen 4
+>>> codaRegistry::codaRegOpen 5
+
+>>> codaRegistry::codaRegOpen: result=0
+>>>    actualType=31
+>>>    actualFormat=8
+>>>    regPtr->propLength=5259
+>>>    bytesAfter=0
+>>>    regPtr->property=>320003b ALLROCS<                                                            <--------------
+
+
+>>> codaRegistry::codaRegOpen: returns=0x09e78ae8
+
+codaRegistry::CODAGetAppWindow: regPtr=0x09e78ae8
+codaRegistry::CODAGetAppWindow: regPtr->property >320003b ALLROCS<
+codaRegistry::CODAGetAppWindow: regPtr->propLength=5259
+
+codaRegistry::CODAGetAppWindow: entryName >ALLROCS<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >05_04_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >05_03_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >05_02_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >05_01_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >05_00_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >04_04_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >04_03_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >04_02_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >04_01_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >04_00_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >03_04_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >03_03_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >03_02_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >03_01_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >03_00_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >02_04_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >02_03_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >02_02_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >02_01_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >02_00_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >01_04_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >01_03_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >01_02_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >01_01_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >01_00_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >00_04_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >00_03_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >00_02_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >00_01_WINDOW<, name >00_00_WINDOW<
+codaRegistry::CODAGetAppWindow: entryName >00_00_WINDOW<, name >00_00_WINDOW<
+ValidateWindowName >00_00_WINDOW<
+ValidateWindowName: 1
+ValidateWindowName: 2
+ValidateWindowName: result=0
+ValidateWindowName: 4
+ValidateWindowName: 5
+ValidateWindowName: 7 result=1
+codaRegClose reached
+main: parent=0x03200047
+cmd >r:0x03400024 0x03200047<
+coda_Send: cmd >r:0x03400024 0x03200047<
+codaRegistry::codaRegOpen reached
+>>> codaRegistry::codaRegOpen: lock !!!!!!!!!!!!!
+>>> codaRegistry::codaRegOpen 1
+>>> codaRegistry::codaRegOpen 2
+>>> codaRegistry::codaRegOpen 3
+>>> codaRegistry::codaRegOpen 4
+>>> codaRegistry::codaRegOpen 5
+
+>>> codaRegistry::codaRegOpen: result=0
+>>>    actualType=31
+>>>    actualFormat=8
+>>>    regPtr->propLength=5259
+>>>    bytesAfter=0
+>>>    regPtr->property=>320003b ALLROCS<
+
+
+>>> codaRegistry::codaRegOpen: returns=0x09e78ae8
+
+RegFindName >00_00_WINDOW<
+ValidateWindowName >00_00_WINDOW<
+ValidateWindowName: 1
+ValidateWindowName: 2
+ValidateWindowName: result=0
+ValidateWindowName: 4
+ValidateWindowName: 5
+ValidateWindowName: 7 result=1
+codaRegClose reached
+AppendPropCarefully reached
+codaSendInit: name >00_00_WINDOW<
+CODASetAppName >00_00_WINDOW<
+codaRegistry::codaRegOpen reached
+>>> codaRegistry::codaRegOpen: lock !!!!!!!!!!!!!
+>>> codaRegistry::codaRegOpen 1
+>>> codaRegistry::codaRegOpen 2
+>>> codaRegistry::codaRegOpen 3
+>>> codaRegistry::codaRegOpen 4
+>>> codaRegistry::codaRegOpen 5
+
+>>> codaRegistry::codaRegOpen: result=0
+>>>    actualType=31
+>>>    actualFormat=8
+>>>    regPtr->propLength=5259
+>>>    bytesAfter=0
+>>>    regPtr->property=>320003b ALLROCS<
+
+
+>>> codaRegistry::codaRegOpen: returns=0x09e7b118
+
+RegFindName >00_00_WINDOW<
+--- CODASetAppName: RegDeleteName >00_00_WINDOW< =======================================================
+RegDeleteName >00_00_WINDOW<
+RegAddName >00_00_WINDOW<
+codaRegClose reached
+UpdateCommWindow >00_00_WINDOW<
+XReparentWindow called 2 parent=0x03200047
+set_vt_visibility(1)
+VTInit reached, term=0x09e4ebc8
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x00000102)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x00000104)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x00000104)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x00000169)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x00000082)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x0000010a)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x0000010a)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x0000010a)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x0000012f)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x00000104)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x0000010a)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x00000082)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x00000146)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x000001ca)
+codaRegistry::motifHandler reached
+codaRegistry::motifHandler input params: 0x09e47c58 0x00000000 0xbfee9190
+codaRegistry::motifHandler Atom sizes: 4 4
+codaRegistry::motifHandler: commProperty = 0x000001cb
+codaRegistry::motifHandler: PropertyNewValue = 0x00000000
+codaRegistry::motifHandler: early return 1 (eventPtr->xproperty.atom=0x00000102)
+clonpc0:codarocs> 
+clonpc0:codarocs> 

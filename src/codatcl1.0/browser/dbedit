@@ -2,8 +2,7 @@
 #\
 exec /usr/bin/wish -f "$0" ${1+"$@"}
 #
-###exec /usr/bin/tixwish -f "$0" ${1+"$@"}
-#
+
 
 # standard packages
 
@@ -36,10 +35,6 @@ package require Codatcl
 #
 #   if {[catch {namespace inscope ::Host $host get tables} msg] == 1} {
 #     -> if {[catch {mysqlinfo $mysql tables} msg] == 1} {
-#
-#
-#
-# NOT GOOD: cp /usr/local/clas/devel/coda/common/lib/itix4.0/bitmaps/about.xpm /usr/lib/Tix8.4/bitmaps/
 #
 #
 #
@@ -727,7 +722,7 @@ puts "111 $top"
 puts "222"
 
 # Sergey: need it ? if yes, need about.xpm
-    set img0 [tix getimage about]
+#    set img0 [tix getimage about]
 
     ${top}.n add editors:dbedit -label dbedit
 

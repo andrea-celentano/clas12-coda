@@ -1,12 +1,12 @@
 
-/* coda_et2et.c - CODA wrapper for et_2_et */
+/* coda_ett.c - CODA wrapper for et_2_et */
 
 #if defined(Linux_armv7l)
 
 void
-coda_et2et()
+coda_ett()
 {
-  printf("coda_et2et is dummy for ARM etc\n");
+  printf("coda_ett is dummy for ARM etc\n");
 }
 
 #else
@@ -205,7 +205,7 @@ rocStatus()
 
 /* our version of 'et_start' */
 int
-et2etStart()
+ettStart()
 {
   objClass object = localobject;
   ET_priv *etp = (ET_priv *) object->privated;
@@ -219,7 +219,7 @@ et2etStart()
   MYSQL *dbsock;
   char tmp[1000], tmpp[1000];
 
-  printf("et2etStart reached\n");
+  printf("ettStart reached\n");
 
   printf("\n0 etp->exit = %d\n\n",etp->exit);
 
@@ -255,7 +255,7 @@ et2etStart()
   sprintf(tmp,"SELECT inputs FROM %s WHERE name='%s'",configname,object->name);
   if(dbGetStr(dbsock, tmp, tmpp)==ET_ERROR)
   {
-    printf("coda_et2et: ERROR in mysql query >%s<\n",tmp);
+    printf("coda_ett: ERROR in mysql query >%s<\n",tmp);
   }
   else
   {
@@ -302,7 +302,7 @@ et2etStart()
 
 
   /* station 'from' */
-  strcpy(etp->station,"ET2ET");
+  strcpy(etp->station,"ETT");
 
 
 
@@ -336,7 +336,7 @@ et2etStart()
 	et_open_config_settcp(openconfig, rBufSize, sBufSize, noDelay);
 
 	et_open_config_gettcp(openconfig, &rBufSize, &sBufSize, &noDelay);
-    printf("et2et: set rBufSize=%d, sBufSize=%d, noDelay=%d\n", rBufSize, sBufSize, noDelay);
+    printf("ett: set rBufSize=%d, sBufSize=%d, noDelay=%d\n", rBufSize, sBufSize, noDelay);
   }
 */
 
@@ -380,7 +380,7 @@ et2etStart()
 	et_open_config_settcp(openconfig, rBufSize, sBufSize, noDelay);
 
 	et_open_config_gettcp(openconfig, &rBufSize, &sBufSize, &noDelay);
-    printf("et2et: set rBufSize=%d, sBufSize=%d, noDelay=%d\n", rBufSize, sBufSize, noDelay);
+    printf("ett: set rBufSize=%d, sBufSize=%d, noDelay=%d\n", rBufSize, sBufSize, noDelay);
   }
 */
 
@@ -552,7 +552,7 @@ printf("15\n");fflush(stdout);
 
 
 int
-et2etConstructor()
+ettConstructor()
 {
   localobject->privated = (void *) &ETP;
   bzero ((char *) &ETP,sizeof(ETP));
@@ -563,7 +563,7 @@ et2etConstructor()
   int id, res;
   pthread_attr_t attr;
 
-  printf("et2etConstructor reached\n");
+  printf("ettConstructor reached\n");
 
   etp->id = 0;
   etp->exit = 0;
@@ -578,7 +578,7 @@ et2etConstructor()
 
 
 int
-et2etDestructor()
+ettDestructor()
 {
   objClass object = localobject;
   ET_priv *etp = (ET_priv *) object->privated;
@@ -638,7 +638,7 @@ codaDownload(char *conf)
   /* FROM CLASS (former conf1) */
 
   strcpy(configname,conf); /* Sergey: save CODA configuration name */
-  printf("coda_et2et: configname = >%s<\n",configname);fflush(stdout);
+  printf("coda_ett: configname = >%s<\n",configname);fflush(stdout);
 
 
   UDP_start();
@@ -663,16 +663,16 @@ codaDownload(char *conf)
   printf("etp->exit = %d\n",etp->exit);
   printf("etp->exit = %d\n",etp->exit);
 
-  /* if not the first entry, exit et2etStart thread 
+  /* if not the first entry, exit ettStart thread 
   if(etp->id != 0)
   {
     etp->exit = 1;
     while(etp->exit == 1)
     {
-      printf("Waiting for et2etStart thread to exit ...\n");
+      printf("Waiting for ettStart thread to exit ...\n");
       sleep(1);
     }
-    printf("et2etStart thread to exited !\n");
+    printf("ettStart thread to exited !\n");
     sleep(10);
   }
   */
@@ -680,31 +680,31 @@ codaDownload(char *conf)
   /*
   if(etp->id != 0)
   {
-    printf("Sending kill request to et2etStart thread ...\n");
+    printf("Sending kill request to ettStart thread ...\n");
     pthread_kill(etp->id, 0);
   }
   sleep(10);
   */
 
-  /* if the first entry, start et2etStart thread */
+  /* if the first entry, start ettStart thread */
   if(etp->id == 0)
   {
     pthread_attr_init(&attr); /* initialize attr with default attributes */
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
-    res = pthread_create(&etp->id, &attr, et2etStart, NULL);
+    res = pthread_create(&etp->id, &attr, ettStart, NULL);
     if(res!=0)
     {
-      printf("ERROR: pthread_create(et2etStart) returned %d - exit\n",res);
+      printf("ERROR: pthread_create(ettStart) returned %d - exit\n",res);
       exit(-1);
     }
     else
     {
-      printf("et2etStart thread started, etp->id = 0x%08x\n",etp->id);
+      printf("ettStart thread started, etp->id = 0x%08x\n",etp->id);
     }
   }
 
-  printf("coda_et2et: downloaded !!!\n");
+  printf("coda_ett: downloaded !!!\n");
 
   tcpState = DA_DOWNLOADED;
   if(codaUpdateStatus("downloaded") != ET_OK) return(ET_ERROR);
@@ -790,14 +790,14 @@ main (int argc, char **argv)
 {
   CODA_Init(argc, argv);
 
-  et2etConstructor();
+  ettConstructor();
 
-  printf("\n\n\n et2etConstructor done, running CODA_Execute\n\n");
+  printf("\n\n\n ettConstructor done, running CODA_Execute\n\n");
 
   /* CODA_Service ("ROC"); */
   CODA_Execute ();
 
-  et2etDestructor(); /* never called ... */
+  ettDestructor(); /* never called ... */
 }
 
 #endif

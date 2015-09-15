@@ -159,7 +159,7 @@ extern "C" void bzero(void *,int);
 #endif
 
 #ifdef USE_CREG
-extern "C" int     codaSendInit _ANSI_ARGS_((Widget w,char *name));
+extern "C" int     codaSendInit (Widget w,char *name);
 #endif
 
 char *dollar_coda;
@@ -529,7 +529,7 @@ messageHandler(char *message)
       char name[200];
       int pid;
       sscanf(&message[2],"%d %s",&pid,name);
-      //menW->createTabFrame(name,pid);
+      /*menW->createTabFrame(name,pid);*/
     }
     break;
 
@@ -539,10 +539,13 @@ messageHandler(char *message)
   }
 }
 
-
-void warningHandler(char *msg)
+void
+warningHandler(char *msg)
 {
+  ;
 }
+
+
 
 main (int argc, char** argv)
 {
@@ -608,19 +611,39 @@ main (int argc, char** argv)
 	  menW->bootall_ = 1;
     }
 
+
+	/*sergey : !!!!!!!!!!!??????????????
     toplevel = XtParent(XtParent(XtParent(menW->rform_)));
-    
+    */
+    toplevel = XtParent(menW->rform_);
+
+
+	printf("\nruncontrol: TOPLEVELS: 0x%08x 0x%08x 0x%08x 0x%08x\n\n",
+      XtParent(menW->rform_),
+      XtParent(XtParent(menW->rform_)),
+      XtParent(XtParent(XtParent(menW->rform_))),
+      XtParent(XtParent(XtParent(XtParent(menW->rform_)))) );
+
+
     ac = 0;
 	/*sergey
     XtSetArg(arg[0], XmNpopdownDelay, 6000);
     XtSetArg(arg[1], XmNpopupDelay,   3000);
     helpBalloon = XmCreateBalloon(toplevel, "balloonHelp2", arg, 2);
 	*/
+
+/*
 #ifdef USE_CREG    
     codaSendInit(toplevel,"RUNCONTROL");
 #endif
     MainDisplay = XtDisplay(toplevel);
-    
+#endif
+*/
+
+#ifdef USE_CREG
+    codaSendInit(toplevel,"RUNCONTROL");  
+    //codaRegisterMsgCallback((void *)messageHandler);
+#endif    
 
 
 	/* sergey: contents of 'help' on right side 
@@ -664,16 +687,14 @@ main (int argc, char** argv)
 
     menW->createTabFrame("dbedit",0); /* create frame for dbedit */
 
-    /*menW->createTabFrame("codaxterms",0);*/ /* create frame for codaxterms */
-	/*
-    menW->createTabFrame("xterm",0);
-	*/
+    menW->createTabFrame("rocs",0); /* create frame for codaterms */
+
 
     ac = 0;
     XtSetArg (arg[ac], XmNresizePolicy, XmRESIZE_ANY); ac++;
 
-#ifdef USE_CREG
-    codaSendInit(toplevel,"RUNCONTROL");  
+#ifdef USE_CREG_hide
+    //codaSendInit(toplevel,"RUNCONTROL");  
     codaRegisterMsgCallback((void *)messageHandler);
 #endif    
 
@@ -682,10 +703,11 @@ main (int argc, char** argv)
       XResizeWindow(
               XtDisplay(XtParent(menW->rform_)),
               XtWindow(toplevel),
-		      920, /*490*/ /*sergey: initial gui width*/
+		      1727/*1000_without_rocs*/, /*490*/ /*sergey: initial gui width*/
               1080 /*HeightOfScreen(XtScreen(menW->rform_))*/ /*sergey: initial gui height*/
       );
     }
+
 
     {
       char temp2[256],temp3[256];
@@ -699,9 +721,10 @@ main (int argc, char** argv)
         }
         else
         {
-		  
+
           sprintf(temp2,
-            "(echo \"start codaedit\"; sleep 3; %s/codaedit -embed )&",getenv("CODA_BIN"));
+            "(%s/codaedit -embed )&",getenv("CODA_BIN"));
+		  /*            "(echo \"start codaedit\"; sleep 3; %s/codaedit -embed )&",getenv("CODA_BIN"));*/
 		  
 		  /*		  
           sprintf(temp2,
@@ -721,18 +744,12 @@ main (int argc, char** argv)
       }
 
 
-	  /*
+	  if(option->startRocs_)
 	  {
-        sprintf (temp2,"(echo \"start codaxterms\";sleep 5; %s/codaxterms -embed )&",getenv("CODA_BIN"));
+        sprintf (temp2,"(echo \"start rocs\";sleep 3; %s/rocs -embed )&",getenv("CODA_BIN"));
         system(temp2);
 	  }
-	  */
-
-	  /*
-        sprintf (temp2,"(echo \"start xterm\";sleep 5; /usr/bin/xterm )&");
-        system(temp2);
-	  */
-
+	  
     }
 
   }
@@ -740,14 +757,13 @@ main (int argc, char** argv)
   
   while (1)
   {
-    if (theApplication != NULL)
-      app->execute();
-    
-    if (theApplication == NULL) {
-      return 0;
-    }
+	printf("executing main 1\n");fflush(stdout);
+    if (theApplication != NULL) app->execute();
+	printf("executing main 2\n");fflush(stdout);
+    if (theApplication == NULL) return(0);
+	printf("executing main 3\n");fflush(stdout);
   }
   
 
-  return 0;
+  return(0);
 }

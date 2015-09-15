@@ -31,14 +31,19 @@
 #ifndef _EDITOR_PIXMAP_H
 #define _EDITOR_PIXMAP_H
 
-typedef struct _pixmap_s{
+typedef struct _pixmap_s
+{
   Pixmap roc;
   Pixmap eb;
-  Pixmap ana;
-  Pixmap ebana;
+  Pixmap et; /*sergey*/
+  Pixmap ett; /*sergey*/
+  Pixmap ana; /*sergey: remove ? */
+  Pixmap ebana; /*sergey: remove ? */
   Pixmap trig;
   Pixmap hl_roc;
   Pixmap hl_eb;
+  Pixmap hl_et; /*sergey*/
+  Pixmap hl_ett; /*sergey*/
   Pixmap hl_ana;
   Pixmap hl_ebana;
   Pixmap hl_trig;
@@ -48,6 +53,8 @@ typedef struct _pixmap_s{
   Pixmap move_node_sel;
   Pixmap roc_btn;
   Pixmap eb_btn;
+  Pixmap et_btn; /*sergey*/
+  Pixmap ett_btn; /*sergey*/
   Pixmap ana_btn;
   Pixmap ebana_btn;
   Pixmap er_btn;
@@ -59,19 +66,25 @@ typedef struct _pixmap_s{
   Pixmap more_type;
   Pixmap icon;
   Pixmap zoom;
+
   Pixmap file;
   Pixmap codaFile;
   Pixmap debug;
   Pixmap dd;
   Pixmap trash;
-}XcodaEditorPixmaps;
+
+} XcodaEditorPixmaps;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern XcodaEditorPixmaps btn_pixmaps;  /* this is a global object */
-
-#if defined (__STDC__)
 extern void    XcodaEditorCreatePixmaps (Widget parent, Pixel bg, Pixel fg);
-#else
-extern void    XcodaEditorCreatePixmaps ();
+
+#ifdef __cplusplus
+}
 #endif
+
 
 #endif

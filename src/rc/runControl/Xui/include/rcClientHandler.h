@@ -50,6 +50,7 @@ class daqMonitorStruct;
 class rcClientHandler: public XcodaInput
 {
 public:
+
   rcClientHandler (Widget parent);
   rcClientHandler (XtAppContext context);
 
@@ -99,10 +100,10 @@ public:
   char**  components          (int& num);
 
   // get components auto boot flag info
-  long    compBootInfo        (char** &comps, long* &autoboot);
+  long    compBootInfo        (char** &comps, /*long*/int64_t* &autoboot);
 
   // get monitor parameters
-  long    monitorParms        (char** &comps, long* &monitored,
+  long    monitorParms        (char** &comps, /*long*/int64_t* &monitored,
 			       long& autoend, long& interval);
   
   // disconnnect from remote server

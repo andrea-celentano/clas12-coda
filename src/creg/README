@@ -1,0 +1,162 @@
+
+codaSendInit(name)
+    |
+    |-> XtAddEventHandler(..,motifHandler,..)
+    |
+    |-> CODASetAppName(name)
+
+
+motifHandler
+    |
+    |-> commProperty = XInternAtom(..,"COMM",..)
+
+
+
+
+============= some info =================
+
+Display
+   -- This structure is used by nearly all Xlib functions. It contains details 
+   about the server and its screens.
+Drawable
+   -- this is an identifier to a structure that can contain graphics (i.e.
+   it can be drawn to). There are two common types:
+Window
+   -- A part of the screen.
+Pixmap
+   -- An off-screen store of graphical data.
+Screen
+   -- Information about a single screen of a display.
+Graphics Context (GC)
+   -- When we draw we need to specify things like line width, line style
+   (e.g solid or dashed), colour, shading or filling patterns etc.. In Xlib
+   we pass such information to a drawing routine via a GC structure. This must
+   be created (and values set) before the routine uses the GC. More than one
+   GC can be used.
+Depth
+   -- the number of bits per pixel used to display data.
+Visual
+   -- This structure determines how a display handles screen output such as
+   colour and depends on the number of bits per pixel.
+
+
+XEvents ========================
+
+    We should now be familiar with the basic notion of events in X and Motif.
+Mouse button presses, mouse motion and keyboard presses can be used to action
+menu, buttons etc.. These are all instances of events. Usually we are happy to
+let Motif take care of event scheduling with the XtAppMainLoop() function, and
+the setting of appropriate callback resources for widgets (Chapter 4).
+Sometimes we may need to gain more control of events in X. To do this we will
+need to resort to Xlib. A specific example of this will be met in the Chapter
+16 (the draw_input1.c program), where the default interaction, provided via
+callbacks in Motif, is inadequate for our required form of interaction.
+
+XEvent Types
+
+There are many types of events in Xlib. A special XEvent  structure is defined
+to take care of this.
+
+XEvents exist for all kinds of events, including: mouse button presses, mouse
+motions, key presses and events concerned with the window management. Most of 
+the mouse/keyboard events are self explanatory and we have already studied them
+a little. Let us look at some window events further:
+
+XConfigureNotify
+  -- If a window changes size then this event is generated.
+XCirculateNotify
+  -- The event generated if the stacking order of windows has changed.
+XColormapNotify
+  -- The event generated if colormap changes are made.
+XCreateNotify, XDestroyNotify
+   -- The events generated when a window is created or deleted respectively.
+XExpose, XNoExpose
+   -- Windows can be stacked, moved around etc. If part of a window that has
+   been previously obscured becomes visible again then it will need to be
+   redrawn. An XExpose event is sent for this purpose. An XExpose event is 
+   also sent when a window first becomes visible.
+Note: There is no guarantee that what has previously been drawn to the window
+   will become immediately visible. In fact, it is totally up to the programmer
+  to make sure that this happens by picking up an XExpose event (See Sections 
+  15.4 and 16.3.3 on Pixmaps and DrawingAreas).
+
+Writing Your Own Event Handler
+
+Most Motif applications will not need to do this since they can happily run
+within the standard application main loop event handling model. If you do need 
+to resort to creating your own (Xlib) event handling routines, be warned: 
+it can quickly become complex, involving a lot of Xlib programming.
+
+Since, for the level of Motif programming described in this text, we will not 
+need to resort to writing elaborate event handlers ourselves we will only 
+study the basics of Motif/Xlib event handling and interaction.
+
+The first step along this path is attaching a callback to an XEvent rather 
+than a Widget callback action. From Motif (or Xt) you attach a callback to 
+a particular event with the function XtAddEventHandler(), which takes 5 
+parameters:
+
+Widget
+-- the ID of the widget concerned.
+EventMask
+-- This can be used to allow the widget to be receptive to specific events. 
+A complete list of event masks is given in the online support reference 
+material. Multiple events can be assigned by ORing (|) masks together.
+Nonmaskable
+-- A Boolean almost always set to False. If it is set to True then it can be 
+activated on nomaskable events such as ClientMessage, Graphics Expose, Mapping 
+Notify, NoExpose, SelectionClear, 
+SelectionNotify or SelectionRequest.
+Callback
+-- the callback function.
+Client Data
+-- Additional data to be passed to the event handler.
+As an example we could set an expose_callbck() to be called by an Expose event 
+by the following function call:
+
+XtAddEventHandler(widget, ExposureMask, False, 
+                  expose_callbck, NULL);
+To set a callback, motion_callbk(), that responds to left or middle mouse 
+motion -- an event triggered when the mouse is moved whilst an appropriate 
+mouse butten is depresses -- we would write:
+
+XtAddEventHandler(widget, Button1MotionMask | Button2MotionMask, 
+                  False, motion_callbk, NULL);
+There are two other steps that need to be done when writing our own event 
+handler. These are:
+
+Intercepting Events, and
+Dispatching Events.
+These two steps are basically what the XtAppMainLoop()  takes care of in 
+normal operation.
+
+
+
+Two Xt functions are typically used in this context:
+
+XtAppNextEvent(XtAppContext, XEvent*)
+  gets the next event off the event queue for a given XtAppContext application.
+XtDispatchEvent(XEvent*)
+  dispatches the event so that callbacks can be invoked.
+In between the retrieving of the next event and dispatching this event you may 
+want to write some code that intercepts certain events.
+
+Let us look at how the XtAppMainLoop() function is coded. Note the comments 
+show where we may place custom application intercept code.
+
+ 
+void XtAppMainLoop(XtAppContext app)
+
+{ XEvent event;
+
+  for (;;) /* forever */
+    { XtAppNextEvent(app, &event);
+
+      /* Xevent read off queue */
+      /* inspect structure and intercept perhaps? */
+
+      /* intercept code would go here */
+
+      XtDispatchEvent(&event);
+    } 
+}

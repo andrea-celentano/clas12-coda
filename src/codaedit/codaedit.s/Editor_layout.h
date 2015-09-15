@@ -30,11 +30,14 @@
 #ifndef EDITOR_LAYOUT_H
 #define EDITOR_LAYOUT_H
 
-typedef struct _manager{
+typedef struct _manager
+{
   /* add node cmd */
   Widget trig_btn;
   Widget roc_btn;
   Widget eb_btn;
+  Widget et_btn; /*sergey*/
+  Widget ett_btn; /*sergey*/
   Widget er_btn;
   Widget fi_btn;
   Widget cfi_btn;
@@ -83,7 +86,7 @@ typedef struct _manager{
   /* experiment run type nad dbase name */
   Widget dbasename;
   Widget runtype;
-}Manager;
+} Manager;
 
 extern Manager manager;
 

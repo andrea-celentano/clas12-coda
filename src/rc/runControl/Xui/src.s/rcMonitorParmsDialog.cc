@@ -188,7 +188,7 @@ void
 rcMonitorParmsDialog::popup (void)
 {
   char** components = 0;
-  long* monitored = 0;
+  int64_t*/*long*/ monitored = 0;
   long autoend = 0;
   long  interval = 0;
   long  numComp = netHandler_.monitorParms (components, monitored,

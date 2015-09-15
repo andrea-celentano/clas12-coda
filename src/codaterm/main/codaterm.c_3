@@ -1,0 +1,52 @@
+
+
+/* main for codaterm */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+
+int codaterm(int argc, char *argv[]);
+
+int
+main(int argc, char *argv[])
+{
+
+
+  /*test*/
+{
+  /*
+  int myargc;
+  char *myargv[7];
+  myargc = 7;
+  */
+
+  /*
+  myargv[0] = strdup( "codaterm" );
+  myargv[1] = strdup( "-bg" );
+  myargv[2] = strdup( "lightblue" );
+  myargv[3] = strdup( "-expect" );
+  myargv[4] = strdup( "ssh adcecal5:adcecal5" );
+  myargv[5] = strdup( "stop_coda_process -p coda_roc_gef -match \"adcecal5 ROC\"" );
+  myargv[6] = strdup( "coda_roc_gef -s clastest -o \"adcecal5 ROC\"" );
+  */
+
+  /*
+  myargv[0] = strdup( "codaterm" );
+  myargv[1] = strdup( "-into" );
+  myargv[2] = strdup( "aaa0101" );
+  myargv[3] = strdup( "-expect" );
+  myargv[4] = strdup( "ssh adcecal5:adcecal5" );
+  myargv[5] = strdup( "stop_coda_process -p coda_roc_gef -match \"adcecal5 ROC\"" );
+  myargv[6] = strdup( "coda_roc_gef -s clastest -o \"adcecal5 ROC\"" );
+  */
+  /*
+  codaterm(myargc, myargv);
+  */
+}
+
+
+  return( codaterm(argc, argv) );
+}
+

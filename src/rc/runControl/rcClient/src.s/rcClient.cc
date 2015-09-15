@@ -155,7 +155,8 @@ rcClient::~rcClient (void)
   // delete everything from disconnect callback list
   codaSlistIterator ite (discCbkList_);
   codaRcCallback* cbk = 0;
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     cbk = (codaRcCallback *) ite ();
     delete cbk;
   }
@@ -411,18 +412,22 @@ rcClient::disconnectCallback (rcCallback callback, void* arg)
   codaRcCallback *tcbk = 0;
 
   int error = 0;
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     tcbk = (codaRcCallback *) ite ();
-    if (*tcbk == *cbk) {
+    if (*tcbk == *cbk)
+    {
       error = 1;
       break;
     }
   }
-  if (!error) {
+  if (!error)
+  {
     discCbkList_.add ((void *)cbk);
     return CODA_SUCCESS;
   }
-  else {
+  else
+  {
     delete cbk;
     return CODA_ERROR;
   }
@@ -474,56 +479,91 @@ rcClient::handle_input (int)
   daqNetData data;
   rcMsg recver (DAUNKNOWN, data);
 
-  // lock the client to prevent recursive calls
+  /* lock the client to prevent recursive calls */
   rcClientLocker locker (this);
 
   n = toServer_ >> recver;
 #ifdef _CODA_DEBUG
   printf ("rcClient::handle_input: %d bytes received from server side\n", n);
 #endif
-  switch (n) {
-  case -1:
-  case 0:
+  switch (n)
+  {
+    case -1:
+    case 0:
 #ifdef _CODA_DEBUG
-    printf ("rcClient::handle_input: Client to Server Connection is Broken\n");
+      printf ("rcClient::handle_input: Client to Server Connection is Broken\n");
 #endif
-    status = -1;
-    break;
-  default:
-    switch (recver.type ()) {
-    case DAGET_VAL:
-      // get value callback
-      status = getValCbkFromServer (recver);
+      status = -1;
       break;
-    case DASET_VAL:
-      // set value callback
-      status = setValCbkFromServer (recver);
-      break;
-    case DAMONITOR_VAL_ON:
-      status = monitoredValFromServer (recver);
-      break;
-    case DAMONITOR_VAL_OFF:
-      status = monitorOffFromServer (recver);
-      break;
-    case DAADD_VARS:
-      status = addDynamicVars (recver);
-      break;
-    case DAREMOVE_VARS:
-      status = removeDynamicVars (recver);
-      break;
-    case DAADD_ANALOG_VARS:
-      status = addAnaLogVars  (recver);
-      break;
-    case DAREMOVE_ANALOG_VARS:
-      status = removeAnaLogVars (recver);
-      break;
+
     default:
-      // command callback
-      status = commandCbkFromServer (recver);
-      break;
-    }
+      switch (recver.type ())
+      {
+        case DAGET_VAL:
+#ifdef _CODA_DEBUG
+          printf ("rcClient::handle_input:  get value callback\n");
+#endif
+          // get value callback
+          status = getValCbkFromServer (recver);
+          break;
+        case DASET_VAL:
+#ifdef _CODA_DEBUG
+          printf ("rcClient::handle_input:  set value callback\n");
+#endif
+          // set value callback
+          status = setValCbkFromServer (recver);
+          break;
+        case DAMONITOR_VAL_ON:
+#ifdef _CODA_DEBUG
+          printf ("rcClient::handle_input:  11\n");
+#endif
+          status = monitoredValFromServer (recver);
+          break;
+        case DAMONITOR_VAL_OFF:
+#ifdef _CODA_DEBUG
+          printf ("rcClient::handle_input:  12\n");
+#endif
+          status = monitorOffFromServer (recver);
+          break;
+        case DAADD_VARS:
+#ifdef _CODA_DEBUG
+          printf ("rcClient::handle_input:  13\n");
+#endif
+          status = addDynamicVars (recver);
+          break;
+        case DAREMOVE_VARS:
+#ifdef _CODA_DEBUG
+          printf ("rcClient::handle_input:  14\n");
+#endif
+          status = removeDynamicVars (recver);
+          break;
+        case DAADD_ANALOG_VARS:
+#ifdef _CODA_DEBUG
+          printf ("rcClient::handle_input:  15\n");
+#endif
+          status = addAnaLogVars  (recver);
+          break;
+        case DAREMOVE_ANALOG_VARS:
+#ifdef _CODA_DEBUG
+          printf ("rcClient::handle_input:  16\n");
+#endif
+          status = removeAnaLogVars (recver);
+          break;
+        default:
+#ifdef _CODA_DEBUG
+          printf ("rcClient::handle_input: calls commandCbkFromServer\n");
+#endif
+	      /* command callback */
+          status = commandCbkFromServer (recver);
+          break;
+      }
   }
-  return status;
+
+#ifdef _CODA_DEBUG
+  printf ("rcClient::handle_input: returns status=%d\n",status);
+#endif
+
+  return(status);
 }
     
 int
@@ -576,7 +616,8 @@ rcClient::callAllDiscCbks (void)
   rcCallback callback = 0;
   void *arg = 0;
 
-  for (ite.init (); !ite; ++ite) {
+  for (ite.init (); !ite; ++ite)
+  {
     cbk = (codaRcCallback *)ite ();
     callback = cbk->callbackFunction ();
     arg = cbk->userarg ();
@@ -612,7 +653,11 @@ rcClient::sendClientInfo (void)
   char* temp[3];
   int  size = 80;
 
-  // create a netData holding three char strings
+#ifdef _CODA_DEBUG
+  printf("rcClient::sendClientInfo: username_ >%s< len=%d\n",username_,::strlen(username_));fflush(stdout);
+#endif
+
+  /* create a netData holding three char strings */
   temp[0] = new char[::strlen (username_) + 1];
   ::strcpy (temp[0], username_);
   temp[1] = new char[40];
@@ -620,21 +665,41 @@ rcClient::sendClientInfo (void)
   temp[2] = new char[::strlen (disp_) + 1];
   ::strcpy (temp[2], disp_);
 
+#ifdef _CODA_DEBUG
+  printf("rcClient::sendClientInfo: temp[0] >%s<\n",temp[0]);fflush(stdout);
+  printf("rcClient::sendClientInfo: temp[1] >%s<\n",temp[1]);fflush(stdout);
+  printf("rcClient::sendClientInfo: temp[2] >%s<\n",temp[2]);fflush(stdout);
+#endif
+
+  /* appropriate method from daqNetData.cc will be used, based on parameters types */
   daqNetData data ("RCS","command", temp, 3);
-  // free memory
+
+  /* free memory */
   delete []temp[0]; delete []temp[1]; delete []temp[2];
 
-  // set default callback for notification of server
-  codaRcCallback* cbk = new codaRcCallback (&(rcClient::regInfoCbk), 
-					    (void *)this);
-  rcMsg msg (DAREG_CLIENT_INFO, data, (int64_t)cbk);
-  
-  int n = toServer_ << msg;
+  /* set default callback for notification of server */
+  codaRcCallback* cbk = new codaRcCallback (&(rcClient::regInfoCbk), (void *)this);
+
 #ifdef _CODA_DEBUG
-  printf ("rcClient::sendClientInfo: send %d bytes register client info data to server\n", n);
+  printf("rcClient::sendClientInfo 11\n");fflush(stdout);
 #endif
-  if (n > 0) {
-    // register callback to the callback table
+
+  rcMsg msg (DAREG_CLIENT_INFO, data, (int64_t)cbk);
+
+#ifdef _CODA_DEBUG
+  printf("rcClient::sendClientInfo 12\n");fflush(stdout);
+#endif
+
+  printf("rcClient::sendClientInfo 121\n");fflush(stdout);
+  int n = toServer_ << msg;
+  printf("rcClient::sendClientInfo 122\n");fflush(stdout);
+
+#ifdef _CODA_DEBUG
+  printf("rcClient::sendClientInfo: send %d bytes register client info data to server\n", n);fflush(stdout);
+#endif
+  if (n > 0)
+  {
+    /* register callback to the callback table */
     cmdCbkTable_.add ((int64_t)cbk, (void *)cbk);
     int i = 0;
 
@@ -660,7 +725,7 @@ rcClient::getValueCallback (char* compname,
 			    rcCallback callback,
 			    void* arg)
 {
-  // this data is not inside the table
+  /* this data is not inside the table */
   if (!dataManager_.hasData (compname, attrname))
     return CODA_ERROR;
   daqNetData data (compname, attrname, 0);
@@ -990,26 +1055,55 @@ rcClient::monitorOffFromServer (rcMsg& cmsg)
 int
 rcClient::commandCbkFromServer (rcMsg& cmsg)
 {
+#ifdef _CODA_DEBUG
+  printf ("rcClient::commandCbkFromServer reached\n");fflush(stdout);
+#endif
   int64_t cbkId = cmsg.reqId ();
-  if (cmdCbkTable_.find (cbkId, (void *)cbkId)) {
+#ifdef _CODA_DEBUG
+  printf ("rcClient::commandCbkFromServer 1\n");fflush(stdout);
+#endif
+  if (cmdCbkTable_.find (cbkId, (void *)cbkId))
+  {
+#ifdef _CODA_DEBUG
+    printf ("rcClient::commandCbkFromServer 2\n");fflush(stdout);
+#endif
     codaRcCallback *cbk = (codaRcCallback *)cbkId;
+#ifdef _CODA_DEBUG
+    printf ("rcClient::commandCbkFromServer 3\n");fflush(stdout);
+#endif
     rcCallback func = cbk->callbackFunction ();
+#ifdef _CODA_DEBUG
+    printf ("rcClient::commandCbkFromServer 4\n");fflush(stdout);
+#endif
     void* arg = cbk->userarg ();
-    // check status
-    int st = (daqNetData)cmsg; // status of remote execution of command
+#ifdef _CODA_DEBUG
+    printf ("rcClient::commandCbkFromServer 5\n");fflush(stdout);
+#endif
+
+    /* check status */
+    int st = (daqNetData)cmsg; /* status of remote execution of command */
+#ifdef _CODA_DEBUG
+    printf ("rcClient::commandCbkFromServer 6: st=%d\n",st);fflush(stdout);
+#endif
     daqNetData& da = (daqNetData &)cmsg;
     (*func)(st, arg, &da);
-    // free memory associated with this command callback
+
+    /* free memory associated with this command callback */
     cmdCbkTable_.remove (cbkId, (void *)cbkId);
     delete cbk;
 
 #ifdef _CODA_DEBUG
-    printf ("rcClient::commandCbkFromServer: Has Command callback number %d\n",numCmdCbks());
+    printf ("rcClient::commandCbkFromServer: Has Command callback number %d\n",numCmdCbks());fflush(stdout);
 #endif
-    return 0;
+    return(0);
   }
   else
-    return -1;
+  {
+#ifdef _CODA_DEBUG
+    printf ("rcClient::commandCbkFromServer: ERROR\n");fflush(stdout);
+#endif
+    return(-1);
+  }
 }
 void
 rcClient::offCallback (int status, void* arg, daqNetData* data)
@@ -1247,11 +1341,18 @@ rcClient::removeCallbacks (void)
 void
 rcClient::regInfoCbk (int status, void* arg, daqNetData* )
 {
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     rcClient* obj = (rcClient *)arg;
     obj->infoRegistered_ = 1;
 #ifdef _CODA_DEBUG
-    printf ("rcClient::regInfoCbk: Client Information registered to server\n");
+    printf ("rcClient::regInfoCbk: Client Information registered to server, status=%d\n",status);
+#endif
+  }
+  else
+  {
+#ifdef _CODA_DEBUG
+    printf ("rcClient::regInfoCbk: ERROR: Client Information is NOT registered to server, status=%d\n",status);
 #endif
   }
 }

@@ -62,6 +62,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/timeb.h>
+
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
 #include <Xm/Xm.h>
@@ -84,16 +85,10 @@ int ddNum = 0;
  *     This routine must be called after draw components has been constructed    *
  *     error code 0 means success                                                *
  ********************************************************************************/
-#if defined (__STDC__)
-static ipPort *findInputFromPort(XcodaEditorGraph* graph, 
-				 IoId* input, 
-				 int*  error)
-#else
-static ipPort *findInputFromPort(graph, input, error)
-     XcodaEditorGraph *graph;
-     IoId             *input;
-     int              *error;
-#endif
+static ipPort *
+findInputFromPort(XcodaEditorGraph* graph, 
+				  IoId* input, 
+				  int*  error)
 {
   compList *p;
   drawComp *tdc;
@@ -129,17 +124,10 @@ static ipPort *findInputFromPort(graph, input, error)
  *    This tourine must be called after findInputFromPort()                      *
  *    which constructs from_port                                                 *
  ********************************************************************************/
-#if defined (__STDC__)
-static ipPort *findInputToPort(XcodaEditorGraph* graph, 
-			       IoId*             output,
-			       int *error)
-#else
-static ipPort *findInputToPort(graph, output, error)
-{
-     XcodaEditorGraph *graph;
-     IoId*            output,
-     int              *error;
-#endif
+static ipPort *
+findInputToPort(XcodaEditorGraph* graph, 
+				IoId*             output,
+				int *error)
 {
   compList *p;
   drawComp *tdc;
@@ -273,29 +261,37 @@ static void findDefaultDrawCompPosition(graph, dc, row, col)
   drawComp *draw_comp;
   int      max_row = 1;
 
-  if(graph->comp_list_head->next == graph->comp_list_tail){
-    if(dc->comp.type == CODA_TRIG){
+  if(graph->comp_list_head->next == graph->comp_list_tail)
+  {
+    if(dc->comp.type == CODA_TRIG)
+    {
       *row = 3;
       *col = 1;
     }
-    else if(dc->comp.type == CODA_ROC){
+    else if(dc->comp.type == CODA_ROC)
+    {
       *row = 3;
       *col = 3;
     }
-    else if(dc->comp.type == CODA_EB){
+    else if(dc->comp.type == CODA_EB)
+    {
       *row = 3;
       *col = 5;
     }
-    else{
+    else
+    {
       *row = 3;
       *col = 10;
     }
   }
-  else{
-    for(p = graph->comp_list_head->next; p != graph->comp_list_tail; p = p->next){
-      if(p->draw_comp->comp.type == dc->comp.type){
-	if(p->draw_comp->row > max_row)
-	  max_row = p->draw_comp->row + p->draw_comp->num_row;
+  else
+  {
+    for(p = graph->comp_list_head->next; p != graph->comp_list_tail; p = p->next)
+    {
+      if(p->draw_comp->comp.type == dc->comp.type)
+      {
+	    if(p->draw_comp->row > max_row)
+	      max_row = p->draw_comp->row + p->draw_comp->num_row;
       }
     }
     *row = max_row + 2;
@@ -329,7 +325,8 @@ createDrawCompFromRcnetComp(XcodaEditorGraph* graph,
   ipPort   *port;
   
   p = (drawComp *)malloc(sizeof(drawComp));
-  if(p == NULL){
+  if(p == NULL)
+  {
     fprintf(stderr,"Cannot allocate memory for drawComp object!!!\n");
     exit(1);
   }
@@ -347,15 +344,18 @@ createDrawCompFromRcnetComp(XcodaEditorGraph* graph,
   {
     p->comp.node_name = strsave(daq->node_name);
   }
+
   p->comp.id_num = daq->id_num;
   if (daq->boot_string != 0)
     p->comp.boot_string = strsave(daq->boot_string);
   else
     p->comp.boot_string = (char *)0;
+
   p->comp.type = daq->type;
   p->selected = 0;
   /* if cinfo->scrips == 0, the following return 0 */
   p->scripts = duplicateCodaScriptList (cinfo->scripts);
+
   if(daq->code[0] != NULL)
     p->comp.code[0] = strsave(daq->code[0]);
   else
@@ -372,9 +372,13 @@ createDrawCompFromRcnetComp(XcodaEditorGraph* graph,
     p->comp.code[2] = (char *)NULL;
   
   p->editable = 0;
+
   if (cinfo->row == -1 && cinfo->col == -1)
+  {
     findDefaultDrawCompPosition(graph, p, &row, &col);
-  else{
+  }
+  else
+  {
     row = cinfo->row;
     col = cinfo->col;
   }
@@ -397,10 +401,12 @@ createDrawCompFromRcnetComp(XcodaEditorGraph* graph,
     port->left_selected = 0;
     port->right_selected = 0;
     port->comp_ptr = &(p->comp);
+
     if(i < p->num_ports)
       port->ip_addr = strsave(rc->port_name[i]);
     else
       port->ip_addr = (char *)NULL;
+
     port->left_x = p->x;
     port->left_y = p->y + i*p->height + 3*p->height/8.0;
     port->right_x = p->x + p->width*7/8.0;
@@ -409,6 +415,7 @@ createDrawCompFromRcnetComp(XcodaEditorGraph* graph,
     port->col = p->col;
     port->width = p->width/8.0;
     port->height = p->height/4.0;
+
     setup_ipport_func(port);
   }
   return p;
@@ -918,12 +925,8 @@ int matchConfigInfo (cinfo, name)
 }
   
 
-#if defined (__STDC__)
-void freeConfigInfo (ConfigInfo* cinfo)
-#else
-void freeConfigInfo (cinfo)
-     ConfigInfo* cinfo;
-#endif
+void
+freeConfigInfo (ConfigInfo* cinfo)
 {
   int i;
   
@@ -1016,27 +1019,21 @@ void freeRcNetComp (comp)
  * Description:                                                         *
  *      setup a rcNetComp with all initial value set                    *
  ***********************************************************************/
-#if defined (__STDC__)
-void setRcNetComp (rcNetComp* comp, 
+void
+setRcNetComp (rcNetComp* comp, 
 		   char* name, 
 		   int id, 
 		   char* cmd, 
 		   char* comp_type, 
 		   char* host)
-#else
-void setRcNetComp (comp, name, id, cmd, comp_type, host)
-     rcNetComp* comp;
-     char*      name;
-     int        id;
-     char*      cmd;
-     char*      comp_type;
-     char*      host;
-#endif
 {
   comp->daq.comp_name = strsave (name);
-  if (comp->daq.type == CODA_NONE) {
+  if (comp->daq.type == CODA_NONE)
+  {
     comp->daq.node_name = strsave("none");
-  } else {
+  }
+  else
+  {
     comp->daq.node_name = strsave (host);
   }
   comp->daq.id_num = id;
@@ -1044,10 +1041,15 @@ void setRcNetComp (comp, name, id, cmd, comp_type, host)
     comp->daq.boot_string = strsave (cmd);
   else
     comp->daq.boot_string = (char *)0;
+
   if(strcasecmp(comp_type, "ROC") == 0)
     comp->daq.type = CODA_ROC;
   else if(strcasecmp(comp_type, "EB") == 0)
     comp->daq.type = CODA_EB;
+  else if(strcasecmp(comp_type, "ET") == 0)
+    comp->daq.type = CODA_ET;
+  else if(strcasecmp(comp_type, "ETT") == 0)
+    comp->daq.type = CODA_ETT;
   else if(strcasecmp(comp_type, "TS") == 0)
     comp->daq.type = CODA_TRIG;    
   else if(strcasecmp(comp_type, "RCS") == 0)
@@ -1390,25 +1392,22 @@ XcodaEditorWriteToConfig(char* config_name, XcodaEditorGraph* graph)
  * Description:                                         *
  *    updating rcNetwork file                           *
  *******************************************************/
-#if defined (__STDC__)
-void XcodaEditorInsertAllComps (XcodaEditorGraph* graph)
-#else
-void XcodaEditorInsertAllComps (graph)
-     XcodaEditorGraph *graph;
-#endif
+void
+XcodaEditorInsertAllComps (XcodaEditorGraph* graph)
 {
   daqComp *daq;
   compList *p;
 
   /* insert all other regular components */
-  for(p=graph->comp_list_head->next; p != graph->comp_list_tail; p = p->next){
+  for(p=graph->comp_list_head->next; p != graph->comp_list_tail; p = p->next)
+  {
     daq = &(p->draw_comp->comp); 
-    if (daq->type != CODA_DEBUG && daq->type != CODA_FILE && 
-	daq->type != CODA_CODAFILE) {
+    if (daq->type != CODA_DEBUG && daq->type != CODA_FILE && daq->type != CODA_CODAFILE)
+    {
       if (isDaqCompInProcTable (daq->comp_name)) 
-	updateDaqCompToProcTable   (daq);
+	    updateDaqCompToProcTable   (daq);
       else
-	insertDaqCompToProcTable   (daq);
+	    insertDaqCompToProcTable   (daq);
     }
   }
 }
@@ -1573,37 +1572,32 @@ int constructRcnetComps(comps, num)
  *     Callers have full control of comp[i] if return success           *
  *     return 0: success. return -1: error                              *
  ***********************************************************************/
-#if defined (__STDC__)
-int constructRcnetCompsWithConfig (char* config, 
+int
+constructRcnetCompsWithConfig (char* config, 
 				   rcNetComp** comps, int* num,
 				   ConfigInfo** cinfos,
 				   int* num_cinfo)
-#else
-int constructRcnetComps(config, comps, num, cinfos, num_cinfo)
-     rcNetComp** comps;
-     int*        num;
-     ConfigInfo** cinfos;
-     int*         num_cinfo;
-#endif
 {
   int  i, j;
 
-  if (createRcNetCompsFromDbase (comps, num) < 0) 
-    return -1;
+  if (createRcNetCompsFromDbase (comps, num) < 0)
+  {
+    printf("constructRcnetCompsWithConfig error 1\n");
+    return(-1);
+  }
 
-  if (getConfigurationInfo(config, cinfos, num_cinfo) == -1) {
-    for(j = 0;j < *num; j++)
-      free(comps[j]);
+  if (getConfigurationInfo(config, cinfos, num_cinfo) == -1)
+  {
+    for(j = 0;j < *num; j++) free(comps[j]);
     comps = (rcNetComp **)NULL;
     *num = 0;
     cinfos = (ConfigInfo **)NULL;
     *num_cinfo = 0;
-    return -1;
+    return(-1);
   }
-  for(j = 0; j< *num; j++) 
-    updateCompAuxInfo(cinfos, *num_cinfo, comps[j]);
+  for(j = 0; j< *num; j++) updateCompAuxInfo(cinfos, *num_cinfo, comps[j]);
 
-  return 0;
+  return(0);
 }
 
   

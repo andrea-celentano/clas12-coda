@@ -35,6 +35,11 @@ ifeq ("$(OSTYPE)","Linux")
 	endif
 endif
 
+#obtain Linux release number (works on RHEL at least ..)
+ifeq ("$(OSTYPE)","Linux")
+  OSRELEASE = $(shell cat /etc/redhat-release | cut -d "." -f 1 | cut -d " " -f 7)
+endif
+
 localobj = ./$(OSTYPE_MACHINE)/obj
 locallib = ./$(OSTYPE_MACHINE)/lib
 localbin = ./$(OSTYPE_MACHINE)/bin
@@ -234,7 +239,18 @@ endif
 ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
     X11LIBDIRS = /usr/X11R6/lib64
 endif
+
     X11LIBS = -lXpm -lXm -lX11 -lXt -lXext
+ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
+    X11LIBS += -lXmu
+endif
+
+TERMCAPLIBS = -ltermcap
+ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
+ifeq ("$(OSRELEASE)","7")
+    TERMCAPLIBS += -lXft -lfontconfig
+endif
+endif
 
     SYSLIBDIRS = /usr/lib
 ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
@@ -754,6 +770,7 @@ LIB_FILES_ROL = $(subst .c,.so,$(TMP4))
 #--------------
 
 #print:
+#	echo ">$(OSRELEASE)<"
 #	echo ">$(MAKECMDGOALS)<"
 #	echo "VPATH_DIR3 >$(VPATH_DIR3)<"
 #	echo "VPATH_DIR2 >$(VPATH_DIR2)<"

@@ -31,10 +31,13 @@
 #include <netinet/in.h>
 #include <daqArbStructFactory.h>
 
+
+#define _TRACE_OBJECTS
+
 const int CODA_FDCONV_LEN = 32;
 
-// split a char buffer contains multiple char string terminated by NULL
-// char into an array of char string
+/* split a char buffer contains multiple char string terminated by NULL
+   char into an array of char string */
 
 static void codaSplitBuffer (char **s, char *buffer, int count, int& size)
 {
@@ -43,14 +46,17 @@ static void codaSplitBuffer (char **s, char *buffer, int count, int& size)
 
   p = q = buffer;
   size = 0;
-  while (i < count) {
+  while (i < count)
+  {
     int len = 0;
-    while (*q != '\0') {
+    while (*q != '\0')
+    {
       q++; len++; size++;
     }
     s[i] = new char[len + 1];
     ::strncpy (s[i], p, len+1);
-    // move cursor to next string
+
+    /* move cursor to next string */
     q++; size++;
     p = q;
     i++;
@@ -63,7 +69,7 @@ daqNetData::daqNetData (char* compname, char* attrname, int64_t data)
 :type_ (CODA_INT64), count_ (1)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create daqNetData Class Object\n");
+  printf ("Create daqNetData Class Object 1\n");
 #endif
   ctrNameAndAttr (compname, attrname);
   u_.lval = data;
@@ -74,7 +80,7 @@ daqNetData::daqNetData (char* compname, char* attrname, int data)
 :type_ (CODA_INT32), count_ (1)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create daqNetData Class Object\n");
+  printf ("Create daqNetData Class Object 2\n");
 #endif
   ctrNameAndAttr (compname, attrname);
   u_.ival = data;
@@ -84,7 +90,7 @@ daqNetData::daqNetData (char* compname, char* attrname, float data)
 :type_ (CODA_FLT), count_ (1)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create daqNetData Class Object\n");
+  printf ("Create daqNetData Class Object 3\n");
 #endif
   ctrNameAndAttr (compname, attrname);
   u_.fval = data;
@@ -94,7 +100,7 @@ daqNetData::daqNetData (char* compname, char* attrname, double data)
 :type_ (CODA_DBL), count_ (1)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create daqNetData Class Object\n");
+  printf ("Create daqNetData Class Object 4\n");
 #endif
   ctrNameAndAttr (compname, attrname);
   u_.dval = data;
@@ -104,7 +110,7 @@ daqNetData::daqNetData (char* compname, char* attrname, char* data)
 :type_ (CODA_STR), count_ (1)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create daqNetData Class Object\n");
+  printf ("Create daqNetData Class Object 5\n");
 #endif
   // data cannot be null
   assert (data);
@@ -119,7 +125,7 @@ daqNetData::daqNetData (char* compname, char* attrname, daqArbStruct* data)
 :type_ (CODA_STRUCT), count_ (1)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create daqNetData Class Object\n");
+  printf ("Create daqNetData Class Object 6\n");
 #endif
   // data cannot be null
   assert (data);
@@ -133,7 +139,7 @@ daqNetData::daqNetData (char* compname, char* attrname, int64_t* data, int count
 :type_ (CODA_INT64), count_ (count)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create daqNetData Class Object\n");
+  printf ("Create daqNetData Class Object 7\n");
 #endif
   // data cannot be null
   assert (data);
@@ -156,7 +162,7 @@ daqNetData::daqNetData (char* compname, char* attrname, int* data, int count)
 :type_ (CODA_INT32), count_ (count)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create daqNetData Class Object\n");
+  printf ("Create daqNetData Class Object 8\n");
 #endif
   // data cannot be null
   assert (data);
@@ -178,7 +184,7 @@ daqNetData::daqNetData (char* compname, char* attrname, float* data, int count)
 :type_ (CODA_FLT), count_ (count)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create daqNetData Class Object\n");
+  printf ("Create daqNetData Class Object 9\n");
 #endif
   // data cannot be null
   assert (data);
@@ -200,7 +206,7 @@ daqNetData::daqNetData (char* compname, char* attrname, double* data, int count)
 :type_ (CODA_DBL), count_ (count)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create daqNetData Class Object\n");
+  printf ("Create daqNetData Class Object 10\n");
 #endif
   // data cannot be null
   assert (data);
@@ -223,7 +229,7 @@ daqNetData::daqNetData (char* compname, char* attrname, char** data, int count)
 :type_ (CODA_STR), count_ (count)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create daqNetData Class Object\n");
+  printf ("Create daqNetData Class Object 11: count=%d\n",count);
 #endif
   // data cannot be null
   assert (data);
@@ -231,17 +237,26 @@ daqNetData::daqNetData (char* compname, char* attrname, char** data, int count)
 
   ctrNameAndAttr (compname, attrname);
   
-  if (count_ == 1) {
-    // This buffer will be around until this data is deleted
+  if (count_ == 1)
+  {
+    /* This buffer will be around until this data is deleted */
     u_.sval = new char[CODA_CONV_LEN];
     ::strncpy (u_.sval, data[0], CODA_CONV_LEN);
   }
-  else {
+  else
+  {
     char** tdata = new char*[count];
-    for (int i = 0; i < count; i++) {
+    for (int i = 0; i < count; i++)
+    {
+#ifdef _TRACE_OBJECTS
+      printf("[%d] len=%d\n",i,::strlen (data[i]));
+#endif
       tdata[i] = new char[::strlen (data[i]) + 1];
       ::strcpy (tdata[i], data[i]);
-    }
+#ifdef _TRACE_OBJECTS
+	  printf("[%d] >%s<\n",i,tdata[i]);
+#endif
+   }
     u_.data = (void *)tdata;
   }
 }
@@ -250,13 +265,16 @@ daqNetData::daqNetData (const daqNetData& data)
 :type_ (data.type_),  count_ (data.count_)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create daqNetData Class Object\n");
+  printf ("Create daqNetData Class Object 12\n");
 #endif
-  if (data.compname_ && data.attrname_)
-    ctrNameAndAttr (data.compname_, data.attrname_);
-  else {
-    compname_ = 0;
-    attrname_ = 0;
+  if (data.c_.compname_ && data.a_.attrname_)
+  {
+    ctrNameAndAttr (data.c_.compname_, data.a_.attrname_);
+  }
+  else
+  {
+    c_.compname_ = 0;
+    a_.attrname_ = 0;
   }
 
   switch (type_)
@@ -280,14 +298,17 @@ daqNetData::daqNetData (const daqNetData& data)
     break;
 
   case CODA_INT32:
-    if (count_ == 1) {
+    if (count_ == 1)
+    {
       u_.ival = data.u_.ival;
     }
-    else {
+    else
+    {
       int *tdata = new int[count_];
       int *cdata = (int *)data.u_.data;
-      for (int i = 0; i < count_; i++) {
-	tdata[i] = cdata[i];
+      for (int i = 0; i < count_; i++)
+      {
+	    tdata[i] = cdata[i];
       }
       u_.data = (void *)tdata;
     }
@@ -306,6 +327,7 @@ daqNetData::daqNetData (const daqNetData& data)
       u_.data = (void *)tdata;
     }
     break;
+
   case CODA_DBL:
     if (count_ == 1) {
       u_.dval = data.u_.dval;
@@ -319,52 +341,65 @@ daqNetData::daqNetData (const daqNetData& data)
       u_.data = (void *)tdata;
     }
     break;
+
   case CODA_STR:
-    if (count_ == 1) {
+    printf ("Create daqNetData Class Object 105: count_=%d\n",count_);
+    if (count_ == 1)
+    {
       u_.sval = new char[CODA_CONV_LEN];
       ::strncpy (u_.sval, data.u_.sval, CODA_CONV_LEN);
     }
-    else {
+    else
+    {
       char** tdata = new char*[count_];
       char** cdata = (char **)data.u_.data;
-      for (int i = 0; i < count_; i++) {
-	tdata[i] = new char[::strlen (cdata[i]) + 1];
-	::strcpy (tdata[i], cdata[i]);
+      for (int i = 0; i < count_; i++)
+      {
+	    tdata[i] = new char[::strlen (cdata[i]) + 1];
+	    ::strcpy (tdata[i], cdata[i]);
+        printf("105: [%d] >%s<\n",i,tdata[i]);
       }
       u_.data = (void *)tdata;
     }
     break;
+
   case CODA_STRUCT:
     u_.arb = data.u_.arb->dup ();
     break;
+
   default:
     break;
   }
 }
 
+
 daqNetData&
 daqNetData::operator = (const daqNetData& data)
 {
-  if (this != &data){
+#ifdef _TRACE_OBJECTS
+  printf ("Create daqNetData: operator =\n");
+#endif
+  if (this != &data)
+  {
     // delete old component and attribute name
-    if (compname_)
-      delete []compname_;
+    if (c_.compname_)
+      delete []c_.compname_;
     nameLen_ = data.nameLen_;
     if (nameLen_ == 0)
-      compname_ = 0;
+      c_.compname_ = 0;
     else {
-      compname_ = new char[nameLen_];
-      ::strcpy (compname_, data.compname_);
+      c_.compname_ = new char[nameLen_];
+      ::strcpy (c_.compname_, data.c_.compname_);
     }
 
-    if (attrname_)
-      delete []attrname_;
+    if (a_.attrname_)
+      delete []a_.attrname_;
     attrLen_ = data.attrLen_;
     if (attrLen_ == 0)
-      attrname_ = 0;
+      a_.attrname_ = 0;
     else {
-      attrname_ = new char[attrLen_];
-      ::strcpy (attrname_, data.attrname_);
+      a_.attrname_ = new char[attrLen_];
+      ::strcpy (a_.attrname_, data.a_.attrname_);
     }
 
     // free old memory
@@ -463,10 +498,10 @@ daqNetData::operator = (const daqNetData& data)
 daqNetData::daqNetData (void)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create daqNetData Class Object\n");
+  printf ("Create daqNetData Class Object 00\n");
 #endif
-  attrname_ = 0;
-  compname_ = 0;
+  a_.attrname_ = 0;
+  c_.compname_ = 0;
   count_ = 0;
   nameLen_ = 0;
   attrLen_ = 0;
@@ -478,10 +513,10 @@ daqNetData::~daqNetData (void)
 #ifdef _TRACE_OBJECTS
   printf ("Delete daqNetData Class Object\n");
 #endif
-  if (attrname_)
-    delete []attrname_;
-  if (compname_)
-    delete []compname_;
+  if (a_.attrname_)
+    delete []a_.attrname_;
+  if (c_.compname_)
+    delete []c_.compname_;
 
   if (count_ == 1) {
     if (type_ == CODA_STR) {
@@ -516,13 +551,22 @@ daqNetData::~daqNetData (void)
 void
 daqNetData::ctrNameAndAttr (char *compname, char *attrname)
 {
+
+  /* sergey: some checks */
+  if(compname==NULL || attrname==NULL)
+  {
+    printf("daqNetData::ctrNameAndAttr: ERROR: compname >%s<, attrname >%s<\n",compname,attrname);
+    fflush(stdout);
+    return;
+  }
+
   nameLen_ = ::strlen (compname) + 1;
-  compname_ = new char[nameLen_];
-  ::strcpy (compname_, compname);  
+  c_.compname_ = new char[nameLen_];
+  ::strcpy (c_.compname_, compname);  
 
   attrLen_ = ::strlen (attrname) + 1;
-  attrname_ = new char[attrLen_];
-  ::strcpy (attrname_, attrname);
+  a_.attrname_ = new char[attrLen_];
+  ::strcpy (a_.attrname_, attrname);
 }
 
 void
@@ -1941,291 +1985,385 @@ daqNetData::count (void) const
 char*
 daqNetData::name (void) const
 {
-  return compname_;
+  return c_.compname_;
 }
 
 char*
 daqNetData::attribute (void) const
 {
-  return attrname_;
+  return a_.attrname_;
 }
 
-// return size which rounded to word boundary
+
+/* return size which rounded to word boundary */
 int64_t
 daqNetData::size (void) const
 {
   int64_t size = RC_DAQ_NETDATA_SIZE;
 
-  if (count_ == 0)
-    return size;
+  if (count_ == 0) return size;
 
   size += nameLen_;
   size += attrLen_;
   
-  if (count_ > 1) {
-    switch (type_) {
-    case CODA_INT32:
-      size += (sizeof (int) * count_);
-      break;
-    case CODA_FLT:
-    case CODA_DBL:
-      size += (CODA_FDCONV_LEN * count_);
-      break;
-    case CODA_STR:
-      {
-	char **cdata = (char **)u_.data;
-	for (int i = 0; i < count_; i++)
-	  size += (::strlen (cdata[i]) + 1);
-      }
-      break;
-    default:
-      break;
+  if (count_ > 1)
+  {
+    switch (type_)
+    {
+      case CODA_INT32:
+        size += (sizeof (int) * count_);
+        break;
+
+      case CODA_FLT:
+      case CODA_DBL:
+        size += (CODA_FDCONV_LEN * count_);
+        break;
+
+      case CODA_STR:
+        {
+	      char **cdata = (char **)u_.data;
+	      for (int i = 0; i < count_; i++)
+		  {
+	        size += (::strlen (cdata[i]) + 1);
+		  }
+        }
+        break;
+
+      default:
+        break;
     }
   }
-  else {
-    switch (type_) {
-    case CODA_STR:
-      size += (::strlen (u_.sval) + 1);
-      break;
-    case CODA_FLT:
-    case CODA_DBL:
-      size += CODA_FDCONV_LEN;
-      break;
-    case CODA_STRUCT:
-      size += 2*sizeof (int64_t);  // run time id + size 
-      size += u_.arb->size ();
-      break;
-    default:
-      break;
+  else
+  {
+    switch (type_)
+    {
+      case CODA_STR:
+        size += (::strlen (u_.sval) + 1);
+        break;
+
+      case CODA_FLT:
+      case CODA_DBL:
+        size += CODA_FDCONV_LEN;
+        break;
+
+      case CODA_STRUCT:
+        size += 2*sizeof (int64_t);  /* run time id + size */
+        size += u_.arb->size ();
+        break;
+
+      default:
+        break;
     }
   }
+
   // roundup size to align with word boundary
   // now put everything into the buffer
   int64_t bufsize = roundLen (size);
-  return bufsize;
+
+  return(bufsize);
 }
 
-// Convert Float and Double into String With Length 32 and 4 after decimal
-// Point, Data Value stays unchanged
 
+
+
+/* Convert Float and Double into String With Length 32 and 4 after decimal
+   Point, Data Value stays unchanged */
 void
-encodeNetData (daqNetData& data, 
-	       char* &buffer, 
-	       int64_t& bufsize)
+encodeNetData (daqNetData& data, char* &buffer, int64_t& bufsize)
 {
+
+  printf("RC_DAQ_NETDATA_SIZE sizes: %d %d %d %d\n",sizeof(dataType),sizeof(int),sizeof(int64_t),sizeof(double));
+
+  /*32bit: RC_DAQ_NETDATA_SIZE sizes: 4 4 4 8
+    64bit: RC_DAQ_NETDATA_SIZE sizes: 4 4 8 8
+  */
+
+
   int64_t size = RC_DAQ_NETDATA_SIZE;
+  printf("size1=%d\n",size);
   size += data.nameLen_;
+  printf("size2=%d\n",size);
   size += data.attrLen_;
+  printf("size3=%d\n",size);
   
-  if (data.count_ > 1) {
-    switch (data.type_) {
+  if (data.count_ > 1)
+  {
+    switch (data.type_)
+    {
+	  /*sergey*/
+    case CODA_INT64:
+      size += (sizeof (int64_t) * data.count_);
+  printf("size44=%d\n",size);
+      break;
+
     case CODA_INT32:
       size += (sizeof (int) * data.count_);
+  printf("size4=%d\n",size);
       break;
     case CODA_FLT:
     case CODA_DBL:
       size += (CODA_FDCONV_LEN * data.count_);
+  printf("size5=%d\n",size);
       break;
     case CODA_STR:
-      {
-	char **cdata = (char **)data.u_.data;
-	for (int i = 0; i < data.count_; i++)
-	  size += (::strlen (cdata[i]) + 1);
-      }
+    {
+	  char **cdata = (char **)data.u_.data;
+	  for (int i = 0; i < data.count_; i++)
+	  {
+	    size += (::strlen (cdata[i]) + 1);
+	  }
+  printf("size6=%d\n",size);
+    }
       break;
     default:
       break;
     }
   }
-  else if (data.count_ == 1) {
-    switch (data.type_) {
+  else if (data.count_ == 1)
+  {
+    switch (data.type_)
+    {
     case CODA_STR:
       size += (::strlen (data.u_.sval) + 1);
+  printf("size7=%d\n",size);
       break;
     case CODA_FLT:
     case CODA_DBL:
       size += CODA_FDCONV_LEN;
+  printf("size8=%d\n",size);
       break;
     case CODA_STRUCT:
-      size += 2*sizeof(int64_t); // run time id + size info
+      size += 2*sizeof(int64_t); /* run time id + size info */
+  printf("size9=%d\n",size);
       size += data.u_.arb->size ();
+  printf("size10=%d\n",size);
       break;
     default:
       break;
     }
   }
-  // roundup size to align with word boundary
-  // now put everything into the buffer
-  bufsize = roundLen (size);
+
+  printf("size=%d\n",size);
+  printf("befor: bufsize=%lld\n",bufsize);
+
+  /* roundup size to align with word boundary
+     now put everything into the buffer */
+  bufsize = roundLen(size);
   buffer = new char[bufsize];
 
-  // convert all integer values into the network byte ordering
-  if (data.count_ == 1 && data.type_ == CODA_INT32)
-    data.u_.ival = htonl (data.u_.ival);
+  printf("after: bufsize=%lld (%lld)\n",bufsize,roundLen(size));
+
+
+
+
+  /* convert all integer values into the network byte ordering */
+  if (data.count_ == 1 && data.type_ == CODA_INT32) data.u_.ival = htonl (data.u_.ival);
   data.type_ = (dataType) htonl (data.type_);
   data.nameLen_ = htonl (data.nameLen_);
   data.attrLen_ = htonl (data.attrLen_);
   data.count_ = htonl (data.count_);
-  
+
+  /* reset words counter */  
   int i = 0;
-  // put class itself first
+
+
+
+  /* put class itself first */
   ::memcpy (buffer, &(data.type_), RC_DAQ_NETDATA_SIZE);
   i += RC_DAQ_NETDATA_SIZE;
 
-  // restore the original values
+
+
+  /* restore the original values */
   data.type_ = (dataType) ntohl (data.type_);
   data.nameLen_ = ntohl (data.nameLen_);
   data.attrLen_ = ntohl (data.attrLen_);
   data.count_ = ntohl (data.count_);
+
   if (data.count_ == 1 && data.type_ == CODA_INT32)
+  {
     data.u_.ival = ntohl (data.u_.ival);
+  }
 
-  if (data.count_ == 0) // no need to go more for an empty data
+  if (data.count_ == 0) /* no need to go more for an empty data */
+  {
     return;
+  }
 
-  // put component name
-  ::memcpy (&(buffer[i]), data.compname_, data.nameLen_);
+  /* put component name */
+  ::memcpy (&(buffer[i]), data.c_.compname_, data.nameLen_);
   i += data.nameLen_;
-  // put attribute name
-  ::memcpy (&(buffer[i]), data.attrname_, data.attrLen_);
+
+  /* put attribute name */
+  ::memcpy (&(buffer[i]), data.a_.attrname_, data.attrLen_);
   i += data.attrLen_;
-  // put array of data
-  if (data.count_ > 1) {
-    switch (data.type_) {
-    case CODA_INT32:
-      {
-	int *cdata = (int *)data.u_.data;
-	int tmp;
-	for (int j = 0; j < data.count_; j++) {
-	  tmp = htonl (cdata[j]);
-	  ::memcpy (&(buffer[i]), &tmp, sizeof (int));
-	  i += sizeof (int);
-	}
-      }
-      break;
-    case CODA_FLT:
-      {
-	char temp[CODA_FDCONV_LEN];
-	float *cdata = (float *)data.u_.data;
-	for (int j = 0; j < data.count_; j++) {
-	  sprintf (temp, "%-30.4f",cdata[j]);
-	  ::memcpy (&(buffer[i]), temp, CODA_FDCONV_LEN);
-	  i += CODA_FDCONV_LEN;
-	}
-      }
-      break;
-    case CODA_DBL:
-      {
-	char temp[CODA_FDCONV_LEN];
-	double *cdata = (double *)data.u_.data;
-	for (int j = 0; j < data.count_; j++) {
-	  sprintf (temp, "%-30.4lf",cdata[j]);
-	  ::memcpy (&(buffer[i]), temp, CODA_FDCONV_LEN);
-	  i = i + CODA_FDCONV_LEN;
-	}
-      }
-      break;
-    case CODA_STR:
-      {
-	char **cdata = (char **)data.u_.data;
-	int len;
-	for (int j = 0; j < data.count_; j++) {
-	  len = ::strlen (cdata[j]) + 1;
-	  ::memcpy (&(buffer[i]), cdata[j], len);
-	  i += len;
-	}
-      }
-      break;
-    default:
-      break;
+
+  /* put array of data */
+  if (data.count_ > 1)
+  {
+    switch (data.type_)
+    {
+      case CODA_INT32:
+        {
+	      int *cdata = (int *)data.u_.data;
+	      int tmp;
+	      for (int j = 0; j < data.count_; j++)
+          {
+	        tmp = htonl (cdata[j]);
+	        ::memcpy (&(buffer[i]), &tmp, sizeof (int));
+	        i += sizeof (int);
+	      }
+        }
+        break;
+
+      case CODA_FLT:
+        {
+	      char temp[CODA_FDCONV_LEN];
+	      float *cdata = (float *)data.u_.data;
+	      for (int j = 0; j < data.count_; j++)
+          {
+	        sprintf (temp, "%-30.4f",cdata[j]);
+	        ::memcpy (&(buffer[i]), temp, CODA_FDCONV_LEN);
+	        i += CODA_FDCONV_LEN;
+	      }
+        }
+        break;
+
+      case CODA_DBL:
+        {
+	      char temp[CODA_FDCONV_LEN];
+	      double *cdata = (double *)data.u_.data;
+	      for (int j = 0; j < data.count_; j++)
+          {
+	        sprintf (temp, "%-30.4lf",cdata[j]);
+	        ::memcpy (&(buffer[i]), temp, CODA_FDCONV_LEN);
+	        i = i + CODA_FDCONV_LEN;
+	      }
+        }
+        break;
+
+      case CODA_STR:
+        {
+	      char **cdata = (char **)data.u_.data;
+	      int len;
+	      for (int j = 0; j < data.count_; j++)
+          {
+	        len = ::strlen (cdata[j]) + 1;
+	        ::memcpy (&(buffer[i]), cdata[j], len);
+	        i += len;
+	      }
+        }
+        break;
+
+      default:
+        break;
     }
   }
-  else if (data.count_ == 1) {
-    switch (data.type_) {
-    case CODA_FLT:
-      {
-	char temp[CODA_FDCONV_LEN];
-	::sprintf (temp, "%-30.4f", data.u_.fval);
-	::memcpy (&(buffer[i]), temp, CODA_FDCONV_LEN);
-	i += CODA_FDCONV_LEN;
-      }
-      break;
-    case CODA_DBL:
-      {
-	char temp[CODA_FDCONV_LEN];
-	::sprintf (temp, "%-30.4lf", data.u_.dval);
-	::memcpy (&(buffer[i]), temp, CODA_FDCONV_LEN);
-	i += CODA_FDCONV_LEN;
-      }
-      break;
-    case CODA_STR:
-      {
-	int len = ::strlen (data.u_.sval) + 1;
-	::memcpy (&(buffer[i]), data.u_.sval, len);
-	i += len;
-      }
-      break;
-    case CODA_STRUCT:
-      {
-	int64_t tmp[2];
-	tmp[0] = data.u_.arb->id ();
-	tmp[1] = data.u_.arb->size ();
+  else if (data.count_ == 1)
+  {
+    switch (data.type_)
+    {
+      case CODA_FLT:
+        {
+	      char temp[CODA_FDCONV_LEN];
+	      ::sprintf (temp, "%-30.4f", data.u_.fval);
+	      ::memcpy (&(buffer[i]), temp, CODA_FDCONV_LEN);
+	      i += CODA_FDCONV_LEN;
+        }
+        break;
 
-	tmp[0] = htonl (tmp[0]); tmp[1] = htonl (tmp[1]);
-	// copy prefix information
-	::memcpy (&(buffer[i]), (void *)tmp, 2*sizeof (int64_t));
-	i = i + 2*sizeof (int64_t);
+      case CODA_DBL:
+        {
+	      char temp[CODA_FDCONV_LEN];
+	      ::sprintf (temp, "%-30.4lf", data.u_.dval);
+	      ::memcpy (&(buffer[i]), temp, CODA_FDCONV_LEN);
+	      i += CODA_FDCONV_LEN;
+        }
+        break;
 
-	// copy structure
-	size_t bufsize = 0;
-	data.u_.arb->encode (&(buffer[i]), bufsize);
-	i += bufsize;
-      }
-      break;
-    default:
-      break;
+      case CODA_STR:
+        {
+	      int len = ::strlen (data.u_.sval) + 1;
+	      ::memcpy (&(buffer[i]), data.u_.sval, len);
+	      i += len;
+        }
+        break;
+
+      case CODA_STRUCT:
+        {
+	      int64_t tmp[2];
+	      tmp[0] = data.u_.arb->id ();
+	      tmp[1] = data.u_.arb->size ();
+
+	      tmp[0] = htonl (tmp[0]);
+          tmp[1] = htonl (tmp[1]);
+
+	      /* copy prefix information */
+	      ::memcpy (&(buffer[i]), (void *)tmp, 2*sizeof (int64_t));
+	      i = i + 2*sizeof (int64_t);
+
+	      /* copy structure */
+	      size_t bufsize = 0;
+	      data.u_.arb->encode (&(buffer[i]), bufsize);
+	      i += bufsize;
+        }
+        break;
+
+      default:
+        break;
     }
   }
-  if (i != size) { // something is wrong
+
+  if (i != size) /* something is wrong */
+  {
     fprintf (stderr, "Something is wrong in encoding for data %s %s\n",
-	     data.compname_, data.attrname_);
+	     data.c_.compname_, data.a_.attrname_);
   }
 }
 
 
 void
-decodeNetData (daqNetData& data, 
-	       char* buffer, 
-	       int64_t bufsize)
+decodeNetData (daqNetData& data, char* buffer, int64_t bufsize)
 {
-  printf("decodeNetData: bufsize=%lld\n",bufsize);
+#ifdef _TRACE_OBJECTS
+  printf("daqNetData::decodeNetData: bufsize=%lld\n",bufsize);fflush(stdout);
+#endif
 
-  // first clean up old information and remember old count value
+  /* first clean up old information and remember old count value */
   int64_t oldcount = data.count_;
   char *comp = 0;
   char *attr = 0;
 
-  if (data.count_ != 0) {
+  if (data.count_ != 0)
+  {
     if (data.count_ > 1)
+	{
       data.freeBufferMemory ();
-    else if (data.count_ == 1) {
-      if (data.type_ == CODA_STR)
-	delete []data.u_.sval;
-      else if (data.type_ == CODA_STRUCT) 
-	delete data.u_.arb;
+	}
+    else if (data.count_ == 1)
+    {
+      if (data.type_ == CODA_STR) delete []data.u_.sval;
+      else if (data.type_ == CODA_STRUCT) delete data.u_.arb;
     }
-    // remember address for attribute and component name which will be
-    // altered when one get the class content from the buffer
-    comp = data.compname_;
-    attr = data.attrname_;
+
+
+    /* remember address for attribute and component name which will be
+       altered when one get the class content from the buffer */
+    comp = data.c_.compname_;
+    attr = data.a_.attrname_;
+
+
+
   }
 
-  // copy class itself
+
+  /* copy class itself */
   int i = 0;
   ::memcpy (&(data.type_), buffer, RC_DAQ_NETDATA_SIZE);
   i += RC_DAQ_NETDATA_SIZE;
 
-  // convert all integer value back into host byte ordering
+
+  /* convert all integer value back into host byte ordering */
   data.type_ = (dataType) ntohl (data.type_);
   data.nameLen_ = ntohl (data.nameLen_);
   data.attrLen_ = ntohl (data.attrLen_);
@@ -2238,12 +2376,15 @@ decodeNetData (daqNetData& data,
     assert (data.nameLen_ > 0);
     assert (data.attrLen_ > 0);
 
-    data.compname_ = new char[data.nameLen_];
-    data.attrname_ = new char[data.attrLen_];
-  printf("decodeNetData: data.attrLen_=%d\n",data.attrLen_);
-    ::memcpy (data.compname_, &(buffer[i]), data.nameLen_);
+    data.c_.compname_ = new char[data.nameLen_];
+    data.a_.attrname_ = new char[data.attrLen_];
+
+	/*sergey
+    printf("decodeNetData: data.attrLen_=%d\n",data.attrLen_);
+	*/
+    ::memcpy (data.c_.compname_, &(buffer[i]), data.nameLen_);
     i += data.nameLen_;
-    ::memcpy (data.attrname_, &(buffer[i]), data.attrLen_);
+    ::memcpy (data.a_.attrname_, &(buffer[i]), data.attrLen_);
     i += data.attrLen_;
   }
   else
@@ -2251,121 +2392,154 @@ decodeNetData (daqNetData& data,
     // do not get component name and attribute name
     // since this data already has component name and attribute
     // restore the name and attribute address
-    data.compname_ = comp;
-    data.attrname_ = attr;
+    data.c_.compname_ = comp;
+    data.a_.attrname_ = attr;
     i += (data.nameLen_ + data.attrLen_);
   }
 
-  // get values
-  if (data.count_ > 1) {
-    switch (data.type_) {
-    case CODA_INT32:
+#ifdef _TRACE_OBJECTS
+  printf("daqNetData::decodeNetData: data.count_=%d data.type_=%d\n",data.count_,data.type_);fflush(stdout);
+#endif
+
+  /* get values */
+  if (data.count_ > 1)
+  {
+    switch (data.type_)
+    {
+      case CODA_INT32:
       {
-	int *tdata = new int [data.count_];
-	for (int j = 0; j < data.count_; j++) {
-	  ::memcpy (&(tdata[j]), &(buffer[i]), sizeof (int));
-	  tdata[j] = ntohl (tdata[j]);
-	  i += sizeof (int);
-	}
-	data.u_.data = (void *)tdata;
+	    int *tdata = new int [data.count_];
+	    for (int j = 0; j < data.count_; j++)
+        {
+	      ::memcpy (&(tdata[j]), &(buffer[i]), sizeof (int));
+	      tdata[j] = ntohl (tdata[j]);
+	      i += sizeof (int);
+	    }
+	    data.u_.data = (void *)tdata;
       }
       break;
-    case CODA_FLT:
+
+      case CODA_FLT:
       {
-	float *tdata = new float[data.count_];
-	char temp[CODA_FDCONV_LEN];
-	for (int j = 0; j < data.count_; j++) {
-	  ::memcpy (temp, &(buffer[i]), CODA_FDCONV_LEN);
-	  ::sscanf (temp, "%f", &(tdata[j]));
-	  i += CODA_FDCONV_LEN;
-	}
-	data.u_.data = (void *)tdata;
+	    float *tdata = new float[data.count_];
+	    char temp[CODA_FDCONV_LEN];
+	    for (int j = 0; j < data.count_; j++)
+        {
+	      ::memcpy (temp, &(buffer[i]), CODA_FDCONV_LEN);
+	      ::sscanf (temp, "%f", &(tdata[j]));
+	      i += CODA_FDCONV_LEN;
+	    }
+	    data.u_.data = (void *)tdata;
       }
       break;
-    case CODA_DBL:
+
+      case CODA_DBL:
       {
-	double *tdata = new double[data.count_];
-	char temp[CODA_FDCONV_LEN];
-	double tmp;
-	for (int j = 0; j < data.count_; j++) {
-	  ::memcpy (temp, &(buffer[i]), CODA_FDCONV_LEN);
-	  ::sscanf (temp, "%lf", &tmp);
-	  tdata[j] = (double)tmp;
-	  i += CODA_FDCONV_LEN;
-	}
-	data.u_.data = (void *)tdata;
+	    double *tdata = new double[data.count_];
+	    char temp[CODA_FDCONV_LEN];
+	    double tmp;
+	    for (int j = 0; j < data.count_; j++)
+        {
+	      ::memcpy (temp, &(buffer[i]), CODA_FDCONV_LEN);
+	      ::sscanf (temp, "%lf", &tmp);
+	      tdata[j] = (double)tmp;
+	      i += CODA_FDCONV_LEN;
+	    }
+	    data.u_.data = (void *)tdata;
       }
       break;
-    case CODA_STR:
+
+      case CODA_STR:
       {
-	char **tdata = new char*[data.count_];
-	int  bfsize = 0;
-	codaSplitBuffer (tdata, &(buffer[i]), data.count_, bfsize);
-	i += bfsize;
-	data.u_.data = (void *)tdata;
+	    char **tdata = new char*[data.count_];
+	    int  bfsize = 0;
+	    codaSplitBuffer (tdata, &(buffer[i]), data.count_, bfsize);
+	    i += bfsize;
+	    data.u_.data = (void *)tdata;
       }
       break;
-    default:
-      break;
+
+      default:
+        break;
     }
   }
-  else if (data.count_ == 1) {
-    switch (data.type_) {
-    case CODA_FLT:
+  else if (data.count_ == 1)
+  {
+    switch (data.type_)
+    {
+      case CODA_FLT:
       {
-	char temp[CODA_FDCONV_LEN];
-	::memcpy (temp, &(buffer[i]), CODA_FDCONV_LEN);
-	::sscanf (temp, "%f", &(data.u_.fval));
-	i += CODA_FDCONV_LEN;
+	    char temp[CODA_FDCONV_LEN];
+	    ::memcpy (temp, &(buffer[i]), CODA_FDCONV_LEN);
+	    ::sscanf (temp, "%f", &(data.u_.fval));
+	    i += CODA_FDCONV_LEN;
       }
       break;
-    case CODA_DBL:
+
+      case CODA_DBL:
       {
-	char temp[CODA_FDCONV_LEN];
-	double ftmp;
-	::memcpy (temp, &(buffer[i]), CODA_FDCONV_LEN);
-	::sscanf (temp, "%lf", &ftmp);
-	data.u_.dval = (double)ftmp;
-	i += CODA_FDCONV_LEN;
+	    char temp[CODA_FDCONV_LEN];
+	    double ftmp;
+	    ::memcpy (temp, &(buffer[i]), CODA_FDCONV_LEN);
+	    ::sscanf (temp, "%lf", &ftmp);
+	    data.u_.dval = (double)ftmp;
+	    i += CODA_FDCONV_LEN;
       }
       break;
-    case CODA_STR:
+
+      case CODA_STR:
       {
-	int len = ::strlen (&(buffer[i])) + 1;
-	data.u_.sval = new char[len];
-	::strcpy (data.u_.sval, &(buffer[i]));
-	i += len;
+	    int len = ::strlen (&(buffer[i])) + 1;
+	    data.u_.sval = new char[len];
+	    ::strcpy (data.u_.sval, &(buffer[i]));
+	    i += len;
       }
       break;
-    case CODA_STRUCT:
+
+      case CODA_STRUCT:
       {
-	// first get prefix information
-	int64_t tmp[2];
-	::memcpy ((void *)tmp, &(buffer[i]), 2*sizeof (int64_t));
+#ifdef _TRACE_OBJECTS
+        printf("daqNetData::decodeNetData: CODA_STRUCT\n");fflush(stdout);
+#endif
+		/* first get prefix information */
+	    int64_t tmp[2];
+	    ::memcpy ((void *)tmp, &(buffer[i]), 2*sizeof (int64_t));
 
-	tmp[0] = ntohl (tmp[0]);
-	tmp[1] = ntohl (tmp[1]);
+	    tmp[0] = ntohl (tmp[0]);
+	    tmp[1] = ntohl (tmp[1]);
 
-	i = i + 2*sizeof (int64_t);
+	    i = i + 2*sizeof (int64_t);
 
-	// create comp boot struct
-	daqArbStructFactory factory;
-	data.u_.arb = factory.create (tmp[0]);
-	assert (data.u_.arb);
 
-	// get content out of buffer
-	data.u_.arb->decode (&(buffer[i]), tmp[1]);
-	i += tmp[1];
+		/* create comp boot struct */
+	    daqArbStructFactory factory;
+	    data.u_.arb = factory.create (tmp[0]);
+	    assert (data.u_.arb);
+
+#ifdef _TRACE_OBJECTS
+        printf("daqNetData::decodeNetData: CODA_STRUCT 1\n");fflush(stdout);
+#endif
+	    /* get content out of buffer */
+	    data.u_.arb->decode (&(buffer[i]), tmp[1]);
+#ifdef _TRACE_OBJECTS
+        printf("daqNetData::decodeNetData: CODA_STRUCT 2\n");fflush(stdout);
+#endif
+	    i += tmp[1];
+
       }
       break;
-    default:
-      break;
+
+      default:
+#ifdef _TRACE_OBJECTS
+  printf("daqNetData::decodeNetData: default ..\n");fflush(stdout);
+#endif
+        break;
     }
   }
-  if (i > bufsize) {
-    fprintf (stderr, "Something is wrong in decoding for data %s %s\n",
-	     data.compname_, data.attrname_);
-    fprintf (stderr, "decode byte size %d and expected byte size %d\n",
-	     i, bufsize);
+
+  if (i > bufsize)
+  {
+    fprintf (stderr, "Something is wrong in decoding for data %s %s\n", data.c_.compname_, data.a_.attrname_);
+    fprintf (stderr, "decode byte size %d and expected byte size %d\n", i, bufsize);
   }
 }

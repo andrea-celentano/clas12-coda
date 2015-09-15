@@ -49,12 +49,8 @@
 
 static editorConfigSel  iconfigSel;
 
-#if defined (__STDC__)
-static Widget createOptionMenu (Widget parent)
-#else
-static Widget createOptionMenu (parent)
-     Widget parent;
-#endif
+static Widget
+createOptionMenu (Widget parent)
 {
   Arg arg[20];
   int ac = 0;
@@ -87,16 +83,8 @@ static Widget createOptionMenu (parent)
   return option;
 }
 
-#if defined (__STDC__)
 static void
 configSelOk (Widget w, XtPointer data, XmAnyCallbackStruct* cbs)
-#else
-static void
-configSelOk (w, data, cbs)
-     Widget w;
-     XtPointer data;
-     XmAnyCallbackStruct* cbs;
-#endif
 {
   int  i = 0;
   char* currconfig;
@@ -133,7 +121,10 @@ configSelOk (w, data, cbs)
     pop_error_message (temp, w);
     return;
   }
-  else {
+  else
+  {
+	printf("configSelOk: currconfig >%s<\n",currconfig); fflush(stdout);
+
     XcodaEditorShowConfigName (currconfig);
     if (constructRcnetCompsWithConfig (currconfig, 
 				       daq_list, &num_comps,
@@ -142,25 +133,19 @@ configSelOk (w, data, cbs)
 					  configs, num_configs);
       (*coda_graph.redisplay)(&coda_graph, sw_geometry.draw_area, 
 			      cbs->event);
+
       /* free all resources */
-      for (i = 0; i < num_comps; i++)
-	freeRcNetComp (daq_list[i]);
-      for (i = 0; i < num_configs; i++)
-	freeConfigInfo (configs[i]);
+      for (i = 0; i < num_comps; i++) freeRcNetComp (daq_list[i]);
+      for (i = 0; i < num_configs; i++) freeConfigInfo (configs[i]);
     }
   }
 }
 
+
 extern Widget top_form;
 
-#if defined (__STDC__)
 void
 EditorSelectConfig (char *confn)
-#else
-void
-EditorSelectConfig (confn)
-     char *confn;
-#endif
 {
   int  i = 0;
   char* currconfig;
@@ -173,59 +158,50 @@ EditorSelectConfig (confn)
   ConfigInfo* configs[EDITOR_MAX_CONFIGS];
   int        num_configs;
 
+  printf("EditorSelectConfig: confn >%s<\n",confn);
+
   currconfig = confn;
+
   XcodaEditorResetGraphCmd();
 
   delete_everything (0, 0, 0);
   initConfigSel (sw_geometry.draw_area);
 
   /* tell database handler */
-  if (selectConfigTable (currconfig) < 0) {
+  if (selectConfigTable (currconfig) < 0)
+  {
     XcodaEditorShowConfigName (0);
     sprintf (temp, "Cannot select configuration %s", currconfig);
     pop_error_message (temp, top_form);
     return;
   }
-  else {
+  else
+  {
     XcodaEditorShowConfigName (currconfig);
     if (constructRcnetCompsWithConfig (currconfig, 
 				       daq_list, &num_comps,
-				       configs, &num_configs) == 0) {
+				       configs, &num_configs) == 0)
+    {
       XcodaEditorConstructGraphFromConfig(&coda_graph, daq_list, num_comps,
 					  configs, num_configs);
       (*coda_graph.redisplay)(&coda_graph, sw_geometry.draw_area, 
 			      0);
       /* free all resources */
-      for (i = 0; i < num_comps; i++)
-	freeRcNetComp (daq_list[i]);
-      for (i = 0; i < num_configs; i++)
-	freeConfigInfo (configs[i]);
+      for (i = 0; i < num_comps; i++) freeRcNetComp (daq_list[i]);
+      for (i = 0; i < num_configs; i++) freeConfigInfo (configs[i]);
     }
   }
 }
 
-#if defined (__STDC__)
 static void
 configSelCancel (Widget w, XtPointer data, XmAnyCallbackStruct* cbs)
-#else
-static void
-configSelCancel (w, data, cbs)
-     Widget w;
-     XtPointer data;
-     XmAnyCallbackStruct* cbs;
-#endif
 {
   configSelPopdown ();
 }
 
-#if defined (__STDC__)  
+
 void
 initConfigSel (Widget parent)
-#else
-void
-initConfigSel (parent)
-     Widget parent;
-#endif
 {
   Arg arg[20];
   int ac = 0;
@@ -233,8 +209,13 @@ initConfigSel (parent)
   Widget actionForm, sep;
   static int configSelInited = 0;
   
+  printf("initConfigSel reached\n");
+
   if (configSelInited) 
+  {
+    printf("initConfigSel: already inited - do nothing\n");
     return;
+  }
 
   iconfigSel.numConfigs_ = 0;
   iconfigSel.managed_ = 0;
@@ -302,9 +283,8 @@ initConfigSel (parent)
 			       arg, ac);
   ac = 0;
 					  
-  
 
-  /* create optin menu */
+  /* create option menu */
   iconfigSel.option_ = createOptionMenu (iconfigSel.w_);
   XtSetArg (arg[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
   XtSetArg (arg[ac], XmNtopOffset, 20); ac++;
@@ -335,13 +315,9 @@ initConfigSel (parent)
   configSelInited = 1;
 }
 
-#if defined (__STDC__)
+
 void
 configSelPopup (void)
-#else
-void
-configSelPopup ()
-#endif
 {
   int  status;
   int  i;
@@ -389,13 +365,8 @@ configSelPopup ()
   iconfigSel.managed_ = 1;
 }
 
-#if defined (__STDC__)
 void
 configSelPopdown (void)
-#else
-void
-configSelPopdown ()
-#endif
 {
   int i = 0;
 

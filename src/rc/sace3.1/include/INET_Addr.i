@@ -49,7 +49,7 @@ INET_Addr::set (unsigned short port_number, const char host_name[], int encode)
   hostent *server_info;  
   int32_t addr;
   
-  printf("INET_Addr.i: INET_Addr::set: port=%d host >%s<\n",port_number,host_name);
+  printf("INET_Addr.i: INET_Addr::set: port=%d host >%s< encode=%d\n",port_number,host_name,encode);
 
   this->Addr::base_set (AF_INET, sizeof this->inet_addr_);
   (void) ::memset ((void *) &this->inet_addr_, 0, sizeof this->inet_addr_);

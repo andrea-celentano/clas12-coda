@@ -2053,7 +2053,7 @@ daqRun::autoBootInfo (rccIO* chan, rcMsg* cmsg)
 	// get internal information
 	long numcomp = 0;
 	char** names = 0;
-	long* autoboot = 0;
+	/*long*/int64_t* autoboot = 0;
 	numcomp = bootInfo->compBootInfo (names, autoboot);
 
 	daqComponent* comp = 0;
@@ -2092,7 +2092,7 @@ daqRun::monitorParms (rccIO* chan, rcMsg* cmsg)
 	// get internal information
 	long numcomp = 0;
 	char** names = 0;
-	long* monitored = 0;
+	int64_t*/*long*/ monitored = 0;
 	long  autoend = 0;
 	long  interval = 0;
 	numcomp = monInfo->monitorParms (names, monitored, autoend, interval);

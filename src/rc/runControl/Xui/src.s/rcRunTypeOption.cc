@@ -159,31 +159,39 @@ rcRunTypeOption::setAllEntries (void)
 }
 
 extern int doTk;
-char*
+
+char *
 rcRunTypeOption::currentRunType (void)
 {
+  printf("rcRunTypeOption::currentRunType 1 ---------------------------\n");
   assert (currentSel_ < numRuntypes_);
+  printf("rcRunTypeOption::currentRunType 2 ---------------------------\n");
 
   // remove old information
-  if (currRunType_)
-    delete []currRunType_;
+  if (currRunType_) delete []currRunType_;
   currRunType_ = 0;
 
   if (::strcmp (runtypes_[currentSel_], "unknown") == 0)
-    return 0;
-  else {
+  {
+    return(0);
+  }
+  else
+  {
     currRunType_ = new char[::strlen (runtypes_[currentSel_]) + 1];
     ::strcpy (currRunType_, runtypes_[currentSel_]);
 
+	/*
     {
       char cmd[100];
       sprintf(cmd,"c:%s",currRunType_);
 printf("CEDIT 4: >%s<\n",cmd);
 #ifdef USE_CREG
-      coda_send(XtDisplay(this->baseWidget()),"CEDIT",cmd);
+      coda_Send(XtDisplay(this->baseWidget()),"CEDIT",cmd);
+      coda_Send(XtDisplay(this->baseWidget()),"ALLROCS",cmd);
 #endif
     }
-    
+    */
+
     return runtypes_[currentSel_];
   }
 }

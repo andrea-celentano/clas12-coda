@@ -12,8 +12,6 @@ all:
 	- cd et-14.0;                        $(MAKE)
 	- cd et-14.0;                        $(MAKE) ulib
 	- cd et-14.0;                        $(MAKE) install
-##	- cd bosio;                          $(MAKE)
-##	- cd bosio;                          $(MAKE) install
 	- cd mysql4.1.20;                    $(MAKE)
 	- cd mysql4.1.20;                    $(MAKE) install
 	- cd creg;                           $(MAKE)
@@ -22,8 +20,8 @@ all:
 	- cd codatcl1.0;                     $(MAKE) install
 	- cd codaedit;                       $(MAKE)
 	- cd codaedit;                       $(MAKE) install
-##	- cd codatt;                         $(MAKE)
-##	- cd codatt;                         $(MAKE) install
+	- cd codaterm;                       $(MAKE)
+	- cd codaterm;                       $(MAKE) install
 #	- cd rol;                            $(MAKE) jvmes
 	- cd rol/jvme;                       $(MAKE)
 	- cd dac;                            $(MAKE)
@@ -34,25 +32,24 @@ all:
 	- cd rol;                            $(MAKE) install
 	- cd rc;                             $(MAKE)
 	- cd rc;                             $(MAKE) install
-##	- cd diaggui;                        $(MAKE)
-##	- cd diaggui;                        $(MAKE) install
+	- cd diaggui;                        $(MAKE)
+	- cd diaggui;                        $(MAKE) install
 
 clean:
 	cd scripts;                          $(MAKE) clean
 	- cd rcscripts;                      $(MAKE) clean
 	- cd evio-4.3;                       $(MAKE) clean
 	- cd et-14.0;                        $(MAKE) clean
-	- cd bosio;                          $(MAKE) clean
 	- cd mysql4.1.20;                    $(MAKE) clean
 	- cd codatcl1.0;                     $(MAKE) clean
 	- cd creg;                           $(MAKE) clean
 	- cd codaedit;                       $(MAKE) clean
-	- cd codatt;                         $(MAKE) clean
+	- cd codaterm;                       $(MAKE) clean
 	- cd dac;                            $(MAKE) clean
 	- cd rol;                            $(MAKE) clean
 	- cd rol/jvme;                       $(MAKE) clean
 	- cd rc;                             $(MAKE) clean
-##	- cd diaggui;                        $(MAKE) clean
+	- cd diaggui;                        $(MAKE) clean
 
 
 distclean:

@@ -335,9 +335,12 @@ TcpServer(void)
     mysql_free_result(result);
 
 	hname = getenv("HOST");
+	printf("hname befor >%s<\n",hname);
     /* remove everything starting from first dot */
     ch = strstr(hname,".");
-    *ch = '\0';
+    if(ch != NULL) *ch = '\0';
+    else ch = hname[strlen(hname)];
+	printf("hname after >%s<\n",hname);
 
     /*printf("nrow=%d\n",numRows);*/
     if(numRows == 0)

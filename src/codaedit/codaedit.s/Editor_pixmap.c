@@ -40,8 +40,25 @@
 #include <X11/xpm.h>
 #include <Xm/Xm.h>
 
+
+
+
+/* sergey: not all of following includes actually used .. */
+
+#include "./xpm_icon/ts.xpm"
+#include "./xpm_icon/roc.xpm"
+#include "./xpm_icon/eb.xpm"
+#include "./xpm_icon/et.xpm"
+#include "./xpm_icon/ett.xpm"
+#include "./xpm_icon/er.xpm"
+#include "./xpm_icon/codafile.xpm"
+#include "./xpm_icon/binfile.xpm"
+#include "./xpm_icon/mon.xpm"
+
 #include "./xpm_icon/default_roc.xpm"
 #include "./xpm_icon/default_eb.xpm"
+#include "./xpm_icon/default_et.xpm" /* sergey */
+#include "./xpm_icon/default_ett.xpm" /* sergey */
 #include "./xpm_icon/default_ana.xpm"
 #include "./xpm_icon/default_ebana.xpm"
 #include "./xpm_icon/default_trig.xpm"
@@ -85,17 +102,25 @@ void XcodaEditorCreatePixmaps(parent,bg,fg)
      Pixel  bg, fg;
 #endif
 {
-  btn_pixmaps.roc = XcodaCreatePixmapFromXpm(parent,default_roc_xpm, 1);
+  btn_pixmaps.trig =XcodaCreatePixmapFromXpm(parent,ts_xpm/*default_trig_xpm*/, 1);
+  btn_pixmaps.roc = XcodaCreatePixmapFromXpm(parent,roc_xpm/*default_roc_xpm*/, 1);
+
   btn_pixmaps.eb  = XcodaCreatePixmapFromXpm(parent,default_eb_xpm, 1);
+  btn_pixmaps.et  = XcodaCreatePixmapFromXpm(parent,default_et_xpm, 1); /*sergey*/
+  btn_pixmaps.ett  = XcodaCreatePixmapFromXpm(parent,default_ett_xpm, 1); /*sergey*/
   btn_pixmaps.ana = XcodaCreatePixmapFromXpm(parent,default_ana_xpm, 1);
   btn_pixmaps.ebana = XcodaCreatePixmapFromXpm(parent,default_ebana_xpm, 1);
-  btn_pixmaps.trig =XcodaCreatePixmapFromXpm(parent,default_trig_xpm, 1);
   
-  btn_pixmaps.hl_roc = XcodaCreatePixmapFromXpm(parent,hl_roc_xpm, 0);
+
+
+  btn_pixmaps.hl_trig= XcodaCreatePixmapFromXpm(parent,ts_xpm/*hl_trig_xpm*/, 0);
+  btn_pixmaps.hl_roc = XcodaCreatePixmapFromXpm(parent,roc_xpm/*hl_roc_xpm*/, 0);
+
   btn_pixmaps.hl_eb = XcodaCreatePixmapFromXpm(parent,hl_eb_xpm, 0);
+  btn_pixmaps.hl_et = XcodaCreatePixmapFromXpm(parent,default_et_xpm, 0); /*sergey*/
+  btn_pixmaps.hl_ett = XcodaCreatePixmapFromXpm(parent,default_ett_xpm, 0); /*sergey*/
   btn_pixmaps.hl_ana = XcodaCreatePixmapFromXpm(parent,hl_ana_xpm, 0);
   btn_pixmaps.hl_ebana = XcodaCreatePixmapFromXpm(parent,hl_ebana_xpm, 0);
-  btn_pixmaps.hl_trig= XcodaCreatePixmapFromXpm(parent,hl_trig_xpm, 0);
 
   btn_pixmaps.eth_input = XcodaCreatePixmapFromXpm(parent,eth_input_xpm, 1);
   btn_pixmaps.move_node = XcodaCreatePixmapFromXpm(parent,move_node_xpm, 1);
@@ -104,16 +129,28 @@ void XcodaEditorCreatePixmaps(parent,bg,fg)
   btn_pixmaps.move_node_sel = XcodaCreatePixmapFromXpm(parent,
 						       move_node_sel_xpm, 1);
 
-  btn_pixmaps.roc_btn = XcodaCreatePixmapFromXpm(parent,roc_btn_xpm, 1);
-  btn_pixmaps.eb_btn = XcodaCreatePixmapFromXpm(parent, eb_btn_xpm, 1);
-  btn_pixmaps.er_btn = XcodaCreatePixmapFromXpm(parent, casett2_xpm, 1);
-  btn_pixmaps.dd_btn = XcodaCreatePixmapFromXpm(parent, convert1_xpm, 1);
-  btn_pixmaps.cfi_btn = XcodaCreatePixmapFromXpm(parent, doc_coda_xpm, 1);
-  btn_pixmaps.fi_btn = XcodaCreatePixmapFromXpm(parent, doc_bin_xpm, 1);
+
+
+  /* sergey: icons for left menu */
+  btn_pixmaps.trig_btn  = XcodaCreatePixmapFromXpm(parent, ts_xpm/*trig_btn_xpm*/, 1);
+  btn_pixmaps.roc_btn   = XcodaCreatePixmapFromXpm(parent, roc_xpm/*roc_btn_xpm*/, 1);
+  btn_pixmaps.eb_btn    = XcodaCreatePixmapFromXpm(parent, eb_xpm/*eb_btn_xpm*/, 1);
+  btn_pixmaps.et_btn    = XcodaCreatePixmapFromXpm(parent, et_xpm, 1); /*sergey*/
+  btn_pixmaps.ett_btn   = XcodaCreatePixmapFromXpm(parent, ett_xpm, 1); /*sergey*/
+  btn_pixmaps.er_btn    = XcodaCreatePixmapFromXpm(parent, er_xpm, 1);
+  btn_pixmaps.cfi_btn   = XcodaCreatePixmapFromXpm(parent, codafile_xpm/*doc_coda_xpm*/, 1);
+  btn_pixmaps.fi_btn    = XcodaCreatePixmapFromXpm(parent, binfile_xpm/*doc_bin_xpm*/, 1);
+  btn_pixmaps.dd_btn    = XcodaCreatePixmapFromXpm(parent, mon_xpm/*convert1_xpm*/, 1);
+
+
+
+  btn_pixmaps.file      = XcodaCreatePixmapFromXpm(parent, doc_bin_xpm, 1);
+
+  btn_pixmaps.codaFile  = XcodaCreatePixmapFromXpm(parent, doc_coda_xpm, 1); /*conor of image when displayed*/
+
   btn_pixmaps.dbg_btn = XcodaCreatePixmapFromXpm(parent, debug_xpm, 1);
   btn_pixmaps.ana_btn = XcodaCreatePixmapFromXpm(parent,ana_btn_xpm, 1);
   btn_pixmaps.ebana_btn = XcodaCreatePixmapFromXpm(parent,ebana_btn_xpm, 1);
-  btn_pixmaps.trig_btn = XcodaCreatePixmapFromXpm(parent,trig_btn_xpm, 1);
   btn_pixmaps.more_type = XcodaCreatePixmapFromXpm(parent,moretype_xpm, 1);
   /* create icon pixmap for netEditor */
   btn_pixmaps.icon = XcodaCreatePixmapFromXpm(parent,editor_icon_xpm, 1);
@@ -121,10 +158,8 @@ void XcodaEditorCreatePixmaps(parent,bg,fg)
   btn_pixmaps.zoom =  XcodaCreatePixmapFromXpm(parent,zoom_xpm, 1);
 
   btn_pixmaps.zoom =  XcodaCreatePixmapFromXpm(parent,zoom_xpm, 1);
-  btn_pixmaps.file =  XcodaCreatePixmapFromXpm(parent,doc_bin_xpm, 1);
-  btn_pixmaps.codaFile =  XcodaCreatePixmapFromXpm(parent,doc_coda_xpm, 1);
   btn_pixmaps.debug =  XcodaCreatePixmapFromXpm(parent,devil_xpm, 1);
-  btn_pixmaps.dd = XcodaCreatePixmapFromXpm(parent, convert1_xpm, 1);
+  btn_pixmaps.dd = XcodaCreatePixmapFromXpm(parent, convert1_xpm, 1);  /*conor of image when displayed*/
   btn_pixmaps.trash =  XcodaCreatePixmapFromXpm(parent,trash2_xpm, 1);
 }
   

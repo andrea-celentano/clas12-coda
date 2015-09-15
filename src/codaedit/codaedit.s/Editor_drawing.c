@@ -77,8 +77,8 @@ static char *names[] = {
   "TS",
   "ROC",
   "EB",
-  "ANA",
-  "EBANA",
+  "ET", /*sergey: was 'ANA' */
+  "ETT", /*sergey: was 'EBANA' */
   "UT",
   "ER",
   "LOG",
@@ -97,17 +97,17 @@ static char *sN[] =
 {
   "unknown",			/* 0 */
   "booting",			/* 1 */
-  "booted",			/* 2 */
-  "initing",	         	/* 3 */
-  "inited",			/* 4 */
+  "booted",			    /* 2 */
+  "initing",	        /* 3 */
+  "inited",			    /* 4 */
   "loading",    		/* 5 */
-  "loaded",			/* 6 */
+  "loaded",			    /* 6 */
   "prestarting",		/* 7 */
-  "paused",			/* 8 */
+  "paused",			    /* 8 */
   "pausing",			/* 9 */
   "activating",			/* 10 */
-  "active",			/* 11 */
-  "ending",			/* 12 */
+  "active",			    /* 11 */
+  "ending",			    /* 12 */
   "verifying",			/* 13 */
   "verified",			/* 14 */
   "terminating",
@@ -378,7 +378,7 @@ void draw_original(draw_comp, dpy, win, x, y, wd, ht, r, c)
   xdiv = wd/8;
   ydiv = ht/4;
 
-  if (draw_comp->comp.type < 11 ) /* sergey: before data files */
+  if (draw_comp->comp.type < 11 ) /* sergey: all components before data files */
   {
     long_name = names[draw_comp->comp.type];
     XSetForeground(dpy, gc, xgc.White);
@@ -498,6 +498,7 @@ void draw_original(draw_comp, dpy, win, x, y, wd, ht, r, c)
       }
       yy = ht - xgc.font[2]->max_bounds.ascent + y + 2;
       xx = x +  xgc.font[2]->max_bounds.ascent/2;
+      printf("draw_comp->comp.type=%d\n",draw_comp->comp.type);
       long_name = names[draw_comp->comp.type];
         printf("Editor_drawing::draw_original: long_name 2 >%s<\n",long_name);
       XDrawString(dpy, win, gc, xx, yy, long_name, strlen(long_name)); /* sergey: text in bottom left corner (usually 'Coda file')*/
@@ -556,11 +557,12 @@ void draw_rubber_comp(draw_comp, dpy, win, x, y, wd, ht)
     XFillRectangle(dpy, win,gc,x,y,wd,ht*draw_comp->num_row);
     
     XSetForeground(dpy, gc, xgc.Green);
-    for(i=0;i<draw_comp->num_row;i++){
+    for(i=0;i<draw_comp->num_row;i++)
+    {
       xx = x;
       yy = y + 3*ydiv/2.0 + i*ht;
       if (draw_comp->comp.type > CODA_ROC)
-	XFillRectangle(dpy, win, gc, xx, yy, xdiv, ydiv);
+	    XFillRectangle(dpy, win, gc, xx, yy, xdiv, ydiv);
       xx = x + wd - xdiv ;
       yy = y + 3*ydiv/2.0 + i*ht;
       XFillRectangle(dpy, win, gc, xx, yy, xdiv, ydiv);

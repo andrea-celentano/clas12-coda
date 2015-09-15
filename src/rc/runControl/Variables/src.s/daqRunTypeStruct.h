@@ -96,7 +96,7 @@ public:
   size_t size (void);
 
   // return run time id information
-  long   id   (void);
+  /*long*/int64_t   id   (void);
 
   // encode information
   void   encode (char* buffer, size_t& bufsize);
@@ -125,12 +125,18 @@ protected:
   static int maxNumRunTypes;
 
 private:
+
+  /*sergey: convert to int64_t like others ????????*/
+
   // run time id
   long id_;
+
   // number of single run type items
   long numRunTypes_;
+
   // padding for alignment of 8 byte boundary
   long unused_;
+
   // run type to follow
   daqRunTypeItem** runtypes_;
 

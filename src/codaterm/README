@@ -1,0 +1,207 @@
+
+
+When you \u201copen a terminal\u201d, you're starting a terminal emulator program, such as xterm,
+ gnome-terminal, lxterm, konsole, \u2026
+One of the first things the terminal emulator does is to allocate a pseudo terminal
+ (often called a pseudo-tty, or pty for short). The pty is a pair of character device files:
+ the pty master, which is the side that the terminal emulator opens, and the pty slave, which is
+ the side that programs running inside the terminal have open. On most modern unices, the master
+ is /dev/ptmx (which every terminal emulator has open) and the slave is /dev/pts/NUMBER. The kernel
+ driver for pseudo-terminals keep track of which process controls the master for each slave device.
+ The terminal emulator can retrieve the path to the corresponding slave through an ioctl on the master device.
+Once the terminal emulator has opened the master device, it starts a subprocess (typically a shell,
+ but it's up to the user who invoked the terminal emulator to decide). It does this in the usual way
+ to invoke a program: fork a child process, and execute the shell or other program in the child process.
+ Before executing the program, the emulator opens the slave pty device on file descriptors 0, 1 and 2
+ (standard input, standard output and error stream).
+
+!!
+When the child (or any other process) writes to the pty slave, the emulator sees input on the pty master.
+!!
+Conversely, when the emulator writes to the master device, it is seen as input on the slave.
+!!
+
+Expect works in exactly the same way. The difference between Expect and a terminal emulator such as xterm
+ is where they get the input that they feed the program (script vs keyboard input) and what they do with
+ the output (log file or parser vs drawing text in a window).
+
+
+
+struct 'PtyData' contains data from xterm
+misc.c
+charproc.c in_put() <- doinput <- VTparse
+
+
+v_write - what we are typing in
+
+    v_write <- writePtyData <- unparseputc (put 1 character on screen !?) 
+
+    unparseputs(char *str, fd) - put string on screen !?)
+
+ptyx.h:
+
+#define	PTYDEV		"/dev/ptyxx"   master ?
+
+#define TTYDEV		"/dev/pts/0"   slave ?
+
+get_pty() gives 'ttydev' - where to write command !!!
+
+
+
+
+
+===============
+
+command's path:
+
+  unparseputs -> unparseputc -> writePtyData[macros for v_write]
+
+
+================
+
+
+Xt calls:
+
+  toplevel = XtOpenApplication(&app_con, my_class,
+				     optionDescList,
+				     XtNumber(optionDescList),
+								 &argc, argv, NULL/*sergey: was fallback_resources*/,
+				     sessionShellWidgetClass,
+				     NULL, 0);
+
+  XtSetErrorHandler((XtErrorHandler) 0);
+
+  XtGetApplicationResources(toplevel, (XtPointer) & resource,
+				  application_resources,
+				  XtNumber(application_resources), NULL, 0);
+
+  XtAppAddActions(app_con, actionProcs, XtNumber(actionProcs));
+
+  XtSetValues(toplevel, ourTopLevelShellArgs, number_ourTopLevelShellArgs);
+
+
+  SetupLabelTest(toplevel, &form_top, &menu_top);
+
+
+
+
+  term = (XtermWidget) XtVaCreateManagedWidget("vt100", xtermWidgetClass, form_top,
+#if OPT_TOOLBAR
+						 XtNmenuBar, menu_top,
+						 XtNresizable, True,
+						 XtNfromVert, menu_top, /* sergey: comment it out to make menu small*/
+						 XtNleft, XawChainLeft,
+						 XtNright, XawChainRight,
+						 XtNbottom, XawChainBottom,
+#endif
+#if OPT_LABEL
+                         XtNfromVert, menu_top,
+						 XtNresizable, True,
+#endif
+                         (XtPointer) 0);
+
+..................
+
+
+  XtRealizeWidget(toplevel);
+
+
+  parent = CODAGetAppWindow(XtDisplay(toplevel),name);
+  if (parent)
+  {
+	  XReparentWindow(XtDisplay(toplevel), XtWindow(toplevel), parent, 0, 0);
+	  /*XReparentWindow(XtDisplay(form_top), XtWindow(form_top), parent,0,0);*/
+
+
+      coda_Send(XtDisplay(toplevel),"ALLROCS",cmd);
+
+
+      CodaTerm(toplevel,1);
+      codaSendInit(toplevel,name/*"CTERM"*/);
+      codaRegisterMsgCallback(messageHandler);
+      XtAddEventHandler(toplevel, NULL/*StructureNotifyMask*/, False, Xhandler, NULL);
+  }
+
+
+
+========================================================================
+
+ child:
+
+ 1. gets parent's id ('name ' is the name of parent window we want to be enbedded in)
+
+      parent = CODAGetAppWindow(XtDisplay(toplevel),name);
+
+ 2. ... ('name' is the same as above, cmd is like 'r:0x03400024 0x02200056'
+    where first number is our id (usually XtWindow(toplevel)) and second is parent's id)
+
+NOTE: parent suppose to do:
+   codaSendInit(toplevel,name); 
+   codaRegisterMsgCallback((void *)messageHandler);
+
+      coda_Send(XtDisplay(toplevel), name, cmd);
+
+ 3. reparent
+
+      XReparentWindow(XtDisplay(toplevel), XtWindow(toplevel), parent, 0, 0);
+
+============
+
+-geometry
+
+
+
+charproc.c:
+
+static XtResource resources[] =
+{
+  ...
+  Sres(XtNgeometry, XtCGeometry, misc.geo_metry, NULL),
+  ...
+};
+
+static
+WidgetClassRec xtermClassRec =
+{
+    {
+      ...
+      resources,		    /* resources     */
+	  XtNumber(resources),	/* num_resources */
+      ...
+    }
+};
+
+WidgetClass xtermWidgetClass = (WidgetClass) & xtermClassRec;
+
+
+
+codaterm_lib.c:
+
+  term = (XtermWidget) XtVaCreateManagedWidget("vt100", xtermWidgetClass, form_top, ...
+
+xterm.s/xterm.h:extern void ResizeSelection (TScreen *screen, int rows, int cols);
+xterm.s/xterm.h:extern int ScreenResize (TScreen *screen, int width, int height, unsigned *flags);
+xterm.s/xterm.h:extern void DoResizeScreen (XtermWidget xw);
+xterm.s/xterm.h:extern void ResizeScrollBar (TScreen *screen);
+
+
+
+
+
+
+
+
+
+==================================================
+
+???!!!
+
+get parent window, name is parent name !
+
+      parent = CODAGetAppWindow(XtDisplay(toplevel),name);
+
+
+register us, name is our name !
+
+      codaSendInit(toplevel, name);
+

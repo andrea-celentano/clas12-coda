@@ -242,16 +242,17 @@ XcodaApp::registerWindow ( XcodaTopLevel *window )
   int i;
   XcodaTopLevel **newList;
     
-  // Allocate a new list large enough to hold the new
-  // object, and copy the contents of the current list 
-  // to the new list
-    
+  /*
+   Allocate a new list large enough to hold the new
+   object, and copy the contents of the current list 
+   to the new list
+  */    
+
   newList = new XcodaTopLevel*[_numWindows + 1];
     
-  for ( i = 0; i < _numWindows; i++ )
-    newList[i] = _windows[i];
+  for ( i = 0; i < _numWindows; i++ ) newList[i] = _windows[i];
     
-  // Install the new list and add the window to the list
+  /* Install the new list and add the window to the list */
     
   delete []_windows;
   _windows =  newList;

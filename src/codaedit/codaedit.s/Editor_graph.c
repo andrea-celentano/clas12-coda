@@ -327,12 +327,8 @@ static void config_arc_geometry                    ();
 /* return a from widget containing two ruler 
  * a drawing area and two scroll bar
  */
-#if defined (__STDC__)
-Widget XcodaEditorDrawingArea (Widget parent)
-#else
-Widget XcodaEditorDrawingArea (parent)
-     Widget parent;
-#endif
+Widget
+XcodaEditorDrawingArea (Widget parent)
 {
   Widget form, h_sc, v_sc;
   Widget drawing_area, sw;
@@ -508,11 +504,15 @@ Widget XcodaEditorDrawingArea (parent)
 
   XtAddEventHandler(manager.eb_btn, EnterWindowMask, False, XcodaEditorActivateAdd,
 		    (XtPointer)ADD_EB_ACTION);
-
-  XtAddEventHandler(manager.er_btn, EnterWindowMask, False, XcodaEditorActivateAdd,
-		    (XtPointer)ADD_ER_ACTION);
-  XtAddEventHandler(manager.er_btn, LeaveWindowMask, False, XcodaEditorDeactivateAdd,
-		    (XtPointer)ADD_ER_ACTION);
+  
+  /*sergey*/
+  XtAddEventHandler(manager.et_btn, EnterWindowMask, False, XcodaEditorActivateAdd, (XtPointer)ADD_ET_ACTION);
+  
+  /*sergey*/
+  XtAddEventHandler(manager.ett_btn, EnterWindowMask, False, XcodaEditorActivateAdd, (XtPointer)ADD_ETT_ACTION);
+  
+  XtAddEventHandler(manager.er_btn, EnterWindowMask, False, XcodaEditorActivateAdd, (XtPointer)ADD_ER_ACTION);
+  XtAddEventHandler(manager.er_btn, LeaveWindowMask, False, XcodaEditorDeactivateAdd, (XtPointer)ADD_ER_ACTION);
 
   XtAddEventHandler(manager.fi_btn, EnterWindowMask, False, XcodaEditorActivateAdd,
 		    (XtPointer)ADD_FI_ACTION);
@@ -531,6 +531,7 @@ Widget XcodaEditorDrawingArea (parent)
 
   XtAddEventHandler(manager.dd_btn, EnterWindowMask, False, XcodaEditorActivateAdd,
 		    (XtPointer)ADD_MON_ACTION);
+
   XtAddEventHandler(manager.none_btn, EnterWindowMask, False, XcodaEditorActivateAdd,
 		    (XtPointer)ADD_NONE_ACTION);
 
@@ -1136,6 +1137,8 @@ static void XcodaEditorEnterWindowAction(w,client_data, event)
   case ADD_ROC_ACTION:
   case ADD_TRIG_ACTION:
   case ADD_EB_ACTION:
+  case ADD_ET_ACTION:
+  case ADD_ETT_ACTION:
   case ADD_ER_ACTION:
   case ADD_FI_ACTION:
   case ADD_CFI_ACTION:
@@ -3435,6 +3438,12 @@ static drawComp* createDrawComp (graph, type)
   case ADD_EB_ACTION:
     q->comp.type = CODA_EB;
     break;
+  case ADD_ET_ACTION:
+    q->comp.type = CODA_ET;
+    break;
+  case ADD_ETT_ACTION:
+    q->comp.type = CODA_ETT;
+    break;
   case ADD_MON_ACTION:
     q->comp.type = CODA_MON;
     break;
@@ -4641,21 +4650,16 @@ drawComp *findDrawCompFromPort(graph, port)
  *     Upon saving a config file, one has to mark all node       *
  *     on the panel as uneditable                                *
  ****************************************************************/
-#if defined (__STDC__)
-void XcodaEditorUpdateEditableFlag(XcodaEditorGraph* graph)
-#else
-void XcodaEditorUpdateEditableFlag(graph)
-     XcodaEditorGraph *graph;
-#endif
+void
+XcodaEditorUpdateEditableFlag(XcodaEditorGraph* graph)
 {
   compList *p;
 
-  if(graph->comp_list_head->next == graph->comp_list_tail)
-    return;
+  if(graph->comp_list_head->next == graph->comp_list_tail) return;
 
-  for(p=graph->comp_list_head->next; p != graph->comp_list_tail; p = p->next){
-    if(p->draw_comp->editable)
-      p->draw_comp->editable = 0;
+  for(p=graph->comp_list_head->next; p != graph->comp_list_tail; p = p->next)
+  {
+    if(p->draw_comp->editable) p->draw_comp->editable = 0;
   }
 }
 

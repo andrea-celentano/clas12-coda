@@ -31,6 +31,11 @@
 #include <X11/StringDefs.h>
 #include "Editor_database.h"
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _editor_config_sel_
 {
   char*   configs_[EDITOR_MAX_CONFIGS];
@@ -41,40 +46,34 @@ typedef struct _editor_config_sel_
   Widget  ok_;
   Widget  cancel_;
   Widget  pushb[EDITOR_MAX_CONFIGS];
-}editorConfigSel;
+} editorConfigSel;
+
 
 /************************************************************************
  *          void initConfigSel (Widget parent)                          *
  * Description:                                                         *
  *     Initialize the editorConfigSel structure                         *
  ***********************************************************************/
-#if defined (__STDC__)
 extern void initConfigSel (Widget parent);
-#else
-extern void initConfigSel ();
-#endif
 
 /************************************************************************
  *          void configSelpopup (void)                                  *
  * Description:                                                         *
  *     Popup database selection dialog                                  *
  ***********************************************************************/
-#if defined (__STDC__)
 extern void configSelPopup (void);
-#else
-extern void configSelPopup ();
-#endif
 
 /************************************************************************
  *          void configSelpopdown (void)                                *
  * Description:                                                         *
  *     Popdown database selection dialog                                *
  ***********************************************************************/
-#if defined (__STDC__)
 extern void configSelPopdown (void);
-#else
-extern void configSelPopdown ();
+
+#ifdef __cplusplus
+}
 #endif
+
 
 #endif
 

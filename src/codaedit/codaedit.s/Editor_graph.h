@@ -62,7 +62,11 @@
 #define ADD_CFI_ACTION                109
 #define ADD_DBG_ACTION                110
 #define ADD_NONE_ACTION               111
+
 /* you may put more new component type here */
+#define ADD_ET_ACTION                 112
+#define ADD_ETT_ACTION                113
+
 
 #define DELETE_NODE_ACTION            120
 #define DELETE_ARC_ACTION             121

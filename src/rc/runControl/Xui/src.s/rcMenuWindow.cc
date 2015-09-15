@@ -313,11 +313,20 @@ rcMenuWindow::handle_tab (Widget w, XtPointer data, XtPointer calldata)
   /* get tab data, start on tab 0 */
   static int curr = 0;
 
-  if (/*(int) sergey*/calldata == 0) return;
+  printf("rcMenuWindow::handle_tab reached\n");
 
-  if (self->tabChildren_[curr]) {
+  if (/*(int) sergey*/calldata == 0)
+  {
+    printf("rcMenuWindow::handle_tab: \n");
+    return;
+  }
+
+  if (self->tabChildren_[curr])
+  {
+    printf("rcMenuWindow::handle_tab: unmanage tab %d\n",curr);
     XtUnmanageChild(self->tabChildren_[curr]);
   }
+
 #ifdef Linux_x86_64
   curr += (int64_t)calldata;
 #else
@@ -325,15 +334,19 @@ rcMenuWindow::handle_tab (Widget w, XtPointer data, XtPointer calldata)
 #endif
   tab = curr;
 
-  if (self->tabChildren_[curr]) {
+  if (self->tabChildren_[curr])
+  {
+    printf("rcMenuWindow::handle_tab: manage tab %d\n",curr);
     XtManageChild(self->tabChildren_[curr]);
   }
+
   ac = 0;
   XtSetArg (arg[ac], XtNlefttabs, tab); ac++;
-  XtSetArg (arg[ac], XtNrighttabs, self->numTabs_ - tab); 
-  ac++;
+  XtSetArg (arg[ac], XtNrighttabs, self->numTabs_ - tab); ac++;
   XtSetValues (self->rtab_, arg, ac);
 }
+
+
 
 static void childHandler(int sig)
 {
@@ -677,8 +690,19 @@ rcMenuWindow::createMenuWindow (Widget parent)
   tabChildren_[0] = XtCreateManagedWidget ("HelpWidget", xmFormWidgetClass, rframe_,
 			      arg, ac);
 
-  
+ 
   XtManageChild (tabChildren_[0]);
+
+
+  /*sergey: playing*/
+#if 0
+  XtUnmanageChild (tabChildren_[0]);
+  XtUnmapWidget(rtab_);
+  XSync(XtDisplay(rtab_),False);
+  XtMapWidget(rtab_);
+#endif
+
+
 
   rcipanel_->popupRateDisplay (this);
 

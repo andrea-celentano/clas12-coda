@@ -64,38 +64,40 @@ typedef struct _icon_comp{
 
 static iconCompList *icon_head, *icon_tail;
 
-#if defined (__STDC__)
-static drawComp* newDrawCompFromIcon (iconCompList* icon)
-#else
-static drawComp* newDrawCompFromIcon (icon)
-     iconCompList* icon;
-#endif
+static drawComp* 
+newDrawCompFromIcon (iconCompList* icon)
 {
   drawComp* comp;
   ipPort* port;
   int     i = 0;
 
   comp = (drawComp *)malloc(sizeof(drawComp));
-  if(comp == NULL){
+  if(comp == NULL)
+  {
     fprintf(stderr,"cannot allocate memory for existing component!\n");
     exit(1);
   }
+
   comp->comp.type = icon->daq.type;
   comp->comp.comp_name = strsave(icon->daq.comp_name);
   comp->comp.node_name = strsave(icon->daq.node_name);
   comp->comp.id_num = icon->daq.id_num;
+
   if (icon->daq.boot_string != 0) 
     comp->comp.boot_string = strsave(icon->daq.boot_string);
   else
     comp->comp.boot_string = 0;    
+
   if(icon->daq.code[0] != NULL)
     comp->comp.code[0] = strsave(icon->daq.code[0]);
   else
     comp->comp.code[0] = (char *)NULL;
+
   if(icon->daq.code[1] != NULL)
     comp->comp.code[1] = strsave(icon->daq.code[1]);
   else
     comp->comp.code[1] = (char *)NULL;
+
   if(icon->daq.code[2] != NULL)
     comp->comp.code[2] = strsave(icon->daq.code[2]);
   else
@@ -112,13 +114,16 @@ static drawComp* newDrawCompFromIcon (icon)
   setup_drawcomp_func(comp);
 
   comp->num_ports = icon->num_ports;
-  for(i = 0;i < MAX_NUM_PORTS;i++){
+  for(i = 0;i < MAX_NUM_PORTS;i++)
+  {
     port = &(comp->ip_port[i]);
     port->index = i;
+
     if(i < comp->num_ports)
       port->ip_addr = strsave(icon->port_name[i]);
     else
       port->ip_addr = (char *)NULL;
+
     port->left_selected = 0;
     port->right_selected = 0;
     port->comp_ptr = &(comp->comp);
@@ -128,8 +133,10 @@ static drawComp* newDrawCompFromIcon (icon)
     port->left_x = port->right_x = 0;
     port->left_y = port->right_y = 0;
     port->row = port->col = 0;
+
     setup_ipport_func(port);
   }
+
   return comp;
 }
 
@@ -455,40 +462,41 @@ printf("15\n");
  * Description:                                                   *
  *      Construct all icons corresponding rcnetwork components    *
  *****************************************************************/
-#if defined (__STDC__)
-void XcodaEditorCreateIconsFromRcnet(rcNetComp** list, 
-				     int num_comps)
-#else
-void XcodaEditorCreateIconsFromRcnet(list, num_comps)
-     rcNetComp **list;
-     int       num_comps;
-#endif
+void
+XcodaEditorCreateIconsFromRcnet(rcNetComp** list, 
+								int num_comps)
 {
   iconCompList *p, *q, *ne, *pr;
   Arg          args[10];
   int          ac = 0, i, j;
   daqComp      *daq;
   XmString t;
-  for(i=0;i<num_comps;i++){
-    if (list[i]->daq.type != CODA_LOG){
+  for(i=0;i<num_comps;i++)
+  {
+    if (list[i]->daq.type != CODA_LOG)
+    {
       q = createIconInfoFromRcnetComp(list[i]);
       XtSetArg(args[ac], XcodaNtopLabel, q->daq.node_name); ac++;
       XtSetArg(args[ac], XcodaNbottomLabel, q->daq.comp_name); ac++;
-      if(q->daq.type == CODA_ROC){
-	XtSetArg(args[ac], XcodaNnormalPixmap, btn_pixmaps.roc); ac++;
-	XtSetArg(args[ac], XcodaNhighLightPixmap, btn_pixmaps.hl_roc); ac++;
+      if(q->daq.type == CODA_ROC)
+      {
+	    XtSetArg(args[ac], XcodaNnormalPixmap, btn_pixmaps.roc); ac++;
+	    XtSetArg(args[ac], XcodaNhighLightPixmap, btn_pixmaps.hl_roc); ac++;
       }
-      else if(q->daq.type == CODA_EB){
-	XtSetArg(args[ac], XcodaNnormalPixmap, btn_pixmaps.eb); ac++;
-	XtSetArg(args[ac], XcodaNhighLightPixmap, btn_pixmaps.hl_eb); ac++;
+      else if(q->daq.type == CODA_EB)
+      {
+	    XtSetArg(args[ac], XcodaNnormalPixmap, btn_pixmaps.eb); ac++;
+	    XtSetArg(args[ac], XcodaNhighLightPixmap, btn_pixmaps.hl_eb); ac++;
       }
-      else if(q->daq.type == CODA_TRIG){
-	XtSetArg(args[ac], XcodaNnormalPixmap, btn_pixmaps.trig); ac++;
-	XtSetArg(args[ac], XcodaNhighLightPixmap, btn_pixmaps.trig); ac++;
+      else if(q->daq.type == CODA_TRIG)
+      {
+	    XtSetArg(args[ac], XcodaNnormalPixmap, btn_pixmaps.trig); ac++;
+	    XtSetArg(args[ac], XcodaNhighLightPixmap, btn_pixmaps.trig); ac++;
       }
-      else{
-	XtSetArg(args[ac], XcodaNnormalPixmap, btn_pixmaps.roc); ac++;
-	XtSetArg(args[ac], XcodaNhighLightPixmap, btn_pixmaps.hl_roc); ac++;
+      else
+      {
+	    XtSetArg(args[ac], XcodaNnormalPixmap, btn_pixmaps.roc); ac++;
+	    XtSetArg(args[ac], XcodaNhighLightPixmap, btn_pixmaps.hl_roc); ac++;
       }
       t = XmStringCreateSimple(q->daq.comp_name);
       XtSetArg (args[ac], XmNlabelString, t); ac++;
@@ -737,23 +745,26 @@ int idOkWithIconList (name, id, type)
 
   if (isEmptyIconList())
     return 1;
-  else{
-    if (type == CODA_EBANA){ /* name should be NULL */
-      for (p = icon_head->next; p != icon_tail; p = p->next){
-	  if ((p->daq.type == CODA_EB) &&
-	      p->daq.id_num == id)
-	    return 0;
-	}
-    }
-    else{
+  else
+  {
+    if (type == CODA_EBANA) /* name should be NULL */
+    {
       for (p = icon_head->next; p != icon_tail; p = p->next)
-	if (strcmp(name, p->daq.comp_name) != 0){
+      {
+	    if ((p->daq.type == CODA_EB) && p->daq.id_num == id) return 0;
+	  }
+    }
+    else
+    {
+      for (p = icon_head->next; p != icon_tail; p = p->next)
+	    if (strcmp(name, p->daq.comp_name) != 0){
 	  if (p->daq.type == type && p->daq.id_num == id)
 	    return 0;
-	}
+	  }
     }
   }
-  return 1;  
+
+  return(1);
 }
 
 /***************************************************************

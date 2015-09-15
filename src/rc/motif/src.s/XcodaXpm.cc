@@ -137,6 +137,7 @@ Pixmap XcodaXpm::createPixmapFromXpm()
     attr.valuemask |= XpmDepth;
     attr.valuemask |= XpmCloseness;
   }
+  printf("XcodaXpm::XcodaXpm: calling XpmCreatePixmapFromData()\n");
   err = XpmCreatePixmapFromData (_display, _win, _pix, &pixmap_ret,
 				 &pixmap_mask,
 				 &attr);

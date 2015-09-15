@@ -49,12 +49,8 @@ static Widget ed_new_types[EDITOR_MAX_NEW_TYPES];
 static char   ed_new_type_names[EDITOR_MAX_NEW_TYPES][80];
 static int    ed_new_numtypes = 0;
 
-#if defined (__STDC__)
-static Widget XcodaConfigRocButton(Widget parent)
-#else
-static Widget XcodaConfigRocButton(parent)
-     Widget parent;
-#endif
+static Widget
+XcodaConfigRocButton(Widget parent)
 {
   Widget pb;
   Arg    args[5];
@@ -67,12 +63,8 @@ static Widget XcodaConfigRocButton(parent)
   return pb;
 }
 
-#if defined (__STDC__)
-static Widget XcodaConfigEbButton(Widget parent)
-#else
-static Widget XcodaConfigEbButton(parent)
-     Widget parent;
-#endif
+static Widget
+XcodaConfigEbButton(Widget parent)
 {
   Widget pb;
   Arg    args[5];
@@ -85,12 +77,42 @@ static Widget XcodaConfigEbButton(parent)
   return pb;
 }
 
-#if defined (__STDC__)
-static Widget XcodaConfigERButton(Widget parent)
-#else
-static Widget XcodaConfigERButton(parent)
-     Widget parent;
-#endif
+
+
+/*sergey*/
+static Widget
+XcodaConfigEtButton(Widget parent)
+{
+  Widget pb;
+  Arg    args[5];
+
+  XtSetArg(args[0], XmNlabelType,  XmPIXMAP);
+  XtSetArg(args[1], XmNlabelPixmap,btn_pixmaps.et_btn);
+  pb = XtCreateManagedWidget("eb_button", xmPushButtonWidgetClass,
+		      parent, args, 2);
+  manager.et_btn = pb;
+  return pb;
+}
+
+/*sergey*/
+static Widget
+XcodaConfigEttButton(Widget parent)
+{
+  Widget pb;
+  Arg    args[5];
+
+  XtSetArg(args[0], XmNlabelType,  XmPIXMAP);
+  XtSetArg(args[1], XmNlabelPixmap,btn_pixmaps.ett_btn);
+  pb = XtCreateManagedWidget("eb_button", xmPushButtonWidgetClass,
+		      parent, args, 2);
+  manager.ett_btn = pb;
+  return pb;
+}
+
+
+
+static Widget
+XcodaConfigERButton(Widget parent)
 {
   Widget pb;
   Arg    args[5];
@@ -103,12 +125,8 @@ static Widget XcodaConfigERButton(parent)
   return pb;
 }
 
-#if defined (__STDC__)
-static Widget XcodaConfigFIButton(Widget parent)
-#else
-static Widget XcodaConfigFIButton(parent)
-     Widget parent;
-#endif
+static Widget
+XcodaConfigFIButton(Widget parent)
 {
   Widget pb;
   Arg    args[5];
@@ -121,12 +139,8 @@ static Widget XcodaConfigFIButton(parent)
   return pb;
 }
 
-#if defined (__STDC__)
-static Widget XcodaConfigCFIButton(Widget parent)
-#else
-static Widget XcodaConfigCFIButton(parent)
-     Widget parent;
-#endif
+static Widget
+XcodaConfigCFIButton(Widget parent)
 {
   Widget pb;
   Arg    args[5];
@@ -140,12 +154,8 @@ static Widget XcodaConfigCFIButton(parent)
 }
 
 
-#if defined (__STDC__)
-static Widget XcodaConfigDBGButton(Widget parent)
-#else
-static Widget XcodaConfigDBGButton(parent)
-     Widget parent;
-#endif
+static Widget
+XcodaConfigDBGButton(Widget parent)
 {
   Widget pb;
   Arg    args[5];
@@ -158,12 +168,10 @@ static Widget XcodaConfigDBGButton(parent)
   return pb;
 }
 
-#if defined (__STDC__)
-static Widget XcodaConfigDDButton(Widget parent)
-#else
-static Widget XcodaConfigDDButton(parent)
-     Widget parent;
-#endif
+
+
+static Widget
+XcodaConfigDDButton(Widget parent)
 {
   Widget pb;
   Arg    args[5];
@@ -176,12 +184,10 @@ static Widget XcodaConfigDDButton(parent)
   return pb;
 }
 
-#if defined (__STDC__)
-static Widget XcodaConfigNoneButton(Widget parent)
-#else
-static Widget XcodaConfigNoneButton(parent)
-     Widget parent;
-#endif
+
+
+static Widget
+XcodaConfigNoneButton(Widget parent)
 {
   Widget pb;
   Arg    args[5];
@@ -194,27 +200,17 @@ static Widget XcodaConfigNoneButton(parent)
   return pb;
 }
 
-#if defined (__STDC__)
-static void newTypeSelected (Widget w, XtPointer data, 
+static void
+newTypeSelected (Widget w, XtPointer data, 
 			     XmAnyCallbackStruct *cbs)
-#else
-static void newTypeSelected (w, data, cbs)
-     Widget w;
-     XtPointer data;
-     XmAnyCallbackStruct *cbs;
-#endif
 {
   int index = (int)data;
 
   printf ("index is %d\n", index);
 }
 
-#if defined (__STDC__)
-static Widget XcodaConfigTrigButton(Widget parent)
-#else
-static Widget XcodaConfigTrigButton(parent)
-     Widget parent;
-#endif
+static Widget
+XcodaConfigTrigButton(Widget parent)
 {
   Widget pb;
   Arg    args[5];
@@ -228,18 +224,15 @@ static Widget XcodaConfigTrigButton(parent)
 }
 
 /* add new type to the type list */
-#if defined (__STDC__)
-void XcodaEditorAddNewType (char* type)
-#else
-void XcodaEditorAddNewType (type)
-     char* type;
-#endif
+void
+XcodaEditorAddNewType (char* type)
 {
   Arg arg[10];
   int ac = 0;
   XmString t;
 
-  if (ed_new_numtypes >= EDITOR_MAX_NEW_TYPES) {
+  if (ed_new_numtypes >= EDITOR_MAX_NEW_TYPES)
+  {
     fprintf (stderr, "Fatal: Maximum number of new defined types is %d\n",
 	     EDITOR_MAX_NEW_TYPES);
     return;
@@ -257,12 +250,8 @@ void XcodaEditorAddNewType (type)
 }
 
 /* return form widget which serves as a container of all command buttons*/
-#if defined (__STDC__)
-Widget XcodaEditorNewButtons(Widget parent)
-#else
-Widget XcodaEditorNewButtons(parent)
-     Widget parent;
-#endif
+Widget
+XcodaEditorNewButtons(Widget parent)
 {
   Widget form;
   Widget pushb[20];
@@ -273,15 +262,18 @@ Widget XcodaEditorNewButtons(parent)
   form = XtCreateWidget("cmd_form",xmFormWidgetClass,parent, NULL, 0);
   ac = 0;
 
-  pushb[0] = XcodaConfigTrigButton(form);
-  pushb[1] = XcodaConfigRocButton(form);
-  pushb[2] = XcodaConfigEbButton(form);
-  pushb[3] = XcodaConfigERButton(form);
-  pushb[4] = XcodaConfigFIButton(form);
-  pushb[5] = XcodaConfigCFIButton(form);
-  pushb[6] = XcodaConfigDBGButton(form);
-  pushb[7] = XcodaConfigDDButton(form);
-  pushb[8] = XcodaConfigNoneButton(form);
+  /* icons on left will shows up in the same order as in following */
+  pushb[ 0] = XcodaConfigTrigButton(form);
+  pushb[ 1] = XcodaConfigRocButton(form);
+  pushb[ 2] = XcodaConfigEbButton(form);
+  pushb[ 3] = XcodaConfigEtButton(form); /*sergey*/
+  pushb[ 4] = XcodaConfigEttButton(form); /*sergey*/
+  pushb[ 5] = XcodaConfigERButton(form);
+  pushb[ 6] = XcodaConfigCFIButton(form);
+  pushb[ 7] = XcodaConfigFIButton(form);
+  pushb[ 8] = XcodaConfigDDButton(form);
+  pushb[ 9] = XcodaConfigDBGButton(form);
+  pushb[10] = XcodaConfigNoneButton(form);
 
 
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
@@ -341,15 +333,30 @@ Widget XcodaEditorNewButtons(parent)
 
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
   XtSetArg(args[ac], XmNtopWidget, pushb[7]); ac++;
-  XtSetArg(args[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
   XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
   XtSetArg(args[ac], XmNrightAttachment, XmATTACH_FORM); ac++;
   XtSetValues(pushb[8], args, ac);
   ac = 0;
 
+  XtSetArg(args[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
+  XtSetArg(args[ac], XmNtopWidget, pushb[8]); ac++;
+  XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
+  XtSetArg(args[ac], XmNrightAttachment, XmATTACH_FORM); ac++;
+  XtSetValues(pushb[9], args, ac);
+  ac = 0;
+
+  XtSetArg(args[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
+  XtSetArg(args[ac], XmNtopWidget, pushb[9]); ac++;
+  XtSetArg(args[ac], XmNbottomAttachment, XmATTACH_FORM); ac++; /*sergey: that line in last piece only */
+  XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
+  XtSetArg(args[ac], XmNrightAttachment, XmATTACH_FORM); ac++;
+  XtSetValues(pushb[10], args, ac);
+  ac = 0;
+  
+
   XtManageChild(form);
   
-  return form;
+  return(form);
 }
 
 

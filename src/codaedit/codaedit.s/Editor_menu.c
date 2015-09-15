@@ -71,12 +71,14 @@
 #include "Editor_opendbaseDialog.h"
 #include "Editor_menu.h"
 
+/*
 static char *file_menus[]={
   "New Database...",
   "Open Database...",
   "Remove Database...",
   "Exit"
 };
+*/
 
 static char *config_menus[] = {
   "New Database...",
@@ -613,6 +615,8 @@ XcodaEditorOpenConfigCbk (Widget w,
 			       XtPointer clientData, 
 			       XmAnyCallbackStruct* cbs)
 {
+  printf("XcodaEditorOpenConfigCbk reached\n");
+
   XcodaEditorResetGraphCmd();
 
   /* remove all current graphics */

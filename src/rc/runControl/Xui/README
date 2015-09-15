@@ -1,0 +1,14 @@
+struggle with panedwindow/sash resizing
+
+  /*
+You could use a ConfigureNotify event handler for the children widgets of
+the PanedWindow to find out when they are resized.
+  */
+  /*
+XmNresizeCallback
+  */
+
+    Note that the SashAction action routine is not a direct action routine of the XmPaned,
+    but rather an action of the Sash control created by the XmPaned
+
+

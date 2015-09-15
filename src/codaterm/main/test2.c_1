@@ -1,0 +1,92 @@
+/* file_browser.c -- use a ScrolledText object to view the
+** contents of arbitrary files chosen by the user from a
+** FileSelectionDialog or from a single-line text widget.
+*/
+
+#include <X11/Xos.h>
+#include <Xm/Text.h>
+#include <Xm/TextF.h>
+#include <Xm/FileSB.h>
+#include <Xm/MainW.h>
+#include <Xm/RowColumn.h>
+#include <Xm/LabelG.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdio.h>
+
+main (int argc, char *argv[])
+{
+    Widget         top, main_w, menubar, menu, rc, text_w, file_w, label_w;
+    XtAppContext   app;
+    XmString       file, open, exit;
+   Arg            args[10];
+    int            n;
+
+    XtSetLanguageProc (NULL, NULL, NULL);
+
+    /* initialize toolkit and create toplevel shell */
+    top = XtVaOpenApplication (&app, "Demos", NULL, 0, &argc, argv, NULL,
+                                sessionShellWidgetClass, NULL);
+
+    /* MainWindow for the application -- contains menubar
+    ** and ScrolledText/Prompt/TextField as WorkWindow.
+    */
+    main_w = XmCreateMainWindow (top, "main_w", NULL, 0);
+
+    /* Create a simple MenuBar that contains one menu */
+    file = XmStringCreateLocalized ("File");
+    menubar = XmVaCreateSimpleMenuBar (main_w, "menubar", XmVaCASCADEBUTTON, 
+                                        file, 'F', NULL);
+    XmStringFree (file);
+
+    /* Menu is "File" -- callback is file_cb() */
+    open = XmStringCreateLocalized ("Open...");
+    exit = XmStringCreateLocalized ("Exit");
+    menu = XmVaCreateSimplePulldownMenu (menubar, "file_menu", 0, NULL/*file_cb*/,
+                            XmVaPUSHBUTTON, open, 'O', NULL, NULL,
+                            XmVaSEPARATOR,
+                            XmVaPUSHBUTTON, exit, 'x', NULL, NULL,
+                            NULL);
+    XmStringFree (open);
+    XmStringFree (exit);
+
+    /* Menubar is done -- manage it */
+    XtManageChild (menubar);
+
+    rc = XmCreateRowColumn (main_w, "work_area", NULL, 0);
+    n = 0;
+    XtSetArg (args[n], XmNalignment, XmALIGNMENT_BEGINNING); n++;
+    label_w = XmCreateLabelGadget (rc, "Filename:", args, n);
+    XtManageChild (label_w);
+
+    file_w = XmCreateTextField (rc, "text_field", NULL, 0);
+    XtManageChild (file_w);
+
+    /* Create ScrolledText -- this is work area for the MainWindow */
+    n = 0;
+    XtSetArg (args[n], XmNrows, 12);                     n++;
+    XtSetArg (args[n], XmNcolumns, 70);                  n++;
+    XtSetArg (args[n], XmNeditable, False);              n++; 
+    XtSetArg (args[n], XmNeditMode, XmMULTI_LINE_EDIT);  n++;
+    XtSetArg (args[n], XmNcursorPositionVisible, False); n++;
+    text_w = XmCreateScrolledText (rc, "text_w", args, n);
+    XtManageChild (text_w);
+
+    /* store text_w as user data in "File" menu for file_cb() callback */
+    XtVaSetValues (menu, XmNuserData, text_w, NULL);
+
+    /* add callback for TextField widget passing "text_w" as client data */
+    XtAddCallback (file_w, XmNactivateCallback, NULL/*read_file*/,
+                        (XtPointer) text_w);
+    XtManageChild (rc);
+
+    /* Store the filename text widget to ScrolledText object */
+    XtVaSetValues (text_w, XmNuserData, file_w, NULL);
+
+    /* Configure the Main Window layout */
+    XtVaSetValues (main_w, XmNmenuBar, menubar, XmNworkWindow, rc, NULL);
+    XtManageChild (main_w);
+
+    XtRealizeWidget (top);
+    XtAppMainLoop (app);
+}

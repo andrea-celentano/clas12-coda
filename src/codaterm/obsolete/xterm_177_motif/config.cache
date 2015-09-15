@@ -1,0 +1,90 @@
+# This file is a shell script that caches the results of configure
+# tests run on this system so they can be shared between configure
+# scripts and configure runs.  It is not useful on other systems.
+# If it contains results you don't want to keep, you may remove or edit it.
+#
+# By default, configure uses ./config.cache as the cache file,
+# creating it if it does not exist already.  You can give configure
+# the --cache-file=FILE option to use a different cache file; that is
+# what configure does when it calls configure scripts in
+# subdirectories, so they share the cache.
+# Giving --cache-file=/dev/null disables caching, for debugging configure.
+# config.status only pays attention to the cache file if you give it the
+# --recheck option to rerun configure.
+#
+ac_cv_c_const=${ac_cv_c_const=yes}
+ac_cv_func_Xutf8LookupString=${ac_cv_func_Xutf8LookupString=yes}
+ac_cv_func_bcopy=${ac_cv_func_bcopy=yes}
+ac_cv_func_connect=${ac_cv_func_connect=yes}
+ac_cv_func_gethostbyname=${ac_cv_func_gethostbyname=yes}
+ac_cv_func_gethostname=${ac_cv_func_gethostname=yes}
+ac_cv_func_getlogin=${ac_cv_func_getlogin=yes}
+ac_cv_func_grantpt=${ac_cv_func_grantpt=yes}
+ac_cv_func_memmove=${ac_cv_func_memmove=yes}
+ac_cv_func_remove=${ac_cv_func_remove=yes}
+ac_cv_func_shmat=${ac_cv_func_shmat=yes}
+ac_cv_func_strerror=${ac_cv_func_strerror=yes}
+ac_cv_func_strftime=${ac_cv_func_strftime=yes}
+ac_cv_func_tcgetattr=${ac_cv_func_tcgetattr=yes}
+ac_cv_func_waitpid=${ac_cv_func_waitpid=yes}
+ac_cv_have_x=${ac_cv_have_x='have_x=yes 		ac_x_includes= ac_x_libraries='}
+ac_cv_header_X11_DECkeysym_h=${ac_cv_header_X11_DECkeysym_h=yes}
+ac_cv_header_X11_Sunkeysym_h=${ac_cv_header_X11_Sunkeysym_h=yes}
+ac_cv_header_X11_Xpoll_h=${ac_cv_header_X11_Xpoll_h=yes}
+ac_cv_header_lastlog_h=${ac_cv_header_lastlog_h=yes}
+ac_cv_header_ncurses_term_h=${ac_cv_header_ncurses_term_h=yes}
+ac_cv_header_paths_h=${ac_cv_header_paths_h=yes}
+ac_cv_header_stdc=${ac_cv_header_stdc=yes}
+ac_cv_header_stdlib_h=${ac_cv_header_stdlib_h=yes}
+ac_cv_header_sys_wait_h=${ac_cv_header_sys_wait_h=yes}
+ac_cv_header_termcap_h=${ac_cv_header_termcap_h=yes}
+ac_cv_header_termios_h=${ac_cv_header_termios_h=yes}
+ac_cv_header_time=${ac_cv_header_time=yes}
+ac_cv_header_unistd_h=${ac_cv_header_unistd_h=yes}
+ac_cv_lib_ICE_IceConnectionNumber=${ac_cv_lib_ICE_IceConnectionNumber=yes}
+ac_cv_lib_X11_XOpenDisplay=${ac_cv_lib_X11_XOpenDisplay=yes}
+ac_cv_lib_Xext_XextCreateExtension=${ac_cv_lib_Xext_XextCreateExtension=yes}
+ac_cv_lib_Xt_XtAppInitialize=${ac_cv_lib_Xt_XtAppInitialize=yes}
+ac_cv_lib_dnet_dnet_ntoa=${ac_cv_lib_dnet_dnet_ntoa=no}
+ac_cv_lib_dnet_stub_dnet_ntoa=${ac_cv_lib_dnet_stub_dnet_ntoa=no}
+ac_cv_lib_elf_elf_begin=${ac_cv_lib_elf_elf_begin=yes}
+ac_cv_lib_nsl_gethostname=${ac_cv_lib_nsl_gethostname=yes}
+ac_cv_lib_socket_socket=${ac_cv_lib_socket_socket=no}
+ac_cv_path_IMAKE=${ac_cv_path_IMAKE=/usr/bin/xmkmf}
+ac_cv_path_XTERM_PATH=${ac_cv_path_XTERM_PATH=/usr/bin/xterm}
+ac_cv_path_install=${ac_cv_path_install='/usr/bin/install -c'}
+ac_cv_prog_AWK=${ac_cv_prog_AWK=gawk}
+ac_cv_prog_CC=${ac_cv_prog_CC=gcc}
+ac_cv_prog_CPP=${ac_cv_prog_CPP='gcc -E'}
+ac_cv_prog_cc_cross=${ac_cv_prog_cc_cross=no}
+ac_cv_prog_cc_g=${ac_cv_prog_cc_g=yes}
+ac_cv_prog_cc_works=${ac_cv_prog_cc_works=yes}
+ac_cv_prog_gcc=${ac_cv_prog_gcc=yes}
+ac_cv_prog_gcc_traditional=${ac_cv_prog_gcc_traditional=no}
+ac_cv_type_time_t=${ac_cv_type_time_t=yes}
+cf_cv_ansi_cc=${cf_cv_ansi_cc=-DCC_HAS_PROTOS}
+cf_cv_dcl_errno=${cf_cv_dcl_errno=yes}
+cf_cv_gnu_source=${cf_cv_gnu_source=yes}
+cf_cv_have_errno=${cf_cv_have_errno=no}
+cf_cv_have_utmp=${cf_cv_have_utmp=utmp}
+cf_cv_have_utmp_ut_host=${cf_cv_have_utmp_ut_host=yes}
+cf_cv_have_utmp_ut_name=${cf_cv_have_utmp_ut_name=ut_name}
+cf_cv_have_utmp_ut_session=${cf_cv_have_utmp_ut_session=yes}
+cf_cv_have_utmp_ut_xstatus=${cf_cv_have_utmp_ut_xstatus=ut_exit.e_exit}
+cf_cv_have_utmp_ut_xtime=${cf_cv_have_utmp_ut_xtime=yes}
+cf_cv_input_method=${cf_cv_input_method=yes}
+cf_cv_lib_part_tgetent=${cf_cv_lib_part_tgetent=-ltermcap}
+cf_cv_lib_tgetent=${cf_cv_lib_tgetent=no}
+cf_cv_path_lastlog=${cf_cv_path_lastlog=_PATH_LASTLOG}
+cf_cv_posix_wait=${cf_cv_posix_wait=yes}
+cf_cv_svr4=${cf_cv_svr4=no}
+cf_cv_system_name=${cf_cv_system_name=linux-gnu}
+cf_cv_sysv=${cf_cv_sysv=no}
+cf_cv_sysv_utmp=${cf_cv_sysv_utmp=yes}
+cf_cv_termio_c_ispeed=${cf_cv_termio_c_ispeed=no}
+cf_cv_tty_group=${cf_cv_tty_group=yes}
+cf_cv_tty_group_name=${cf_cv_tty_group_name=daemon}
+cf_cv_type_fd_set=${cf_cv_type_fd_set=sys/types.h}
+cf_cv_type_size_t=${cf_cv_type_size_t=yes}
+cf_cv_x_freetype=${cf_cv_x_freetype=yes}
+cf_cv_xkb_bell_ext=${cf_cv_xkb_bell_ext=no}

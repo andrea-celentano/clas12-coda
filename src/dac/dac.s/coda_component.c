@@ -671,7 +671,7 @@ signal_thread (void *arg)
         debug_printf (2,"killed by: %s", Tcl_SignalMsg (sig_number));
         Tk_doneFlag__ = 1;
 		*/
-        return;
+        exit(0);/*return;*/
         break;
         
       default:

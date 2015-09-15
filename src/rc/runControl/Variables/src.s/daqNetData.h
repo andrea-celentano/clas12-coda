@@ -35,6 +35,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <assert.h>
+
 #include <daqArbStruct.h>
 
 #include <codaConst.h>
@@ -44,15 +45,21 @@
 
 inline int64_t roundLen (int64_t len)
 {
-  return ((len + ALIGN_WORDB - 1) & ~ (ALIGN_WORDB - 1));
+  printf("roundLen: len=%d\n",len);
+  printf("roundLen: %d\n",~(ALIGN_WORDB-1));
+  return ( (len + (ALIGN_WORDB-1)) & (~(ALIGN_WORDB-1)) );
 }
 
-// data types
+/* data types */
 enum dataType {CODA_INT64, CODA_INT32, CODA_FLT, CODA_DBL, CODA_STR, CODA_STRUCT, CODA_UNKNOWN};
 
-// real daqNetData size without those vritual function pointer size which
-// is trouble some on different machines
+
+/* real daqNetData size without those virtual function pointer size which
+   is trouble some on different machines */
+/*
 #define RC_DAQ_NETDATA_SIZE (sizeof (dataType) + 3*sizeof (int) + 2*sizeof (char *) + sizeof (double))
+*/
+#define RC_DAQ_NETDATA_SIZE (sizeof (dataType) + 3*sizeof (int) + 2*sizeof (int64_t) + sizeof (double))
 
 
 
@@ -148,19 +155,45 @@ public:
 
   virtual const char* className (void) const {return "daqNetData";}
 
+
 protected:
-  // construct name and attribute
+
+  /* construct name and attribute */
   void ctrNameAndAttr (char *name, char *attr);
-  // Free array buffer memory
+  /* Free array buffer memory */
   void freeBufferMemory (void);
 
+
 private:
+
+  /*sergey: size of data for this class have to correspond to RC_DAQ_NETDATA_SIZE macros defined above */
   dataType type_;
-  int      nameLen_; // strlen + 1
-  int      attrLen_; // strlen + 1
+  int      nameLen_; /* strlen + 1 */
+  int      attrLen_; /* strlen + 1 */
   int      count_;
+
+
+
+
+
+  /*sergey: data size for this class have to be the same on 32bit and 64bit machines, so we will
+  use union with int64_t element to make sure it is always 64 bit
   char     *compname_;
   char     *attrname_;
+  */
+  union comp_ptr {
+    char     *compname_;
+    int64_t  filler;
+  } c_;
+
+  union attr_ptr {
+    char     *attrname_;
+    int64_t  filler;
+  } a_;
+
+
+
+
 
   union    utype {
     int64_t       lval;
@@ -168,12 +201,13 @@ private:
     float         fval;
     double        dval;
     char*         sval;
-    void*         data;  // for array of simple data type
+    void*         data;  /* for array of simple data type */
     daqArbStruct* arb;
   } u_;
   
-  // friend class
+  /* friend class */
   friend class daqData;
+
 };
 
 #endif

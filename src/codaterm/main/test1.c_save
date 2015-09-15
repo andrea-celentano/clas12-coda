@@ -1,0 +1,255 @@
+/********************************************************************
+* This example code is from the book:
+*
+* The X Window System: Programming and Applications with Xt
+* Second OSF/Motif Edition
+* by
+* Douglas Young
+* Prentice Hall, 1994
+*
+* Copyright 1994 by Prentice Hall
+* All Rights Reserved
+*
+* Permission to use, copy, modify, and distribute this software for
+* any purpose except publication and without fee is hereby granted,
+provided
+* that the above copyright notice appear in all copies of the software.
+*
+*****************************************************************************/
+
+/*******************************************************************
+* editor.c: An example Motif interface used to discuss resources
+*******************************************************************/
+#include <Xm/Xm.h>
+#include <Xm/DrawingA.h>
+#include <Xm/RowColumn.h>
+#include <Xm/PushB.h>
+#include <Xm/Form.h>
+#include <Xm/Frame.h>
+
+void quitCallback ( Widget w, XtPointer clientData, XtPointer callData );
+void yesCallback ( Widget w, XtPointer clientData, XtPointer callData );
+void noCallback ( Widget w, XtPointer clientData, XtPointer callData );
+void HandleBoardEvents ( Widget w, XtPointer clientData, XEvent *event, Boolean *flag );
+
+Widget quit, quit1, quit2, quit3, quit4, quit5, quit6, quit7, quit8;
+Widget yes;
+Widget no;
+Arg wargs[1];
+Display *display;
+int screen;
+long fgcolor, bgcolor;
+XGCValues gcval;
+GC draw;
+Window window;
+int pointx, pointy;
+int FirstPt = TRUE;
+
+void
+main ( int argc, char **argv )
+{
+  Widget shell, canvas, panel, commands, options;
+  XtAppContext app;
+  int ac;
+  Arg arg[20];
+    
+
+	/*
+	* Initialize Xt.
+	*/
+
+/*
+	if ( putenv("XENVIRONMENT=Editor.color") < 0)
+		printf("can't set XENVIRONMENT\n");
+*/
+	shell = XtAppInitialize ( &app, "Editor", NULL, 0, &argc, argv, NULL, NULL, 0 );
+
+
+	/*
+	* The overall window layout is handled by an XmForm widget.
+	*/
+
+	panel = XtCreateManagedWidget ( "panel", xmFormWidgetClass, shell, NULL, 0 );
+	/*
+	* An XmRowColumn widget holds the buttons along the top
+	* of the window.
+	*/
+
+	commands = XtVaCreateManagedWidget ( "commands", xmRowColumnWidgetClass,
+	    panel,
+										 /*XmNnumColumns, 3,*/
+										 XmNorientation, XmHORIZONTAL,
+										 /*XmNorientation, XmVERTICAL,*/
+	    XmNtopAttachment, XmATTACH_FORM,
+	    XmNrightAttachment, XmATTACH_FORM,
+	    XmNleftAttachment, XmATTACH_FORM,
+	    XmNbottomAttachment, XmATTACH_NONE,
+	    NULL );
+	/*
+XmNverticalAlignment
+	*/
+
+	/*
+	* Another XmRowColumn widget contains a column of buttons
+	* along the left side of the window.
+	*/
+	/*sergey
+	options =
+	    XtVaCreateManagedWidget ( "options", xmRowColumnWidgetClass,
+	    panel,
+	    XmNnumColumns, 1,
+	    XmNorientation, XmVERTICAL,
+	    XmNtopAttachment, XmATTACH_WIDGET,
+	    XmNtopWidget, commands,
+	    XmNrightAttachment, XmATTACH_NONE,
+	    XmNleftAttachment, XmATTACH_FORM,
+	    XmNbottomAttachment,XmATTACH_FORM,
+	    NULL );
+	*/
+	/*
+	* The middle window, in which the application can display
+	* text or graphics is an XmDrawingArea widget.
+	*/
+	/*sergey
+	canvas =
+	    XtVaCreateManagedWidget ( "canvas", xmDrawingAreaWidgetClass,
+	    panel,
+	    XmNtopAttachment, XmATTACH_WIDGET,
+	    XmNtopWidget, commands,
+	    XmNrightAttachment, XmATTACH_FORM,
+	    XmNleftWidget, options,
+	    XmNleftAttachment, XmATTACH_WIDGET,
+	    XmNbottomAttachment,XmATTACH_FORM,
+	    XmNwidth,200,
+	    XmNheight,200,
+
+	    NULL );
+	*/
+ 	/*
+	* The buttons in the commands and options panels are
+	* created as XmPushButton widgets.
+	*/
+
+    ac = 0;
+    XtSetArg (arg[ac], XmNwidth, 300); ac++;
+    XtSetArg (arg[ac], XmNheight, 50); ac++;
+
+    quit  = XtCreateManagedWidget ( "Quit",  xmFrameWidgetClass, commands, arg, ac );
+
+	quit1 = XtCreateManagedWidget ( "Quit1", xmFrameWidgetClass, commands, arg, ac );
+
+
+  /*
+	quit = XtCreateManagedWidget ( "Quit", xmPushButtonWidgetClass, commands, NULL, 0 );
+	quit1 = XtCreateManagedWidget ( "Quit1", xmPushButtonWidgetClass, commands, NULL, 0 );
+	quit2 = XtCreateManagedWidget ( "Quit2", xmPushButtonWidgetClass, commands, NULL, 0 );
+	quit3 = XtCreateManagedWidget ( "Quit3", xmPushButtonWidgetClass, commands, NULL, 0 );
+	quit4 = XtCreateManagedWidget ( "Quit4", xmPushButtonWidgetClass, commands, NULL, 0 );
+	quit5 = XtCreateManagedWidget ( "Quit5", xmPushButtonWidgetClass, commands, NULL, 0 );
+	quit6 = XtCreateManagedWidget ( "Quit6", xmPushButtonWidgetClass, commands, NULL, 0 );
+	quit7 = XtCreateManagedWidget ( "Quit7", xmPushButtonWidgetClass, commands, NULL, 0 );
+  */
+
+
+
+
+goto a123;
+
+
+	no = XtCreateManagedWidget ( "no", xmPushButtonWidgetClass,
+	    commands, NULL, 0 );
+	yes = XtCreateManagedWidget ( "yes", xmPushButtonWidgetClass,
+	    commands, NULL, 0 );
+	XtCreateManagedWidget ( "button1", xmPushButtonWidgetClass,
+	    options, NULL, 0 );
+	XtCreateManagedWidget ( "button2", xmPushButtonWidgetClass,
+	    options, NULL, 0 );
+	XtCreateManagedWidget ( "button3", xmPushButtonWidgetClass,
+	    options, NULL, 0 );
+	{
+		/* change the label and background color of a pushbutton */
+		XtSetArg(wargs[0], XmNlabelString,
+		    XmStringCreateLocalized("      QUIT     "));
+		XtSetValues(quit, wargs, 1);
+		XtAddCallback ( quit, XmNactivateCallback,
+		    quitCallback, NULL );
+		XtAddCallback ( yes, XmNactivateCallback,
+		    yesCallback, NULL );
+		XtAddCallback ( no, XmNactivateCallback,
+		    noCallback, NULL );
+		display= XtDisplay(shell);
+		screen = DefaultScreen(display);
+
+		/* draw lines on the canvas */
+
+		XtVaGetValues ( canvas,
+		    XmNforeground, &gcval.foreground,
+		    XmNbackground, &gcval.background,
+		    NULL );
+
+		draw = XtGetGC ( canvas, GCForeground | GCBackground , &gcval );
+
+		XtAddEventHandler(canvas,ButtonPressMask,
+		    FALSE,HandleBoardEvents, NULL);
+		/*
+		To reverse use
+		XtRemoveEventHandler (canvas,ButtonPressMask,
+		FALSE,HandleBoardEvents, NULL);
+		*/
+
+	}
+
+a123:
+
+	XtRealizeWidget ( shell );
+	//XtUnmapWidget(no);
+	//XtUnmapWidget(yes);
+	XtAppMainLoop ( app );
+}
+
+
+
+void quitCallback ( Widget w, XtPointer clientData, XtPointer callData)
+{
+	Colormap cmap;
+	XColor color, ignore;
+	char *colorname = "Red";
+
+	XtSetArg(wargs[0], XmNlabelString,
+	    XmStringCreateLocalized("Are you sure?"));
+	XtSetValues(quit, wargs, 1);
+	XtVaSetValues( quit, XmNsensitive, False, NULL);
+	XtMapWidget(no);
+	XtMapWidget(yes);
+
+	cmap = DefaultColormap (display, screen);
+	XAllocNamedColor(display, cmap, colorname, &color, &ignore);
+	XtSetArg(wargs[0], XmNbackground, color.pixel);
+	XtSetValues(quit, wargs, 1);
+
+}
+
+void yesCallback ( Widget w, XtPointer clientData, XtPointer callData)
+{
+	/* No action is necessary, just exit. */
+
+	exit(0);
+
+}
+void noCallback ( Widget w, XtPointer clientData, XtPointer callData)
+{
+	XtSetArg(wargs[0], XmNlabelString,
+	    XmStringCreateLocalized("      QUIT     "));
+	XtSetValues(quit, wargs, 1);
+	XtVaSetValues( quit, XmNsensitive, True, NULL);
+	XtMapWidget(quit);
+	XtUnmapWidget(no);
+	XtUnmapWidget(yes);
+
+}
+
+void HandleBoardEvents ( Widget w, XtPointer clientData, XEvent *event, Boolean *flag )
+{
+
+	XDrawRectangle(XtDisplay(w),XtWindow(w),draw,event->xbutton.x, event->xbutton.y, 20, 20);
+}

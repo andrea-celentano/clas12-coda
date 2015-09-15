@@ -27,20 +27,22 @@
 
 #include <daqArbStruct.h>
 
+#include <stdint.h>
+
 class daqCompBootStruct: public daqArbStruct
 {
 public:
   daqCompBootStruct  (void);
   ~daqCompBootStruct (void);
 
-  // return duplicated object
+  /* return duplicated object */
   daqArbStruct* dup (void);
 
   // return size information
   size_t size (void);
 
   // return run time id information
-  long   id   (void);
+  /*long*/int64_t   id   (void);
 
   // encode information
   void   encode (char* buffer, size_t &bufsize);
@@ -55,7 +57,7 @@ public:
   void   insertInfo (char* component, int autoboot);
 
   // get components and auto boot information
-  long   compBootInfo (char** &components, long* &autoboot);
+  /*long*/int64_t   compBootInfo (char** &components, /*long*/int64_t* &autoboot);
 
   // print out all information
   void   dumpAll (void);
@@ -71,16 +73,43 @@ protected:
   void   restoreData (void);
 
 private:
+
   // data area
   static int maxNumComps;
   static int maxCompNameLen;
 
-  // all components name
-  long    id_;             // run time decoding id
-  long    numComponents_;
-  long*   autoboot_;
+  /* all components name (used in rcClientHandler, rcCompBootDialog, daqRun) */
+  int64_t/*long*/    id_;             // run time decoding id
+  int64_t/*long*/    numComponents_;
+
+
+
+
+
+#if 0
+  int64_t/*long*/   *autoboot_;
+#endif
+  union auto_ptr {
+    int64_t/*long*/   *autoboot_;
+    int64_t  filler;
+  } a_; /* used in this class only */
+
+
+  /* sergey
   char**  components_;
+  */
+  union comp_ptr {
+    char**  components_;
+    int64_t  filler;
+  } c_; /* used in this class only */
+
+
+
+
+
   // one has to count virtual function table pointer size
-  // to align in 8 byte boundary
+  // to align in 8 byte boundary; 'static' variables does not count;
+  // inheritated from class 'daqArbStruct' count and it's size must
+  // be subtracted to get our size only (see 'realsize' in 'daqCompBootStruct::decode()'
 };
 #endif

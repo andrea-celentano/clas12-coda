@@ -44,6 +44,7 @@ ifeq ("$(OSTYPE)","Darwin")
         CLON_FLAGS += $(X11INCDIR)
 endif
 
+LIBNAMES += $(X11LIBS)
 
 #-------------------
 # customize targets

@@ -404,33 +404,33 @@ daqData::update (void)
 #ifdef Linux_x86_64
     case CODA_INT64:
       if (updater_) 
-	(*updater_)(data_.compname_, data_.attrname_, 
+	(*updater_)(data_.c_.compname_, data_.a_.attrname_, 
 		    (void *)&(data_.u_.lval), 1);
       break;
 #endif
     case CODA_INT32:
       if (updater_) 
-	(*updater_)(data_.compname_, data_.attrname_, 
+	(*updater_)(data_.c_.compname_, data_.a_.attrname_, 
 		    (void *)&(data_.u_.ival), 1);
       break;
     case CODA_FLT:
       if (updater_) 
-	(*updater_)(data_.compname_, data_.attrname_, 
+	(*updater_)(data_.c_.compname_, data_.a_.attrname_, 
 		    (void *)&(data_.u_.fval), 1);
       break;
     case CODA_DBL:
       if (updater_) 
-	(*updater_)(data_.compname_, data_.attrname_, 
+	(*updater_)(data_.c_.compname_, data_.a_.attrname_, 
 		    (void *)&(data_.u_.dval), 1);
       break;
     case CODA_STR:
       if (updater_) 
-	(*updater_)(data_.compname_, data_.attrname_, 
+	(*updater_)(data_.c_.compname_, data_.a_.attrname_, 
 		    (void *)(data_.u_.sval), 1);
       break;
     case CODA_STRUCT:
       if (updater_)
-	(*updater_)(data_.compname_, data_.attrname_, 
+	(*updater_)(data_.c_.compname_, data_.a_.attrname_, 
 		    (void *)(data_.u_.arb), 1);	
       break;
     default:
@@ -439,7 +439,7 @@ daqData::update (void)
   }
   else {
     if (updater_) 
-      (*updater_)(data_.compname_, data_.attrname_, 
+      (*updater_)(data_.c_.compname_, data_.a_.attrname_, 
 		  (void *)(data_.u_.data), data_.count_);
   }
   if (updater_)

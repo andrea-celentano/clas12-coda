@@ -30,6 +30,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 #define _CODA_ALIGN_WORDB_ 8      /* word boundary alignment            */
                                   /* align a string to word boundary    */
@@ -50,7 +51,7 @@ public:
   virtual size_t size (void);
 
   // return run time id information
-  virtual long   id   (void);
+  virtual /*long*/int64_t   id   (void);
 
   // encode information
   virtual void   encode (char* buffer, size_t &bufsize);
@@ -62,7 +63,9 @@ public:
   virtual const char* className (void) const {return "daqArbStruct";}
 
 protected:
+
   // deny direct instantiation
   daqArbStruct  (void);
+
 };
 #endif

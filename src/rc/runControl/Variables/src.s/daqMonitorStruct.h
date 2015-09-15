@@ -41,7 +41,7 @@ public:
   size_t size (void);
 
   // return run time id information
-  long   id   (void);
+  /*long*/int64_t   id   (void);
 
   // encode information
   void   encode (char* buffer, size_t &bufsize);
@@ -58,14 +58,14 @@ public:
   // setup autoend information
   void   enableAutoEnd   (void);
   void   disableAutoEnd  (void);
-  long   autoend (void) const;
+  /*long*/int64_t   autoend (void) const;
   
   // set up timer interval
   void   timerInterval   (long interval);
-  long   timerInterval   (void) const;
+  /*long*/int64_t   timerInterval   (void) const;
 
   // get components and auto boot information
-  long   monitorParms (char** &components, long* &monitored,
+  /*long*/int64_t   monitorParms (char** &components, int64_t*/*long*/ &monitored,
 		       long&  autoend, long& interval);
 
   // print out all information
@@ -87,13 +87,35 @@ private:
   static int maxCompNameLen;
 
   // all components name
-  long    id_;             // run time decoding id
-  long    autoend_;
-  long    interval_;
+  int64_t/*long*/    id_;             // run time decoding id
+  int64_t/*long*/    autoend_;
+  int64_t/*long*/    interval_;
+  int64_t/*long*/    numComponents_;
 
-  long    numComponents_;
-  long*   monitored_;
+
+
+
+#if 0
+  int64_t/*long*/  *monitored_;
+#endif
+  union mon_ptr {
+    int64_t/*long*/  *monitored_;
+    int64_t  filler;
+  } m_; /* used in this class only ? */
+
+
+
+  /*
   char**  components_;
+  */
+  union comp_ptr {
+    char**  components_;
+    int64_t  filler;
+  } c_; /* used in this class only ? */
+
+
+
+
   // one has to count virtual function table pointer size
   // to align in 8 byte boundary
 };

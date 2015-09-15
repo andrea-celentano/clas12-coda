@@ -1,0 +1,9 @@
+codaRegistry::motifHandler: propInfo = 0x085dc778
+codaRegistry::motifHandler: propInfo >c:dc12<
+
+codaedit::messageHandler reached, message >c:dc12<
+
+EditorSelectConfig: confn >dc12<
+initConfigSel reached
+initConfigSel: already inited - do nothing
+Construct comp clastrig2 26  TS clastrig2 

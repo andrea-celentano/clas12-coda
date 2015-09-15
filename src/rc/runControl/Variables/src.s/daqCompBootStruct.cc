@@ -28,9 +28,12 @@
 //   run control source
 //
 //
+#include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+
 #include <daqArbStructFactory.h>
 #include "daqCompBootStruct.h"
 
@@ -43,12 +46,12 @@ daqCompBootStruct::daqCompBootStruct (void)
 #ifdef _TRACE_OBJECTS
   printf ("    Create daqCompBootStruct Class Object\n");
 #endif
-  autoboot_ = new long[daqCompBootStruct::maxNumComps];
-  components_ = new char*[daqCompBootStruct::maxNumComps];
+  a_.autoboot_ = new /*long*/int64_t[daqCompBootStruct::maxNumComps];
+  c_.components_ = new char*[daqCompBootStruct::maxNumComps];
 
   for (int i = 0; i < daqCompBootStruct::maxNumComps; i++) {
-    autoboot_[i] = 0;
-    components_[i] = 0;
+    a_.autoboot_[i] = 0;
+    c_.components_[i] = 0;
   }
 }
 
@@ -59,10 +62,10 @@ daqCompBootStruct::~daqCompBootStruct (void)
 #endif
 
   for (int i = 0; i < numComponents_; i++)
-    delete []components_[i];
+    delete []c_.components_[i];
 
-  delete []autoboot_;
-  delete []components_;
+  delete []a_.autoboot_;
+  delete []c_.components_;
 }
 
 daqArbStruct*
@@ -72,9 +75,9 @@ daqCompBootStruct::dup (void)
 
   if (numComponents_ > 0) {
     for (int i = 0; i < numComponents_; i++) {
-      tmp->autoboot_[i] = autoboot_[i];
-      tmp->components_[i] = new char[daqCompBootStruct::maxCompNameLen];
-      ::strcpy (tmp->components_[i], components_[i]);
+      tmp->a_.autoboot_[i] = a_.autoboot_[i];
+      tmp->c_.components_[i] = new char[daqCompBootStruct::maxCompNameLen];
+      ::strcpy (tmp->c_.components_[i], c_.components_[i]);
     }
     tmp->numComponents_ = numComponents_;
   }
@@ -91,19 +94,21 @@ daqCompBootStruct::insertInfo (char* component, int autoboot)
     fprintf (stderr, "daqCompBootStruct Error: overflow on insert\n");
 
   int i = numComponents_;
-  components_[i] = new char[daqCompBootStruct::maxCompNameLen];
-  ::strcpy (components_[i], component);
-  autoboot_[i] = autoboot;
+  c_.components_[i] = new char[daqCompBootStruct::maxCompNameLen];
+  ::strcpy (c_.components_[i], component);
+  a_.autoboot_[i] = autoboot;
 
   numComponents_ ++;
+
+  printf("daqCompBootStruct::insertInfo: component >%s< numComponents_=%d ====================\n",component,numComponents_);
 }
 
-long
-daqCompBootStruct::compBootInfo (char** &components, long* &autoboot)
+/*long*/int64_t
+daqCompBootStruct::compBootInfo (char** &components, /*long*/int64_t* &autoboot)
 {
   if (numComponents_ > 0) {
-    components = components_;
-    autoboot = autoboot_;
+    components = c_.components_;
+    autoboot = a_.autoboot_;
   }
   else {
     components = 0;
@@ -117,9 +122,10 @@ daqCompBootStruct::cleanUp (void)
 {
   if (numComponents_ > 0) {
     for (int i = 0; i < numComponents_; i++)
-      delete []components_[i];
+      delete []c_.components_[i];
   }
   numComponents_ = 0;
+  printf("daqCompBootStruct::cleanUp =====================\n");
 }    
 
 void
@@ -127,23 +133,33 @@ daqCompBootStruct::encodeData (void)
 {
   if (numComponents_ > 0) {
     for (int i = 0; i < numComponents_; i++)
-      autoboot_[i] = htonl (autoboot_[i]);
+      a_.autoboot_[i] = htonl (a_.autoboot_[i]);
   }
+
+  printf("daqCompBootStruct::encodeData(1) numComponents_=%d =============================\n",numComponents_);
   numComponents_ = htonl (numComponents_);
   id_ = htonl (id_);
+  printf("daqCompBootStruct::encodeData(2) numComponents_=%d =============================\n",numComponents_);
 }
 
 void
 daqCompBootStruct::restoreData (void)
 {
+  printf("daqCompBootStruct::restoreData(1) numComponents_=%d =============================\n",numComponents_);
   numComponents_ = ntohl (numComponents_);
+  printf("daqCompBootStruct::restoreData(2) numComponents_=%d =============================\n",numComponents_);
+
   id_ = ntohl (id_);
 
   if (numComponents_ > 0) {
     for (int i = 0; i < numComponents_; i++)
-      autoboot_[i] = ntohl (autoboot_[i]);
+      a_.autoboot_[i] = ntohl (a_.autoboot_[i]);
   }
 }
+
+
+
+
 
 void
 daqCompBootStruct::encode (char* buffer, size_t& bufsize)
@@ -160,12 +176,12 @@ daqCompBootStruct::encode (char* buffer, size_t& bufsize)
   i += realsize;
 
   // copy autoboot to the buffer
-  ::memcpy (&(buffer[i]), (void *)autoboot_, numComps*sizeof (long));
-  i += numComps*sizeof (long);
+  ::memcpy (&(buffer[i]), (void *)a_.autoboot_, numComps*sizeof (/*long*/int64_t));
+  i += numComps*sizeof (/*long*/int64_t);
 
   // copy all components to the buffer
   for (j = 0; j < numComps; j++) {
-    ::memcpy (&(buffer[i]), (void *)components_[j], 
+    ::memcpy (&(buffer[i]), (void *)c_.components_[j], 
     daqCompBootStruct::maxCompNameLen);
     i = i + daqCompBootStruct::maxCompNameLen;
   }
@@ -175,49 +191,69 @@ daqCompBootStruct::encode (char* buffer, size_t& bufsize)
   bufsize = (size_t)i;
 }
 
+
+
 void
 daqCompBootStruct::decode (char* buffer, size_t size)
 {
   int i = 0;
   int j = 0;
   
-  // clean up old information
+  printf("daqCompBootStruct::decode: size=%d (%d %d)\n",size,sizeof(daqCompBootStruct),sizeof(daqArbStruct));
+
+  /* clean up old information (in particular sets 'numComponents_' to 0) */
   cleanUp ();
 
   long realsize = sizeof (daqCompBootStruct) - sizeof (daqArbStruct);
   
-  // copy header information
-  ::memcpy ((void *)&(this->id_), buffer, 2*sizeof (long));
+  /* copy header information (2 words: id_ and numComponents_, see header file) */
+  ::memcpy ((void *)&(this->id_), buffer, 2*sizeof (int64_t/*long*/));
+
   // skip all other elements
   i += realsize;
-  // get number of components value
+
+  printf("daqCompBootStruct::decode: i(1)=%d\n",i);fflush(stdout);
+
+  printf("daqCompBootStruct::decode: befor: numComponents_=%d id_=%d\n",numComponents_,id_);fflush(stdout);
+
+  /* get number of components value */
   numComponents_ = ntohl (numComponents_);
-  // get id number
+
+  /* get id number */
   id_ = ntohl (id_);
 
-  if (numComponents_) {
+  printf("daqCompBootStruct::decode: after: numComponents_=%d id_=%d\n",numComponents_,id_);fflush(stdout);
+
+  if (numComponents_)
+  {
     // make sure number of components < maximum number of components
     assert (numComponents_ < (daqCompBootStruct::maxNumComps));
 
     // copy auto boot information and convert to native byte order
-    ::memcpy ((void *)autoboot_, &(buffer[i]), numComponents_*sizeof (long));
+    ::memcpy ((void *)a_.autoboot_, &(buffer[i]), numComponents_*sizeof (/*long*/int64_t));
 
     for (j = 0; j < numComponents_; j++) 
-      autoboot_[j] = ntohl (autoboot_[j]);
+	{ 
+      a_.autoboot_[j] = ntohl (a_.autoboot_[j]);
+	}
 
-    i += numComponents_*sizeof (long);
+    i += numComponents_*sizeof (/*long*/int64_t);
+    printf("daqCompBootStruct::decode: i(2)=%d\n",i);fflush(stdout);
 
     // copy components name info
-    for (j = 0; j < numComponents_; j++) {
-      components_[j] = new char[(daqCompBootStruct::maxCompNameLen)];
-      ::memcpy ((void *)components_[j], &(buffer[i]),
+    for (j = 0; j < numComponents_; j++)
+    {
+      c_.components_[j] = new char[(daqCompBootStruct::maxCompNameLen)];
+      ::memcpy ((void *)c_.components_[j], &(buffer[i]),
       daqCompBootStruct::maxCompNameLen);
       i = i + daqCompBootStruct::maxCompNameLen;
+	  printf("daqCompBootStruct::decode: i(3)=%d (j=%d)\n",i,j);fflush(stdout);
     }
   }
   
   assert (i == size);
 }
+
 
 size_t
 daqCompBootStruct::size (void)
@@ -229,13 +265,13 @@ daqCompBootStruct::size (void)
   s += realsize;
 
   if (numComponents_ > 0) {
-    s = s + sizeof (long)*numComponents_;
-    s = s + numComponents_*(daqCompBootStruct::maxCompNameLen);
+    s = s + sizeof (/*long*/int64_t) * numComponents_;
+    s = s + numComponents_ * (daqCompBootStruct::maxCompNameLen);
   }
-  return s;
+  return(s);
 }
 
-long
+/*long*/int64_t
 daqCompBootStruct::id (void)
 {
   return id_;
@@ -245,8 +281,8 @@ void
 daqCompBootStruct::dumpAll (void)
 {
   for (int i = 0; i < numComponents_; i++) {
-    printf ("Component %s boot info %d\n", components_[i],
-	    autoboot_[i]);
+    printf ("Component %s boot info %d\n", c_.components_[i],
+	    a_.autoboot_[i]);
   }
 }
 

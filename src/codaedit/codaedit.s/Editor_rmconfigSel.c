@@ -151,6 +151,8 @@ initRemoveConfigSel (Widget parent)
   Widget actionForm, sep, label;
   static int removeConfigSelInited = 0;
   
+  printf("initRemoveConfigSel reached\n");
+
   if (removeConfigSelInited) 
     return;
 

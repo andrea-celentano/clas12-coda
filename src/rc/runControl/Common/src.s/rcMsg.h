@@ -48,6 +48,7 @@ const int RCMSG_PREDATA_SIZE = 4*sizeof(int64_t);
 class rcMsg
 {
 public:
+
   // constructor and destructor
   rcMsg  (int64_t type, daqNetData& data, int64_t reqId = 0);
   rcMsg  (const rcMsg&);
@@ -73,22 +74,37 @@ public:
   friend int operator >> (int in,  rcMsg& msg);
 
 protected:
-  // byte swapping utilities
+
+  /* byte swapping utilities */
   void decode (void);
   void encode (void);
 
 private:
-  // command type
+
+  /***********************************************************************/
+  /* header elements; defined above RCMSG_PREDATA_SIZE have to correspond
+     to the number of the following variables except last 'data_' */
+
+  /* command type */
   int64_t        type_;
-  // user callback pointer casted into long 
-  // may not be portable for 64 bit arch.
+
+  /* user callback pointer casted into long 
+     may not be portable for 64 bit arch */
   int64_t        arg_;
-  // size of network data to follow
+
+  /* size of network data to follow */
   int64_t        size_;
-  // padding
+
+  /* padding */
   int64_t        unused_;
-  // real network data
+
+
+
+
+  /*********************/
+  /* real network data */
   daqNetData  data_;
+
 };
 
 #endif

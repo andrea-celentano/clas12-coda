@@ -281,7 +281,7 @@ daqRunTypeStruct::size (void)
   return s;
 }
 
-long
+/*long*/int64_t
 daqRunTypeStruct::id (void)
 {
   return id_;

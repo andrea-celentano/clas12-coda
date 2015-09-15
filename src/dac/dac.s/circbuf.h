@@ -62,7 +62,7 @@
 
 #define MAX_ROCS 70 /* must accomodate biggest roc id, not the number of rocs !!! */
 
-#define QSIZE 16 /* the number of buffers in EB, normally 8, was set to 6 trying to decrease memory usage on clondaq5 */
+#define QSIZE 8 /* the number of buffers in EB, normally 8, was set to 6 trying to decrease memory usage on clondaq5 */
 
 
 #define NTHREADMAX 7

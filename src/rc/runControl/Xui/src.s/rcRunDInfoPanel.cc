@@ -696,7 +696,8 @@ rcRunDInfoPanel::attr2Callback (int status, void* arg, daqNetData* data)
         sprintf(cmd,"s:%d %s",tevn,data->name());
 printf("CEDIT 3\n");
 #ifdef USE_CREG
-        coda_send(XtDisplay(obj->baseWidget()),"CEDIT",cmd);
+        coda_Send(XtDisplay(obj->baseWidget()),"CEDIT",cmd);
+        coda_Send(XtDisplay(obj->baseWidget()),"ALLROCS",cmd);
 #endif
       }
     }

@@ -55,7 +55,7 @@ rcMsg::operator = (const rcMsg& msg)
     unused_ = 0;
     data_ = msg.data_;
   }
-  return *this;
+  return(*this);
 }
 
 rcMsg::~rcMsg (void)
@@ -83,10 +83,14 @@ rcMsg::reqId (void) const
   return arg_;
 }
 
+
+
+
+/* encode and decode (bytes swapping) for header; data_ of daqNetData will be performed separatly */
+
 void
 rcMsg::encode (void)
 {
-  // data_ of daqNetData will be performed separatly
   type_ = htonl (type_);
   arg_  = htonl (arg_);
   size_ = htonl (size_);
@@ -96,12 +100,14 @@ rcMsg::encode (void)
 void
 rcMsg::decode (void)
 {
-  // data_ of daqNetData will be performed separatly
   type_ = ntohl (type_);
   arg_  = ntohl (arg_);
   size_ = ntohl (size_);
   unused_ = ntohl (unused_);
 }
+
+
+
 
 rcMsg::operator daqNetData& (void)
 {
@@ -116,9 +122,19 @@ operator << (SOCK_Stream& out, rcMsg& msg)
   int  n = 0;
   iovec iovp[2];
 
-  // Note: data_ stays the same
+#ifdef _CODA_DEBUG
+  printf("rcMsg: operator 'SOCK_Stream << rcMsg' reached\n");fflush(stdout);
+#endif
+
+  /* Note: data_ stays the same */
   encodeNetData (msg.data_, buffer, bufsize);
-  // encode header
+
+#ifdef _CODA_DEBUG
+  printf("rcMsg: operator 'SOCK_Stream << rcMsg' reached, bufsize %d\n",bufsize);fflush(stdout);
+  printf("rcMsg: operator 'SOCK_Stream << rcMsg' reached, buffer >%s<\n",buffer);fflush(stdout);
+#endif
+
+  /* encode header */
   msg.encode ();
 
   iovp[0].iov_base = (char *)&msg;
@@ -126,10 +142,18 @@ operator << (SOCK_Stream& out, rcMsg& msg)
 
   iovp[1].iov_base = buffer;
   iovp[1].iov_len = bufsize;
+
+  /* sergey: actual data sending !? */
   n = out.send (&(iovp[0]), (size_t)2);
-  // free buffer memory
+
+  /* free buffer memory */
   delete []buffer;
-  return n;
+
+#ifdef _CODA_DEBUG
+  printf("rcMsg: operator 'SOCK_Stream << rcMsg' reached, returns n=%d\n",n);fflush(stdout);
+#endif
+
+  return(n);
 }
 
 int
@@ -170,9 +194,10 @@ operator << (int out, rcMsg& msg)
   int  n = 0;
   iovec iovp[2];
 
-  // Note: data_ stays the same
+  /* Note: data_ stays the same */
   encodeNetData (msg.data_, buffer, bufsize);
-  // encode header
+
+  /* encode header */
   msg.encode ();
 
   iovp[0].iov_base = (char *)&msg;
@@ -181,9 +206,11 @@ operator << (int out, rcMsg& msg)
   iovp[1].iov_base = buffer;
   iovp[1].iov_len = bufsize;
   n = ::writev (out, &(iovp[0]), (size_t)2);
-  // free buffer memory
+
+  /* free buffer memory */
   delete []buffer;
-  return n;
+
+  return(n);
 }
 
 int

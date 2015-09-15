@@ -28,6 +28,9 @@ CLON_FLAGS += -I./include -I../Variables/src.s -I../Common/src.s -I../rcClient/s
 	-I../../sace3.1/include $(X11INCDIR)
 
 
+# rocs
+CLON_FLAGS += -I$(CODA)/src/codaterm/xterm.s -I$(CODA)/src/codaedit/codaedit.s
+
 
 LIBNAMES += ../Variables/$(OSTYPE_MACHINE)/lib/libVariables.a
 LIBNAMES += ../rcClient/$(OSTYPE_MACHINE)/lib/librcClient.a
@@ -45,11 +48,27 @@ LIBNAMES += $(globallib)/libmysql4.1.20.a
 CLON_FLAGS += -DUSE_CREG
 LIBNAMES += $(globallib)/libcreg.a
 
-
 LIBNAMES += $(globallib)/libcodaedit.a
 
+#specific for codaterm
+LIBNAMES += $(globallib)/libcodaterm.a
+
+LIBNAMES += $(TERMCAPLIBS)
+
+LIBNAMES += -pthread
+
+##LIBNAMES += -lXpm -lXm -lm
 LIBNAMES += $(X11LIBS)
-LIBNAMES += $(SYSLIBS)
+
+
+# specific for codaterm: must be after X11LIBS, seems interfere with our custom motif ?????????????
+###LIBNAMES += -lXaw
+###LIBNAMES += $(SYSLIBS)
+LIBNAMES += -lXaw
+
+
+
+
 
 ifeq ("$(OSTYPE)","SunOS")
   CLON_FLAGS += -DSYSV -DSVR4 -D_CODA_2_0_T \
@@ -75,6 +94,7 @@ endif
 #-------------------
 install:
 	cp $(localbin)/runcontrol $(CODA)/$(OSTYPE_MACHINE)/bin/
+	cp $(localbin)/rocs $(CODA)/$(OSTYPE_MACHINE)/bin/ 
 
 #	@for i in $(CODA)/common/html $(CODA)/common/html/rc ; \
 #	do \

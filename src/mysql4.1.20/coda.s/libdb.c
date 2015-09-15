@@ -27,8 +27,12 @@
 #define DBUNLOCK
 #else
 static pthread_mutex_t  dbMutex = PTHREAD_MUTEX_INITIALIZER;
+/*
 #define DBLOCK    if(pthread_mutex_lock(&dbMutex)<0) perror("db pthread_mutex_lock");
 #define DBUNLOCK  if(pthread_mutex_unlock(&dbMutex)<0) perror("db pthread_mutex_unlock");
+*/
+#define DBLOCK
+#define DBUNLOCK
 #endif
 
 

@@ -55,6 +55,14 @@ rcClose::~rcClose (void)
   // dialog_ will be destroyed by Xt Mechanism
 }
 
+
+
+/*sergey*/
+extern Widget toplevel;
+#ifdef USE_CREG
+#include <codaRegistry.h>
+#endif
+
 void
 rcClose::doit (void)
 {
@@ -75,7 +83,24 @@ rcClose::doit (void)
     dialog_->popup ();
   }
   else
+  {
+    /*sergey: testing*/
+    {
+      char cmd[100];
+      sprintf(cmd,"b:%s","blablabla");
+printf("CTERM: >%s<\n",cmd);
+#ifdef USE_CREG
+      /*coda_Send(XtDisplay(toplevel),"CTERM",cmd);*/
+      coda_Send(XtDisplay(toplevel),"00_00_WINDOW",cmd);
+      coda_Send(XtDisplay(toplevel),"00_01_WINDOW",cmd);
+#endif
+    }
+
+	/*
     close ();
+	*/
+
+  }
 }
 
 void

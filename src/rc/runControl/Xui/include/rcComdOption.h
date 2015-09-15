@@ -50,7 +50,6 @@ public:
   // return all options
   int showAnimation (void) const;
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   char* serverHost (void) const;
   void  serverHost (char* host);
   char* session    (void) const;
@@ -65,7 +64,6 @@ public:
   int   audio      (void) const;
   void  audioOn    (void);
   void  audioOff   (void);
-#endif
 
   // report message or not
   int   reportMsg    (void) const;
@@ -74,6 +72,7 @@ public:
 
   int   startCedit_;
   int   startDbedit_;
+  int   startRocs_;
   int   autostart_;
   int   startWide_;
   int   noEdit_;
@@ -85,7 +84,7 @@ protected:
 
   // option for animation
   int animation_;
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   // option for rcServer host
   char*  rcServerHost_;
   // option for msqld host
@@ -99,7 +98,7 @@ protected:
 
   // option for audio output
   int   audio_;
-#endif
+
   // option for reporting message
   int   reportMsg_;
 

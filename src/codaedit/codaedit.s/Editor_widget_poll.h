@@ -25,14 +25,16 @@
 #ifndef _EDITOR_WIDGET_POLL_H
 #define _EDITOR_WIDGET_POLL_H
 
-#if defined (__STDC__)
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void init_widget_poll (void);
 extern void change_color     (Pixel col, Screen* scr,int type);
 extern void saveColor        (XColor* col, int type);
-#else
-extern void init_widget_poll ();
-extern void change_color     ();
-extern void saveColor        ();
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

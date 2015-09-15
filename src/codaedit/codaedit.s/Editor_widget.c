@@ -85,7 +85,8 @@
   "NetEditor*.background:     LightBlue",
 */
 
-static String fallback_resources[]={
+static String fallback_resources[] =
+{
   "*.icon.borderWidth: 2",
   "*.scale_red*troughColor: Red",
   "*.scale_green*troughColor: Green",
@@ -129,7 +130,7 @@ Widget graph;
 int hide_controls = 0;
 
 Widget
-CodaEditor(Widget toplevel,int withExit)
+CodaEditor(Widget toplevel, int withExit)
 {
   char   *dbasehost;
   Arg    args[10];
@@ -170,7 +171,8 @@ CodaEditor(Widget toplevel,int withExit)
   XtSetValues (toplevel, args, ac);
   ac = 0;
 
-  if (!hide_controls) {
+  if (!hide_controls)
+  {
     XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
     XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
     XtSetArg(args[ac], XmNrightAttachment, XmATTACH_FORM); ac++;
@@ -181,7 +183,9 @@ CodaEditor(Widget toplevel,int withExit)
     
     XtSetArg(args[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
     XtSetArg(args[ac], XmNtopWidget,     menu_bar); ac++;
-  } else {
+  }
+  else
+  {
     XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
     XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
     XtSetArg(args[ac], XmNrightAttachment, XmATTACH_FORM); ac++;
@@ -193,12 +197,14 @@ CodaEditor(Widget toplevel,int withExit)
     XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
     XtSetArg(args[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
   }
+
   left_form = XtCreateWidget("left_form", xmFormWidgetClass, top_form, args, ac);
   ac = 0;
 
-    cmd_form = XcodaEditorNewButtons(left_form);
+  cmd_form = XcodaEditorNewButtons(left_form);
 
-  if (!hide_controls) {
+  if (!hide_controls)
+  {
     XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
     XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
     XtSetArg(args[ac], XmNrightAttachment, XmATTACH_FORM); ac++;
@@ -212,7 +218,9 @@ CodaEditor(Widget toplevel,int withExit)
     ac = 0;
     XtSetArg(args[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
     XtSetArg(args[ac], XmNtopWidget, sep); ac++;
-  } else {
+  }
+  else
+  {
     ac = 0;
     XtUnmanageChild(cmd_form);
     
@@ -231,6 +239,8 @@ CodaEditor(Widget toplevel,int withExit)
 
   XtManageChild(left_form);
   /*end of left form */
+
+
 
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
   XtSetArg(args[ac], XmNtopWidget, menu_bar); ac++;
@@ -269,7 +279,8 @@ printf("1\n");
   icon_box = XcodaEditorIconBox(right_form);
 printf("2\n");
 
-  if (!hide_controls) {
+  if (!hide_controls)
+  {
     XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
     XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
     XtSetArg(args[ac], XmNbottomAttachment, XmATTACH_WIDGET); ac++;
@@ -280,12 +291,14 @@ printf("2\n");
     XtSetArg(args[ac], XmNleftAttachment, XmATTACH_WIDGET); ac++;
     XtSetArg(args[ac], XmNleftWidget, icon_box); ac++;
 
-  } else {
-
+  }
+  else
+  {
     XtUnmanageChild(XtParent(XtParent(icon_box)));
     ac = 0;  
     XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
   }
+
   /* bottom right graph widget */
   graph = XcodaEditorDrawingArea(right_form);
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
@@ -311,5 +324,6 @@ printf("2\n");
       EditorSelectExp(top_form,exp);
     }
   }
-  return top_form;
+
+  return(top_form);
 }

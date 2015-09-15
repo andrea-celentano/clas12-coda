@@ -64,7 +64,7 @@ rcComdOption::option (void)
 rcComdOption::rcComdOption (int argc, char **argv)
 :animation_ (0), rcServerHost_ (0), msqld_ (0), dbasename_ (0),
  codadb_ (0), session_ (0), audio_ (0), reportMsg_ (0), 
- startCedit_ (0), startDbedit_ (0), autostart_ (0),
+ startCedit_ (0), startDbedit_ (0), startRocs_ (0), autostart_ (0),
  startWide_ (0), noEdit_(0), argv_ (argv), argc_ (argc)
 {
 #ifdef _TRACE_OBJECTS
@@ -94,78 +94,69 @@ rcComdOption::parseOptions (void)
 {
   int i = 1;
 
-  while (i < argc_) {
-    if (argv_[i][0] == '-') {
-      if (::strcmp (argv_[i], "-a") == 0 || 
-	  ::strcmp (argv_[i], "-animate") == 0)
-	animation_ = 1;
-      else if (::strcmp (argv_[i], "-h") == 0 ||
-	       ::strcmp (argv_[i], "-help") == 0 ||
-	       ::strcmp (argv_[i], "--help") == 0) {
-	usage (argv_[0]);
-	::exit (1);
+  while (i < argc_)
+  {
+    if (argv_[i][0] == '-')
+    {
+      if (::strcmp (argv_[i], "-a") == 0 || ::strcmp (argv_[i], "-animate") == 0) animation_ = 1;
+      else if (::strcmp (argv_[i], "-h") == 0 || ::strcmp (argv_[i], "-help") == 0 || ::strcmp (argv_[i], "--help") == 0)
+      {
+	    usage (argv_[0]);
+	    ::exit (1);
       }
-      else if (::strcmp (argv_[i], "-r") == 0 ||
-	  ::strcmp (argv_[i], "-rcServer") == 0) {
-	i++;
-	if (i >= argc_ || argv_[i][0] == '-') {
-	  usage (argv_[0]) ;
-	  ::exit (1);
-	}
-	rcServerHost_ = new char[::strlen (argv_[i]) + 1];
-	::strcpy (rcServerHost_, argv_[i]);
+      else if (::strcmp (argv_[i], "-r") == 0 || ::strcmp (argv_[i], "-rcServer") == 0)
+      {
+	    i++;
+	    if (i >= argc_ || argv_[i][0] == '-')
+        {
+	      usage (argv_[0]) ;
+	      ::exit (1);
+	    }
+	    rcServerHost_ = new char[::strlen (argv_[i]) + 1];
+	    ::strcpy (rcServerHost_, argv_[i]);
       }
-      else if (::strcmp (argv_[i], "-m") == 0 ||
-	  ::strcmp (argv_[i], "-msqld") == 0) {
-	i++;
-	if (i >= argc_ || argv_[i][0] == '-') {
-	  usage (argv_[0]) ;
-	  ::exit (1);
-	}
-	msqld_ = new char[::strlen (argv_[i]) + 1];
-	::strcpy (msqld_, argv_[i]);
+      else if (::strcmp (argv_[i], "-m") == 0 || ::strcmp (argv_[i], "-msqld") == 0)
+      {
+	    i++;
+	    if (i >= argc_ || argv_[i][0] == '-')
+        {
+	      usage (argv_[0]) ;
+	      ::exit (1);
+	    }
+	    msqld_ = new char[::strlen (argv_[i]) + 1];
+	    ::strcpy (msqld_, argv_[i]);
       }
-      else if (::strcmp (argv_[i], "-s") == 0 ||
-	  ::strcmp (argv_[i], "-session") == 0) {
-	i++;
-	if (i >= argc_ || argv_[i][0] == '-') {
-	  usage (argv_[0]) ;
-	  ::exit (1);
-	}
-	session_ = new char[::strlen (argv_[i]) + 1];
-	::strcpy (session_, argv_[i]);
+      else if (::strcmp (argv_[i], "-s") == 0 || ::strcmp (argv_[i], "-session") == 0)
+      {
+	    i++;
+	    if (i >= argc_ || argv_[i][0] == '-')
+        {
+	      usage (argv_[0]) ;
+	      ::exit (1);
+	    }
+	    session_ = new char[::strlen (argv_[i]) + 1];
+	    ::strcpy (session_, argv_[i]);
       }
-      else if (::strcmp (argv_[i], "-v") == 0 || 
-	       ::strcmp (argv_[i], "-verbose") == 0) 
-	audio_ = 1;
-      else if (::strcmp (argv_[i], "-o") == 0 ||
-	       ::strcmp (argv_[i], "-output") == 0)
-	reportMsg_ = 1;
-      else if (::strcmp (argv_[i], "-c") == 0 ||
-	       ::strcmp (argv_[i], "-cedit") == 0 ||
-	       ::strcmp (argv_[i], "-codaedit") == 0)
-	startCedit_ = 1;
-      else if (::strcmp (argv_[i], "-d") == 0 ||
-	       ::strcmp (argv_[i], "-dbedit") == 0)
-	startDbedit_ = 1;
-      else if (::strcmp (argv_[i], "-A") == 0 ||
-	       ::strcmp (argv_[i], "-autostart") == 0)
-	autostart_ = 1;
-      else if (::strcmp (argv_[i], "-w") == 0 ||
-	       ::strcmp (argv_[i], "-wide") == 0)
-	startWide_ = 1;
-      else if (::strcmp (argv_[i], "-n") == 0 ||
-	       ::strcmp (argv_[i], "-noedit") == 0)
-	noEdit_ = 1;
-      else {
-	usage (argv_[0]);
+      else if (::strcmp (argv_[i], "-v") == 0 || ::strcmp (argv_[i], "-verbose") == 0) audio_ = 1;
+      else if (::strcmp (argv_[i], "-o") == 0 || ::strcmp (argv_[i], "-output") == 0) reportMsg_ = 1;
+      else if (::strcmp (argv_[i], "-c") == 0 || ::strcmp (argv_[i], "-cedit") == 0 || ::strcmp (argv_[i], "-codaedit") == 0) startCedit_ = 1;
+      else if (::strcmp (argv_[i], "-d") == 0 || ::strcmp (argv_[i], "-dbedit") == 0) startDbedit_ = 1;
+      else if (::strcmp (argv_[i], "-rocs") == 0) startRocs_ = 1;
+      else if (::strcmp (argv_[i], "-A") == 0 || ::strcmp (argv_[i], "-autostart") == 0) autostart_ = 1;
+      else if (::strcmp (argv_[i], "-w") == 0 || ::strcmp (argv_[i], "-wide") == 0) startWide_ = 1;
+      else if (::strcmp (argv_[i], "-n") == 0 || ::strcmp (argv_[i], "-noedit") == 0) noEdit_ = 1;
+      else
+      {
+	    usage (argv_[0]);
       }
     }
-    else {
+    else
+    {
       usage (argv_[0]);
     }
     i++;
   }
+
   // check all options, if they are not set, use default values
   if (!rcServerHost_) {
     char            serverHost[64];
@@ -318,6 +309,7 @@ rcComdOption::usage (char* progname)
 	   "-o, -output     :      local message output                  \n"
 	   "-c, -cedit -codaedit : start coda configuration editor       \n"
 	   "-d, -dbedit     :      start database editor                 \n"
+	   "-r, -rocs       :      start rocs/eb/er/etc windows          \n"
 	   "-A, -autostart  :      start UNIX components when required   \n"
 	   "-w, -wide       :      start in full screen mode             \n"
 	   "-n, -noedit     :      disable editing in codaedit           \n"

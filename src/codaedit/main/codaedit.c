@@ -141,7 +141,7 @@ Xhandler(Widget w, XtPointer p, XEvent *e, Boolean *b)
 void
 messageHandler(char *message)
 {
-  printf("codaedit::messageHandler reached, message >%s<\n",message);
+  printf("\ncodaedit::messageHandler reached, message >%s<\n\n",message);
 
   switch (message[0])
   {
@@ -221,10 +221,11 @@ main(int argc, char **argv)
       printf("cmd >%s<\n",cmd);
 
       coda_Send(XtDisplay(toplevel),"RUNCONTROL",cmd);
+
       CodaEditor(toplevel,1);
       codaSendInit(toplevel,"CEDIT");
       codaRegisterMsgCallback(messageHandler);
-      XtAddEventHandler(toplevel,StructureNotifyMask, False, Xhandler, NULL);
+      XtAddEventHandler(toplevel, StructureNotifyMask, False, Xhandler, NULL);
     }
     else
 #else

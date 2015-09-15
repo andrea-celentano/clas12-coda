@@ -80,16 +80,10 @@
  *     Popup a selection dialog box to select size of         *
  *     component  comp                                        *
  *************************************************************/
-#if defined (__STDC__)
-static void change_num_ports(Widget w, 
+static void
+change_num_ports(Widget w, 
 			     Widget value_label, 
 			     XmArrowButtonCallbackStruct* cbs)
-#else
-static void change_num_ports(w, value_label, cbs)
-     Widget w;
-     Widget value_label;
-     XmArrowButtonCallbackStruct *cbs;
-#endif
 {
   int type;
   int num_ports;
@@ -109,7 +103,8 @@ static void change_num_ports(w, value_label, cbs)
   XtSetArg(args[ac], XmNuserData, &type); ac++;
   XtGetValues(w, args, ac);
   ac = 0;
-  if(type == XmARROW_UP){
+  if(type == XmARROW_UP)
+  {
     if(num_ports < 5)
       num_ports = num_ports + 1;
     else
@@ -121,12 +116,13 @@ static void change_num_ports(w, value_label, cbs)
     ac = 0;
     XmStringFree(t);
   }
-  else{
-    if(num_ports > 1){
+  else
+  {
+    if(num_ports > 1)
       num_ports = num_ports - 1;
-    }
     else
       num_ports = 1;
+
     sprintf(temp, "%d", num_ports);
     t = XmStringCreateSimple(temp);
     XtSetArg(args[ac], XmNlabelString, t); ac++;
@@ -865,7 +861,7 @@ setup_comp_attr(Widget w,
  * Description:                                                      *
  *    Popup dialog for setting up component sttributes               *
  *    type == 0 for creation                                         *
- *    type == 1 for later modiofication                              *
+ *    type == 1 for later modification                              *
  ********************************************************************/
 static AttrWidgets atw;
     
@@ -1279,8 +1275,9 @@ popup_comp_attributes(drawComp* comp,
 
 
 
+  /********************************************/
+  /* set up initial values for all attributes */
 
-/* set up initial values for all attributes */
   for (i = 0; i < 3; i++)
   {
     if(comp->comp.code[i] != NULL)
@@ -1326,6 +1323,20 @@ popup_comp_attributes(drawComp* comp,
 
     XtUnmanageChild(label_w6);
     XtUnmanageChild(text_w6);
+  }
+  else if (comp->comp.type == CODA_ET)
+  {
+    if(comp->comp.boot_string != NULL)
+      XmTextFieldSetString(text_w3, comp->comp.boot_string);
+    else
+      XmTextFieldSetString(text_w3, "$CODA_BIN/coda_et");
+  }
+  else if (comp->comp.type == CODA_ETT)
+  {
+    if(comp->comp.boot_string != NULL)
+      XmTextFieldSetString(text_w3, comp->comp.boot_string);
+    else
+      XmTextFieldSetString(text_w3, "$CODA_BIN/coda_ett");
   }
   else if (comp->comp.type == CODA_ER)
   {
@@ -1423,20 +1434,36 @@ popup_comp_attributes(drawComp* comp,
   }
   else if (comp->comp.type == CODA_MON)
   {
-    char     *temp = (char *) malloc(200);
+    char *temp = (char *) malloc(200);
+
+	/* hide ethernet host from popup menu
     XtUnmanageChild(label_w1);
     XtUnmanageChild(text_w1);
+	*/
+
+	/* hide ID from popup menu
     XtUnmanageChild(label_w2);
     XtUnmanageChild(text_w2);
+	*/
+
+	/* hide Booting string from popup menu
     XtUnmanageChild(label_w3);
     XtUnmanageChild(text_w3);
+	*/
+
+	/* hide readout list 1 from popup menu */
     XtUnmanageChild(label_w4);
     XtUnmanageChild(text_w4);
+
+	/* hide readout list 2 from popup menu */
     XtUnmanageChild(label_w5);
     XtUnmanageChild(text_w5);
+
+	/* hide readout list 3 from popup menu */
     XtUnmanageChild(label_w6);
     XtUnmanageChild(text_w6);
-    
+
+
     sprintf (temp, "mon_system");
     if(comp->comp.comp_name != NULL)
       XmTextFieldSetString(text_w0, comp->comp.comp_name);
@@ -1533,9 +1560,9 @@ popup_comp_attributes(drawComp* comp,
     XmTextFieldSetString(text_w0, comp->comp.comp_name);
 
   /* setup sensitivity according to drawComp editable flag */
-  if(!comp->editable){
-    if (comp->comp.type != CODA_EBANA)
-      XmTextFieldSetEditable(text_w0, False);    
+  if(!comp->editable)
+  {
+    if(comp->comp.type != CODA_EBANA) XmTextFieldSetEditable(text_w0, False);    
   }
 
   XtManageChild(form);

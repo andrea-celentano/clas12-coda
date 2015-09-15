@@ -20,6 +20,8 @@
 //
 #include "codaRcCallback.h"
 
+#define _TRACE_OBJECTS
+
 //==========================================================================
 //     Implementation of codaRcCallback
 //==========================================================================
@@ -27,7 +29,7 @@ codaRcCallback::codaRcCallback (void)
 :callback_ (0), userarg_ (0)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create codaRcCallback Class Object\n");
+  printf ("Create codaRcCallback Class Object 1\n");
 #endif
   // empty
 }
@@ -36,7 +38,7 @@ codaRcCallback::codaRcCallback (rcCallback cbk, void* arg)
 :callback_ (cbk), userarg_ (arg)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create codaRcCallback Class Object\n");
+  printf ("Create codaRcCallback Class Object 2\n");
 #endif
   // empty
 }
@@ -45,7 +47,7 @@ codaRcCallback::codaRcCallback (const codaRcCallback& cbk)
 :callback_ (cbk.callback_), userarg_ (cbk.userarg_)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("Create codaRcCallback Class Object\n");
+  printf ("Create codaRcCallback Class Object 3\n");
 #endif
   // empty
 }
@@ -53,11 +55,16 @@ codaRcCallback::codaRcCallback (const codaRcCallback& cbk)
 codaRcCallback&
 codaRcCallback::operator = (const codaRcCallback& cbk)
 {
-  if (this != &cbk) {
+#ifdef _TRACE_OBJECTS
+  printf ("Create codaRcCallback Class Object 11\n");
+#endif
+
+  if (this != &cbk)
+  {
     callback_ = cbk.callback_;
     userarg_ = cbk.userarg_;
   }
-  return *this;
+  return(*this);
 }
 
 codaRcCallback::~codaRcCallback (void)
@@ -71,18 +78,27 @@ codaRcCallback::~codaRcCallback (void)
 rcCallback
 codaRcCallback::callbackFunction (void) const
 {
-  return callback_;
+#ifdef _TRACE_OBJECTS
+  printf ("Create codaRcCallback Class Object 12\n");
+#endif
+  return(callback_);
 }
 
 void*
 codaRcCallback::userarg (void) const
 {
-  return userarg_;
+#ifdef _TRACE_OBJECTS
+  printf ("Create codaRcCallback Class Object 13\n");
+#endif
+  return(userarg_);
 }
 
 int
 codaRcCallback::operator == (const codaRcCallback& cbk)
 {
+#ifdef _TRACE_OBJECTS
+  printf ("Create codaRcCallback Class Object 14\n");
+#endif
   if (callback_ == cbk.callback_ &&
       userarg_ == cbk.userarg_)
     return 1;
@@ -93,6 +109,9 @@ codaRcCallback::operator == (const codaRcCallback& cbk)
 int
 codaRcCallback::operator != (const codaRcCallback& cbk)
 {
+#ifdef _TRACE_OBJECTS
+  printf ("Create codaRcCallback Class Object 15\n");
+#endif
   return ! operator == (cbk);
 }
 

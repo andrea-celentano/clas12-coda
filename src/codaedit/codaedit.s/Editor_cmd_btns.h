@@ -25,14 +25,8 @@
 #ifndef _EDITOR_CMD_BUTTONS_H
 #define _EDITOR_CMD_BUTTONS_H
 
-#if defined (__STDC__)
 extern Widget XcodaEditorNewButtons(Widget parent);
 extern void   XcodaEditorAddNewType (char* newtype);
 extern void   XcodaEditorResetType  (void);
-#else
-extern Widget XcodaEditorNewButtons();
-extern void   XcodaEditorAddNewType();
-extern void   XcodaEditorResetType ();
-#endif
 
 #endif

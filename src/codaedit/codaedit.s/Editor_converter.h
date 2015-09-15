@@ -31,7 +31,12 @@
 #ifndef _EDITOR_CONVERTER_H
 #define _EDITOR_CONVERTER_H
 
-#if defined (__STDC__)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 extern IoId       *newIoId (void);
 extern void       freeIoId (IoId* id);
 extern ConfigInfo *newConfigInfo (void);
@@ -68,33 +73,15 @@ extern void       XcodaEditorConstructGraphFromConfig(XcodaEditorGraph* graph,
 						      ConfigInfo** cinfo, 
 						      int num_cinfos);
 extern int        compNotUsed (char *comp_name);
-#else
-extern IoId       *newIoId ();
-extern void       freeIoId ();
-extern ConfigInfo *newConfigInfo ();
-extern void       setConfigInfoName ();
-extern void       setConfigInfoCode ();
-extern void       setConfigInfoInputs ();
-extern void       setConfigInfoOutputs ();
-extern void       setConfigInfoPosition ();
-extern void       addScriptToConfigInfo ();
-extern int        matchConfigInfo ();
-extern void       freeConfigInfo ();
-extern rcNetComp* newRcNetComp ();
-extern void       freeRcNetComp ();
-extern void       setRcNetComp ();
-extern void       XcodaEditorWriteToConfig ();
-extern void       XcodaEditorInsertAllComps ();
-extern int        getConfigurationInfo ();
-extern int        constructRcnetComps ();
-extern int        constructRcnetCompsWithConfig ();
-extern void       XcodaEditorConstructGraphFromConfig();
-extern int        compNotUsed ();
-#endif
 
 extern int        outputFileNum;
 extern int        codaFileNum;
 extern int        debuggerNum;
 extern int        ddNum;
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif

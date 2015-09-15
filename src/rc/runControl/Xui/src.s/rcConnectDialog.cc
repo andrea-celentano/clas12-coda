@@ -412,7 +412,8 @@ rcConnectDialog::storeRcServerInfo (void)
 
 printf("CEDIT 2\n");
 #ifdef USE_CREG
-    coda_send(XtDisplay(_w),"CEDIT",cmd);
+    coda_Send(XtDisplay(_w),"CEDIT",cmd);
+    coda_Send(XtDisplay(_w),"ALLROCS",cmd);
 #endif
   }
   XtFree (dbasename);

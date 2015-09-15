@@ -53,7 +53,7 @@ daqArbStruct::size (void)
   return 0;
 }
 
-long
+/*long*/int64_t
 daqArbStruct::id (void)
 {
   return 0;

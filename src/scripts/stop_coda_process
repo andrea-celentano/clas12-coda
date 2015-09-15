@@ -1,0 +1,117 @@
+#!/usr/bin/perl
+
+#  stop_coda_process
+
+#  stops local processes via sigterm,sigquit, then sigkill
+#  process killed if proc name matches output of "ps -ef"
+#  if -match specified an additional string must match
+
+#  ejw, sergey
+
+
+use Env;
+use English;
+
+
+#  Perl code:
+#  ----------
+
+#  defaults
+$help      = "\n  usage:  stop_coda_process -p proc [-match match_string]\n\n";
+
+
+# decode command line args
+$line=join(" ",@ARGV);
+if($line =~ s/-h//i) {die $help;}
+($proc         =  $1) if ($line =~ s/-p\s*(\S*)//i);
+($match_string =  $1) if ($line =~ s/-match\s*(\S*)//i);
+
+
+#  check args
+if((not defined $proc)) {die $help;}
+
+
+$uname_result = `uname`;
+$ps_cmd="ps -ef";
+$ps_result=`$ps_cmd`;
+
+
+
+
+
+
+
+
+#  send sigterm,sigquit if process matches ps result and optional match string
+#  save matching pid's for later use
+$matches=0;
+foreach $ps_line (split("\n",$ps_result)) {
+    if($ps_line=~/\bstop_coda_process\b/) {next;}
+    if( ($ps_line=~/\b$proc\b/) &&
+        ((not defined $match_string)||($ps_line=~/$match_string/)) 
+      ) {
+	$matches++;
+	($uid,$pid) = split(" ",$ps_line);
+	push(@pid_list,$pid);
+	system("kill -TERM $pid; ");
+    }
+}
+
+
+#  any matches
+if($matches==0) {exit(0);}
+
+
+#  get ps result again
+
+$ps_result=`$ps_cmd`;
+
+
+#  check for match against pid list
+$matches=0;
+foreach $ps_line (split("\n",$ps_result)) {
+    ($ps_uid,$ps_pid)=split(" ",$ps_line);
+    foreach $pid (@pid_list) {
+	if($ps_pid==$pid) {$matches++; last;}
+    }
+}
+
+
+#  any matches
+if($matches==0) {exit(0);}
+
+
+
+#  sleep a little
+sleep(1);
+
+
+#  now try again with kill -9 ----------------------------------------
+
+#  get ps result
+
+$ps_result=`$ps_cmd`;
+
+
+#  check for match against pid list
+$matches=0;
+foreach $ps_line (split("\n",$ps_result)) {
+    ($ps_uid,$ps_pid)=split(" ",$ps_line);
+    foreach $pid (@pid_list) {
+	if($ps_pid==$pid) {$matches++; last;}
+    }
+}
+
+
+#  any matches
+if($matches==0) {exit(0);}
+
+
+#  send sigkill to all pids in list
+foreach $pid (@pid_list) {
+	system("kill -9 $pid");
+}
+
+
+#  done
+exit(0);

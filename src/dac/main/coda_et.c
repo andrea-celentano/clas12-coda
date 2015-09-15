@@ -200,7 +200,7 @@ etStart()
 
   int status;
   MYSQL *dbsock;
-  char tmp[1000];
+  char tmp[1000], tmpp[1000];
 
 
   /************************************/
@@ -263,18 +263,38 @@ etStart()
   /* connect to database */
   dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
 
-  sprintf(tmp,"SELECT value FROM %s_option WHERE name='ET_nevents'",configname);
-  if(dbGetInt(dbsock, tmp, &etp->nevents)==ET_ERROR)
-  {
-    printf("WARN: database does not have ET_nevents, will use default\n");
-  }
 
-  sprintf(tmp,"SELECT value FROM %s_option WHERE name='ET_event_size'",configname);
-  if(dbGetInt(dbsock, tmp, &etp->event_size)==ET_ERROR)
-  {
-    printf("WARN: database does not have ET_event_size, will use default\n");
-  }
 
+  /* we do not have config name yet, will get it in Download(), so get the config name
+  from the database table 'session' - mmmmmmmmmm.... */
+  sprintf(tmp,"SELECT config FROM sessions WHERE name='%s'",session);
+  if(dbGetStr(dbsock, tmp, tmpp)==ET_ERROR)
+  {
+    printf("coda_et: (1) cannot get 'config' from 'sessions' table for session >%s<\n",session);
+  }
+  else if(strlen(tmpp)==0)
+  {
+    printf("coda_et: (2) cannot get 'config' from 'sessions' table for session >%s<\n",session);
+  }
+  else
+  {
+    strcpy(configname,tmpp);
+    printf("Got 'config' from 'session' table ======>%s<\n",configname);
+
+    sprintf(tmp,"SELECT value FROM %s_option WHERE name='ET_nevents'",configname);
+    if(dbGetInt(dbsock, tmp, &etp->nevents)==ET_ERROR)
+    {
+      etp->nevents = 1000;
+      printf("WARN: database does not have ET_nevents, will use default %d\n",etp->nevents);
+    }
+
+    sprintf(tmp,"SELECT value FROM %s_option WHERE name='ET_event_size'",configname);
+    if(dbGetInt(dbsock, tmp, &etp->event_size)==ET_ERROR)
+    {
+      etp->event_size = 50000;
+      printf("WARN: database does not have ET_event_size, will use default %d\n",etp->event_size);
+    }
+  }
 
 
   /* obtain our hostname */
@@ -288,7 +308,7 @@ etStart()
   {
     printf("Hostname (full) >%s<\n",etp->host);
     ch = strstr ( etp->host, "." );
-    *ch = '\0';
+    if(ch != NULL) *ch = '\0';
     printf("Hostname (to be used) >%s<\n",etp->host);
   }
 
@@ -512,6 +532,8 @@ etDestructor()
 int
 codaInit(char *conf)
 {
+  printf("coda_et: codaInit() reached\n");fflush(stdout);
+
   if(codaUpdateStatus("configuring") != CODA_OK)
   {
     return(CODA_ERROR);

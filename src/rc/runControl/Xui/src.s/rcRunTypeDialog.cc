@@ -193,19 +193,35 @@ rcRunTypeDialog::endMonitoringRunTypes (void)
 void
 rcRunTypeDialog::configure (void)
 {
-  if (option_->currentRunType () != 0)
+  char *currentruntype = option_->currentRunType();
+  if (currentruntype != 0)
   {
     rcClient& client = netHandler_.clientHandler ();
 #ifdef _CODA_DEBUG
-    printf(">>> rcRunTypeDialog::configure >%s<\n",option_->currentRunType());
+    printf(">>> rcRunTypeDialog::configure >%s<\n",currentruntype);
 #endif
-    daqData data ("RCS", "command", option_->currentRunType());
+    daqData data ("RCS", "command", currentruntype);
     if (client.sendCmdCallback (DACONFIGURE, data,
 		 (rcCallback)&(rcRunTypeDialog::configureCallback),
 		 (void *)this) != CODA_SUCCESS)
 	{
       reportErrorMsg ("Cannot communication with the RunControl Server\n");
 	}
+
+    /*sergey: moved from rcRunTypeOption::currentRunType, otherwise it called every time when currentRunType() called */
+    /* NOTE: maybe need to use use option_->baseWidget() instead of this->baseWidget(), or it does not matter ??? */
+    {
+      char cmd[100];
+      sprintf(cmd,"c:%s",currentruntype);
+printf("CEDIT 4: >%s<\n",cmd);
+#ifdef USE_CREG
+      coda_Send(XtDisplay(this->baseWidget()),"CEDIT",cmd);
+      coda_Send(XtDisplay(this->baseWidget()),"ALLROCS",cmd);
+#endif
+    }
+
+
+
   }
 }
 

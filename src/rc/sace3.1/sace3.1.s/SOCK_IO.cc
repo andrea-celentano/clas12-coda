@@ -1,3 +1,4 @@
+
 #include "SOCK_IO.h"
 
 /* Send N char *ptrs and int lengths.  Note that the char *'s 
@@ -8,7 +9,6 @@
 ssize_t
 SOCK_IO::send (size_t n, ...) const
 {
-
   va_list argp;  
   int	  total_tuples = n / 2;
   ssize_t result;
@@ -21,10 +21,10 @@ SOCK_IO::send (size_t n, ...) const
   va_start (argp, n);
 
   for (size_t i = 0; i < total_tuples; i++)
-    {
-      iovp[i].iov_base = va_arg (argp, char *);
-      iovp[i].iov_len  = va_arg (argp, int);
-    }
+  {
+    iovp[i].iov_base = va_arg (argp, char *);
+    iovp[i].iov_len  = va_arg (argp, int);
+  }
 
   result = ::writev (this->get_handle (), iovp, total_tuples);
 #if !defined (ACE_HAS_ALLOCA)
@@ -43,7 +43,6 @@ SOCK_IO::send (size_t n, ...) const
 ssize_t
 SOCK_IO::recv (size_t n, ...) const
 {
-
   va_list argp;  
   int	  total_tuples = n / 2;
   ssize_t result;
@@ -56,10 +55,10 @@ SOCK_IO::recv (size_t n, ...) const
   va_start (argp, n);
 
   for (size_t i = 0; i < total_tuples; i++)
-    {
-      iovp[i].iov_base = va_arg (argp, char *);
-      iovp[i].iov_len  = va_arg (argp, int);
-    }
+  {
+    iovp[i].iov_base = va_arg (argp, char *);
+    iovp[i].iov_len  = va_arg (argp, int);
+  }
 
   result = ::readv (this->get_handle (), iovp, total_tuples);
 #if !defined (ACE_HAS_ALLOCA)

@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+
 #include <daqArbStructFactory.h>
 #include "daqMonitorStruct.h"
 
@@ -44,13 +45,13 @@ daqMonitorStruct::daqMonitorStruct (void)
 #ifdef _TRACE_OBJECTS
   printf ("    Create daqMonitorStruct Clas Object\n");
 #endif
-  monitored_ = new long[daqMonitorStruct::maxNumComps];
+  m_.monitored_ = new int64_t/*long*/[daqMonitorStruct::maxNumComps];
 
-  components_ = new char*[daqMonitorStruct::maxNumComps];
+  c_.components_ = new char*[daqMonitorStruct::maxNumComps];
 
   for (int i = 0; i < daqMonitorStruct::maxNumComps; i++) {
-    monitored_[i] = -1;
-    components_[i] = 0;
+    m_.monitored_[i] = -1;
+    c_.components_[i] = 0;
   }
 }
 
@@ -61,10 +62,10 @@ daqMonitorStruct::~daqMonitorStruct (void)
 #endif
 
   for (int i = 0; i < numComponents_; i++)
-    delete []components_[i];
+    delete []c_.components_[i];
 
-  delete []monitored_;
-  delete []components_;
+  delete []m_.monitored_;
+  delete []c_.components_;
 }
 
 daqArbStruct*
@@ -74,9 +75,9 @@ daqMonitorStruct::dup (void)
 
   if (numComponents_ > 0) {
     for (int i = 0; i < numComponents_; i++) {
-      tmp->monitored_[i] = monitored_[i];
-      tmp->components_[i] = new char[daqMonitorStruct::maxCompNameLen];
-      ::strcpy (tmp->components_[i], components_[i]);
+      tmp->m_.monitored_[i] = m_.monitored_[i];
+      tmp->c_.components_[i] = new char[daqMonitorStruct::maxCompNameLen];
+      ::strcpy (tmp->c_.components_[i], c_.components_[i]);
     }
   }
   tmp->numComponents_ = numComponents_;
@@ -95,9 +96,9 @@ daqMonitorStruct::insertInfo (char* component, int monitored)
     fprintf (stderr, "daqMonitorStruct Error: overflow on insert\n");
 
   int i = numComponents_;
-  components_[i] = new char[daqMonitorStruct::maxCompNameLen];
-  ::strcpy (components_[i], component);
-  monitored_[i] = monitored;
+  c_.components_[i] = new char[daqMonitorStruct::maxCompNameLen];
+  ::strcpy (c_.components_[i], component);
+  m_.monitored_[i] = monitored;
 
   numComponents_ ++;
 }
@@ -114,7 +115,7 @@ daqMonitorStruct::disableAutoEnd (void)
   autoend_ = 0;
 }
 
-long
+/*long*/int64_t
 daqMonitorStruct::autoend (void) const
 {
   return autoend_;
@@ -126,20 +127,19 @@ daqMonitorStruct::timerInterval (long interval)
   interval_ = interval;
 }
 
-long
+/*long*/int64_t
 daqMonitorStruct::timerInterval (void) const
 {
   return interval_;
 }
 
 
-long
-daqMonitorStruct::monitorParms (char** &components, long* &monitored,
-				long& autoend, long& interval)
+/*long*/int64_t
+daqMonitorStruct::monitorParms (char** &components, int64_t*/*long*/ &monitored, long& autoend, long& interval)
 {
   if (numComponents_ > 0) {
-    components = components_;
-    monitored = monitored_;
+    components = c_.components_;
+    monitored = m_.monitored_;
   }
   else {
     components = 0;
@@ -156,7 +156,7 @@ daqMonitorStruct::cleanUp (void)
 {
   if (numComponents_ > 0) {
     for (int i = 0; i < numComponents_; i++)
-      delete []components_[i];
+      delete []c_.components_[i];
   }
   numComponents_ = 0;
 }    
@@ -166,7 +166,7 @@ daqMonitorStruct::encodeData (void)
 {
   if (numComponents_ > 0) {
     for (int i = 0; i < numComponents_; i++)
-      monitored_[i] = htonl (monitored_[i]);
+      m_.monitored_[i] = htonl (m_.monitored_[i]);
   }
   numComponents_ = htonl (numComponents_);
   id_ = htonl (id_);
@@ -184,7 +184,7 @@ daqMonitorStruct::restoreData (void)
 
   if (numComponents_ > 0) {
     for (int i = 0; i < numComponents_; i++)
-      monitored_[i] = ntohl (monitored_[i]);
+      m_.monitored_[i] = ntohl (m_.monitored_[i]);
   }
 }
 
@@ -202,12 +202,12 @@ daqMonitorStruct::encode (char* buffer, size_t& bufsize)
   i += realsize;
 
   // copy autoboot to the buffer
-  ::memcpy (&(buffer[i]), (void *)monitored_, numComps*sizeof (long));
-  i += numComps*sizeof (long);
+  ::memcpy (&(buffer[i]), (void *)m_.monitored_, numComps*sizeof (/*long*/int64_t));
+  i += numComps*sizeof (/*long*/int64_t);
 
   // copy all components to the buffer
   for (j = 0; j < numComps; j++) {
-    ::memcpy (&(buffer[i]), (void *)components_[j], 
+    ::memcpy (&(buffer[i]), (void *)c_.components_[j], 
     daqMonitorStruct::maxCompNameLen);
     i = i + daqMonitorStruct::maxCompNameLen;
   }
@@ -230,7 +230,7 @@ daqMonitorStruct::decode (char* buffer, size_t size)
   long realsize = sizeof (daqMonitorStruct) - sizeof (daqArbStruct);
   
   // copy header information
-  ::memcpy ((void *)&(this->id_), buffer, 4*sizeof (long));
+  ::memcpy ((void *)&(this->id_), buffer, 4*sizeof (/*long*/int64_t));
   // skip all other elements
   i += realsize;
   // get number of components value
@@ -245,17 +245,17 @@ daqMonitorStruct::decode (char* buffer, size_t size)
     assert (numComponents_ < (daqMonitorStruct::maxNumComps));
 
     // copy auto boot information and convert to native byte order
-    ::memcpy ((void *)monitored_, &(buffer[i]), numComponents_*sizeof (long));
+    ::memcpy ((void *)m_.monitored_, &(buffer[i]), numComponents_*sizeof (/*long*/int64_t));
 
     for (j = 0; j < numComponents_; j++) 
-      monitored_[j] = ntohl (monitored_[j]);
+      m_.monitored_[j] = ntohl (m_.monitored_[j]);
 
-    i += numComponents_*sizeof (long);
+    i += numComponents_*sizeof (/*long*/int64_t);
 
     // copy components name info
     for (j = 0; j < numComponents_; j++) {
-      components_[j] = new char[(daqMonitorStruct::maxCompNameLen)];
-      ::memcpy ((void *)components_[j], &(buffer[i]),
+      c_.components_[j] = new char[(daqMonitorStruct::maxCompNameLen)];
+      ::memcpy ((void *)c_.components_[j], &(buffer[i]),
       daqMonitorStruct::maxCompNameLen);
       i = i + daqMonitorStruct::maxCompNameLen;
     }
@@ -274,13 +274,13 @@ daqMonitorStruct::size (void)
   s += realsize;
 
   if (numComponents_ > 0) {
-    s = s + sizeof (long)*numComponents_;
+    s = s + sizeof (/*long*/int64_t)*numComponents_;
     s = s + numComponents_*(daqMonitorStruct::maxCompNameLen);
   }
   return s;
 }
 
-long
+/*long*/int64_t
 daqMonitorStruct::id (void)
 {
   return id_;
@@ -290,8 +290,8 @@ void
 daqMonitorStruct::dumpAll (void)
 {
   for (int i = 0; i < numComponents_; i++) {
-    printf ("Component %s monitored info %d\n", components_[i],
-	    monitored_[i]);
+    printf ("Component %s monitored info %d\n", c_.components_[i],
+	    m_.monitored_[i]);
   }
   printf ("Autoend: %d and interval %d\n", autoend_, interval_);
 }

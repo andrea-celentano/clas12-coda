@@ -25,16 +25,18 @@
 #ifndef _EDITOR_GRAPH_CMD_H
 #define _EDITOR_GRAPH_CMD_H
 
-#if defined (__STDC__)
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern Widget XcodaEditorDataLinkButtons(Widget parent);
 extern void   XcodaEditorResetGraphCmd  (void);
 extern void   XcodaEditorExecGraphCmd   (Widget w, 
 					 XtPointer client_data, 
 					 XmAnyCallbackStruct* cbs);
-#else
-extern Widget XcodaEditorDataLinkButtons();
-extern void   XcodaEditorResetGraphCmd ();
-extern void   XcodaEditorExecGraphCmd();
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

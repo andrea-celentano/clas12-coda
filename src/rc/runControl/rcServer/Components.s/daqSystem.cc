@@ -229,7 +229,7 @@ daqSystem::allComponents (daqComponent* cs[], int bufsize)
 		}
 	}
 
-	printf("INFO: daqSystem::allComponents: count=%d\n",count);
+	printf("INFO: daqSystem::allComponents(1): count=%d\n",count);
 	return count;
 }
 
@@ -239,12 +239,14 @@ daqSystem::allComponents (char* cs[], int bufsize)
 	int count = 0;
 	int ix, counttemp = 0;
 	daqComponent *comp = 0;
+
 	// bug bug, only MAX_NUM_COMPONENTS components
 	daqComponent* cstemp[MAX_NUM_COMPONENTS];
 
 	counttemp = allComponents ( cstemp, MAX_NUM_COMPONENTS );
 
-	for (ix=0; ix<counttemp; ix++) {
+	for (ix=0; ix<counttemp; ix++)
+    {
 		comp = cstemp[ix];
 		cs[count] = new char[::strlen (comp->title()) + 1];
 		::strcpy (cs[count++], comp->title());
@@ -252,6 +254,9 @@ daqSystem::allComponents (char* cs[], int bufsize)
 		if (count >= bufsize)
 			return -1;
 	}
+
+	printf("INFO: daqSystem::allComponents(2): count=%d\n",count);
+
 	return count;
 }
 
@@ -277,6 +282,9 @@ daqSystem::allEnabledComponents (daqComponent* cs[], int bufsize)
 		if (count >= bufsize)
 			return -1;
 	}
+
+	printf("INFO: daqSystem::allEnabledComponents(1): count=%d\n",count);
+
 	return count;
 }
 
@@ -305,6 +313,9 @@ daqSystem::allEnabledComponents (char* cs[], int bufsize)
 		if (count >= bufsize)
 			return -1;
 	}
+
+	printf("INFO: daqSystem::allEnabledComponents(2): count=%d\n",count);
+
 	return count;
 }
 

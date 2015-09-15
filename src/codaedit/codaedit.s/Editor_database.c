@@ -59,23 +59,39 @@
 #include "Editor_graph.h"
 #include "Editor_database.h"
 
-#define _CODA_DEBUG
+#undef _CODA_DEBUG
 
 #define PRIORITY_TABLE_NAME "priority"
 #define RUNTYPE_TABLE_NAME  "runTypes"
 #define EXPINFO_TABLE_NAME  "sessions"
 #define PROCESS_TABLE_NAME  "process"
 
-static MYSQL* mysql = NULL;       /* connection socket to the database */
+static MYSQL* mysql = NULL;           /* connection socket to the database */
 static char   dbaseServerHost[128];   /* database server host name         */
 static char*  dbasename = 0;          /* current database name             */
 static char*  runType = 0;            /* current configuration name        */
 
 /* component type string */
 static char* compTypeString[] = {
-  "TS", "ROC", "EB", "ANA",
-  "EBANA", "UT", "ER", "LOG", "SC", 
-  "UC", "RCS", "FILE", "FILE","DEBUG","UNKNOWN","MON","NONE","UNKNOWN"};
+  "TS",
+  "ROC",
+  "EB",
+  "ET", /* sergey: was 'ANA' */
+  "ETT", /*sergey: was 'EBANA' */
+  "UT",
+  "ER",
+  "LOG",
+  "SC", 
+  "UC",
+  "RCS",
+  "FILE",
+  "FILE",
+  "DEBUG",
+  "UNKNOWN",
+  "MON",
+  "NONE",
+  "UNKNOWN"
+};
 
 static char*
 configName (char* fullname)
@@ -174,34 +190,44 @@ createNewDatabase (char *name)
   sprintf (queryString, "CREATE DATABASE %s\n", name);
   if (mysql_query(mysql, queryString) != 0)
     return -1;
+
   if (selectDatabase (name) < 0)
     return -1;
   /* create all tables */
-  if (createExpInfoTable () < 0) {
+
+  if (createExpInfoTable () < 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("Cannot create expinfo table\n");
 #endif
     return -1;
   }
-  if (createProcessTable () < 0) {
+
+  if (createProcessTable () < 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("Cannot create process table\n");
 #endif
     return -1;
-  } 
-  if (createRunTypeTable () < 0) {
+  }
+ 
+  if (createRunTypeTable () < 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("Cannot create runtype table\n");
 #endif
     return -1;
   }
-  if (createPriorityTable () < 0) {
+
+  if (createPriorityTable () < 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("Cannot create priority table\n");
 #endif
     return -1;
   }
-  return 0;
+
+  return(0);
 }
 
 int
@@ -575,12 +601,14 @@ createPriorityTable (void)
   strcat  (queryString, "class char(32) not null,\n");
   strcat  (queryString, "priority int not null\n");
   strcat  (queryString,")");
-  if (mysql_query (mysql, queryString) != 0) {
+  if (mysql_query (mysql, queryString) != 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("create priority table error: %s\n", mysql_error(mysql));
 #endif
     return -1;
   }
+
   /* insert value to table */
   sprintf (queryString, "insert into %s\n", PRIORITY_TABLE_NAME);
   /* roc class */
@@ -591,6 +619,7 @@ createPriorityTable (void)
 #endif
     return -1;
   }
+
   /* EB class */
   sprintf (queryString, "insert into %s\n", PRIORITY_TABLE_NAME);  
   strcat  (queryString, "values ('EB',  15)"); 
@@ -600,15 +629,7 @@ createPriorityTable (void)
 #endif
     return -1;
   }
-  /* ANA class */
-  sprintf (queryString, "insert into %s\n", PRIORITY_TABLE_NAME);  
-  strcat  (queryString, "values ('ANA', 19)");
-  if (mysql_query (mysql, queryString) != 0) {
-#ifdef _CODA_DEBUG
-    printf ("Insert priority value error: %s\n", mysql_error(mysql));
-#endif
-    return -1;
-  }
+
   /* ER class */
   sprintf (queryString, "insert into %s\n", PRIORITY_TABLE_NAME);  
   strcat  (queryString, "values ('ER',  23)"); 
@@ -618,15 +639,37 @@ createPriorityTable (void)
 #endif
     return -1;
   }
-  /* LOG class */
+
+  /* ET class */
   sprintf (queryString, "insert into %s\n", PRIORITY_TABLE_NAME);  
-  strcat  (queryString, "values ('LOG', 27)"); 
+  strcat  (queryString, "values ('ET', 25)");
   if (mysql_query (mysql, queryString) != 0) {
 #ifdef _CODA_DEBUG
     printf ("Insert priority value error: %s\n", mysql_error(mysql));
 #endif
     return -1;
   }
+
+  /* ETT class */
+  sprintf (queryString, "insert into %s\n", PRIORITY_TABLE_NAME);  
+  strcat  (queryString, "values ('ETT', 27)");
+  if (mysql_query (mysql, queryString) != 0) {
+#ifdef _CODA_DEBUG
+    printf ("Insert priority value error: %s\n", mysql_error(mysql));
+#endif
+    return -1;
+  }
+
+  /* LOG class */
+  sprintf (queryString, "insert into %s\n", PRIORITY_TABLE_NAME);  
+  strcat  (queryString, "values ('LOG', 29)"); 
+  if (mysql_query (mysql, queryString) != 0) {
+#ifdef _CODA_DEBUG
+    printf ("Insert priority value error: %s\n", mysql_error(mysql));
+#endif
+    return -1;
+  }
+
   /* TS class */
   sprintf (queryString, "insert into %s\n", PRIORITY_TABLE_NAME);  
   strcat  (queryString, "values ('TS', -27)"); 
@@ -1260,7 +1303,8 @@ createRcNetCompsFromDbase (rcNetComp** comp, int *num)
     return -1;
   }
   res = mysql_store_result (mysql);
-  if (!res) {
+  if (!res)
+  {
 #ifdef _CODA_DEBUG
     printf ("Query get all from process table error: %s\n", mysql_error(mysql));
 #endif
@@ -1271,14 +1315,13 @@ createRcNetCompsFromDbase (rcNetComp** comp, int *num)
   i = 0;
   while ((row = mysql_fetch_row (res)))
   {
-#ifdef _CODA_DEBUG
+/*#ifdef _CODA_DEBUG*/
     printf ("Construct comp %s %s %s %s %s \n",row[0], row[1], row[2], row[3], row[4]);
-#endif
+/*#endif*/
     if (strcasecmp (row[3], "RCS") != 0 && strcasecmp (row[3], "USER") != 0)
     {
       comp[i] = newRcNetComp ();
-      setRcNetComp (comp[i], row[0], atoi (row[1]), row[2],
-		    row[3], row[4]);
+      setRcNetComp (comp[i], row[0], atoi(row[1]), row[2], row[3], row[4]);
       i++;
     }
   }

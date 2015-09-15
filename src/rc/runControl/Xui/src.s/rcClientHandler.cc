@@ -52,6 +52,7 @@
 #include <rcAudioOutput.h>
 #include "rcClientHandler.h"
 
+#define _TRACE_OBJECTS
 
 rcClientHandler::rcClientHandler (Widget parent)
 :XcodaInput (parent), status_ (DA_NOT_CONNECTED), master_ (0), 
@@ -84,19 +85,21 @@ rcClientHandler::~rcClientHandler (void)
 #ifdef _TRACE_OBJECTS
   printf ("    Create rcClientHandler Class Object\n");
 #endif
-  if (handler_.connected ()) {
+  if (handler_.connected ())
+  {
     handler_.disconnect ();
     removeInput ();
   }
+
   // remove all components
   for (i = 0; i < numComps_; i++)
     delete []components_[i];
 
   if (datalogFile_) delete []datalogFile_;
-  if (conflogFile_) delete []conflogFile_; //sergey
+  if (conflogFile_) delete []conflogFile_; /*sergey*/
   if (logFileDes_) delete []logFileDes_;
 
-  // let individual panel to remove itself from the list
+  /* let individual panel to remove itself from the list */
   for (i = 0; i < numDbases_; i++)
     delete []dbases_[i];
   numDbases_ = 0;
@@ -117,32 +120,42 @@ rcClientHandler::~rcClientHandler (void)
 int
 rcClientHandler::status (void) const
 {
+#ifdef _TRACE_OBJECTS
+  printf ("rcClientHandler::status reached\n");
+#endif
   return status_;
 }
 
 int
 rcClientHandler::connected (void) const
 {
+#ifdef _TRACE_OBJECTS
+  printf ("rcClientHandler::connected reached, returns %d\n",handler_.connected());
+#endif
   return handler_.connected ();
 }
 
 
 
 
-// connact to database
+/* connect to database */
 int
 rcClientHandler::connect (char* database, char* exptname, char* msqld)
 {
   int status;
 
-  printf("rcClientHandler::connect() reached: >%s< >%s< >%s<\n",
-		 database,exptname,msqld);
+  printf("rcClientHandler::connect() reached: >%s< >%s< >%s<\n",database,exptname,msqld);fflush(stdout);
 
   status = handler_.connect (database, exptname, msqld);
+
+  printf("rcClientHandler::connected\n");fflush(stdout);
+
   if (status == CODA_SUCCESS)
   {
 	/*see motif/src.s/XcodaInput.cc */
+  printf("rcClientHandler::connect 2\n");fflush(stdout);
     addInput (handler_.getFd (), (XtPointer)XtInputReadMask);
+  printf("rcClientHandler::connect 3\n");fflush(stdout);
 	
     if (handler_.monitorOnCallback (exptname, "status", 
 			(rcCallback)&(rcClientHandler::statusCallback),
@@ -213,15 +226,17 @@ rcClientHandler::connect (char* database, char* exptname, char* msqld)
        fprintf (stderr, "Cannot monitor on %s rcsMsgToDbase\n", exptname);
 
 
+  printf("rcClientHandler::connect 21\n");fflush(stdout);
     handler_.disconnectCallback ((rcCallback)&(rcClientHandler::discCallback),
 				 (void *)this);
+  printf("rcClientHandler::connect 22\n");fflush(stdout);
 	
 
   }
 
-  printf("rcClientHandler::connect() done\n");
+  printf("rcClientHandler::connect() done, status=%d\n",status);fflush(stdout);
 
-  return status;
+  return(status);
 }
 
 
@@ -897,7 +912,7 @@ rcClientHandler::components (int& num)
 }
 
 long
-rcClientHandler::compBootInfo (char** &comps, long* &autoboot)
+rcClientHandler::compBootInfo (char** &comps, /*long*/int64_t* &autoboot)
 {
   if (caboot_)
     return caboot_->compBootInfo (comps, autoboot);
@@ -909,7 +924,7 @@ rcClientHandler::compBootInfo (char** &comps, long* &autoboot)
 }
 
 long
-rcClientHandler::monitorParms (char** &comps, long* &monitored,
+rcClientHandler::monitorParms (char** &comps, int64_t*/*long*/ &monitored,
 			       long& autoend, long& interval)
 {
   if (monParms_) {

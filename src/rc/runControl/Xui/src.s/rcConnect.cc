@@ -202,7 +202,8 @@ rcConnect::connect (void)
 
 printf("CEDIT 1\n");
 #ifdef USE_CREG
-      coda_send(XtDisplay(this->baseWidget()),"CEDIT",cmd);
+      coda_Send(XtDisplay(this->baseWidget()),"CEDIT",cmd);
+      coda_Send(XtDisplay(this->baseWidget()),"ALLROCS",cmd);
 #endif
     }
 
@@ -220,21 +221,27 @@ rcConnect::startRcServer (void)
 {
   rcComdOption* option = rcComdOption::option ();
 
-  if (connect () != CODA_SUCCESS) { //try to create rcServer
+  if (connect () != CODA_SUCCESS) //try to create rcServer
+  {
     char msg[256];
     /*::sprintf(msg,"$CODA/src/rc/runControl/rcServer/Linux_i686_vme/bin/rcServer -m %s -d %s -s %s &\n",*/
-	::sprintf(msg,"$CODA_BIN/rcServer -m %s -d %s -s %s &\n",
+	::sprintf(msg,"%s/rcServer -m %s -d %s -s %s &\n",
+          getenv("CODA_BIN"),
 	      option->msqldhost(),
 	      option->dbasename (),
 	      option->session ());
 
+    printf("STARTING RCSERVER >%s<\n",msg);
     int errcode = system(msg);
-    if (errcode == 0) {
+    if (errcode == 0)
+    {
       timeoutCount_ = 0;
       startTimer ();
     }
-    else 
+    else
+	{
       reportErrorMsg ("Starting rcServer failed due to script error");
+	}
   }
 }
 
