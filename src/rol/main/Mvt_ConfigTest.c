@@ -19,6 +19,9 @@
 --
 --------------------------------------------------------------------------------
 */
+
+#ifdef Linux_vme
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -225,3 +228,13 @@ int main( int argc, char* *argv )
 	cleanup(0);
 	return 0;
 }
+
+#else
+
+int
+main()
+{
+  exit(0);
+}
+
+#endif

@@ -50,7 +50,7 @@ XInternAtom(,'property name,) returns property ID
 #include <Xm/Text.h>
 
 
-#define DEBUG
+#undef DEBUG
 
 
 /* sergey: USE_TK is defined only in codatcl1.0/Makefile, it used when codaRegistry.c is included
@@ -1179,12 +1179,22 @@ resizeHandler(Widget w, Window target, XEvent *eventPtr)
 #ifdef DEBUG
   printf("codaRegistry::resizeHandler: wc.x=%d wc.y=%d wc.width=%d wc.height=%d\n",wc.x,wc.y,wc.width,wc.height);
   printf("codaRegistry::resizeHandler: wc.type=%d\n",eventPtr->type);
+
+  /* see 'X.h' for types definitions */
+  if(eventPtr->type==22)      printf("codaRegistry::resizeHandler:   --> ConfigureNotify\n");
+  else if(eventPtr->type==18) printf("codaRegistry::resizeHandler:   --> UnmapNotify\n");
+  else if(eventPtr->type==19) printf("codaRegistry::resizeHandler:   --> MapNotify\n");
 #endif
 
 /* int XConfigureWindow(Display *display, Window w, unsigned value_mask, XWindowChanges *changes); */
 
-  XConfigureWindow(XtDisplay(w), target, CWWidth | CWHeight, &wc);
-  
+  if(eventPtr->type==22) /* resize only if 'ConfigureNotify', ignore others */
+  {
+#ifdef DEBUG
+    printf("codaRegistry::resizeHandler: calling XConfigureWindow\n");
+#endif
+    XConfigureWindow(XtDisplay(w), target, CWWidth | CWHeight, &wc);
+  }
 }
 
 static void 
@@ -1209,7 +1219,10 @@ exposeHandler(Widget w, Window target, XEvent *eventPtr)
   printf("codaRegistry::exposeHandler: wc.x=%d wc.y=%d wc.width=%d wc.height=%d\n",wc.x,wc.y,wc.width,wc.height);
 #endif
   
+#if 0
   XConfigureWindow(XtDisplay(w), target, CWWidth | CWHeight, &wc);
+#endif
+
 }
 
 typedef void (*MSG_FUNCPTR) (char *);
@@ -1295,6 +1308,7 @@ Atom XInternAtom(display, atom_name, only_if_exists)
 
 
   /*sergey: just printing*/
+#ifdef DEBUG
   printf("eventPtr->xproperty:\n");
   printf("type=%d serial=%d send_event=%d display=0x%08x(0x%08x) window=0x%08x atom=%d time=%d state=%d\n",
 		 eventPtr->xproperty.type,
@@ -1306,6 +1320,7 @@ Atom XInternAtom(display, atom_name, only_if_exists)
 		 eventPtr->xproperty.atom,
 		 eventPtr->xproperty.time,
          eventPtr->xproperty.state);
+#endif
   /*sergey: just printing*/
 
 
@@ -1314,8 +1329,9 @@ Atom XInternAtom(display, atom_name, only_if_exists)
 
 		   if ((eventPtr->xproperty.atom != commProperty) || (eventPtr->xproperty.state != PropertyNewValue)) /*or PropertyDelete !?*/
   {
+#ifdef DEBUG
     printf("codaRegistry::motifHandler: return !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-
+#endif
     /*XFree(commProperty);*/ /*sergey ??? */
     return;
   }
@@ -1431,7 +1447,9 @@ printf("abc3 %d\n",abc[0]);fflush(stdout);
 #endif
       if(w2==NULL)
 	  {
+#ifdef DEBUG
         printf("codaRegistry::motifHandler: ERROR: w2=0x%08x - return\n",w2);fflush(stdout);
+#endif
         return;
 	  }
 
@@ -1456,8 +1474,10 @@ printf("abc4 %d\n",abc[0]);fflush(stdout);
 	  printf("AFTER (w1=0x%08x) (target=0x%08x)\n",w1,target);fflush(stdout);
 #endif
 
-	  /* need it ???   'w2' here !!!*/
-	  /*XtAddEventHandler(w2, ExposureMask, False, exposeHandler, target);*/
+#if 0
+	  /* need it ???  originally 'w2' was here !!!*/
+	  XtAddEventHandler(/*w2*/w1, ExposureMask, False, exposeHandler, target);
+#endif
     }
     else if (messageCallback)
 	{

@@ -151,36 +151,43 @@ static char* expandFilename (char *filename)
     p = new char[::strlen (filename) + 1];
     ::strcpy (p, filename);
   }
-  else {
+  else
+  {
     char *slash = 0;
-    if ((slash = ::strchr (filename, '/')) == 0) {
+    if ((slash = ::strchr (filename, '/')) == 0)
+    {
       char *e = ::getenv (&filename[1]);
-      if (e) {
-	p = new char[::strlen (e) + 1];
-	::strcpy (p, e);
+      if (e)
+      {
+	    p = new char[::strlen (e) + 1];
+	    ::strcpy (p, e);
       }
     }
-    else {
+    else
+    {
       char env[128]; // environment vairable
       // retrieve environment variable
       char* q = env;
       char* cur = &filename[1];
-     while (*cur != *slash) {
-	*q = *cur;
-	q++; cur++;
+      while (*cur != *slash)
+      {
+	    *q = *cur;
+	    q++; cur++;
       }
       *q = '\0';
       q = ::getenv (env);
-      if (q) {
-	char expanded[128];
-	::strcpy (expanded, q);
-	::strcat (expanded, slash);
-	p = new char[::strlen (expanded) + 1];
-	::strcpy (p, expanded);
+      if (q)
+      {
+	    char expanded[128];
+	    ::strcpy (expanded, q);
+	    ::strcat (expanded, slash);
+	    p = new char[::strlen (expanded) + 1];
+	    ::strcpy (p, expanded);
       }
-      else {
-	p = new char[::strlen (slash) + 1];
-	::strcpy (p, slash);
+      else
+      {
+	    p = new char[::strlen (slash) + 1];
+	    ::strcpy (p, slash);
       }	
     }
   }
@@ -191,10 +198,8 @@ static void trimBootString (char *boot)
 {
   char *p = boot;
 
-  while (*p != '\0' && *p != '\n')
-    p++;
-  if (*p == '\n')
-    *p = '\0';
+  while (*p != '\0' && *p != '\n') p++;
+  if (*p == '\n') *p = '\0';
 }
 
 
@@ -202,7 +207,8 @@ static void trimBootString (char *boot)
 static void toLower (char *str)
 {
   char *p = str;
-  while (*p != '\0') {
+  while (*p != '\0')
+  {
     *p = tolower (*p);
     p++;
   }
@@ -223,11 +229,13 @@ dbaseReader::dbaseReader (int exptid, daqRun& run)
 
   // get user information
   struct passwd* pwsd = 0;
-  if ((pwsd = getpwuid (getuid()) ) != 0) {
+  if ((pwsd = getpwuid (getuid()) ) != 0)
+  {
     username_ = new char[::strlen(pwsd->pw_name) + 1];
     ::strcpy (username_,pwsd->pw_name);
   }
-  else {
+  else
+  {
     char buff[80];
     ::sprintf (buff, "userid_%d",getuid ());
     username_ = new char[::strlen (buff) + 1];
@@ -237,7 +245,8 @@ dbaseReader::dbaseReader (int exptid, daqRun& run)
   gid_ = ::getgid ();
 
   // connect to a mysql server
-  if (connectMysql () == CODA_SUCCESS) {
+  if (connectMysql () == CODA_SUCCESS)
+  {
     if (listAllDatabases () == CODA_SUCCESS)
       reporter->cmsglog (CMSGLOG_INFO1,"Connected to mysql server on %s\n",
 			       run_.msqlhost());
@@ -245,7 +254,8 @@ dbaseReader::dbaseReader (int exptid, daqRun& run)
       reporter->cmsglog (CMSGLOG_ERROR,"Can't talk to mysql server on %s\n",
 			       run_.msqlhost());
   }
-  else {
+  else
+  {
     reporter->cmsglog (CMSGLOG_ERROR,"Can't talk to mysql server on %s\n",
 			     run_.msqlhost());
     fprintf (stderr, "Failed to connect to mysql server on %s\n",
@@ -271,7 +281,8 @@ dbaseReader::~dbaseReader (void)
   giveupConfiguration (run_.runtype ());
 
   // then close the socket to mysql server
-  if (dbaseSock_ != NULL) {
+  if (dbaseSock_ != NULL)
+  {
     ::mysql_close (dbaseSock_);
   }
   dbaseSock_ = NULL;
@@ -288,7 +299,8 @@ dbaseReader::~dbaseReader (void)
   codaStrHashIterator ite (cinfos_);
   rcNetConfig* cf = 0;
 
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     cf = (rcNetConfig *)ite ();
     delete cf;
   }
@@ -397,16 +409,14 @@ dbaseReader::reconnectMysql (void)
 int
 dbaseReader::isDatabaseOpen (void) const
 {
-  if (dbaseSock_ != NULL)
-    return 1;
+  if (dbaseSock_ != NULL) return 1;
   return 0;
 }
 
 int
 dbaseReader::databaseSelected (void) const
 {
-  if (dbaseDir_)
-    return 1;
+  if (dbaseDir_) return 1;
   return 0;
 }
 
@@ -511,40 +521,39 @@ dbaseReader::listAllDatabases (void)
 void
 dbaseReader::database (char* path)
 {
-  if (path != 0) {
-    if (::mysql_select_db(dbaseSock_, path) < 0) {
+  if (path != 0)
+  {
+    if (::mysql_select_db(dbaseSock_, path) < 0)
+    {
       fprintf (stderr, "Cannot select experiment %s: %s\n",
 	       path, mysql_error(dbaseSock_));
       reporter->cmsglog (CMSGLOG_ERROR,"Can't select experiment %s: %s\n",
 			       path, mysql_error(dbaseSock_)); 
 	
       // reconnect to mysql server if it is the case of server crashed
-      if (reconnectMysql () == CODA_ERROR) 
-	return;
-      if(::mysql_select_db(dbaseSock_, path) < 0) {
-	fprintf (stderr, "Can't select database %s: %s\n",
-		 path, mysql_error(dbaseSock_));
-	reporter->cmsglog (CMSGLOG_ERROR,"Can't select database %s: %s\n",
-				 path, mysql_error(dbaseSock_)); 
+      if (reconnectMysql () == CODA_ERROR) return;
+
+      if(::mysql_select_db(dbaseSock_, path) < 0)
+      {
+	    fprintf (stderr, "Can't select database %s: %s\n", path, mysql_error(dbaseSock_));
+	    reporter->cmsglog (CMSGLOG_ERROR,"Can't select database %s: %s\n", path, mysql_error(dbaseSock_)); 
       }
-      else {
-	if (dbaseDir_)
-	  delete []dbaseDir_;
-	dbaseDir_ = new char[::strlen (path) + 1];
-	::strcpy (dbaseDir_, path);
-	// update database variable to new name
-	run_.database (dbaseDir_);
-    
+      else
+      {
+	    if (dbaseDir_) delete []dbaseDir_;
+	    dbaseDir_ = new char[::strlen (path) + 1];
+	    ::strcpy (dbaseDir_, path);
+	    // update database variable to new name
+	    run_.database (dbaseDir_);
       }
     }
-    else {
-      if (dbaseDir_)
-	delete []dbaseDir_;
+    else
+    {
+      if (dbaseDir_) delete []dbaseDir_;
       dbaseDir_ = new char[::strlen (path) + 1];
       ::strcpy (dbaseDir_, path);
       // update database variable to new name
       run_.database (dbaseDir_);
-      
     }
   }
 }
@@ -611,12 +620,14 @@ dbaseReader::listAllSessions (void)
 int
 dbaseReader::getAllSessions (void)
 {
-  if (!isDatabaseOpen ()) {
+  if (!isDatabaseOpen ())
+  {
     reporter->cmsglog (CMSGLOG_ERROR,"Can't read sessions table: mysql server is not connected\n");
     return CODA_ERROR;
   }
   
-  if (!databaseSelected ()) {
+  if (!databaseSelected ())
+  {
     reporter->cmsglog (CMSGLOG_ERROR,"Can't read sessions table: experiment is not selected\n");
     return CODA_ERROR;
   }
@@ -634,31 +645,35 @@ dbaseReader::sessionCreated (char* name)
 
   ::sprintf (qstring, "select * from %s", DBASE_SESSION_TABLE);
 
-  if (mysql_query (dbaseSock_, qstring) != 0) {
+  if (mysql_query (dbaseSock_, qstring) != 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("list all sessions error: %s\n", mysql_error(dbaseSock_));
 #endif
     reporter->cmsglog (CMSGLOG_ERROR,"Can't read sessions table: %s\n", mysql_error(dbaseSock_));
     
     // reconnect to mysql server if it is the case
-    if (reconnectMysql () == CODA_ERROR) 
-      return CODA_ERROR;
-    if (mysql_query (dbaseSock_, qstring) != 0) {
+    if (reconnectMysql () == CODA_ERROR) return CODA_ERROR;
+    if (mysql_query (dbaseSock_, qstring) != 0)
+    {
       reporter->cmsglog (CMSGLOG_ERROR,"Can't read sessions table: %s\n", mysql_error(dbaseSock_));
       return CODA_ERROR;
     }
   }
 
   res = mysql_store_result(dbaseSock_);
-  if (!res) {
+  if (!res)
+  {
 #ifdef _CODA_DEBUG
     printf ("List all sessions error: %s\n", mysql_error(dbaseSock_));
 #endif
     reporter->cmsglog (CMSGLOG_ERROR,"Can't read sessions table: %s\n", mysql_error(dbaseSock_));
     return CODA_ERROR;
   }
-  while ((row = mysql_fetch_row (res))) {
-    if (::strcmp (row[0], name) == 0) {
+  while ((row = mysql_fetch_row (res)))
+  {
+    if (::strcmp (row[0], name) == 0)
+    {
       reporter->cmsglog (CMSGLOG_INFO1,"Session %s already exists in db\n", row[0]);
       // free result
       ::mysql_free_result (res);
@@ -679,7 +694,8 @@ dbaseReader::sessionActive (char* name)
 
   ::sprintf (qstring, "select * from %s", DBASE_SESSION_TABLE);
 
-  if (mysql_query (dbaseSock_, qstring) != 0) {
+  if (mysql_query (dbaseSock_, qstring) != 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("list all sessions error: %s\n", mysql_error(dbaseSock_));
 #endif
@@ -688,7 +704,8 @@ dbaseReader::sessionActive (char* name)
     if (reconnectMysql () == CODA_ERROR)
       return CODA_ERROR;
     
-    if (::mysql_query (dbaseSock_, qstring) != 0) {
+    if (::mysql_query (dbaseSock_, qstring) != 0)
+    {
       reporter->cmsglog (CMSGLOG_ERROR,"Can't read sessions table: %s\n", mysql_error(dbaseSock_));
       return CODA_ERROR;
     }
@@ -702,8 +719,10 @@ dbaseReader::sessionActive (char* name)
     reporter->cmsglog (CMSGLOG_ERROR,"Can't read sessions table: %s\n", mysql_error(dbaseSock_));
     return CODA_ERROR;
   }
-  while ((row = mysql_fetch_row (res))) {
-    if (::strcmp (row[0], name) == 0 && ::strcmp (row[3], "yes") == 0) {
+  while ((row = mysql_fetch_row (res)))
+  {
+    if (::strcmp (row[0], name) == 0 && ::strcmp (row[3], "yes") == 0)
+    {
       reporter->cmsglog (CMSGLOG_INFO,"Session %s is already in use by %s\n", row[0],row[2]);
       // free result
       ::mysql_free_result (res);
@@ -718,7 +737,8 @@ dbaseReader::sessionActive (char* name)
 int
 dbaseReader::createSession (char* name)
 {
-  if (sessionCreated (name)) {
+  if (sessionCreated (name))
+  {
     reporter->cmsglog (CMSGLOG_WARN,"Cannot create session %s: already exists\n",
 			     name);
     return CODA_ERROR;
@@ -736,7 +756,8 @@ dbaseReader::createSession (char* name)
 	   name, exptid_, userinfo, name, 0);
   strcat  (qstring, vstring);
 
-  if (mysql_query (dbaseSock_, qstring) != 0) {
+  if (mysql_query (dbaseSock_, qstring) != 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("Create new session %s error: %s\n",name, mysql_error(dbaseSock_));
 #endif
@@ -744,7 +765,8 @@ dbaseReader::createSession (char* name)
     
     if (reconnectMysql () == CODA_ERROR) 
       return CODA_ERROR;
-    if (mysql_query (dbaseSock_, qstring) != 0) {
+    if (mysql_query (dbaseSock_, qstring) != 0)
+    {
       reporter->cmsglog (CMSGLOG_ERROR,"Can't create session %s: %s\n",
 			       name, mysql_error(dbaseSock_));
       return CODA_ERROR;
@@ -771,11 +793,13 @@ dbaseReader::createSession (char* name)
 int
 dbaseReader::selectSession (char* name)
 {
-  if (!sessionCreated (name)) {
+  if (!sessionCreated (name))
+  {
     reporter->cmsglog (CMSGLOG_INFO1,"This session: %s has not yet been created\n", name);
     return CODA_ERROR;
   }
-  if (sessionActive (name)) {
+  if (sessionActive (name))
+  {
     reporter->cmsglog (CMSGLOG_WARN,"Session %s is currently in use\n", name);
     return CODA_ERROR;
   }
@@ -796,7 +820,8 @@ dbaseReader::selectSession (char* name)
   printf("mysql_query->%s<-\n",qstring);fflush(stdout);
 #endif
 
-  if (mysql_query (dbaseSock_, qstring) != 0) {
+  if (mysql_query (dbaseSock_, qstring) != 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("update session error: %s\n", mysql_error(dbaseSock_));
 #endif
@@ -863,7 +888,8 @@ dbaseReader::getComponents (void)
 
   sprintf (qstring, "select * from %s", DBASE_PROCESS_TABLE);
 
-  if (::mysql_query (dbaseSock_, qstring) != 0) {
+  if (::mysql_query (dbaseSock_, qstring) != 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("list all processes error: %s\n",mysql_error(dbaseSock_));
 #endif
@@ -878,7 +904,8 @@ dbaseReader::getComponents (void)
   }
 
   MYSQL_RES* res = mysql_store_result(dbaseSock_);
-  if (!res) {
+  if (!res)
+  {
 #ifdef _CODA_DEBUG
     printf ("list all process error: %s\n", mysql_error(dbaseSock_));
 #endif
@@ -887,8 +914,10 @@ dbaseReader::getComponents (void)
   }
   // get every row of the process table
   MYSQL_ROW row;
-  while ((row = mysql_fetch_row (res))) {
-    if (::strcasecmp (row[3], "RCS") != 0) {
+  while ((row = mysql_fetch_row (res)))
+  {
+    if (::strcasecmp (row[3], "RCS") != 0)
+    {
       compFactory_->createComponent (row[0], atoi (row[1]), row[3], row[4],
 				     row[2]);
       reporter->cmsglog (CMSGLOG_INFO1,"Creating component %s succeeded\n",row[0]);
@@ -1047,7 +1076,8 @@ dbaseReader::getRunNumber   (void)
   }
 
   MYSQL_RES* res = mysql_store_result(dbaseSock_);
-  if (!res) {
+  if (!res)
+  {
 #ifdef _CODA_DEBUG
     printf ("Select runNumber error: %s\n", mysql_error(dbaseSock_));
 #endif
@@ -1168,44 +1198,8 @@ dbaseReader::putDataFileName (char* name)
   }
 }
 
-/* sergey: call this routine after session has been selected */
-void 
-dbaseReader::putConfFileName (char* name)
-{
-  char qstring[256];
-  
-  if (strcmp(run_.runtype (), "unknown") == 0)
-  {
-#ifdef _CODA_DEBUG
-    printf("dbaseReader::putConfFileName: ignore 'unknown'\n");
-#endif
-    return;
-  }  
 
-  ::sprintf (qstring, "update %s_option set value = '%s' where name = '%s'",
-	     run_.runtype (), name, DBASE_CONFFILE);
-
-#ifdef _CODA_DEBUG
-  printf("dbaseReader::putConfFileName: query >%s<\n",qstring);
-#endif
-
-/* we updated database already from runcontrol - see Xui/src.s/rcDbaseHandler.cc 
-  if (::mysql_query (dbaseSock_, qstring) != 0)
-  {
-#ifdef _CODA_DEBUG
-    printf ("update confFile error: %s\n", mysql_error(dbaseSock_));
-#endif
-    reporter->cmsglog (CMSGLOG_ERROR,"Update confFile error: %s\n", mysql_error(dbaseSock_));
-    
-    if (reconnectMysql () == CODA_SUCCESS)
-    {
-      if (::mysql_query (dbaseSock_, qstring) != 0) 
-	    reporter->cmsglog (CMSGLOG_ERROR,"Update confFile error: %s\n", mysql_error(dbaseSock_));
-    }
-  }
-*/
-}
-
+/* sergey: put token interval into database */
 void 
 dbaseReader::putTokenInterval   (int itval)
 {
@@ -1216,18 +1210,113 @@ dbaseReader::putTokenInterval   (int itval)
   ::sprintf (qstring, "update %s_option set value = '%d' where name = '%s'",
 	     run_.runtype (), itval, DBASE_TOKEN_INTERVAL);
 
-  if (::mysql_query (dbaseSock_, qstring) != 0) {
+  if (::mysql_query (dbaseSock_, qstring) != 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("update token interval error: %s\n", mysql_error(dbaseSock_));
 #endif
     reporter->cmsglog (CMSGLOG_ERROR,"Update  token interval error: %s\n", mysql_error(dbaseSock_));
     
-    if (reconnectMysql () == CODA_SUCCESS) {
+    if (reconnectMysql () == CODA_SUCCESS)
+    {
       if (::mysql_query (dbaseSock_, qstring) != 0) 
-	reporter->cmsglog (CMSGLOG_ERROR,"Update token interval error: %s\n", mysql_error(dbaseSock_));
+	    reporter->cmsglog (CMSGLOG_ERROR,"Update token interval error: %s\n", mysql_error(dbaseSock_));
     }
   }
 }
+
+/* sergey: put conf file name into database */
+void 
+dbaseReader::putConfFileName (char* name)
+{
+  char qstring[1024];
+  
+  if (strcmp(run_.runtype (), "unknown") == 0)
+  {
+#ifdef _CODA_DEBUG
+    printf("dbaseReader::putConfFileName: ignore 'unknown'\n");
+#endif
+    return;
+  }  
+
+  ::sprintf (qstring, "update %s%s set value = '%s' where name = '%s'",
+	     run_.runtype (), DBASE_OPTION_TABLE, name, DBASE_CONFFILE);
+
+#ifdef _CODA_DEBUG
+  printf("dbaseReader::putConfFileName: query >%s<\n",qstring);
+#endif
+
+  if (::mysql_query (dbaseSock_, qstring) != 0)
+  {
+    printf ("Update confFile error: %s\n", mysql_error(dbaseSock_));
+    reporter->cmsglog (CMSGLOG_ERROR,"Update confFile error: %s\n", mysql_error(dbaseSock_));
+    
+    if (reconnectMysql () == CODA_SUCCESS)
+    {
+      if (::mysql_query (dbaseSock_, qstring) != 0) 
+	    reporter->cmsglog (CMSGLOG_ERROR,"Update confFile error: %s\n", mysql_error(dbaseSock_));
+    }
+  }
+}
+
+
+/* sergey: get conf file name from database */
+int
+dbaseReader::getConfFileName (void)
+{
+  MYSQL_RES* res;
+  MYSQL_ROW row;
+  char qstring[1024];
+  int action;
+  reporter->cmsglog (CMSGLOG_INFO1,"Geting confFile from option table ......\n");
+  ::sprintf (qstring, "select * from %s%s where name = '%s'", run_.runtype (), DBASE_OPTION_TABLE, DBASE_CONFFILE);
+
+  if (::mysql_query (dbaseSock_, qstring) != 0)
+  {
+#ifdef _CODA_DEBUG
+    printf ("Geting confFile error: %s\n", mysql_error(dbaseSock_));
+#endif
+    reporter->cmsglog (CMSGLOG_ERROR,"Geting confFile error: %s\n", mysql_error(dbaseSock_));
+
+    if (reconnectMysql () == CODA_ERROR) return CODA_ERROR;
+    if (::mysql_query (dbaseSock_, qstring ) != 0 )
+    {
+      reporter->cmsglog (CMSGLOG_ERROR,"Geting confFile error: %s\n", mysql_error(dbaseSock_));
+      return CODA_SUCCESS;
+    }
+  }
+
+  res = mysql_store_result(dbaseSock_);
+  if (!res)
+  {
+#ifdef _CODA_DEBUG
+    printf ("Geting confFile error: %s\n", mysql_error(dbaseSock_));
+#endif
+    reporter->cmsglog (CMSGLOG_ERROR,"Geting confFile error: %s\n", mysql_error(dbaseSock_));
+    return CODA_SUCCESS;
+  }
+  row = mysql_fetch_row (res);
+  assert (row[0]);
+
+#ifdef _CODA_DEBUG
+  printf(">>>>>>>>>> dbaseReader::getConfFileName: confFile >%s<\n",row[1]);
+#endif
+  char filename[512];
+  //printf(DBASE_DBG," confFile = %s\n",row[1]);
+  if (::sscanf (row[1], "%s", filename) >= 1)
+  {
+#ifdef _CODA_DEBUG
+    printf(">>>>>>>>>> dbaseReader::getConfFileName: filename >%s<\n",filename);
+#endif
+	run_.confFile (filename, 0); /* second arg =0 means writer will not update database, we just got the value so no reason to write it back */
+	reporter->cmsglog (CMSGLOG_INFO1,"confFile name %s \n", filename);
+  }
+
+  ::mysql_free_result (res);
+
+  return CODA_SUCCESS;
+}
+
 
 int
 dbaseReader::isConfigInUse (char* runtype)
@@ -1440,24 +1529,34 @@ dbaseReader::giveupConfiguration (char* config)
 }
 
 
-/* sergey: called from daqRun::preConfigure */
+
+
+
+
+
+/* sergey: called from daqRun::preConfigure, parsing 'script' and 'option' tables for coda configuration 'runType' */
 int 
 dbaseReader::parseOptions (char* runtype)
 {
-  // first clean out all old script components
+  /* first clean out all old script components */
   daqSystem& sys = run_.system ();
   sys.removeAllScriptComp ();
 
-  // clean out script system
+  /* clean out script system */
   daqScriptSystem& ssys = run_.scriptSystem ();
   ssys.cleanup ();
 
   char qstring[256];
 
+
+  /****************/
+  /* script table */
+
   reporter->cmsglog (CMSGLOG_INFO1,"Parsing script table ......\n");
   ::sprintf (qstring, "select * from %s%s", runtype, DBASE_SCRIPT_TABLE);
 
-  if (::mysql_query (dbaseSock_, qstring) != 0) {
+  if (::mysql_query (dbaseSock_, qstring) != 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("list all scripts error: %s\n", mysql_error(dbaseSock_));
 #endif
@@ -1465,14 +1564,16 @@ dbaseReader::parseOptions (char* runtype)
 
     if (reconnectMysql () == CODA_ERROR)
       return CODA_ERROR;
-    if (::mysql_query (dbaseSock_, qstring ) != 0 ) {
+    if (::mysql_query (dbaseSock_, qstring ) != 0 )
+    {
       reporter->cmsglog (CMSGLOG_ERROR,"List all scripts error: %s\n", mysql_error(dbaseSock_));
       return CODA_SUCCESS;
     }
   }
 
   MYSQL_RES *res = mysql_store_result(dbaseSock_);
-  if (!res) {
+  if (!res)
+  {
 #ifdef _CODA_DEBUG
     printf ("list all scripts error: %s\n", mysql_error(dbaseSock_));
 #endif
@@ -1480,44 +1581,48 @@ dbaseReader::parseOptions (char* runtype)
     return CODA_SUCCESS;
   }
   
-  // get every row of the priority table
+  /* get every row of the script table */
+
   MYSQL_ROW row;
-  while ((row = mysql_fetch_row (res))) {
+  while ((row = mysql_fetch_row (res)))
+  {
     daqComponent *comp = 0;
-    if (sys.has (row[0], comp) == CODA_SUCCESS) {
+    if (sys.has (row[0], comp) == CODA_SUCCESS)
+    {
       daqComponent *scomp = 0;
       scomp = compFactory_->createComponent (comp, row[1], row[2]);    
-      if (scomp == 0)
-	reporter->cmsglog (CMSGLOG_ERROR,"Wrong action specification: %s\n",
-				 row[1]);
-      else
-	reporter->cmsglog (CMSGLOG_INFO1,"%s user script component created\n",
-				 scomp->title () );
+      if (scomp == 0) reporter->cmsglog (CMSGLOG_ERROR,"Wrong action specification: %s\n",row[1]);
+      else            reporter->cmsglog (CMSGLOG_INFO1,"%s user script component created\n",scomp->title());
     }
   }
   mysql_free_result (res);
 
-  // parse option table
+
+  /**********************/
+  /* parse option table */
+
   int action;
   reporter->cmsglog (CMSGLOG_INFO1,"Parsing option table ......\n");
   ::sprintf (qstring, "select * from %s%s", runtype, DBASE_OPTION_TABLE);
 
-  if (::mysql_query (dbaseSock_, qstring) != 0) {
+  if (::mysql_query (dbaseSock_, qstring) != 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("list all options error: %s\n", mysql_error(dbaseSock_));
 #endif
     reporter->cmsglog (CMSGLOG_ERROR,"List all options error: %s\n", mysql_error(dbaseSock_));
 
-    if (reconnectMysql () == CODA_ERROR)
-      return CODA_ERROR;
-    if (::mysql_query (dbaseSock_, qstring ) != 0 ) {
+    if (reconnectMysql () == CODA_ERROR) return CODA_ERROR;
+    if (::mysql_query (dbaseSock_, qstring ) != 0 )
+    {
       reporter->cmsglog (CMSGLOG_ERROR,"List all options error: %s\n", mysql_error(dbaseSock_));
       return CODA_SUCCESS;
     }
   }
 
   res = mysql_store_result(dbaseSock_);
-  if (!res) {
+  if (!res)
+  {
 #ifdef _CODA_DEBUG
     printf ("list all options error: %s\n", mysql_error(dbaseSock_));
 #endif
@@ -1525,32 +1630,47 @@ dbaseReader::parseOptions (char* runtype)
     return CODA_SUCCESS;
   }
   
-  // get every row of the options table
+  /* get every row of the options table */
   while ((row = mysql_fetch_row (res)))
   {
+
+
+
+
+
     //printf(DBASE_DBG,"Options Table Row %s",row[0]);
-    if (::strcmp (row[0], DBASE_EVENTLIMIT) == 0) {
+    if (::strcmp (row[0], DBASE_EVENTLIMIT) == 0)
+    {
       int eventl;
       //printf(DBASE_DBG," Limit = %s\n",row[1]);
-      if (::sscanf (row[1], "%d", &eventl) >= 1) {
-	run_.eventLimit (eventl);
-	if (eventl != 0) {
-	  reporter->cmsglog (CMSGLOG_INFO1,"Event limit to %d\n", eventl);
-	} else {
-	  reporter->cmsglog (CMSGLOG_WARN,"No event count limit\n", eventl);
-	}
+      if (::sscanf (row[1], "%d", &eventl) >= 1)
+      {
+	    run_.eventLimit (eventl);
+	    if (eventl != 0)
+        {
+	      reporter->cmsglog (CMSGLOG_INFO1,"Event limit to %d\n", eventl);
+	    }
+        else
+        {
+	      reporter->cmsglog (CMSGLOG_WARN,"No event count limit\n", eventl);
+	    }
       }
     }
-    else if (::strcmp (row[0], DBASE_DATALIMIT) == 0) {
+    else if (::strcmp (row[0], DBASE_DATALIMIT) == 0)
+    {
       int dl;
       //printf(DBASE_DBG," Limit = %s\n",row[1]);
-      if (::sscanf (row[1], "%d", &dl) >= 1) {
-	run_.dataLimit (dl);
-	if (dl != 0) {
-	  reporter->cmsglog (CMSGLOG_INFO1,"Data limit %d Kbytes\n", dl);
-	} else {
-	  reporter->cmsglog (CMSGLOG_WARN,"No data count limit\n", dl);
-	}
+      if (::sscanf (row[1], "%d", &dl) >= 1)
+      {
+	    run_.dataLimit (dl);
+	    if (dl != 0)
+        {
+	      reporter->cmsglog (CMSGLOG_INFO1,"Data limit %d Kbytes\n", dl);
+	    }
+        else
+        {
+	      reporter->cmsglog (CMSGLOG_WARN,"No data count limit\n", dl);
+	    }
       }
     }
     else if (::strcmp (row[0], DBASE_DATAFILE) == 0)
@@ -1567,27 +1687,10 @@ dbaseReader::parseOptions (char* runtype)
 
 
 
-	/*sergey: database update (or read ???) starts here !!!*/
-    else if (::strcmp (row[0], DBASE_CONFFILE) == 0) /* DBASE_CONFFILE="confFile" */
-    {
-#ifdef _CODA_DEBUG
-      printf(">>>>>>>>>> dbaseReader::parseOptions (DBASE_CONFFILE): confFile >%s<\n",row[1]);
-#endif
-      char filename[128];
-      //printf(DBASE_DBG," confFile = %s\n",row[1]);
-      if (::sscanf (row[1], "%s", filename) >= 1)
-      {
-#ifdef _CODA_DEBUG
-        printf(">>>>>>>>>> dbaseReader::parseOptions (DBASE_CONFFILE): filename >%s<\n",filename);
-#endif
-	    run_.confFile (filename,1); /*sergey: inside daqRun::confFile() overloaded '=' coast calling 'write' */
-	    reporter->cmsglog (CMSGLOG_INFO1,"Config file name %s \n", filename);
-      }
-    }
 
 
-
-
+    /* get 'tokenInterval' value from database and call daqRun::tokenInterval(int itval, int writeUpdate) disabling 'write'
+    to avoid writing back to the database we just read it from */
     else if (::strcmp (row[0], DBASE_TOKEN_INTERVAL) == 0) /* DBASE_TOKEN_INTERVAL="tokenInterval" */
     {
       int titval;
@@ -1602,8 +1705,32 @@ dbaseReader::parseOptions (char* runtype)
 
 
 
+	/*sergey: read confFile from database: 'parseOptions()' called from 'Configure' transition, and we are puting
+    confFile into database in 'Download' transition, and actually rcServer does not need confFile, so that piece not needed, at least here;
+    will move it to the new method 'getConfFileName' which can be used if need to obtain 'confFile' from '_options' table 
+    else if (::strcmp (row[0], DBASE_CONFFILE) == 0)
+    {
+#ifdef _CODA_DEBUG
+      printf(">>>>>>>>>> dbaseReader::parseOptions (DBASE_CONFFILE): confFile >%s<\n",row[1]);
+#endif
+      char filename[128];
+      //printf(DBASE_DBG," confFile = %s\n",row[1]);
+      if (::sscanf (row[1], "%s", filename) >= 1)
+      {
+#ifdef _CODA_DEBUG
+        printf(">>>>>>>>>> dbaseReader::parseOptions (DBASE_CONFFILE): filename >%s<\n",filename);
+#endif
+	    run_.confFile (filename, 0);
+	    reporter->cmsglog (CMSGLOG_INFO1,"Config file name %s \n", filename);
+      }
+    }
+	*/
 
-    else if ((action = codaDaqActions->action (row[0])) != CODA_ERROR) {
+
+
+
+    else if ((action = codaDaqActions->action (row[0])) != CODA_ERROR)
+    {
       //printf(DBASE_DBG," Action = %d Script = %s\n",action,row[1]);
       reporter->cmsglog (CMSGLOG_INFO,"Insert global %s transition script %s \n",
 			 row[0], row[1]);
@@ -1611,15 +1738,22 @@ dbaseReader::parseOptions (char* runtype)
     }
 
 
-    else {
+    else
+    {
       //printf(DBASE_DBG," Value = %s\n",row[1]);
     }
+
+
+
+
 
   }
   mysql_free_result (res);
 
   return CODA_SUCCESS;
 }
+
+
 
 
 
@@ -1634,22 +1768,24 @@ dbaseReader::database (void) const
 int
 dbaseReader::configured (char *title)
 {
-  // make sure all script components are enabled
-  if (::strstr (title, CODA_USER_SCRIPT) != 0)
-    return CODA_SUCCESS;
+  /* make sure all script components are enabled */
+  if (::strstr (title, CODA_USER_SCRIPT) != 0) return CODA_SUCCESS;
 
-  // find out which config info belongs to this component 'title'
+  /* find out which config info belongs to this component 'title' */
   codaSlist& nlist = cinfos_.bucketRef (title);
   if (nlist.isEmpty ())
+  {
     return CODA_ERROR;
-  else {
+  }
+  else
+  {
     codaSlistIterator ite (nlist);
     rcNetConfig* cf = 0;
 
-    for (ite.init (); !ite; ++ite) {
+    for (ite.init (); !ite; ++ite)
+    {
       cf = (rcNetConfig *) ite ();
-      if (::strcmp (cf->title (), title) == 0)
-	return CODA_SUCCESS;
+      if (::strcmp (cf->title (), title) == 0) return CODA_SUCCESS;
     }
   }
   return CODA_ERROR;
@@ -1660,19 +1796,23 @@ dbaseReader::getNetConfigInfo (char *title, char* &config)
 {
   // find out which config info that belongs to this component 'title'
   codaSlist& nlist = cinfos_.bucketRef (title);
-  if (nlist.isEmpty ()) {
+  if (nlist.isEmpty ())
+  {
     config = 0;
     return CODA_ERROR;
   }
-  else {
+  else
+  {
     codaSlistIterator ite (nlist);
     rcNetConfig* cf = 0;
 
-    for (ite.init(); !ite; ++ite) {
+    for (ite.init(); !ite; ++ite)
+    {
       cf = (rcNetConfig *)ite ();
-      if (::strcmp (title, cf->title ()) == 0) {
-	config = cf->config ();
-	return CODA_SUCCESS;
+      if (::strcmp (title, cf->title ()) == 0)
+      {
+	    config = cf->config ();
+	    return CODA_SUCCESS;
       }
     }
   }

@@ -1,3 +1,5 @@
+#ifdef Linux_vme
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -1057,3 +1059,12 @@ int main(void )
   exit(0);
 }
 
+#else
+
+int
+main()
+{
+  exit(0);
+}
+
+#endif

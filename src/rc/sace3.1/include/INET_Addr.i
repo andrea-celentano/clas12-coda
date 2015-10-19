@@ -48,32 +48,40 @@ INET_Addr::set (unsigned short port_number, const char host_name[], int encode)
 {
   hostent *server_info;  
   int32_t addr;
-  
+#ifdef DEBUG
   printf("INET_Addr.i: INET_Addr::set: port=%d host >%s< encode=%d\n",port_number,host_name,encode);
-
+#endif
   this->Addr::base_set (AF_INET, sizeof this->inet_addr_);
   (void) ::memset ((void *) &this->inet_addr_, 0, sizeof this->inet_addr_);
 
   // Yow, someone gave us a NULL host_name!
   if (host_name == 0)
   {
+#ifdef DEBUG
     printf("INET_Addr.i: INET_Addr::set 1\n");
+#endif
     errno = EINVAL;
     return -1;
   }
   else if ((addr = ::inet_addr (host_name)) != -1 ||
 		   ::strcmp (host_name, "255.255.255.255") == 0) /*we are here if host_name is in form 'xxx.xxx.xxx.xxx'*/
   {
+#ifdef DEBUG
     printf("INET_Addr.i: INET_Addr::set 2\n");
+#endif
     return this->set (port_number, addr, encode);
   }
   else if ((server_info = ::gethostbyname (host_name)) != 0) /*we are here if host_name is in form 'blabla.jlab.org'*/
   {
+#ifdef DEBUG
     printf("INET_Addr.i: INET_Addr::set 3\n");
+#endif
     (void) ::memcpy ((void *) &addr, server_info->h_addr, server_info->h_length);
     return this->set (port_number, addr, encode);
   }
+#ifdef DEBUG
   printf("INET_Addr.i: INET_Addr::set 4\n");
+#endif
 }
 
 /* Initializes a INET_Addr from a PORT_NAME and the remote HOST_NAME. */
@@ -107,7 +115,9 @@ INET_Addr::set (const char port_name[], int32_t  inet_address)
 INLINE
 INET_Addr::INET_Addr (unsigned short port_number, const char host_name[])
 {
+#ifdef DEBUG
   printf("INET_Addr.i: INET_Addr::INET_Addr\n");
+#endif
   if (this->set (port_number, host_name) == -1)
     LM_ERROR ((LOG_ERROR, "INET_Addr::INET_Addr"));
 }

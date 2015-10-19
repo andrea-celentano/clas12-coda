@@ -141,8 +141,9 @@ Xhandler(Widget w, XtPointer p, XEvent *e, Boolean *b)
 void
 messageHandler(char *message)
 {
+  /*
   printf("\ncodaedit::messageHandler reached, message >%s<\n\n",message);
-
+  */
   switch (message[0])
   {
   case 'c':

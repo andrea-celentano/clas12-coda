@@ -41,7 +41,7 @@
 #include <rcInfoInitPanel.h>
 #include <rcInfoRunPanel.h>
 #include <rcRunTypeDialog.h>
-//#include <rcRunConfigDialog.h>
+#include <rcRunConfigDialog.h>
 #include "rcInfoPanel.h"
 #include <rcMenuWindow.h>
 
@@ -151,11 +151,26 @@ rcInfoPanel::config (int status)
   }
 }
 
+
+
+
+
 void
 rcInfoPanel::anaLogChanged (daqNetData* info, int added)
 {
   runPanel_->anaLogChanged (info, added);
 }
+
+/*sergey*/
+void
+rcInfoPanel::confFileChanged (daqNetData* info, int added)
+{
+  runPanel_->confFileChanged (info, added);
+}
+
+
+
+
 
 void
 rcInfoPanel::stop (void)
@@ -177,13 +192,11 @@ rcInfoPanel::runTypeDialog (void)
   return runPanel_->runTypeDialog ();
 }
 
-/*
 rcRunConfigDialog*
 rcInfoPanel::runConfigDialog (void)
 {
   return runPanel_->runConfigDialog ();
 }
-*/
 
 void
 rcInfoPanel::zoomOnEventInfo (void)

@@ -65,6 +65,9 @@
 #include <rcsUpdateIWriter.h>
 #include <netConfig.h>
 #include <rccCmdBuffer.h>
+#include <rcsLogFileDesWriter.h>
+#include <rcsTokenIntervalWriter.h>
+#include <rcsConfFileNameWriter.h> /*sergey*/
 
 
 class dbaseReader;
@@ -72,9 +75,7 @@ class daqRun;
 class rccAcceptor;
 class daqCompMonitor;
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
-#include <rcsTokenIntervalWriter.h>
-#include <rcsLogFileDesWriter.h>
+
 
 class daqRunType
 {
@@ -92,32 +93,12 @@ private:
 
   friend class daqRun;
 };
-#else
-class daqRunType
-{
-private:
-  daqRunType     (void);
-  daqRunType     (char* type, int number);
-  ~daqRunType    (void);
-  daqRunType     (const daqRunType& type);
-  daqRunType&    operator = (const daqRunType& type);
-
-  char* type_;
-  int   number_;
-  friend class daqRun;
-};
-#endif
 
 class daqRun
 {
 public:
   // constructor and destructor
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   daqRun  (char* dbasename, char* session, int expid, char* msqlhost);
-#else
-  daqRun  (char* exptname, int expid);
-#endif
-
   ~daqRun (void);
 
   // operations
@@ -166,7 +147,7 @@ public:
   char*   hostname (void) const;
   // get control display name
   char*   controlDisplay (void) const;
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   char*   msqlhost (void) const;
   // create a new session
   int     createSession (char* session);
@@ -176,11 +157,11 @@ public:
   void    database (char* dbase);
   char*   database (void) const;
 
-  // token interval value: writeUpdate == 1 means write to database
+  /* token interval value: writeUpdate == 1 means write to database */
   void    tokenInterval (int val, int writeUpdate = 1);
   int     tokenInterval (void) const;
 
-  //sergey
+  /*sergey: configuration file name */
   void    confFile (char *fname, int writeUpdate = 1);
   int     confFile (void) const;
 
@@ -188,7 +169,6 @@ public:
   void    enableRcsMsgToDbase  (void);
   void    disableRcsMsgToDbase (void);
   int     rcsMsgToDbase        (void) const;
-#endif
   
   // runtype name 
   void    runtype     (char* type);
@@ -208,46 +188,50 @@ public:
   void    writeDataFileNameToDbase  (char* file);
   void    setDataFileName           (char* file);
 
-  // sergey: config file descriptor
-  void    writeConfFileNameToDbase  (char* file);
-  void    setConfFileName           (char* file);
-
-  // update token ineterval number
+  /* update token interval number */
   void    updateTokenInterval (int interval);
 
-  //sergey:  update config file name
+  /* sergey:  update config file name */
   void    updateConfFile (char *fname);
+
+
 
   // run state status
   void    status    (int st);
   int     status    (void) const;
+
   // run event number
   void    eventNumber (int evn);
   int     eventNumber (void) const;
+
   // run data long words
   void    longWords   (int lwd);
   int     longWords   (void) const;
+
   // set start time
   void    setStartTime (void);
+
   // set end time
   void    setEndTime   (void);
+
   // erase end/start time
   void    eraseStartTime (void);
   void    eraseEndTime   (void);
 
   // show all data
   void    showdata  (void);
+
   // add runtype
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   void    addRunType (char* runtype, int number, int inuse, char* cat = 0);
-#else
-  void    addRunType (char* runtype, int number);
-#endif
+
   void    setAllRunTypes (void);
+
   // set all components' name
   void    setAllCompNames (void);
+
   // set all components' boot info: must be called after configure
   void    setAllCompBootInfo (void);
+
   // set all components' monitoring parameters: must be called after configure
   void    setAllMonitorParms (void);
 
@@ -268,19 +252,10 @@ public:
   int     eventLimit  (void) const;
   void    dataLimit   (int dl);
   int     dataLimit   (void) const;
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   void    dataFile    (char* file);
   char*   dataFile    (void) const;
   void    dataFile    (int   runNumber);
-
-  /*
-  //sergey
-  void    confFile    (char* file);
-  char*   confFile    (void) const;
-  void    confFile    (int   runNumber);
-  */
-#endif
-
 
   // update interval for remote components (in seconds)
   daqData* updateInterval_; // data should be private but others need access
@@ -295,6 +270,7 @@ public:
   void    createDynamicVars (void);
   void    stopUpdatingDynamicVars (void);
   void    startUpdatingDynamicVars (void);
+
   // update dynamic variables
   void    updateDynamicVars (void);
 
@@ -310,6 +286,7 @@ public:
   // setup ANA log information
   // must be called after configure step
   void    createAnaLogVars   (void);
+
   // must be called before system clean up
   void    removeAnaLogVars   (void);
   void    updateAnaLogInfo   (char* ana, char* path);
@@ -318,7 +295,6 @@ public:
   // return and set this server udp port number
   unsigned short udpPort     (void) const;
   void           udpPort     (unsigned short port);
-
 
   // access system, data manager and data updater
   daqSystem& system (void);
@@ -373,7 +349,9 @@ public:
   // class name
   virtual const char *className (void) const { return "daqRun";}
 
+
 protected:
+
   // Create all those daq variables
   void createAllVariables (void);
   void resetAllVariables  (void);
@@ -382,36 +360,43 @@ protected:
   // function before calling configure
   int  preConfigure (char* type);
 
+
 private:
+
   // data areas
   // experiment name
   char* exptname_;  // session name
   int   exptid_;
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   char* dbasename_;     // database name
   char* msqlhost_;
   char* datafileName_;  // data file name 
-  /*
-  char* conffileName_;  // sergey: config file name 
-  */
-#endif
+
   // DAQ system
   daqSystem system_;
+
   // DAQ Data Manager
   daqDataManager dataManager_;
+
   // DAQ script system
   daqScriptSystem scriptSystem_;
+
   // DAQ data updater
   daqDataUpdater dataUpdater_;
+
   // monitor for all components
   daqCompMonitor* monitor_;
+
   // Database Decoder
   dbaseReader* dbreader_;
+
   // all runtypes
   daqRunType runtypes_[MAX_NUM_RUNTYPES];
   int        numtypes_;
+
   // command buffer
   rccCmdBuffer cmdBuffer;
+
   // all daq data variables
   daqData* version_;
   daqData* startTime_;
@@ -431,9 +416,10 @@ private:
   daqData* runTypeInfo_;
   daqData* rcsMsgToDbase_;
   daqData* dataFile_;            // real data file name
-  daqData* confFile_;            // sergey: config file name
   daqData* logFileDescriptor_;   // data logging file descriptor
-  daqData* tokenInterval_;       // token interval
+
+  daqData* tokenInterval_;       /* token interval */
+  daqData* confFile_;            /* sergey: config file name */
 
   daqData* allRunTypes_;
   daqData* exptName_;
@@ -463,8 +449,9 @@ private:
   daqDataWriter* datalimitWriter_;
 
   daqDataWriter* tokenIWriter_;
+  daqDataWriter* confFWriter_; /*sergey*/
+
   daqDataWriter* logfdesWriter_;
-  daqDataWriter* confnameWriter_; //sergey
 
   // Lock variable to lock whole system to let one command to finish before
   // next command to come to execute

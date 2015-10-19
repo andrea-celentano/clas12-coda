@@ -33,6 +33,7 @@ class rcRunTypeDialog;
 
 class rcRunTypeOption: public XcodaSimpleOptionMenu
 {
+
 public:
   // constructor and destructor
   rcRunTypeOption (Widget parent,
@@ -54,15 +55,17 @@ public:
   // class name
   virtual const char* className (void) const {return "rcRunTypeOption";}
 
+
 protected:
+
   // monitor on and off callback
   static void runTypesCallback (int status, void* arg, daqNetData* data);
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   static void rtStatusCallback (int status, void* arg, daqNetData* data);
-#endif
   static void offCallback      (int status, void* arg, daqNetData* data);
   
+
 private:
+
   // network handler
   rcClientHandler& netHandler_;
   // parent run type dialog

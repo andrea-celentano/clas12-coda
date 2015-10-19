@@ -33,8 +33,14 @@ type commands:
 */
 
 
+#include <XcodaApp.h>
 #include <rcMsg.h>
 #include <rcClient.h>
+
+
+/* to resolve reference in rcClient.cc */
+Display *MainDisplay;
+
 
 static void
 callback (int status, void* arg, daqNetData* data)

@@ -101,7 +101,7 @@ rcsDaqData::rcsDaqData (char* compname, char* attrname, char** data, int count)
 :daqData (compname, attrname, data, count)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("    Create rcsDaqData Class Object\n");
+  printf ("rcsDaqData::rcsDaqData: Create rcsDaqData Class Object\n");
 #endif
   // empty
 }
@@ -135,16 +135,17 @@ rcsDaqData::~rcsDaqData (void)
   }
 }
 
+/*sergey: important; called from overloaded operations with daqData */
 void
 rcsDaqData::notifyChannels (void)
 {
-  codaSlistIterator ite (channels_);
+  codaSlistIterator ite(channels_);
   rcCmdBufItem *item = 0;
 
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     item = (rcCmdBufItem *)ite ();
-    item->channel->sendResult (item->cmsg->type (), 
-			       data_, item->cmsg->reqId());
+    item->channel->sendResult (item->cmsg->type(), data_, item->cmsg->reqId());
   }
 }
 
@@ -155,9 +156,11 @@ rcsDaqData::removeMonCallback (long cbkid)
   rcCmdBufItem *item = 0;
   int found = 0;
 
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     item = (rcCmdBufItem *)ite ();
-    if (item->cmsg->reqId() == cbkid) {
+    if (item->cmsg->reqId() == cbkid)
+    {
       ite.removeCurrent ();
       delete item->cmsg;
       delete item;
@@ -165,9 +168,11 @@ rcsDaqData::removeMonCallback (long cbkid)
       break;
     }
   }
-  if (found) {
+  if (found)
+  {
     // check whether this data is being monitored, if not, deavtivate it
-    if (channels_.isEmpty ()) {
+    if (channels_.isEmpty ())
+    {
       deactivate ();
     }
     // return success status
@@ -184,9 +189,11 @@ rcsDaqData::removeGetCallbacks (rccIO *cid)
   rcCmdBufItem *item = 0;
   // go through all get callback list to check channel id
   codaSlistIterator site (getCbkList_);
-  for (site.init (); !site; ++site) {
+  for (site.init (); !site; ++site)
+  {
     item = (rcCmdBufItem *)site ();
-    if (item->channel == (rccIO *)cid) {
+    if (item->channel == (rccIO *)cid)
+    {
       found = 1;
       site.removeCurrent ();
       delete item->cmsg;
@@ -206,9 +213,11 @@ rcsDaqData::removeSetCallbacks (rccIO* cid)
   rcCmdBufItem *item = 0;
   // go through all set callback list to check channel id
   codaSlistIterator site1 (setCbkList_);
-  for (site1.init (); !site1; ++site1) {
+  for (site1.init (); !site1; ++site1)
+  {
     item = (rcCmdBufItem *)site1 ();
-    if (item->channel == (rccIO *)cid) {
+    if (item->channel == (rccIO *)cid)
+    {
       found = 1;
       site1.removeCurrent ();
       delete item->cmsg;
@@ -228,9 +237,11 @@ rcsDaqData::removeMonCallbacks (rccIO *cid)
   rcCmdBufItem *item = 0;
   // go through all monitor callback list to check channel id
   codaSlistIterator site2 (channels_);
-  for (site2.init (); !site2; ++site2) {
+  for (site2.init (); !site2; ++site2)
+  {
     item = (rcCmdBufItem *)site2 ();
-    if (item->channel == (rccIO *)cid) {
+    if (item->channel == (rccIO *)cid)
+    {
       found = 1;
       site2.removeCurrent ();
       delete item->cmsg;

@@ -3157,6 +3157,7 @@ resize(TScreen * screen, register char *oldtc, char *newtc)
   register char *temp;
 
   TRACE(("resize %s\n", oldtc));
+  printf("codaterm_lib: resize %s\n", oldtc);
   if ((ptr1 = x_strindex(oldtc, "co#")) == NULL)
   {
 	strcat(oldtc, "co#80:");

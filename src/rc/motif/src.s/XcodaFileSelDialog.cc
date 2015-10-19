@@ -31,16 +31,17 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <assert.h>
+
 #include <XcodaErrorDialog.h>
 #include <XcodaFileSelDialog.h>
 
-XcodaFileSelDialog::XcodaFileSelDialog(Widget parent,
-				       char *name,
-				       char *title)
+#undef _TRACE_OBJECTS
+
+XcodaFileSelDialog::XcodaFileSelDialog(Widget parent, char *name, char *title)
 :XcodaUi(name)
 {
 #ifdef _TRACE_OBJECTS
-  printf("       Create XcodaFileSelDialog Object\n");
+  printf("XcodaFileSelDialog: Create XcodaFileSelDialog Object\n");
 #endif
   _errorDialog = 0;
   _filename = 0;
@@ -55,11 +56,11 @@ XcodaFileSelDialog::XcodaFileSelDialog(Widget parent,
 XcodaFileSelDialog::~XcodaFileSelDialog()
 {
 #ifdef _TRACE_OBJECTS
-  printf("     Delete XcodaFileSelDialog Object\n");
+  printf("XcodaFileSelDialog: Delete XcodaFileSelDialog Object\n");
 #endif
   if(_filename) delete []_filename;
   if(_old_filename) delete []_old_filename;
-  // no need to delete _errorDialog here, it will be freed upon X destruction
+  /* no need to delete _errorDialog here, it will be freed upon X destruction */
   if (_title) delete []_title;
 }
 
@@ -69,85 +70,127 @@ XcodaFileSelDialog::init()
 {
   Arg arg[10];
   int ac = 0;
+  XmString xms;
+  char str[256];
+
+#ifdef _TRACE_OBJECTS
+  printf("------------------------------- XcodaFileSelDialog::init() reached\n");
+#endif
 
   if(_w == 0)
   {
     _w = XmCreateFileSelectionDialog(_parent, _name, NULL, 0);
-    XtSetSensitive(XmFileSelectionBoxGetChild(_w,
-		   XmDIALOG_HELP_BUTTON), False);
-    XtAddCallback (_w, XmNokCallback, 
-		   (XtCallbackProc)&XcodaFileSelDialog::okCallback,
-		   (XtPointer)this);
-    XtAddCallback (_w, XmNcancelCallback,
-		   (XtCallbackProc)&XcodaFileSelDialog::cancelCallback,
-		   (XtPointer)this);
+    XtSetSensitive(XmFileSelectionBoxGetChild(_w, XmDIALOG_HELP_BUTTON), False);
+    XtAddCallback (_w, XmNokCallback, (XtCallbackProc)&XcodaFileSelDialog::okCallback, (XtPointer)this);
+    XtAddCallback (_w, XmNcancelCallback, (XtCallbackProc)&XcodaFileSelDialog::cancelCallback, (XtPointer)this);
     installDestroyHandler();
 
 	/*sergey: set starting directory*/
-    char str[256];
-    sprintf(str,"%s/trigger/*.trg",getenv("CLON_PARMS"));
-printf("XcodaFileSelDialog::init: use starting directory >%s<\n",str);
-    XmString xms = XmStringCreateLocalized(str);
+    sprintf(str,"%s/trigger/*.trg",getenv("CLON_PARMS")); /**/
+#ifdef _TRACE_OBJECTS
+    printf("XcodaFileSelDialog::init: use starting directory >%s<\n",str);
+#endif
+    xms = XmStringCreateLocalized(str);
     XtVaSetValues( _w, XmNdirMask, xms, NULL );
     XmStringFree( xms ) ;
+
 
   }
 }
 
-void XcodaFileSelDialog::popup()
+void
+XcodaFileSelDialog::popup()
 {
+  XmString xms;
+  char str[256];
+
+#ifdef _TRACE_OBJECTS
+  printf("------------------------------- XcodaFileSelDialog::popup() reached\n");
+#endif
+
   assert(_w);
   XtManageChild (_w);
   XtPopup(XtParent(_w), XtGrabNone);
   alreadyManaged = 1;
+
   if (_filename)
   {
+#ifdef _TRACE_OBJECTS
+    printf("UUUUUUUUUUUU1 _filename >%s<\n",_filename);
+#endif
     if(_old_filename) delete []_old_filename;
     _old_filename = new char[strlen(_filename)+1];
     strcpy(_old_filename, _filename);
+#ifdef _TRACE_OBJECTS
+    printf("UUUUUUUUUUUU2 _old_filename >%s<\n",_old_filename);
+#endif
     delete []_filename;
     _filename = 0;
   }
+
+
+  /*sergey: set the name of the file (to be) chosen - by default always empty 
+  sprintf(str,NULL);
+  printf("starting with selection >%s<\n",str);
+  xms = XmStringCreateLocalized(str);
+  XtVaSetValues( _w, XmNdirSpec, xms, NULL );
+  XmStringFree( xms ) ;
+  */
+
 }
 
-void XcodaFileSelDialog::popdown()
+void
+XcodaFileSelDialog::popdown()
 {
+#ifdef _TRACE_OBJECTS
+  printf("------------------------------- XcodaFileSelDialog::popdown() reached\n");
+#endif
+
   assert(_w);
   XtPopdown (XtParent(_w));
+
+  /*sergey: to force next popup's init() to create new 'FileSelectionDialog', so it picks newly created files in directory*/
+  XtUnmanageChild(_w);
+  _w = NULL;
+
   alreadyManaged = 0;
 }
 
-int XcodaFileSelDialog::isMapped()
+int
+XcodaFileSelDialog::isMapped()
 {
-  return alreadyManaged;
+  return(alreadyManaged);
 }
 
-void XcodaFileSelDialog::okCallback(Widget w, XtPointer client_data,
-				    XmFileSelectionBoxCallbackStruct *cbs)
+void
+XcodaFileSelDialog::okCallback(Widget w, XtPointer client_data, XmFileSelectionBoxCallbackStruct *cbs)
 {
   XcodaFileSelDialog *obj = (XcodaFileSelDialog *)client_data;
   obj->setCbs(cbs);
   obj->ok();
 }
 
-void XcodaFileSelDialog::cancelCallback(Widget w, XtPointer client_data,
-					XmFileSelectionBoxCallbackStruct *cbs)
+void
+XcodaFileSelDialog::cancelCallback(Widget w, XtPointer client_data, XmFileSelectionBoxCallbackStruct *cbs)
 {
   XcodaFileSelDialog *obj = (XcodaFileSelDialog *)client_data;
   obj->setCbs(cbs);
   obj->cancel();
 }
  
-void XcodaFileSelDialog::ok()
+void
+XcodaFileSelDialog::ok()
 {
   char *file;
 
+#ifdef _TRACE_OBJECTS
+  printf("XcodaFileSelDialog::ok() reached\n");
+#endif
   if (!XmStringGetLtoR (_cbs->value, XmSTRING_DEFAULT_CHARSET, &file))
   {
     if (_errorDialog == NULL)
     {
-      _errorDialog = new XcodaErrorDialog(_w, "FileSelectionError",
-					  "FileSelectionError");
+      _errorDialog = new XcodaErrorDialog(_w, "FileSelectionError", "FileSelectionError");
       _errorDialog->init();
       _errorDialog->setMessage("Cannot open the file, Try again!");
     }
@@ -158,8 +201,8 @@ void XcodaFileSelDialog::ok()
 
   if (*file != '/')
   {
-    // if it is not a directory, determine the full pathname 
-    // of the selection by concatenatinf it to the "dir" part
+    /* if it is not a directory, determine the full pathname 
+       of the selection by concatenating it to the "dir" part */
     char *dir, *newfile;
     if (XmStringGetLtoR (_cbs->dir, XmSTRING_DEFAULT_CHARSET, &dir))
     {
@@ -204,8 +247,7 @@ void XcodaFileSelDialog::ok()
     char temp[100];
     if (_errorDialog == NULL)
     {
-      _errorDialog = new XcodaErrorDialog(_w, "FileSelectionError",
-					  "FileSelectionError");
+      _errorDialog = new XcodaErrorDialog(_w, "FileSelectionError", "FileSelectionError");
       _errorDialog->init();
     }
     else
@@ -218,6 +260,9 @@ void XcodaFileSelDialog::ok()
   }
   else
   {
+#ifdef _TRACE_OBJECTS
+    printf("XcodaFileSelDialog::ok() 111\n");
+#endif
 	/*
     char temp[100];
     sprintf(temp,"File >%s< selected\n",_filename);
@@ -246,11 +291,15 @@ XcodaFileSelDialog::cancel()
   popdown();
 }
 
+/* if it exist, derived class's execute() never called ...
 void
 XcodaFileSelDialog::execute()
 {
+  printf("XcodaFileSelDialog::execute() reached\n");
+  //_parent->execute();
   //empty
 }
+*/
 
 int
 XcodaFileSelDialog::status(char *fname)
@@ -259,27 +308,27 @@ XcodaFileSelDialog::status(char *fname)
 
   if(stat(fname, &s_buf) == -1)
   {
-    return -2;
+    return(-2);
   }
   else if((s_buf.st_mode & S_IFMT) == S_IFDIR) // it is a directory
   {
-    return 0;
+    return(0);
   }
   else if(!(s_buf.st_mode & S_IFREG))
   {
-    return -1;
+    return(-1);
   }
   else /* regular file, check readable or writable */
   {
     int st = access(fname,R_OK);
     if(st <= -1)
 	{
-      return -1;
+      return(-1);
 	}
     else
     {
-      if(access(fname,W_OK) > -1) return 2;
-      else                        return 1;
+      if(access(fname,W_OK) > -1) return(2);
+      else                        return(1);
     }
   }
 }
@@ -288,27 +337,24 @@ char *
 XcodaFileSelDialog::selectedFileName()
 {
   char *p;
-  /*
-  printf("XcodaFileSelDialog::selectedFileName(): _filename >%s  _old_filename >%s\n",
-		 _filename, _old_filename);
-  */
+#ifdef _TRACE_OBJECTS
+  printf("XcodaFileSelDialog::selectedFileName(): _filename >%s  _old_filename >%s\n", _filename, _old_filename);
+#endif
   if (_filename)
   {
     return _filename;
   }
   else
   {
-    return 0;
+    return(0);
   }
 }
 
 int
 XcodaFileSelDialog::checkFile()
 {
-  if((fileStatus()) < READABLE)
-    return 0;
-  else
-    return 1;
+  if((fileStatus()) < READABLE) return(0);
+  else                          return(1);
 }
 
 void
@@ -322,10 +368,10 @@ XcodaFileSelDialog::setCbs(XmFileSelectionBoxCallbackStruct *cbs)
 int
 XcodaFileSelDialog::deleteFileName()
 {
-printf("XcodaFileSelDialog::deleteFileName 1\n");fflush(stdout);
+#ifdef _TRACE_OBJECTS
+  printf("------------------------------- XcodaFileSelDialog::deleteFileName() reached\n");
+#endif
   if(_filename) delete []_filename;
-printf("XcodaFileSelDialog::deleteFileName 2\n");fflush(stdout);
   _filename = 0;
-printf("XcodaFileSelDialog::deleteFileName 3\n");fflush(stdout);
- return(0);
+  return(0);
 }

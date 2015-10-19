@@ -107,6 +107,9 @@
 #define STD_IN stdin
 
 
+#undef DEBUG_MSGS
+
+
 #include "libtcp.h"
 #include "libdb.h"
 
@@ -126,7 +129,6 @@ alarmHandler(int sig)
 * -> tcpClient("remoteSystemName","This is my message");  
 * * RETURNS: OK, or ERROR if the message could not be sent to the server. */ 
 
-#define DEBUG_MSGS
 
 static int
 tcpClient(char *name, char *message)
@@ -348,7 +350,9 @@ codaDaConfigure(char *name, char *param)
   sprintf(temp,"configure %s",param);
   status = tcpClient(name,temp);
 
+#ifdef DEBUG_MSGS
   printf("CONFCONFCONFCONFCONFCONFCONFCONFCONFCONF\n");
+#endif
 
   if(status == CODA_SUCCESS)
   {
@@ -372,7 +376,9 @@ codaDaDownload(char *name, char *paramL)
   sprintf(temp,"download %s",paramL);
   status = tcpClient(name,temp);
 
+#ifdef DEBUG_MSGS
   printf("DOWNLOADDOWNLOADDOWNLOADDOWNLOADDOWNLOAD\n");
+#endif
 
   if(status == CODA_SUCCESS)
   {

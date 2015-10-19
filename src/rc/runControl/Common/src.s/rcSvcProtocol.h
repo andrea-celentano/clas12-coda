@@ -168,21 +168,23 @@
 #define REPORTING_NORMAL  1          /* message reporting normal     */
 #define REPORTING_TERSE   2          /* message reporting verbose    */
 
-#define NUM_ATTR_DYN      3          /* number of attributes of      */
 
-                                     /* dynamic variables            */
-#ifdef _CODA_2_0_T
-#define DYN_ATTR0         "nlongs"   /* attribute name               */
-#else
-#define DYN_ATTR0         "nlong"    /* attribute name               */
-#endif
-#define DYN_ATTR1         "nevents"  /* attribute name               */
-#define DYN_ATTR2         "status"   /* attribute name               */
-#define DYN_ATTR3         "erate"   /* attribute name               */
-#define DYN_ATTR4         "drate"   /* attribute name               */
+/* sergey: should it be consistent with he number of DYN_ATTR's below ??? */
+#define NUM_ATTR_DYN      7/* was 3*/          /* number of attributes of      */
+
+                                     /* dynamic variables (attribute names) */
+
+#define DYN_ATTR0         "nlongs"   /* */
+#define DYN_ATTR1         "nevents"  /* */
+#define DYN_ATTR2         "status"   /* */
+#define DYN_ATTR3         "erate"    /* */
+#define DYN_ATTR4         "drate"    /* */
 
 /*sergey*/
-#define DYN_ATTR5         "livetime"
+#define DYN_ATTR5         "livetime" /* */
+#define DYN_ATTR6         "state"    /* */
+
+
 
 #define DYN_ANA_LOG       "log"      /* attribute name log for ANA   */
 #endif

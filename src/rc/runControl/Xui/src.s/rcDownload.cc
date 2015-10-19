@@ -25,10 +25,15 @@
 //   run control source
 //
 //
+
 #include <rcNetStatus.h>
 #include <rcButtonPanel.h>
 #include <rcAudioOutput.h>
 #include "rcDownload.h"
+
+/*sergey: for popup gui */
+#include <rcInfoPanel.h>
+#include <rcRunConfigDialog.h>
 
 #define RC_DOWNLOAD_NAME " Download "
 #define RC_DOWNLOAD_MSG  "Download object code"
@@ -59,13 +64,28 @@ rcDownload::doit (void)
 
   assert (stWin_);
 
-  // get network handler first
+  /* get network handler first */
   rcClient& client = netHandler_.clientHandler ();
+
+
+	/*sergey*/
+    assert (infoPanel_);
+    infoPanel_->runConfigDialog()->popup ();
+
+	/* !!! SERGEY: following DADOWNLOAD command need to be sent from runConfigDialog after popdown,
+	  in that case it will be called AFTER we've got config file set */
+
+
+#if 0
+
   daqData data ("RCS", "command", (int)DADOWNLOAD);
+  /* send DADOWNLOAD command to daqRun.cc; our callback function 'downloadCallback' will be called
+     in the END on download transition */
   if(client.sendCmdCallback(DADOWNLOAD, data,
 			                (rcCallback)&(rcDownload::downloadCallback),
 			                (void *)this) != CODA_SUCCESS)
   {
+
 #ifdef DEBUG_MSGS
     printf("rcDownload::doit 1\n");
 #endif
@@ -74,6 +94,9 @@ rcDownload::doit (void)
   }
   else
   {
+
+
+
 #ifdef DEBUG_MSGS
     printf("rcDownload::doit 2\n");
 #endif
@@ -86,6 +109,9 @@ rcDownload::doit (void)
     printf("rcDownload::doit 4\n");
 #endif
   }
+
+#endif /* if 0 */
+
 }
 
 void
@@ -102,18 +128,20 @@ rcDownload::downloadCallback (int status, void* arg, daqNetData* data)
 {
   rcDownload* obj = (rcDownload *)arg;
 
-#ifdef DEBUG_MSGS
-  printf("rcDownload::downloadCallback: everything downloaded !\n");
-#endif
+/*#ifdef DEBUG_MSGS*/
+  printf("---------------- rcDownload::downloadCallback: everything downloaded !\n");
+/*#endif*/
 
-  // stop netStatus updater
+  /* stop netStatus updater */
   obj->stWin_->stop ();
   obj->bpanel_->activateTransitionPanel ();
 
-  if (status != CODA_SUCCESS && status != CODA_IGNORED) {
+  if (status != CODA_SUCCESS && status != CODA_IGNORED)
+  {
     obj->reportErrorMsg ("Downloading a run failed !!!\n");
     rcAudio ("downloading failed");
-  }
+  }  
+
 }
 
 

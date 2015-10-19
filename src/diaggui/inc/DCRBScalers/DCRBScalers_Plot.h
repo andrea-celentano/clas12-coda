@@ -667,6 +667,9 @@ public:
 			}
 			pCanvasScalers[i]->GetCanvas()->cd();
 			pCanvasScalers[i]->GetCanvas()->Clear();
+			pCanvasScalers[i]->GetCanvas()->SetLogz(1);
+			pScalers[i]->SetMaximum(1000000.0);
+			pScalers[i]->SetMinimum(0.0);
 			pScalers[i]->Draw("COLZTEXT");
 			pScalers[i]->GetZaxis()->SetLabelSize(0.06);
 			pCanvasScalers[i]->GetCanvas()->Modified();

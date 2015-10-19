@@ -151,19 +151,22 @@ rcMsgReporter::cmsglog (int msg_class,char *format, ...)
   //printf (MSG_DBG, "level_ = %d.\n", level_);
 #endif
 
-  if (msg_class > 3) {
+  if (msg_class > 3)
+  {
     return;
   }
 
-  if (level_ == REPORTING_NONE) {
+  if (level_ == REPORTING_NONE)
+  {
     return;
   }
 
-  // writes to daqrun string buffer
+  /* writes to daqrun string buffer */
   char buffer[1024];
   va_start (argp, format);
 
-  switch (msg_class) {
+  switch (msg_class)
+  {
   case CMSGLOG_SEVERE:
     strcpy(tag,"SEVERE");
     break;
@@ -194,15 +197,18 @@ rcMsgReporter::cmsglog (int msg_class,char *format, ...)
     char temp[1000];
     sprintf(temp,"%-7s: %s",tag,buffer);
     rcMsgReporterLocker locker (this);  // lock run_ object
-    run_.updateRunMessage (temp);
+
+	//printf("rcMsgReporter::cmsglog: temp >%s<\n",temp);
+    run_.updateRunMessage (temp); /* actual message send */
+
   }
 
-  if (buffer[strlen(buffer) - 1] == '\n')
-    buffer[strlen(buffer) - 1] = 0;
+  if (buffer[strlen(buffer) - 1] == '\n') buffer[strlen(buffer) - 1] = 0;
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
-  if (run_.rcsMsgToDbase ()) {
-    if (msg_class < CMSGLOG_INFO1) {
+  if (run_.rcsMsgToDbase ())
+  {
+    if (msg_class < CMSGLOG_INFO1)
+    {
 
 #ifdef _CODA_REPORT_MSG_LOCAL
       //printf(MSG_DBG, "XXXXXXXXXXXXXXXXX calling daLogMsg with: \n");
@@ -211,7 +217,7 @@ rcMsgReporter::cmsglog (int msg_class,char *format, ...)
       //daLogMsg(tag,buffer);
     }
   }
-#endif
+
 
 #ifdef _CODA_REPORT_MSG_LOCAL
   //printf (MSG_DBG,"\"%s\"\n",buffer);

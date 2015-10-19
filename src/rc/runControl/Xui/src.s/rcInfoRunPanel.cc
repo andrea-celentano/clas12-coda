@@ -44,8 +44,10 @@
 #include <rcRunCInfoPanel.h>
 #include <rcRunSInfoPanel.h>
 #include <rcRunDInfoPanel.h>
+
 #include <rcRunTypeDialog.h>
-//#include <rcRunConfigDialog.h>
+#include <rcRunConfigDialog.h>
+
 #include "rcInfoRunPanel.h"
 #include <rcMenuWindow.h>
 
@@ -56,10 +58,8 @@ rcInfoRunPanel::rcInfoRunPanel (Widget parent, char* name,
 #ifdef _TRACE_OBJECTS
   printf ("              Create rcInfoRunPanel Class Object\n");
 #endif
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   datafile_ = 0;
   conffile_ = 0;
-#endif
 }
 
 rcInfoRunPanel::~rcInfoRunPanel (void)
@@ -80,8 +80,7 @@ rcInfoRunPanel::init (void)
   /* sergey: place new objects in 'runInfoPanel' ?? (see rcInfoPanel.cc) */
 
   XtSetArg (arg[ac], XmNshadowType, XmSHADOW_ETCHED_IN); ac++;
-  _w = XtCreateWidget ("runInfoPanel", xmFrameWidgetClass,
-		       parent_, arg, ac);
+  _w = XtCreateWidget ("runInfoPanel", xmFrameWidgetClass, parent_, arg, ac);
   ac = 0; 
   XtSetArg (arg[ac], XmNshadowThickness, 0); ac++;
   Widget form = XtCreateWidget ("runPanelForm", xmFormWidgetClass,
@@ -94,6 +93,8 @@ rcInfoRunPanel::init (void)
   runTypeDialog_->init ();
   runTypeDialog_->setModal ();
 
+  runConfigDialog_ = new rcRunConfigDialog (form, "runConfigDialog", "Run Config Configuration", netHandler_);
+  /*runConfigDialog_->init (); will do it in popup() */
 
   // setup x resources for all
   ac = 0;
@@ -317,21 +318,37 @@ rcInfoRunPanel::init (void)
 void
 rcInfoRunPanel::config (int st)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcInfoRunPanel::config reached, st=%d\n",st);
+#endif
   sinfoPanel_->config (st);
   //statusPanel_->config (st);
   dinfoPanel_->config (st);
 }
 
+
+
 void
 rcInfoRunPanel::anaLogChanged (daqNetData* info, int added)
 {
   //statusPanel_->anaLogChanged (info, added);
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
-  if (datafile_ != 0) updateDataFileLabel ();
-  /*sergey*/
-  if (conffile_ != 0) updateConfFileLabel ();
+#ifdef _TRACE_OBJECTS
+  printf("--- rcInfoRunPanel::anaLogChanged reached\n");
 #endif
+  if (datafile_ != 0) updateDataFileLabel ();
 }
+
+/*sergey*/
+void
+rcInfoRunPanel::confFileChanged (daqNetData* info, int added)
+{
+  //statusPanel_->anaLogChanged (info, added);
+#ifdef _TRACE_OBJECTS
+  printf("--- rcInfoRunPanel::confFileChanged reached\n");
+#endif
+  if (conffile_ != 0) updateConfFileLabel ();
+}
+
 
 void
 rcInfoRunPanel::manage (void)
@@ -340,18 +357,12 @@ rcInfoRunPanel::manage (void)
   cinfoPanel_->manage ();
   sinfoPanel_->manage ();
   dinfoPanel_->manage ();
-  runTypeDialog_->startMonitoringRunTypes ();
-/*
-  runConfigDialog_->startMonitoringRunConfigs ();
-*/
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
-  // check whether a data file name already presented, so update
-  // file name on the label
+  runTypeDialog_->startMonitoringRunTypes ();
+
+  /* check whether a data file name already presented; if so, update file name on the label */
   if (datafile_ != 0) updateDataFileLabel ();
-  /*sergey*/
-  if (conffile_ != 0) updateConfFileLabel ();
-#endif
+  if (conffile_ != 0) updateConfFileLabel (); /*sergey: conf file name */
 }
 
 void
@@ -360,10 +371,9 @@ rcInfoRunPanel::unmanage (void)
   cinfoPanel_->unmanage ();
   sinfoPanel_->unmanage ();
   dinfoPanel_->unmanage ();
+
   runTypeDialog_->endMonitoringRunTypes ();
-/*
-  runConfigDialog_->endMonitoringRunConfigs ();
-*/
+
   XcodaUi::unmanage ();
 }
 
@@ -374,19 +384,19 @@ rcInfoRunPanel::stop (void)
   dinfoPanel_->endDataTaking ();
 }
 
+
 rcRunTypeDialog*
 rcInfoRunPanel::runTypeDialog (void)
 {
   return runTypeDialog_;
 }
 
-/*
 rcRunConfigDialog*
 rcInfoRunPanel::runConfigDialog (void)
 {
   return runConfigDialog_;
 }
-*/
+
 
 void
 rcInfoRunPanel::zoomOnEventInfo (void)
@@ -400,7 +410,10 @@ rcInfoRunPanel::popupRateDisplay (rcMenuWindow *menW)
   dinfoPanel_->popupRateDisplay (menW);
 }
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
+
+
+
 void
 rcInfoRunPanel::updateDataFileLabel (void)
 {
@@ -412,13 +425,16 @@ rcInfoRunPanel::updateDataFileLabel (void)
   printf("updateDataFileLabel reached\n");fflush(stdout);
 #endif
   char *filename = netHandler_.datalogFile ();
-  if (filename && ::strcmp (filename, "unknown") != 0) {
+  if (filename && ::strcmp (filename, "unknown") != 0)
+  {
     char *s = 0;
     t = XmStringCreateSimple (filename);
   }
   else
+  {
     t = XmStringCreateSimple ("   ");
-  
+  }  
+
   XtSetArg (arg[ac], XmNlabelString, t); ac++;
   XtSetValues (datafile_, arg, ac);
   ac = 0;
@@ -440,16 +456,12 @@ rcInfoRunPanel::updateConfFileLabel (void)
   printf("!!!!!!!!!!!!!!!!!!! updateConfFileLabel reached\n");fflush(stdout);
 #endif
 
-/*updating database ??? does not do that ...
+  char *filename = netHandler_.confFile ();
 
-  rcClient& client = netHandler_.clientHandler ();
-  if (client.setValueCallback (da,  (rcCallback)&(rcInfoRunPanel::setValueCallback), (void *)0) != CODA_SUCCESS)
-  {
-	err = 1;
-  }
-*/
+#ifdef _CODA_DEBUG
+  printf("++++++++++++++++= updateConfFileLabel >%s<\n",filename);fflush(stdout);
+#endif
 
-  char *filename = netHandler_.conflogFile ();
   if (filename && ::strcmp (filename, "unknown") != 0)
   {
     t = XmStringCreateSimple (filename);
@@ -459,7 +471,7 @@ rcInfoRunPanel::updateConfFileLabel (void)
     t = XmStringCreateSimple ("   ");
   }
 #ifdef _CODA_DEBUG
-  printf("updateConfFileLabel: conflogFile >%s<\n",filename);fflush(stdout);
+  printf("updateConfFileLabel: confFile >%s<\n",filename);fflush(stdout);
 #endif
   XtSetArg (arg[ac], XmNlabelString, t); ac++;
   XtSetValues (conffile_, arg, ac);
@@ -467,6 +479,4 @@ rcInfoRunPanel::updateConfFileLabel (void)
   XmStringFree (t);
 
 }
-
-#endif
 

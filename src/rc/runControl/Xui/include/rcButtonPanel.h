@@ -68,14 +68,17 @@ public:
 
   // initialize all widgets
   void         init   (void);
+
   // redefine config inherited from rcPanel
   virtual void config (int status);
   virtual void configMastership (int type);
 
   // setup help message window
   void         helpMsgWin    (rcHelpMsgWin* win);
+
   // setup network status window
   void         netStatusWin  (rcNetStatus* win);
+
   // setup runinfo panel
   void         infoPanel     (rcInfoPanel* panel);
 
@@ -101,13 +104,17 @@ protected:
   void         unmanageButton (rcComdButton* button);
 
 private:
+
   // parent widget
   Widget parent_;
+
   // network connection handler
   rcClientHandler& netHandler_;
+
   // two row column widgets
   Widget lw_;
   Widget rw_;
+
   // all internal buttons
   rcConnect*   connect_;
   rcDisc*      disc_;

@@ -31,7 +31,9 @@
 
 class XcodaUi : public XcodaBasic
 {
+
 public:
+
   virtual ~XcodaUi();  // Destructor
     
   // Manage the entire widget subtree represented
@@ -41,7 +43,9 @@ public:
   // Public access functions
   virtual const char *className() const { return "XcodaUi"; }
     
+
 protected:
+
   // Protect constructor to prevent direct instantiation
   XcodaUi ( const char * );
     
@@ -57,8 +61,10 @@ protected:
   // Retrieve resources for this clsss from the resource manager
   void getResources ( const XtResourceList, const int );
 
+
 private:
-// Interface between XmNdestroyCallback and this class
+
+  // Interface between XmNdestroyCallback and this class
   static void widgetDestroyedCallback ( Widget, 
 				       XtPointer, 
 				       XtPointer );

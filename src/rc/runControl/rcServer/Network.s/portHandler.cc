@@ -165,6 +165,8 @@ portHandler::handle_input (int)
   char      brdrecvbuf[128];
   daqSystem& system = daqrun_->system();
   daqComponent *comp; /* */
+  daqData* serverData;
+
   /*
   printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! portHandler::handle_input reached\n");
   */
@@ -184,6 +186,8 @@ portHandler::handle_input (int)
 #endif
     memcpy (&type, brdrecvbuf, sizeof (int));
     int i = sizeof (int);
+
+    /* sergey: pointer to daqRun's dataManager; we'll update some data sets using that pointer (see portHandler() */ 
     daqDataManager& dataManager	= daqrun_->dataManager();
 
     type = ntohl (type);
@@ -244,15 +248,20 @@ portHandler::handle_input (int)
           else if(::strcmp (status, "resetting") == 0)   theState = CODA_RESETTING;
           else printf("portHandler: ERROR: unknown transaction !!!\n");
 
-          /* sergey: calls daqTarget::setState(), it sets variable 'state_' used in various places to check component status */
+          /* sergey: calls daqTarget::setState(), it sets variable 'state_' used in various places to check component status;
+          ??? in exchange between rcServer and rcClient it will be reported as "status", see DYN_ATTR2 */
           comp->setState(theState);
 
-          daqData* serverData = 0;
-          if(dataManager.findData (compName, "nevents", serverData) == CODA_SUCCESS)
+	      /*sergey: add following to update dataset "state" every time we recieved the state from component,
+          not only when we are active (probably need to do it only when it changed ???); it used mostly
+          to send state to codaedit, see rcClient.cc */
+          serverData = 0;
+          if(dataManager.findData (compName, "state", serverData) == CODA_SUCCESS)
           {
-            *serverData = nev;
+            *serverData = theState; /* '=' is overloaded for daqData class, calls 'notifyChannels()', and 'write' if needed ? */
           }
 
+          serverData = 0;
           if(daqrun_->status() == DA_ACTIVE)
           {   
             if(dataManager.findData (compName, "nlongs", serverData) == CODA_SUCCESS)

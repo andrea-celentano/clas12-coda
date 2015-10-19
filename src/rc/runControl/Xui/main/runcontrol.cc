@@ -588,7 +588,7 @@ main (int argc, char** argv)
   /* create a network handler which register itself to x window event loop */
   app_context = app->appContext ();
   
-  rcClientHandler netHandler (app->appContext ());
+  rcClientHandler netHandler(app->appContext ());
   
   XtAppSetWarningHandler (app->appContext (), warningHandler);
   
@@ -641,6 +641,9 @@ main (int argc, char** argv)
 */
 
 #ifdef USE_CREG
+
+    MainDisplay = XtDisplay(toplevel); /* sergey: for rcCLient only !? */
+
     codaSendInit(toplevel,"RUNCONTROL");  
     //codaRegisterMsgCallback((void *)messageHandler);
 #endif    

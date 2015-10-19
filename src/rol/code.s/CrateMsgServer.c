@@ -402,6 +402,26 @@ next_port:
         printf("pcThreadParm=0x%08x\n",pcThreadParm);
 	  }
 
+
+
+
+	  /* block annoying IP address(es) */
+	  {
+        char *address;
+        unsigned short port;
+
+        address = inet_ntoa(clientAddr.sin_addr);
+        port = ntohs (clientAddr.sin_port);
+
+        if(!strncmp(address,"129.57.71.",10))
+	    {
+          printf("CrateMsgServer: ignore request from %s\n",address);
+          close(lsock);
+          return 0;
+	    }
+	  }
+
+
 	  pthread_create(&cThread, NULL, ConnectionThread, (void *)pcThreadParm);
 	}
 	close(lsock);

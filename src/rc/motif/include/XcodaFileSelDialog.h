@@ -34,16 +34,22 @@ class XcodaErrorDialog;
 
 class XcodaFileSelDialog: public XcodaUi
 {
+
  public:
+
   //constructor and destrutors
   XcodaFileSelDialog(Widget, char *, char *);
   virtual ~XcodaFileSelDialog();
+
   // init routine
   void init();
+
   // popup and popdown
   void popup();
   void popdown();
+
   int  isMapped();
+
   // file status
   enum FILESTATUS {NOTFOUND, OPEN_ERR, DIREC, READABLE, WRITABLE};
   FILESTATUS fileStatus()  { return file_status;}
@@ -55,29 +61,37 @@ class XcodaFileSelDialog: public XcodaUi
   // class name
   virtual const char *className() const {return "XcodaFileSelDialog";}
   
+
  protected:
-  // ok callback function, subclass can override this
+
+  /* ok callback function, subclass can override this */
   void ok();
-  // derived class redefine check file. eg. open for read and open for write
+
+  /* derived class redefine check file. eg. open for read and open for write */
   virtual int  checkFile();
-  // derived class can add what ever here
-  virtual void execute();
+
+  /* derived class can add what ever here */
+  virtual void execute() = 0;
   virtual void cancel();
-  // need error dialog here to signal something is wrong
+
+  /* need error dialog here to signal something is wrong */
   XcodaErrorDialog *_errorDialog;
 
+
  private:
+
   char             *_filename;
   char             *_old_filename;
-  // callbacks
-  static           void okCallback(Widget, XtPointer, 
-				   XmFileSelectionBoxCallbackStruct *);
-  static           void cancelCallback(Widget, XtPointer,
-				       XmFileSelectionBoxCallbackStruct *);
+
+  /* callbacks */
+  static           void okCallback(Widget, XtPointer, XmFileSelectionBoxCallbackStruct *);
+  static           void cancelCallback(Widget, XtPointer, XmFileSelectionBoxCallbackStruct *);
   int              status(char *fname);
-  // pass callback struct
+
+  /* pass callback struct */
   void             setCbs(XmFileSelectionBoxCallbackStruct *);
-  // data memeber
+
+  /* data member */
   Widget           _parent;
   char             *_title;
   int              alreadyManaged;

@@ -96,8 +96,7 @@ daqDataManager::hasData (char *compname, char *attrname)
 int
 daqDataManager::addData (daqData *data)
 {
-  if (hasData (data->compname (), data->attrname ()))
-    return CODA_ERROR;
+  if (hasData (data->compname (), data->attrname ())) return CODA_ERROR;
   dataTable_.add (data->key (), (void *)data);
   return CODA_SUCCESS;
 }
@@ -148,9 +147,11 @@ daqDataManager::findData (char *compname, char *attrname, daqData* &data)
   codaSlistIterator ite (list);
   daqData *tdata = 0;
 
-  for (ite.init(); !ite; ++ite){
+  for (ite.init(); !ite; ++ite)
+  {
     tdata = (daqData *)ite ();
-    if (::strcmp (fullname, tdata->key ()) == 0){
+    if (::strcmp (fullname, tdata->key ()) == 0)
+    {
       data = tdata;
       return CODA_SUCCESS;
     }

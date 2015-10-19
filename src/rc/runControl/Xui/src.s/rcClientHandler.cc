@@ -52,12 +52,12 @@
 #include <rcAudioOutput.h>
 #include "rcClientHandler.h"
 
-#define _TRACE_OBJECTS
+#undef _TRACE_OBJECTS
 
 rcClientHandler::rcClientHandler (Widget parent)
 :XcodaInput (parent), status_ (DA_NOT_CONNECTED), master_ (0), 
  numComps_ (0), numClients_ (0), numDbases_ (0), numSessions_ (0),
- caboot_ (0), monParms_ (0), datalogFile_ (0), conflogFile_ (0), logFileDes_ (0), tokenIVal_ (0),
+ caboot_ (0), monParms_ (0), datalogFile_ (0), confFile_ (0), logFileDes_ (0), tokenIVal_ (0),
  handler_ (), panels_ ()
 {
 #ifdef _TRACE_OBJECTS
@@ -68,7 +68,7 @@ rcClientHandler::rcClientHandler (Widget parent)
 rcClientHandler::rcClientHandler (XtAppContext context)
 :XcodaInput (context), status_ (DA_NOT_CONNECTED), master_ (0),
  numComps_ (0), numClients_ (0), numDbases_ (0), numSessions_ (0),
- caboot_ (0), monParms_ (0), datalogFile_ (0), conflogFile_ (0), logFileDes_ (0), tokenIVal_ (0),
+ caboot_ (0), monParms_ (0), datalogFile_ (0), confFile_ (0), logFileDes_ (0), tokenIVal_ (0),
  handler_ (), panels_ ()
 {
 #ifdef _TRACE_OBJECTS
@@ -96,7 +96,7 @@ rcClientHandler::~rcClientHandler (void)
     delete []components_[i];
 
   if (datalogFile_) delete []datalogFile_;
-  if (conflogFile_) delete []conflogFile_; /*sergey*/
+  if (confFile_) delete []confFile_; /*sergey*/
   if (logFileDes_) delete []logFileDes_;
 
   /* let individual panel to remove itself from the list */
@@ -144,19 +144,26 @@ rcClientHandler::connect (char* database, char* exptname, char* msqld)
 {
   int status;
 
+#ifdef _TRACE_OBJECTS
   printf("rcClientHandler::connect() reached: >%s< >%s< >%s<\n",database,exptname,msqld);fflush(stdout);
+#endif
 
   status = handler_.connect (database, exptname, msqld);
 
+#ifdef _TRACE_OBJECTS
   printf("rcClientHandler::connected\n");fflush(stdout);
+#endif
 
   if (status == CODA_SUCCESS)
   {
 	/*see motif/src.s/XcodaInput.cc */
-  printf("rcClientHandler::connect 2\n");fflush(stdout);
+#ifdef _TRACE_OBJECTS
+    printf("rcClientHandler::connect 2\n");fflush(stdout);
+#endif
     addInput (handler_.getFd (), (XtPointer)XtInputReadMask);
-  printf("rcClientHandler::connect 3\n");fflush(stdout);
-	
+#ifdef _TRACE_OBJECTS
+    printf("rcClientHandler::connect 3\n");fflush(stdout);
+#endif	
     if (handler_.monitorOnCallback (exptname, "status", 
 			(rcCallback)&(rcClientHandler::statusCallback),
 			(void *)this) != CODA_SUCCESS)
@@ -166,14 +173,17 @@ rcClientHandler::connect (char* database, char* exptname, char* msqld)
 			(rcCallback)&(rcClientHandler::mastershipCallback),
 			(void *)this) != CODA_SUCCESS)
       fprintf (stderr, "Cannot monitor on %s master\n", exptname);
+
     if (handler_.monitorOnCallback (exptname, "online",
 				(rcCallback)&(rcClientHandler::onlineCallback),
 				(void *)this) != CODA_SUCCESS)
       fprintf (stderr, "Cannot monitor on %s online\n", exptname);
+
     if (handler_.monitorOnCallback (exptname, "updateInterval",
 			(rcCallback)&(rcClientHandler::updateIntervalCbk),
 			(void *)this) != CODA_SUCCESS)
       fprintf (stderr, "Cannot monitor on %s updateInterval\n", exptname);
+
     if (handler_.monitorOnCallback (exptname, "clientList",
 			(rcCallback)&(rcClientHandler::clientsCallback),
 			(void *)this) != CODA_SUCCESS)
@@ -206,6 +216,7 @@ rcClientHandler::connect (char* database, char* exptname, char* msqld)
 
 
 
+
     if (handler_.monitorOnCallback (exptname, "tokenInterval",
 	    (rcCallback)&(rcClientHandler::tokenIntervalCallback),
 	    (void *)this) != CODA_SUCCESS)
@@ -220,21 +231,28 @@ rcClientHandler::connect (char* database, char* exptname, char* msqld)
 	
 
 
+
+
     if (handler_.monitorOnCallback (exptname, "rcsMsgToDbase",
 	    (rcCallback)&(rcClientHandler::rcsMsgToDbaseCbk),
 	    (void *)this) != CODA_SUCCESS)
        fprintf (stderr, "Cannot monitor on %s rcsMsgToDbase\n", exptname);
 
 
-  printf("rcClientHandler::connect 21\n");fflush(stdout);
+#ifdef _TRACE_OBJECTS
+    printf("rcClientHandler::connect 21\n");fflush(stdout);
+#endif
     handler_.disconnectCallback ((rcCallback)&(rcClientHandler::discCallback),
 				 (void *)this);
-  printf("rcClientHandler::connect 22\n");fflush(stdout);
-	
+#ifdef _TRACE_OBJECTS
+    printf("rcClientHandler::connect 22\n");fflush(stdout);
+#endif	
 
   }
 
+#ifdef _TRACE_OBJECTS
   printf("rcClientHandler::connect() done, status=%d\n",status);fflush(stdout);
+#endif
 
   return(status);
 }
@@ -246,7 +264,8 @@ rcClientHandler::connect (char* database, char* exptname, char* msqld)
 void
 rcClientHandler::disconnect (void)
 {
-  if (handler_.disconnect () == CODA_SUCCESS) {
+  if (handler_.disconnect () == CODA_SUCCESS)
+  {
     status_ = DA_NOT_CONNECTED;
     status (DA_NOT_CONNECTED);
   }
@@ -281,8 +300,11 @@ int
 rcClientHandler::addPanel (rcPanel* panel)
 {
   if (panels_.includes ((void *)panel))
+  {
     return CODA_ERROR;
-  else {
+  }
+  else
+  {
     panels_.add ((void *)panel);
     return CODA_SUCCESS;
   }
@@ -292,8 +314,11 @@ int
 rcClientHandler::removePanel (rcPanel* panel)
 {
   if (!panels_.includes ((void *)panel))
+  {
     return CODA_ERROR;  
-  else {
+  }
+  else
+  {
     panels_.remove ((void *)panel);
     return CODA_SUCCESS;
   }
@@ -304,9 +329,13 @@ rcClientHandler::statusCallback (int st, void* arg, daqNetData* data)
 {
   rcClientHandler* obj = (rcClientHandler *)arg;
   if (st == CODA_SUCCESS) 
+  {
     obj->status_ = (int)(*data);
-  else 
+  }
+  else
+  { 
     obj->status_ = DA_NOT_CONNECTED;
+  }
   obj->status (obj->status_);
 }
 
@@ -314,16 +343,20 @@ void
 rcClientHandler::mastershipCallback (int status, void* arg, daqNetData* data)
 {
   rcClientHandler *obj = (rcClientHandler *)arg;
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     char *master = (char *)(*data);
     if (::strcmp (master, "unknown") == 0)
+	{
       obj->mastershipType (CODA_NOMASTER);
-    else {
+	}
+    else
+    {
       // master_ value should be set by request/giveup mastership
       if (obj->master_)
-	obj->mastershipType (CODA_ISMASTER);
+	    obj->mastershipType (CODA_ISMASTER);
       else
-	obj->mastershipType (CODA_LOCKED);
+	    obj->mastershipType (CODA_LOCKED);
     }
   }
 }
@@ -332,7 +365,8 @@ void
 rcClientHandler::onlineCallback (int status, void* arg, daqNetData* data)
 {
   rcClientHandler *obj = (rcClientHandler *)arg;
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     int online = (int)(*data);
     obj->setOnlineOption (online);
   }
@@ -342,7 +376,8 @@ void
 rcClientHandler::updateIntervalCbk (int status, void* arg, daqNetData* data)
 {
   rcClientHandler *obj = (rcClientHandler *)arg;
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     int interval = (int)(*data);
     obj->setUpdateInterval (interval);
   }
@@ -362,15 +397,18 @@ rcClientHandler::dbaseCallback (int status, void* arg, daqNetData* data)
     delete [](obj->dbases_[i]);
   obj->numDbases_ = 0;
 
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     // do not expect more than 100 databases
     int count = RCXUI_MAX_DATABASES;
     
     if (data->getData (obj->dbases_, count) != CODA_ERROR) 
       obj->numDbases_ = count;
   }
-  else 
+  else
+  { 
     obj->numDbases_ = 0;
+  }
 }
 
 void
@@ -383,7 +421,8 @@ rcClientHandler::sessionsCallback (int status, void* arg, daqNetData* data)
     delete [](obj->sessions_[i]);
   obj->numSessions_ = 0;
 
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     // do not expect more than sessions
     int count = RCXUI_MAX_SESSIONS;
     
@@ -401,7 +440,8 @@ rcClientHandler::sessionStatusCallback (int status, void* arg, daqNetData* data)
   for (int i = 0; i < RCXUI_MAX_SESSIONS; i++)
     obj->sessionActive_[i] = 0;
 
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     // do not expect more than 100 databases
     int count = RCXUI_MAX_SESSIONS;
     
@@ -425,17 +465,20 @@ rcClientHandler::componentsCallback (int status, void* arg, daqNetData* data)
     delete [](obj->components_[i]);
   obj->numComps_ = 0;
 
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     // do not expect more than 100 components
     int count = RCXUI_MAX_COMPONENTS;
     
-    if (data->getData (obj->components_, count) != CODA_ERROR) {
+    if (data->getData (obj->components_, count) != CODA_ERROR)
+    {
       obj->numComps_ = count;
-
     }
   }
   else 
+  {
     obj->numComps_ = 0;
+  }
 }
 
 void
@@ -443,7 +486,8 @@ rcClientHandler::cabootinfoCallback (int status, void* arg, daqNetData* data)
 {
   rcClientHandler* obj = (rcClientHandler *)arg;
 
-  if (obj->caboot_) {
+  if (obj->caboot_)
+  {
     delete obj->caboot_;
     obj->caboot_ = 0;
   }
@@ -455,7 +499,8 @@ rcClientHandler::cabootinfoCallback (int status, void* arg, daqNetData* data)
   codaSlistIterator ite (obj->panels_);
   rcPanel* panel = 0;
   
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     panel = (rcPanel *) ite ();
     panel->configBoot();
   }
@@ -466,7 +511,8 @@ void
 rcClientHandler::monitorParmsCallback (int status, void* arg, daqNetData* data)
 {
   rcClientHandler* obj = (rcClientHandler *)arg;
-  if (obj->monParms_) {
+  if (obj->monParms_)
+  {
     delete obj->monParms_;
     obj->monParms_ = 0;
   }
@@ -478,7 +524,8 @@ rcClientHandler::monitorParmsCallback (int status, void* arg, daqNetData* data)
   codaSlistIterator ite (obj->panels_);
   rcPanel* panel = 0;
   
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     panel = (rcPanel *) ite ();
     panel->configMonParms();
   }
@@ -495,18 +542,24 @@ rcClientHandler::clientsCallback (int status, void* arg, daqNetData* data)
     delete [](obj->clients_[i]);
   obj->numClients_ = 0;
 
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     // do not expect more than 100 components
     int count = RCXUI_MAX_CLIENTS;
     
-    if (data->getData (obj->clients_, count) != CODA_ERROR) {
+    if (data->getData (obj->clients_, count) != CODA_ERROR)
+    {
       obj->numClients_ = count;
       obj->clientsConnectionChanged ();
     }
   }
-  else 
+  else
+  { 
     obj->numClients_ = 0;
+  }
 }
+
+
 
 
 void
@@ -522,19 +575,19 @@ rcClientHandler::anaLogCallback (int status, void* arg, daqNetData* data)
   {
 	char* file;
 
-    // update log file here
+    /* update log file here */
     if (obj->datalogFile_) delete []obj->datalogFile_;
     file = (char *)(*data);
     obj->datalogFile_ = new char[::strlen (file) + 1];
     ::strcpy (obj->datalogFile_, file);    
 
-    if (::strcmp (file, "unknown") != 0) 
-      obj->anaLogChanged (0, 1);
-    else
-      obj->anaLogChanged (0, 0);
+    if (::strcmp (file, "unknown") != 0) obj->anaLogChanged (0, 1);
+    else                                 obj->anaLogChanged (0, 0);
   }
-  else  // disconnection, so remove data
+  else /* disconnection, so remove data */
+  { 
     obj->anaLogChanged (0, 0);
+  }
 
 }
 
@@ -548,69 +601,17 @@ rcClientHandler::datalogFile (void) const
 
 
 
-/*sergey: 2 following functions*/
-
-void
-rcClientHandler::confFileCallback (int status, void* arg, daqNetData* data)
-{
-#ifdef _CODA_DEBUG
-  printf("confFileCallback\n");fflush(stdout);
-#endif
-
-  rcClientHandler* obj = (rcClientHandler *)arg;
-  /*TEMP
-   */
-
-  if (status == CODA_SUCCESS)
-  {
-	char* file;
-    
-    // update config file here
-    if (obj->conflogFile_) delete []obj->conflogFile_;
-    file = (char *)(*data);
-
-    obj->conflogFile_ = new char[::strlen (file) + 1];
-    ::strcpy (obj->conflogFile_, file);
-    
-#ifdef _CODA_DEBUG
-    printf("confFileCallback >%s<\n",file);fflush(stdout);
-#endif
-
-    if (::strcmp (file, "unknown") != 0)
-	{ 
-#ifdef _CODA_DEBUG
-      printf("confFileCallback 1\n");fflush(stdout);
-#endif
-      obj->anaLogChanged (0, 1);
-	}
-    else
-	{
-#ifdef _CODA_DEBUG
-      printf("confFileCallback 2\n");fflush(stdout);
-#endif
-      obj->anaLogChanged (0, 0);
-	}
 
 
-  }
-  else  // disconnection, so remove data
-  {
-#ifdef _CODA_DEBUG
-    printf("confFileCallback 3\n");fflush(stdout);
-#endif
-    obj->anaLogChanged (0, 0);
-  }
-  
-}
 
-char*
-rcClientHandler::conflogFile (void) const
-{
-#ifdef _CODA_DEBUG
-  printf("conflogFile\n");fflush(stdout);
-#endif
-  return conflogFile_;
-}
+
+
+
+
+
+
+
+
 
 
 
@@ -647,17 +648,112 @@ rcClientHandler::logFileDesCallback (int status, void* arg, daqNetData* data)
   }
 }
 
+
+
+
 void
 rcClientHandler::tokenIntervalCallback (int status, void* arg, 
 					daqNetData* data)
 {
   rcClientHandler* obj = (rcClientHandler *)arg;
 
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     obj->tokenIVal_ = (int)(*data);
     obj->setTokenInterval (obj->tokenIVal_);
   }
 }
+
+
+
+
+
+
+
+
+
+/*sergey: 2 following functions*/
+
+void
+rcClientHandler::confFileCallback (int status, void* arg, daqNetData* data)
+{
+  rcClientHandler* obj = (rcClientHandler *)arg;
+
+/*#ifdef _CODA_DEBUG*/
+  printf("!!!!!!!!!! rcClientHandler::confFileCallback reached\n");fflush(stdout);
+/*#endif*/
+
+  if (status == CODA_SUCCESS)
+  {
+/*#ifdef _CODA_DEBUG*/
+    printf("!!!!!!!!!! rcClientHandler::confFileCallback: connected\n");fflush(stdout);
+/*#endif*/
+	char* file;
+
+    /* update config file here */
+    if (obj->confFile_) delete []obj->confFile_;
+    file = (char *)(*data);
+    obj->confFile_ = new char[::strlen (file) + 1];
+    ::strcpy (obj->confFile_, file);
+    if (::strcmp (file, "unknown") != 0)
+	{ 
+      obj->confFileChanged (0, 1);
+	}
+    else
+	{
+      obj->confFileChanged (0, 0);
+	}
+  }
+  else  /* disconnection, so remove data */
+  {
+/*#ifdef _CODA_DEBUG*/
+    printf("!!!!!!!!!! rcClientHandler::confFileCallback: disconnected (or not yet connected)\n");fflush(stdout);
+/*#endif*/
+    obj->confFileChanged (0, 0);
+  }
+
+}
+
+
+void
+rcClientHandler::confFileChanged (daqNetData* info, int added)
+{
+  codaSlistIterator ite (panels_);
+  rcPanel* panel = 0;
+
+  for (ite.init(); !ite; ++ite)
+  {
+    panel = (rcPanel *) ite ();
+    panel->confFileChanged (info, added);
+  }
+}
+
+
+char*
+rcClientHandler::confFile (void) const
+{
+#ifdef _CODA_DEBUG
+  printf("confFile\n");fflush(stdout);
+#endif
+  return confFile_;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void
 rcClientHandler::rcsMsgToDbaseCbk (int status, void* arg,
@@ -681,7 +777,8 @@ rcClientHandler::anaLogChanged (daqNetData* info, int added)
   codaSlistIterator ite (panels_);
   rcPanel* panel = 0;
 
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     panel = (rcPanel *) ite ();
     panel-> anaLogChanged (info, added);
   }
@@ -692,8 +789,10 @@ rcClientHandler::discCallback (int status, void* arg, daqNetData* )
 {
   rcClientHandler *obj = (rcClientHandler *)arg;
 
-  if (status == CODA_SUCCESS) {
-    if (obj->status_ != DA_NOT_CONNECTED) {
+  if (status == CODA_SUCCESS)
+  {
+    if (obj->status_ != DA_NOT_CONNECTED)
+    {
       obj->status_ = DA_NOT_CONNECTED;
       obj->status (obj->status_);
     }
@@ -707,10 +806,8 @@ rcClientHandler::reqMastershipCbk (int status, void* arg, daqNetData* data)
 {
   rcClientHandler *obj = (rcClientHandler *)arg;
 
-  if (status == CODA_SUCCESS) 
-    obj->master_ = 1;
-  else
-    obj->master_ = 0;
+  if (status == CODA_SUCCESS) obj->master_ = 1;
+  else                        obj->master_ = 0;
 }
 
 void
@@ -718,10 +815,8 @@ rcClientHandler::giveupMastershipCbk (int status, void* arg, daqNetData* data)
 {
   rcClientHandler *obj = (rcClientHandler *)arg;
 
-  if (status == CODA_SUCCESS) 
-    obj->master_ = 0;
-  else
-    obj->master_ = 1;
+  if (status == CODA_SUCCESS) obj->master_ = 0;
+  else                        obj->master_ = 1;
 }
 
 int
@@ -734,7 +829,8 @@ rcClientHandler::requestMastership (void)
     fprintf (stderr, "Cannot send command DABECOMEMASTER to the server\n");
     return CODA_ERROR;
   }
-  else {
+  else
+  {
     master_ = 1;
     return CODA_SUCCESS;
   }
@@ -750,7 +846,8 @@ rcClientHandler::giveupMastership (void)
     fprintf (stderr, "Cannot send command DACANCELMASTER to the server\n");
     return CODA_ERROR;
   }
-  else {
+  else
+  {
     master_ = 0;
     return CODA_SUCCESS;
   }
@@ -763,7 +860,8 @@ rcClientHandler::status (int st)
   codaSlistIterator ite (panels_);
   rcPanel* panel = 0;
 
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     panel = (rcPanel *) ite ();
     panel->config (st);
   }
@@ -775,7 +873,8 @@ rcClientHandler::mastershipType (int type)
   codaSlistIterator ite (panels_);
   rcPanel* panel = 0;
 
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     panel = (rcPanel *) ite ();
     panel-> configMastership (type);
   }
@@ -787,7 +886,8 @@ rcClientHandler::setOnlineOption (int online)
   codaSlistIterator ite (panels_);
   rcPanel* panel = 0;
 
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     panel = (rcPanel *) ite ();
     panel-> configOnlineOption (online);
   }
@@ -799,7 +899,8 @@ rcClientHandler::setUpdateInterval (int interval)
   codaSlistIterator ite (panels_);
   rcPanel* panel = 0;
 
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     panel = (rcPanel *) ite ();
     panel-> configUpdateInterval (interval);
   }
@@ -818,7 +919,8 @@ rcClientHandler::clientsConnectionChanged (void)
   codaSlistIterator ite (panels_);
   rcPanel* panel = 0;
 
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     panel = (rcPanel *) ite ();
     panel->clientsConnectionConfig (clients_, numClients_);
   }
@@ -879,7 +981,8 @@ rcClientHandler::setTokenInterval (int interval)
   codaSlistIterator ite (panels_);
   rcPanel* panel = 0;
 
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     panel = (rcPanel *) ite ();
     panel-> configTokenInterval (interval);
   }
@@ -891,7 +994,8 @@ rcClientHandler::setRcsMsgToDbaseFlag (int state)
   codaSlistIterator ite (panels_);
   rcPanel* panel = 0;
 
-  for (ite.init(); !ite; ++ite) {
+  for (ite.init(); !ite; ++ite)
+  {
     panel = (rcPanel *) ite ();
     panel-> configRcsMsgToDbase (state);
   }
@@ -915,8 +1019,11 @@ long
 rcClientHandler::compBootInfo (char** &comps, /*long*/int64_t* &autoboot)
 {
   if (caboot_)
+  {
     return caboot_->compBootInfo (comps, autoboot);
-  else {
+  }
+  else
+  {
     comps = 0;
     autoboot = 0;
     return 0;
@@ -927,9 +1034,12 @@ long
 rcClientHandler::monitorParms (char** &comps, int64_t*/*long*/ &monitored,
 			       long& autoend, long& interval)
 {
-  if (monParms_) {
+  if (monParms_)
+  {
     return monParms_->monitorParms (comps, monitored, autoend, interval);
-  } else {
+  }
+  else
+  {
     comps = 0;
     monitored = 0;
     autoend = 1;

@@ -1030,7 +1030,7 @@ int
 netComponent::state(void)
 {
   /* 'netComponent::daqComponent::daqTarget::state_' updated in portHandler() based on 'STA:' message from component;
-  we'll will return 'st' after some checks */
+  we'll return 'st' after some checks */
   int st = state_;
 
   daqRun* run = subsys_.system().run();

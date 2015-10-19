@@ -43,11 +43,15 @@ rcSvcInfoFinder::findRcServer (const char* dbhost, const char* database,
   MYSQL_ROW    row;		
   char qstring[256];
 
+#ifdef DEBUG
   printf("ser111: database=%d (%d)\n",database,dbhost);fflush(stdout);
   printf("ser111: database >%s<\n",database);fflush(stdout);
+#endif
   dbaseSock = ::dbConnect(dbhost, database);
+#ifdef DEBUG
   printf("ser112: database=%d (%d)\n",database,dbhost);fflush(stdout);
   printf("ser112: database >%s<\n",database);fflush(stdout);
+#endif
   if (dbaseSock == NULL) {
       fprintf (stderr, "Cannot connect to mysql server\n");
       return CODA_FATAL;
@@ -102,7 +106,9 @@ rcSvcInfoFinder::removeDeadRcServer (char* dbhost,
   char qstring[256];
 
   dbaseSock = dbConnect(dbhost, database);
+#ifdef DEBUG
   printf("ser2: database >%s<\n",database);fflush(stdout);
+#endif
   if (dbaseSock == NULL) {
       fprintf (stderr, "Cannot connect to mysql server\n");
       return CODA_FATAL;

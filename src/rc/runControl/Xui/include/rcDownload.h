@@ -31,6 +31,14 @@
 
 #include <rcComdButton.h>
 
+/* sergey: inheritage chain:
+
+rcDownload <- rcComdButton <- codaXpmpbtnComd <- codaPbtnComd <- codaComd
+
+codaComd::execute() calls 'doit' defined here
+
+*/
+
 class rcButtonPanel;
 
 class rcDownload: public rcComdButton
@@ -44,6 +52,7 @@ public:
   virtual const char* className (void) const {return "rcDownload";}
 
 protected:
+
   // inherited functions
   virtual void doit   (void);
   virtual void undoit (void);

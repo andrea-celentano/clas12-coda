@@ -1,0 +1,20 @@
+class daqData
+
+class daqArbStruct
+
+class daqArbStructFactory
+
+class daqCompBootStruct: public daqArbStruct
+
+class daqDataManager
+
+class daqDataTrigger
+
+class daqDataWriter
+
+class daqMonitorStruct: public daqArbStruct
+
+class daqNetData
+
+class daqRunTypeItem
+class daqRunTypeStruct: public daqArbStruct

@@ -35,7 +35,7 @@
 codaComd::codaComd ( char *name, int active )
 {
 #ifdef _TRACE_OBJECTS
-  printf("Create codaComd Object \n");
+  printf("codaComd::codaComd: Create codaComd Object \n");
 #endif
   // Initialize all data members
     
@@ -51,7 +51,7 @@ codaComd::codaComd ( char *name, int active )
 codaComd::~codaComd()
 {
 #ifdef _TRACE_OBJECTS
-  printf("Destroy codaComd Object \n");
+  printf("codaComd: Destroy codaComd Object \n");
 #endif
   delete _activationList;	
   delete _deactivationList;	
@@ -59,7 +59,8 @@ codaComd::~codaComd()
   // _ci is only a pointer to a subclass of codaComdXInterface
 }
 
-void codaComd::registerXInterface ( codaComdXInterface *ci )
+void
+codaComd::registerXInterface ( codaComdXInterface *ci )
 {
   _ci =  ci;
     
@@ -70,12 +71,14 @@ void codaComd::registerXInterface ( codaComdXInterface *ci )
       ci->deactivate();      
 }
 
-codaComdXInterface *codaComd::getXInterface()
+codaComdXInterface *
+codaComd::getXInterface()
 {
   return _ci;
 }
 
-int codaComd::hasXInterface()
+int
+codaComd::hasXInterface()
 {
   if (_ci != NULL)
     return 1;
@@ -83,7 +86,8 @@ int codaComd::hasXInterface()
     return 0;
 }
 
-void codaComd::activate()
+void
+codaComd::activate()
 {
   // Activate the associated interfaces
     
@@ -95,7 +99,8 @@ void codaComd::activate()
   _active = TRUE;
 }
 
-void codaComd::deactivate()
+void
+codaComd::deactivate()
 {
   // Deactivate the associated interfaces
   
@@ -107,7 +112,8 @@ void codaComd::deactivate()
   _active = FALSE;
 }
 
-void codaComd::revert()
+void
+codaComd::revert()
 {
   // Activate or deactivate, as necessary, 
   // to return to the previous state
@@ -118,7 +124,8 @@ void codaComd::revert()
     deactivate();
 }
 
-void codaComd::addToActivationList ( codaComd *cmd )
+void
+codaComd::addToActivationList ( codaComd *cmd )
 {
   if ( !_activationList )
     _activationList = new codaComdList();
@@ -126,7 +133,8 @@ void codaComd::addToActivationList ( codaComd *cmd )
   _activationList->add ( cmd );
 }
 
-void codaComd::addToDeactivationList ( codaComd *cmd )
+void
+codaComd::addToDeactivationList ( codaComd *cmd )
 {
   if ( !_deactivationList )
     _deactivationList = new codaComdList();
@@ -134,14 +142,14 @@ void codaComd::addToDeactivationList ( codaComd *cmd )
   _deactivationList->add ( cmd );
 }
 
-void codaComd::execute()
+void
+codaComd::execute()
 {
   int i;      
   
   // If a command is inactive, it cannot be executed
   
-  if ( !_active )
-    return;
+  if(!_active) return;
     
   // Call the derived class's doit member function to 
   // perform the action represented by this object
@@ -161,13 +169,15 @@ void codaComd::execute()
       (*_deactivationList)[i]->deactivate();
 }
 
-void codaComd::undo()
+void
+codaComd::undo()
 {
   int i;
   
   // Call the derived class's undoit() member function.
   
-  if (!_redo){
+  if (!_redo)
+  {
     _redo = 1;
     undoit();
     
@@ -182,17 +192,20 @@ void codaComd::undo()
       for ( i = 0; i < _deactivationList->size(); i++ )
 	(*_deactivationList)[i]->revert();
   }
-  else{
+  else
+  {
     _redo = 0;
     execute();
   }
 }
 
 
-void codaComd::doit()
+void
+codaComd::doit()
 {
 }
 
-void codaComd::undoit()
+void
+codaComd::undoit()
 {
 }

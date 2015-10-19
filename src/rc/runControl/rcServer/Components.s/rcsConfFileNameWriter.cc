@@ -41,18 +41,14 @@ void
 rcsConfFileNameWriter::write (daqData* data)
 {
   // get my own copy
-  static char filename[128];
-  /*
-printf("111\n");
-sleep(3);
-  */
-  /*sergey: (char *)(*data) calls overloaded operator char* from daqData */
+  static char filename[512];
+  
+  /*sergey: (char *)(*data) calls overloaded operator char* from daqData*/
   ::strncpy (filename, (char *)(*data), sizeof (filename));
-  /*
-printf("222\n");
-sleep(3);
-  */
-  /*printf("!!!!!!!!!!!!!!! rcsConfFileNameWriter::write >%s<\n",filename);*/
+
+#ifdef _TRACE_OBJECTS
+  printf("!!!!!!!!!!!!!!! rcsConfFileNameWriter::write >%s<\n",filename);
+#endif
 
   run_->updateConfFile (filename);
 }

@@ -41,6 +41,10 @@
 #include <codaRegistry.h>
 #endif
 
+
+#define DEBUG
+
+
 int root_height;
 XtAppContext app_context;
 Widget toplevel;
@@ -458,7 +462,7 @@ resize (Widget w, XEvent *event, String args[], Cardinal *num_args)
   XtVaGetValues (w, XmNchildren, &children, XmNnumChildren, &nchildren, XmNmarginWidth, &margin_w, XmNmarginHeight, &margin_h, NULL);
 
 #ifdef DEBUG
-  printf("resize> main window: nchildren=%d, w_width=%d, w_height=%d, margin_w=%d, margin_h=%d\n",nchildren,w_width,w_height,margin_w,margin_h);
+  printf("rocs:resize> main window: nchildren=%d, w_width=%d, w_height=%d, margin_w=%d, margin_h=%d\n",nchildren,w_width,w_height,margin_w,margin_h);
 #endif
   for(ii=0; ii<nchildren; ii++)
   {
@@ -479,7 +483,7 @@ resize (Widget w, XEvent *event, String args[], Cardinal *num_args)
 
     XtVaGetValues (children[ii], XmNchildren, &subchildren, XmNnumChildren, &nsubchildren, NULL);
 #ifdef DEBUG
-    printf("resize> panedwindow[%d] id=0x%08x nsubchildren=%d width=%d height=%d\n",ii,children[ii],nsubchildren,width,height);
+    printf("rocs:resize> panedwindow[%d] id=0x%08x nsubchildren=%d width=%d height=%d\n",ii,children[ii],nsubchildren,width,height);
 #endif
     bla = height;
     sum = 0;
@@ -488,7 +492,7 @@ resize (Widget w, XEvent *event, String args[], Cardinal *num_args)
       XtVaGetValues (subchildren[jj], XmNheight, &height, XmNy, &pos, NULL);
 	  
 #ifdef DEBUG
-      printf("resize> subchildren[%d]: id=0x%08x, height=%d pos=%d, XmIsSash=%d, XmIsSeparator=%d\n",
+      printf("rocs:resize> subchildren[%d]: id=0x%08x, height=%d pos=%d, XmIsSash=%d, XmIsSeparator=%d\n",
         jj,subchildren[jj],height,pos,XmIsSash(subchildren[jj]), XmIsSeparator(subchildren[jj]));
 #endif
 	  
@@ -496,27 +500,27 @@ resize (Widget w, XEvent *event, String args[], Cardinal *num_args)
 	  {
         ;
 #ifdef DEBUG
-        printf("resize> subchild[%d] sash, height=%d\n",jj,height);
+        printf("rocs:resize> subchild[%d] sash, height=%d\n",jj,height);
 #endif
 	  }
       else if(XmIsSeparator(subchildren[jj])) /* separator */
 	  {
         ;
 #ifdef DEBUG
-        printf("resize> subchild[%d] separator, height=%d\n",jj,height);
+        printf("rocs:resize> subchild[%d] separator, height=%d\n",jj,height);
 #endif
 	  }
       else /* pane */
 	  {
         if(height>10) sum += height;
 #ifdef DEBUG
-        printf("resize> subchild[%d] pane, height=%d, sum(so far)=%d\n",jj,height,sum);
+        printf("rocs:resize> subchild[%d] pane, height=%d, sum(so far)=%d\n",jj,height,sum);
 #endif
 	  }
 	}
 
 #ifdef DEBUG
-    printf("resize>>>> height=%d, sum=%d, diff=%d\n",bla,sum,bla-sum);
+    printf("rocs:resize>>>> height=%d, sum=%d, diff=%d\n",bla,sum,bla-sum);
 #endif
 
 
@@ -531,14 +535,14 @@ resize (Widget w, XEvent *event, String args[], Cardinal *num_args)
 	  hmax = (bla/5);
       hmin = (bla/5)-1;
 #ifdef DEBUG
-      printf("resize> xterms[%d]: hmax=%d, hmin=%d\n",jj,hmax,hmin);
+      printf("rocs:resize> xterms[%d]: hmax=%d, hmin=%d\n",jj,hmax,hmin);
 #endif
 	  for(jj=0; jj<menW->nxterms; jj++)
 	  {
         XtVaSetValues (menW->xterms[jj], XmNpaneMaximum, hmax, XmNpaneMinimum, hmin, NULL);
         XtVaGetValues (menW->xterms[jj], XmNwidth, &x_width, XmNheight, &x_height, NULL);
 #ifdef DEBUG
-        printf("resize> xterms[%d]: x_width=%d, x_height=%d\n",jj,x_width,x_height); 
+        printf("rocs:resize> xterms[%d]: x_width=%d, x_height=%d\n",jj,x_width,x_height); 
 #endif
 	  }
 
@@ -626,7 +630,8 @@ main(int argc, char** argv)
   rec.string = "resize";
   rec.proc = resize;
   XtAppAddActions (app_context, &rec, 1);
-  XtOverrideTranslations(menW->rframe_, XtParseTranslationTable ("<Configure>: resize()"));
+  XtOverrideTranslations(menW->rframe_, XtParseTranslationTable ("<Configure>: resize()")); /* call resize() when parent window resized */
+  XtOverrideTranslations(menW->rframe_, XtParseTranslationTable ("<Expose>: resize()")); /* call resize() when exposed (for example tabs switched) */
 #endif
 
   menW->createXterms (menW->xtermsFrame_[0], "00_");

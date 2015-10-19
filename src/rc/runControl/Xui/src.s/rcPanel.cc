@@ -84,12 +84,17 @@ rcPanel::anaLogChanged (daqNetData* info, int added)
 }
 
 void
+rcPanel::confFileChanged (daqNetData* info, int added)
+{
+  // empty
+}
+
+void
 rcPanel::clientsConnectionConfig (char** clients, int numClients)
 {
   // empty
 }
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 void
 rcPanel::configRcsMsgToDbase (int)
 {
@@ -101,6 +106,3 @@ rcPanel::configTokenInterval (int )
 {
   // empty
 }
-#endif
-
-

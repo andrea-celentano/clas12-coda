@@ -29,17 +29,19 @@ SOCK_Dgram::send (const void *buf, size_t n, const Addr &addr, int flags) const
   abc = (sockaddr_in *)saddr;
   unsigned int ttt;
   ttt = *((unsigned int *)&(abc->sin_addr));
-
+#ifdef DEBUG
   printf("SOCK_Dgram::send 2, sockfd=%d\n",sockfd);
   printf("SOCK_Dgram::send 2, saddr.sin_family=%d\n",abc->sin_family);
   printf("SOCK_Dgram::send 2, saddr.sin_port=%d\n",abc->sin_port);
   printf("SOCK_Dgram::send 2, saddr.sin_addr=%u (0x%08x) (%u.%u.%u.%u)\n",
 		 ttt,ttt,(ttt&0xFF),((ttt>>8)&0xFF),((ttt>>16)&0xFF),((ttt>>24)&0xFF));
-
+#endif
   ret = ::sendto (sockfd, (const char *) buf, n, flags, 
 		          (const struct sockaddr *) saddr, len);
 
+#ifdef DEBUG
   printf("SOCK_Dgram::send 2: sendto returns %d\n",ret);
+#endif
   if(ret<0)
   {
     perror("SOCK_Dgram::send 2: sendto ");

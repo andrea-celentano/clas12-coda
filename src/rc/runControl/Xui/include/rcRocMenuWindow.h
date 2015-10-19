@@ -44,9 +44,10 @@ class rcHelpOverview;
 /* extern */
 class rcRocMenuWindow: public XcodaMenuWindow, public rcPanel
 {
+
 public:
-  rcRocMenuWindow          (Widget parent, 
-			 char* name, rcClientHandler& handler);
+
+  rcRocMenuWindow (Widget parent, char* name, rcClientHandler& handler);
   virtual ~rcRocMenuWindow (void);
 
   void createXterms (Widget widget, char *name);

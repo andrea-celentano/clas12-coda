@@ -60,7 +60,7 @@ extern int codaDaReport     (char* name, int how);
 extern int codaDaReadInt    (char* name, char* attr, long* value);
 extern int codaDaWriteInt   (char* name, char* attr, long* value);
 extern int codaDaZap        (char* name);
-
+#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 // functions related to itcl coda daq component
 extern int codaCreateDaComp (char* name);
 extern int codaDeleteDaComp (char* name);
@@ -70,7 +70,9 @@ extern int codaDaBoot (char* name);
 
 extern int codaDaCompSetState  (char* name, int state);
 extern int codaAskComponent (char *command, char **res);
+#endif
 
 extern int compTimeOut;
 
 #endif
+  

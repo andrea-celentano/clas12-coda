@@ -72,13 +72,16 @@ public:
   // class name
   virtual const char *className () const { return "codaComd"; } ;
 
+
 protected:
+
   // protect constructor
   codaComd ( char *,  int );                 
 
   int                _hasUndo;          // True if this object supports undo
   virtual void       doit();      // Specific actions must be defined
   virtual void       undoit();      // by derived classes
+
     
 private:
     

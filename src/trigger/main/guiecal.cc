@@ -51,13 +51,13 @@
 
 #include "guiecal.h"
 
-#include "vmeclient.h"
+#include "cratemsgclient.h"
 #include "libtcp.h"
 #include "libdb.h"
 
 #include "scope.h"
 
-VMEClient *tcpvme; //sergey: global for now, will find appropriate place later
+CrateMsgClient *tcp; //sergey: global for now, will find appropriate place later
 
 const char *filetypes[] = { "All files",     "*",
                             "ROOT files",    "*.root",
@@ -146,7 +146,6 @@ ECALMainFrame::ECALMainFrame(const TGWindow *p, UInt_t w, UInt_t h, char *host) 
 {
 
    // create VME communication
-   tcpvme = new VMEClient();
    strcpy(hostname,host);
 
    fScalersDlg = NULL;
@@ -297,6 +296,7 @@ void ECALMainFrame::CloseWindow()
 
 Bool_t ECALMainFrame::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
 {
+  Int_t ret;
    // Handle messages send to the ECALMainFrame object. E.g. all menu button
    // messages.
 
@@ -331,12 +331,27 @@ printf("1\n");fflush(stdout);
 			  if(parm1 == 11) // Connect
 			  {
 				printf("Connect reached\n");
-				Bool_t res = tcpvme->ConnectVME(hostname,0);
-				if(res)
-				{
+                tcp = new CrateMsgClient(hostname,6102);
+                if(tcp->IsValid())
+                {
+                  printf("Connected\n");
 				  btConnect->SetEnabled(kFALSE);
 				  btDisconnect->SetEnabled(kTRUE);
-				}
+
+		unsigned short sval = 0xFBFB;
+		ret = tcp->Read16((unsigned int)(ECAL_BOARD_ADDRESS_1+0x800C), &sval);
+        printf("ret=%d, VME FIRMWARE val=0x%04x\n",ret,sval);
+				  
+		unsigned int val = 0xFBFBFBFB;
+		ret = tcp->Read32((unsigned int)(ECAL_BOARD_ADDRESS_1+0x1000), &val);
+        printf("ret=%d, USER FIRMWARE val=0x%08x\n",ret,val);
+                }
+                else
+                {
+                  printf("NOT CONNECTED - EXIT\n");
+                  exit(0);
+                }
+
                 if(fDelaysDlg)
 				{
 				  fDelaysDlg->ReadVME();
@@ -356,12 +371,9 @@ printf("1\n");fflush(stdout);
 			  else if(parm1 == 12) // Disconnect
 			  {
 			    printf("Disconnect reached\n");
-			    Bool_t res = tcpvme->DisconnectVME();
-				if(res)
-				{
-			      btConnect->SetEnabled(kTRUE);
-			      btDisconnect->SetEnabled(kFALSE);
-				}
+                tcp->Disconnect();
+			    btConnect->SetEnabled(kTRUE);
+			    btDisconnect->SetEnabled(kFALSE);
 			  }
               break;
 
@@ -672,7 +684,6 @@ printf("98\n");fflush(stdout);
 sleep(1);
 printf("99\n");fflush(stdout);
 
-   if(tcpvme->m_bConnected)
    {
      // read VME and update GUI for the first time
      ReadVME();
@@ -776,6 +787,7 @@ void ScalersDlg::CloseWindow()
 
 Bool_t ScalersDlg::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
 {
+  Int_t ret;
    // Process messages coming from widgets associated with the dialog.
 
    switch (GET_MSG(msg)) {
@@ -861,25 +873,27 @@ Bool_t ScalersDlg::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
 
 void ScalersDlg::ReadVME()
 {
+  UInt_t tmp;
 
-  if(tcpvme->m_bConnected)
   {
-	tcpvme->VMEWrite32(ECAL_BOARD_ADDRESS_1 + ECAL_ENABLE_SCALERS, 0x0000, FALSE);
-	tcpvme->VMEWrite32(ECAL_BOARD_ADDRESS_2 + ECAL_ENABLE_SCALERS, 0x0000, FALSE);
+    tmp = 0x0000;
+	tcp->Write32(ECAL_BOARD_ADDRESS_1 + ECAL_ENABLE_SCALERS, &tmp);
+	tcp->Write32(ECAL_BOARD_ADDRESS_2 + ECAL_ENABLE_SCALERS, &tmp);
 
     Int_t jj;
     for(jj=0; jj<NUVW; jj++) U1[jj] = 0;
     for(jj=0; jj<NUVW; jj++) V1[jj] = 0;
     for(jj=0; jj<NUVW; jj++) W1[jj] = 0;
 
-	for(jj=0; jj<NUVW; jj++) tcpvme->VMERead32(ECAL_BOARD_ADDRESS_1 + ECAL_U_SCALER_BASE + jj*4, &U1[jj], FALSE);
-	for(jj=0; jj<NUVW; jj++) tcpvme->VMERead32(ECAL_BOARD_ADDRESS_1 + ECAL_V_SCALER_BASE + jj*4, &V1[jj], FALSE);
-	for(jj=0; jj<NUVW; jj++) tcpvme->VMERead32(ECAL_BOARD_ADDRESS_2 + ECAL_W_SCALER_BASE + jj*4, &W1[jj], FALSE);
-    tcpvme->VMERead32(ECAL_BOARD_ADDRESS_1 + ECAL_REF_SCALER, &REF1, FALSE);
-    tcpvme->VMERead32(ECAL_BOARD_ADDRESS_2 + ECAL_REF_SCALER, &REF2, FALSE);
+	for(jj=0; jj<NUVW; jj++) tcp->Read32(ECAL_BOARD_ADDRESS_1 + ECAL_U_SCALER_BASE + jj*4, &U1[jj]);
+	for(jj=0; jj<NUVW; jj++) tcp->Read32(ECAL_BOARD_ADDRESS_1 + ECAL_V_SCALER_BASE + jj*4, &V1[jj]);
+	for(jj=0; jj<NUVW; jj++) tcp->Read32(ECAL_BOARD_ADDRESS_2 + ECAL_W_SCALER_BASE + jj*4, &W1[jj]);
+    tcp->Read32(ECAL_BOARD_ADDRESS_1 + ECAL_REF_SCALER, &REF1);
+    tcp->Read32(ECAL_BOARD_ADDRESS_2 + ECAL_REF_SCALER, &REF2);
 
-	tcpvme->VMEWrite32(ECAL_BOARD_ADDRESS_1 + ECAL_ENABLE_SCALERS, 0x0001, FALSE);
-	tcpvme->VMEWrite32(ECAL_BOARD_ADDRESS_2 + ECAL_ENABLE_SCALERS, 0x0001, FALSE);
+    tmp = 0x0001;
+	tcp->Write32(ECAL_BOARD_ADDRESS_1 + ECAL_ENABLE_SCALERS, &tmp);
+	tcp->Write32(ECAL_BOARD_ADDRESS_2 + ECAL_ENABLE_SCALERS, &tmp);
 
 	printf("Scalers: ref1=%d, ref2=%d, U1=%d %d %d (address=0x%08x)\n",
       REF1,REF2,U1[0],U1[1],U1[2],ECAL_BOARD_ADDRESS_1+ECAL_U_SCALER_BASE);
@@ -1171,7 +1185,6 @@ Dsc2Dlg::Dsc2Dlg(const TGWindow *p, ECALMainFrame *main,
    //fClient->WaitFor(this);    // otherwise canvas contextmenu does not work
 
    HistAccumulate = 0;
-   if(tcpvme->m_bConnected)
    {
      // read VME and update GUI for the first time
      ReadVME();
@@ -1399,7 +1412,7 @@ Bool_t Dsc2Dlg::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
 void Dsc2Dlg::ReadVME()
 {
   Int_t ii, jj, ndsc;
-  UInt_t addr[16];
+  UInt_t tmp, addr[16];
 
   ndsc = 16;
   for(ii=0; ii<4; ii++) addr[ii]    = ECAL_DSC2_ADDRESS_1 + ii*0x00080000;
@@ -1407,12 +1420,12 @@ void Dsc2Dlg::ReadVME()
   for(ii=0; ii<4; ii++) addr[ii+8]  = ECAL_DSC2_ADDRESS_3 + ii*0x00080000;
   for(ii=0; ii<2; ii++) addr[ii+12] = ECAL_DSC2_ADDRESS_4 + ii*0x00080000;
 
-  if(tcpvme->m_bConnected)
   {
     /* should do in dsc2Config, here just in case; will move it to constructor, should be called once */
-    for(ii=0; ii<14; ii++) tcpvme->VMEWrite32(addr[ii] + ECAL_DSC2_SCALER_GATE, 0x0004, FALSE);
-
-    for(ii=0; ii<14; ii++) tcpvme->VMEWrite32(addr[ii] + ECAL_DSC2_SCALER_LATCH, 0x0000, FALSE);
+    tmp = 0x0004;
+    for(ii=0; ii<14; ii++) tcp->Write32(addr[ii] + ECAL_DSC2_SCALER_GATE, &tmp);
+    tmp = 0x0000;
+    for(ii=0; ii<14; ii++) tcp->Write32(addr[ii] + ECAL_DSC2_SCALER_LATCH, &tmp);
 
     for(jj=0; jj<NUVW; jj++) U1[jj] = 0;
     for(jj=0; jj<NUVW; jj++) V1[jj] = 0;
@@ -1422,33 +1435,33 @@ void Dsc2Dlg::ReadVME()
     for(jj=0; jj<NUVW; jj++) W2[jj] = 0;
 
 
-    for(ii=0; ii<14; ii++) tcpvme->VMERead32(addr[ii] + ECAL_DSC2_SCALER_REF, &ref[ii], FALSE);
+    for(ii=0; ii<14; ii++) tcp->Read32(addr[ii] + ECAL_DSC2_SCALER_REF, &ref[ii]);
 
 
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[0] + ECAL_DSC2_SCALER_BASE + jj*4,     &U1[jj], FALSE); refU1[jj] = ref[0];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[1] + ECAL_DSC2_SCALER_BASE + jj*4,     &U1[jj+16], FALSE); refU1[jj+16] = ref[1];}
-    for(jj=0; jj<4; jj++)  {tcpvme->VMERead32(addr[2] + ECAL_DSC2_SCALER_BASE + jj*4,     &U1[jj+32], FALSE); refU1[jj+32] = ref[2];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[0] + ECAL_DSC2_SCALER_BASE + jj*4,     &U1[jj]); refU1[jj] = ref[0];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[1] + ECAL_DSC2_SCALER_BASE + jj*4,     &U1[jj+16]); refU1[jj+16] = ref[1];}
+    for(jj=0; jj<4; jj++)  {tcp->Read32(addr[2] + ECAL_DSC2_SCALER_BASE + jj*4,     &U1[jj+32]); refU1[jj+32] = ref[2];}
 
-    for(jj=0; jj<12; jj++) {tcpvme->VMERead32(addr[2] + ECAL_DSC2_SCALER_BASE + (jj+4)*4, &V1[jj], FALSE); refV1[jj] = ref[2];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[3] + ECAL_DSC2_SCALER_BASE + jj*4,     &V1[jj+12], FALSE); refV1[jj+12] = ref[3];}
-    for(jj=0; jj<8; jj++)  {tcpvme->VMERead32(addr[4] + ECAL_DSC2_SCALER_BASE + jj*4,     &V1[jj+28], FALSE); refV1[jj+28] = ref[4];}
+    for(jj=0; jj<12; jj++) {tcp->Read32(addr[2] + ECAL_DSC2_SCALER_BASE + (jj+4)*4, &V1[jj]); refV1[jj] = ref[2];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[3] + ECAL_DSC2_SCALER_BASE + jj*4,     &V1[jj+12]); refV1[jj+12] = ref[3];}
+    for(jj=0; jj<8; jj++)  {tcp->Read32(addr[4] + ECAL_DSC2_SCALER_BASE + jj*4,     &V1[jj+28]); refV1[jj+28] = ref[4];}
 	
-    for(jj=0; jj<8; jj++)  {tcpvme->VMERead32(addr[4] + ECAL_DSC2_SCALER_BASE + (jj+8)*4, &W1[jj], FALSE); refW1[jj] = ref[4];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[5] + ECAL_DSC2_SCALER_BASE + jj*4,     &W1[jj+8], FALSE); refW1[jj+8] = ref[5];}
-    for(jj=0; jj<12; jj++) {tcpvme->VMERead32(addr[6] + ECAL_DSC2_SCALER_BASE + jj*4,     &W1[jj+24], FALSE); refW1[jj+24] = ref[6];}
+    for(jj=0; jj<8; jj++)  {tcp->Read32(addr[4] + ECAL_DSC2_SCALER_BASE + (jj+8)*4, &W1[jj]); refW1[jj] = ref[4];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[5] + ECAL_DSC2_SCALER_BASE + jj*4,     &W1[jj+8]); refW1[jj+8] = ref[5];}
+    for(jj=0; jj<12; jj++) {tcp->Read32(addr[6] + ECAL_DSC2_SCALER_BASE + jj*4,     &W1[jj+24]); refW1[jj+24] = ref[6];}
 
 	
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[7] + ECAL_DSC2_SCALER_BASE + jj*4,     &U2[jj], FALSE); refU2[jj] = ref[7];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[8] + ECAL_DSC2_SCALER_BASE + jj*4,     &U2[jj+16], FALSE); refU2[jj+16] = ref[8];}
-    for(jj=0; jj<4; jj++)  {tcpvme->VMERead32(addr[9] + ECAL_DSC2_SCALER_BASE + jj*4,     &U2[jj+32], FALSE); refU2[jj+32] = ref[9];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[7] + ECAL_DSC2_SCALER_BASE + jj*4,     &U2[jj]); refU2[jj] = ref[7];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[8] + ECAL_DSC2_SCALER_BASE + jj*4,     &U2[jj+16]); refU2[jj+16] = ref[8];}
+    for(jj=0; jj<4; jj++)  {tcp->Read32(addr[9] + ECAL_DSC2_SCALER_BASE + jj*4,     &U2[jj+32]); refU2[jj+32] = ref[9];}
 
-    for(jj=0; jj<12; jj++) {tcpvme->VMERead32(addr[9] + ECAL_DSC2_SCALER_BASE + (jj+4)*4, &V2[jj], FALSE); refV2[jj] = ref[9];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[10] + ECAL_DSC2_SCALER_BASE + jj*4,    &V2[jj+12], FALSE); refV2[jj+12] = ref[10];}
-    for(jj=0; jj<8; jj++)  {tcpvme->VMERead32(addr[11] + ECAL_DSC2_SCALER_BASE + jj*4,    &V2[jj+28], FALSE); refV2[jj+28] = ref[11];}
+    for(jj=0; jj<12; jj++) {tcp->Read32(addr[9] + ECAL_DSC2_SCALER_BASE + (jj+4)*4, &V2[jj]); refV2[jj] = ref[9];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[10] + ECAL_DSC2_SCALER_BASE + jj*4,    &V2[jj+12]); refV2[jj+12] = ref[10];}
+    for(jj=0; jj<8; jj++)  {tcp->Read32(addr[11] + ECAL_DSC2_SCALER_BASE + jj*4,    &V2[jj+28]); refV2[jj+28] = ref[11];}
 
-    for(jj=0; jj<8; jj++)  {tcpvme->VMERead32(addr[11] + ECAL_DSC2_SCALER_BASE + (jj+8)*4,&W2[jj], FALSE); refW2[jj] = ref[11];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[12] + ECAL_DSC2_SCALER_BASE + jj*4,    &W2[jj+8], FALSE); refW2[jj+8] = ref[12];}
-    for(jj=0; jj<12; jj++) {tcpvme->VMERead32(addr[13] + ECAL_DSC2_SCALER_BASE + jj*4,    &W2[jj+24], FALSE); refW2[jj+24] = ref[13];}
+    for(jj=0; jj<8; jj++)  {tcp->Read32(addr[11] + ECAL_DSC2_SCALER_BASE + (jj+8)*4,&W2[jj]); refW2[jj] = ref[11];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[12] + ECAL_DSC2_SCALER_BASE + jj*4,    &W2[jj+8]); refW2[jj+8] = ref[12];}
+    for(jj=0; jj<12; jj++) {tcp->Read32(addr[13] + ECAL_DSC2_SCALER_BASE + jj*4,    &W2[jj+24]); refW2[jj+24] = ref[13];}
 	
 
 	printf("Scalers: ref1=%d, U1=%d %d %d (address=0x%08x)\n",
@@ -1637,7 +1650,6 @@ DelaysDlg::DelaysDlg(const TGWindow *p, ECALMainFrame *main,
    MapWindow();
    //fClient->WaitFor(this);    // otherwise canvas contextmenu does not work
 
-   if(tcpvme->m_bConnected)
    {
      // read VME and update GUI for the first time
      ReadVME();
@@ -1673,16 +1685,15 @@ void DelaysDlg::ReadVME()
 {
    printf("DelaysDlg::ReadVME reached\n");
 
-  if(tcpvme->m_bConnected)
   {
     Int_t jj;
     for(jj=0; jj<NUVW; jj++) U1[jj] = 0;
     for(jj=0; jj<NUVW; jj++) V1[jj] = 0;
     for(jj=0; jj<NUVW; jj++) W1[jj] = 0;
 
-	for(jj=0; jj<NUVW; jj++) tcpvme->VMERead32(ECAL_BOARD_ADDRESS_1 + ECAL_U_DELAY_BASE + jj*4, &U1[jj], FALSE);
-	for(jj=0; jj<NUVW; jj++) tcpvme->VMERead32(ECAL_BOARD_ADDRESS_1 + ECAL_V_DELAY_BASE + jj*4, &V1[jj], FALSE);
-	for(jj=0; jj<NUVW; jj++) tcpvme->VMERead32(ECAL_BOARD_ADDRESS_2 + ECAL_W_DELAY_BASE + jj*4, &W1[jj], FALSE);
+	for(jj=0; jj<NUVW; jj++) tcp->Read32(ECAL_BOARD_ADDRESS_1 + ECAL_U_DELAY_BASE + jj*4, &U1[jj]);
+	for(jj=0; jj<NUVW; jj++) tcp->Read32(ECAL_BOARD_ADDRESS_1 + ECAL_V_DELAY_BASE + jj*4, &V1[jj]);
+	for(jj=0; jj<NUVW; jj++) tcp->Read32(ECAL_BOARD_ADDRESS_2 + ECAL_W_DELAY_BASE + jj*4, &W1[jj]);
 
 	printf("Delays: %d %d %d\n",U1[0],U1[1],U1[2]);
   }
@@ -1714,15 +1725,14 @@ void DelaysDlg::WriteVME()
 {
   Int_t jj;
 
-  if(tcpvme->m_bConnected)
   {
 	printf("DelaysDlg::WriteDelays reached\n");
 
     ReadGUI();
 
-    for(jj=0; jj<NUVW; jj++) if(U1[jj] != U1GUI[jj]) tcpvme->VMEWrite32(ECAL_BOARD_ADDRESS_1 + ECAL_U_DELAY_BASE + jj*4, U1GUI[jj], FALSE);
-    for(jj=0; jj<NUVW; jj++) if(V1[jj] != V1GUI[jj]) tcpvme->VMEWrite32(ECAL_BOARD_ADDRESS_1 + ECAL_V_DELAY_BASE + jj*4, V1GUI[jj], FALSE);
-    for(jj=0; jj<NUVW; jj++) if(W1[jj] != W1GUI[jj]) tcpvme->VMEWrite32(ECAL_BOARD_ADDRESS_2 + ECAL_W_DELAY_BASE + jj*4, W1GUI[jj], FALSE);
+    for(jj=0; jj<NUVW; jj++) if(U1[jj] != U1GUI[jj]) tcp->Write32(ECAL_BOARD_ADDRESS_1 + ECAL_U_DELAY_BASE + jj*4, &U1GUI[jj]);
+    for(jj=0; jj<NUVW; jj++) if(V1[jj] != V1GUI[jj]) tcp->Write32(ECAL_BOARD_ADDRESS_1 + ECAL_V_DELAY_BASE + jj*4, &V1GUI[jj]);
+    for(jj=0; jj<NUVW; jj++) if(W1[jj] != W1GUI[jj]) tcp->Write32(ECAL_BOARD_ADDRESS_2 + ECAL_W_DELAY_BASE + jj*4, &W1GUI[jj]);
   }
 
 }

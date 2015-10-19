@@ -491,7 +491,7 @@ outputEvents(ERp erp, et_event **pe, int start, int stop)
 
 
 int 
-CODA_write_event(ERp erp)
+CODA_write_event(ERp erp, int flag)
 {
   const int prestartEvent=EV_ER_PRESTART, endEvent=EV_ER_END, true=1, false=0;
   int status1, status2;
@@ -619,7 +619,7 @@ CODA_write_event(ERp erp)
       if( ((stop_ticks-start_ticks)/CLK_TCK) > ER_WRITE_LOOP_TIMEOUT)
       {
 #endif
-	    printf("WARN: ER is backed up! This may be causing system deadtime\n");
+	    printf("CODA_write_event: WARN: ER is backed up! This may be causing system deadtime\n");
 	    done = true;
       }
     }
@@ -628,10 +628,12 @@ CODA_write_event(ERp erp)
   
   if(erp->nend <= 0)
   { 
+    printf("CODA_write_event: return(0)\n");
     return(0);
   }
   else
   {
+    printf("CODA_write_event: return(1)\n");
     return(1);
   }
 }
@@ -677,7 +679,7 @@ codaDownload(char *conf)
 
   
   erp->object = object;
-
+  erp->write_thread = NULL; /*sergey: will check it*/
 
   /***************************************************/
   /* extract all necessary information from database */
@@ -855,7 +857,7 @@ er_write_thread(objClass object)
   force_exit = 0;
   do
   {
-    status = (*(erp->write_proc))(erp,force_exit);
+    status = (*(erp->write_proc))(erp, force_exit);
 
 /*
 printf("er_write_thread looping .. (%d %d)\n",status,erp->fd);
@@ -883,6 +885,8 @@ erDaqCmd(char *param)
   case 'o': /*open*/
     (*(erp->open_proc))(erp);
 
+    erp->write_thread = NULL; /*sergey: will check it*/
+    printf("starting write thread 1 ..\n");fflush(stdout);
     if(erp->fd)
     {
       pthread_attr_t detached_attr;
@@ -891,8 +895,11 @@ erDaqCmd(char *param)
       pthread_attr_setscope(&detached_attr, PTHREAD_SCOPE_SYSTEM);
       pthread_create( &erp->write_thread, &detached_attr,
                       (void *(*)(void *)) er_write_thread, (void *) object);
-    }else{
+    }
+    else
+    {
       printf("No output (erp->fd = %d)\n",erp->fd);
+      erp->write_thread = NULL; /*sergey: will check it*/
       return ER_ERROR;
     }
     break;
@@ -903,24 +910,29 @@ erDaqCmd(char *param)
       printf("waiting for write thread 1 ..\n");fflush(stdout);
 
       et_wakeup_attachment(et_sys, et_attach);
-      /*pthread_cancel(erp->write_thread);*/
+      printf("waiting for write thread 2 .. erp->write_thread=0x%08x\n",erp->write_thread);fflush(stdout);
 
-      printf("waiting for write thread 2 ..\n");fflush(stdout);
+      /* if thread was started, cancel it */
+	  if(erp->write_thread > 0)
+	  {
+        /*pthread_cancel(erp->write_thread);*/
 
-/*Sergey: sometimes stuck here, for example if EB crashed at Prestart
-and operator hit Reset (ER prestart was Ok) */
+        printf("waiting for write thread 3 ..\n");fflush(stdout);
 
-/* to prevent that set force_exit=1 to tell writer that it has to exit */
-      force_exit = 1;
+        /* set force_exit=1 to tell writer that it has to exit 
+        force_exit = 1; - not used in CODA_write_event yet, may not need it ...
+*/
 
-      pthread_join(erp->write_thread, &status);
+        pthread_join(erp->write_thread, &status);
 
-      printf("write thread is done\n");fflush(stdout);
+        erp->write_thread = NULL; /*sergey: will check it*/
+        printf("write thread is done\n");fflush(stdout);
+	  }
 
       if(erp->close_proc)
       {
         (*(erp->close_proc))(erp);
-        printf("force shutdown of write thread\n");
+        printf("close_proc executed\n");
       }
       erp->fd = -1;
 

@@ -61,8 +61,9 @@ rcSvcLocaterRep::~rcSvcLocaterRep (void)
 
 int
 rcSvcLocaterRep::foundServer (void) const
-{
-printf("rcSvcLocaterRep::foundServer returns %d\n",foundServer_);
+{ 
+  printf("rcSvcLocaterRep::foundServer returns %d\n",foundServer_);
+
   return foundServer_;
 }
 

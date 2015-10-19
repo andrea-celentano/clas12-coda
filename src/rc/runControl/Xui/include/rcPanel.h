@@ -55,17 +55,19 @@ public:
   // panel response to update interval changes
   virtual void configUpdateInterval (int interval);
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   // panel response to rcs message to interval changes
   virtual void configRcsMsgToDbase  (int yes);
+
   // panel response to token interval changes
   virtual void configTokenInterval  (int interval);
-#endif
   
   // panel response to ANA log file changes
   // second argument added = 1  ==> new or updated log file
   // second arrument added = 0  ==> deleted ANA
   virtual void anaLogChanged (daqNetData* info, int added);
+
+  /* sergey: panel response to confFile changes */
+  virtual void confFileChanged (daqNetData* info, int added);
 
   // number of clients connected to the runcontrol server configuration.
   // do not free memory assocaited with each clients[i].
@@ -73,6 +75,7 @@ public:
 
   virtual void configBoot();
   virtual void configMonParms();
+
 protected:
   // constructor to deny direct access
   rcPanel (void);

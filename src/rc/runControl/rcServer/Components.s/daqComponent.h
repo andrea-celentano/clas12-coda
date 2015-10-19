@@ -40,26 +40,36 @@
 
 class daqComponent: public daqTarget
 {
+
 public:
+
   // operations
 
   // abort a transition to a diffrent state
   virtual void abort  (int wanted);
+
   // register this component to the system
   virtual int  attach (void) = 0;
+
   // remove this component from the system
   virtual int  detach (void) = 0;
+
   // enable a component
   virtual void enable (void);
+
   // disable a component
   virtual void disable (void);
+
   // enabled status
   int          enabled (void) const;
+
   // cancel a transition
   virtual void  cancelTransition (void);
+
   // priority
   virtual void priority (int pri);
   int          priority (void) const;
+
   // automatic boot flag
   void         enableAutoBoot  (void);
   void         disableAutoBoot (void);
@@ -92,17 +102,22 @@ public:
   friend int operator == (const daqComponent& left, const daqComponent& right);
 
 protected:
+
   // constructor
   daqComponent (char *title);
 
   // priority
   int priority_;
+
   // enabled flag
   int enabled_;
+
   // automatic booting flag
   int autoBoot_;
+
   // monitored by run control flag
   int monitored_;
+
   // check wether one can boot this component or not
   int bootable_;
 };

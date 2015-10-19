@@ -155,12 +155,9 @@ daqComponent::monitored (void) const
 int
 daqComponent::compare (const daqComponent& comp) const
 {
-  if (priority_ == comp.priority_)
-    return 0;
-  else if (priority_ < comp.priority_)
-    return -1;
-  else
-    return 1;
+  if (priority_ == comp.priority_)     return  0;
+  else if (priority_ < comp.priority_) return -1;
+  else                                 return  1;
 }
 
 int operator < (const daqComponent& left, const daqComponent& right)

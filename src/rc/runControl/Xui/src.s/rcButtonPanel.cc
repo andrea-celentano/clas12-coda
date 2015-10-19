@@ -319,12 +319,15 @@ rcButtonPanel::config (int status)
 {
   static int hackIsActive = 0;
 
-  if (status == DA_NOT_CONNECTED) {
+  if (status == DA_NOT_CONNECTED)
+  {
     notConnected ();
   }
-  else {
+  else
+  {
     connected ();
-    switch (status) {
+    switch (status)
+    {
     case DA_DORMANT:
       // printf("    case DA_DORMANT:\n");
       loadAndConfigure ();
@@ -342,16 +345,19 @@ rcButtonPanel::config (int status)
       break;
     case DA_PAUSED:
       // printf("    case DA_PAUSED:\n");
-      if (hackIsActive) {
-	resumeAndEnd ();
-	// For some reason, the code called twice per transition
-	// so set hackIsActive to 2 below and decrement twice.
-	hackIsActive--;
-	//hackIsActive = 0;
-      } else {
-	// printf("RWM:called when: IsActive = %d.", hackIsActive);
-	hackIsActive = 0;
-	goAndEnd ();
+      if (hackIsActive)
+      {
+	    resumeAndEnd ();
+	    // For some reason, the code called twice per transition
+	    // so set hackIsActive to 2 below and decrement twice.
+	    hackIsActive--;
+	    //hackIsActive = 0;
+      }
+      else
+      {
+	    // printf("RWM:called when: IsActive = %d.", hackIsActive);
+	    hackIsActive = 0;
+	    goAndEnd ();
       }
       break;
     case DA_ACTIVE:
@@ -503,12 +509,17 @@ rcButtonPanel::download (void)
   resume_->unmanage ();
   abort_->unmanage ();
 
-  if (!(limitButtons_ & 1)) {
+
+  /*sergey: playing
+panel->runTypeDialog()->popup ();
+*/
+
+  if (!(limitButtons_ & 1))
+  {
     download_->manage ();
   }
   config_->manage ();
-  if (!(limitButtons_ & 2))
-    auto_->manage ();
+  if (!(limitButtons_ & 2)) auto_->manage ();
 }
 
 void
@@ -522,15 +533,16 @@ rcButtonPanel::prestart (void)
   pause_->unmanage ();
   resume_->unmanage ();
 
-  if (!(limitButtons_ & 1)) {
+  if (!(limitButtons_ & 1))
+  {
     prestart_->manage ();
     abort_->manage ();
-  } else {
+  }
+  else
+  {
     config_->manage ();
   }
-  if (!(limitButtons_ & 2)) {
-    auto_->manage ();
-  }
+  if (!(limitButtons_ & 2)) auto_->manage ();
 }
 
 void
@@ -545,12 +557,12 @@ rcButtonPanel::goAndEnd (void)
   resume_->unmanage ();
   abort_->unmanage ();
 
-  if (!(limitButtons_ & 1)) {
+  if (!(limitButtons_ & 1))
+  {
     go_->manage ();
   }
   end_->manage ();
-  if (!(limitButtons_ & 2))
-    auto_->manage ();
+  if (!(limitButtons_ & 2)) auto_->manage ();
 }  
 
 

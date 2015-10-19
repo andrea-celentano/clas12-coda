@@ -818,6 +818,9 @@ main(int argc, char *argv[])
   pthread_t gScalerThread;
 #endif
 
+
+
+  /*always init !!!
   init_boards = 0;
   if(argc==2)
   {
@@ -827,6 +830,10 @@ main(int argc, char *argv[])
       printf("NOTE: boards initialization will be performed, it will break DAQ if running !!!\n");
 	}
   }
+  */
+  init_boards = 1;
+  printf("NOTE: boards initialization will be performed\n");
+
 
 
   if(signal(SIGINT, sig_handler) == SIG_ERR)

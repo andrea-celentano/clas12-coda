@@ -25,7 +25,6 @@
 //   run control source
 //
 //
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
 
 #include <stdio.h>
 #include <string.h>
@@ -60,16 +59,14 @@ rcTokenIButton::~rcTokenIButton (void)
 void
 rcTokenIButton::doit (void)
 {
-  if (!dialog_) {
-    dialog_ = new rcTokenIDialog (this, "Token Interval Dialog", 
-				  "Token Interval",
-				  netHandler_);
+  if (!dialog_)
+  {
+    dialog_ = new rcTokenIDialog (this, "Token Interval Dialog", "Token Interval", netHandler_);
     dialog_->init ();
     dialog_->setMessage ("Enter token interval value");
     dialog_->setTokenInterval (netHandler_.tokenInterval() );
   }
-  if (dialog_->isMapped ())
-    dialog_->popdown ();
+  if (dialog_->isMapped ()) dialog_->popdown ();
   dialog_->popup ();
 }
 
@@ -82,8 +79,7 @@ rcTokenIButton::undoit (void)
 void
 rcTokenIButton::setTokenInterval (int interval)
 {
-  if (dialog_)
-    dialog_->setTokenInterval (interval);
+  if (dialog_) dialog_->setTokenInterval (interval);
 }
 
 int
@@ -95,13 +91,14 @@ rcTokenIButton::tokenInterval (void) const
 void
 rcTokenIButton::sendTokenInterval (int newval)
 {
-  // get client handler
+  /* get client handler */
   rcClient& client = netHandler_.clientHandler ();
 
   daqData data (client.exptname (), "tokenInterval", newval);
   if (client.setValueCallback (data, 
 			       (rcCallback)&(rcTokenIButton::setTICallback),
-			       (void *)this) != CODA_SUCCESS) {
+			       (void *)this) != CODA_SUCCESS)
+  {
     reportErrorMsg ("Cannot send new token interval value to the server !");
     return;
   }
@@ -112,9 +109,9 @@ rcTokenIButton::setTICallback (int status, void* arg, daqNetData* )
 {
   rcTokenIButton* obj = (rcTokenIButton *)arg;
   
-  if (status != CODA_SUCCESS) {
+  if (status != CODA_SUCCESS)
+  {
     obj->reportErrorMsg ("Setting new token interval to the server failed !");
     return;
   }
 }
-#endif

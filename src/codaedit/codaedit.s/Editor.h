@@ -75,7 +75,7 @@ Editor_pixmap.c - assign pixmap file
 
 #define MAX_NUM_PORTS  5
 #define MAX_NUM_IOS    40
-#define MAX_NUM_COMPS  96
+#define MAX_NUM_COMPS  500
 
 typedef struct _comp
 {

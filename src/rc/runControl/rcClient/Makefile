@@ -24,7 +24,8 @@ ifeq ("$(OSTYPE)","SunOS")
   CFLAGS = -g -KPIC -mt -DSunOS -DOSTYPE="SunOS"
 endif
 
-CLON_FLAGS += -I./src.s -I./include -I../Variables/src.s -I../Common/src.s -I../rcServer/include \
+CLON_FLAGS += -I./src.s -I./include -I../Variables/src.s -I../Common/src.s \
+	-I../rcServer/Components.s \
 	-I./pixmaps -I$(CODA)/common/include -I../../cg/cg.s -I../../motif/include \
 	-I../../sace3.1/include -I../../XmHTML-1.1.4/include $(X11INCDIR)
 
@@ -35,6 +36,11 @@ LIBNAMES += ../Common/$(OSTYPE_MACHINE)/lib/libCommon.a
 LIBNAMES += ../../sace3.1/$(OSTYPE_MACHINE)/lib/libsace3.1.a
 
 LIBNAMES += $(globallib)/libmysql4.1.20.a
+
+
+CLON_FLAGS += -DUSE_CREG
+LIBNAMES += $(globallib)/libcreg.a
+
 
 LIBNAMES += $(X11LIBS)
 LIBNAMES += $(SYSLIBS)

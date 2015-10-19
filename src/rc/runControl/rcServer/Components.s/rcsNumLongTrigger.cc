@@ -45,15 +45,19 @@ rcsNumLongTrigger::~rcsNumLongTrigger (void)
 void
 rcsNumLongTrigger::trigger (daqData* data)
 {
-  if (!run_->locked ()) {
-    if (run_->dataLimit () > 0 && ((int)(*data))/256 >= run_->dataLimit () ) {
-      // disable further triggering
+  if (!run_->locked ())
+  {
+    if (run_->dataLimit () > 0 && ((int)(*data))/256 >= run_->dataLimit () )
+    {
+      /* disable further triggering */
       data->disableTrigger ();
-      // use network inteerface with first argument 0 to denote local
-      // call
+
+      /* use network inteerface with first argument 0 to denote local call */
       run_->processCommand (0, DAEND, 0);
     }
-    else 
+    else
+	{ 
       run_->longWords ((int)(*data));
+	}
   }
 }

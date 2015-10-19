@@ -49,6 +49,7 @@ class daqMonitorStruct;
 
 class rcClientHandler: public XcodaInput
 {
+
 public:
 
   rcClientHandler (Widget parent);
@@ -59,6 +60,7 @@ public:
   // cached server run status or connection status
   int     status     (void) const;
   int     connected  (void) const;
+
   // experiment name
   char*   exptname   (void) const;
 
@@ -82,16 +84,23 @@ public:
   // return data log file
   char*   datalogFile         (void) const;
 
-  // sergey: return config file
-  char*   conflogFile         (void) const;
-
   // return data log descriptor
   char*   logFileDescriptor   (void) const;
 
-  // return token inetrval value
+
+
+  // return token interval value
   int     tokenInterval       (void) const;
   // token interval changed, update all panels
   void    setTokenInterval    (int val);
+
+  /* sergey: return config file */
+  char*   confFile         (void) const;
+  /*sergey: when confFile changed, tell everyone attached */
+  void confFileChanged (daqNetData* info, int added);
+
+
+
   // state of server msg to database changed, update all panels
   void    setRcsMsgToDbaseFlag (int state);
 
@@ -120,37 +129,49 @@ public:
 
   // when status changed to change appearance on all panels
   void    status        (int st);
+
   // when the mastership has been changed, change appearance on all panels
   void    mastershipType (int type);
+
   // when the online option has been changed, change appearance on all panels
   void    setOnlineOption (int option);
+
   // when update interval has been changed, change apperance on all panels
   void    setUpdateInterval (int interval);
 
   // return whether all ANA has real logging files
   int     anaLogToRealFiles (void);
 
-  // give direct handle of rcClient
+  /* give direct handle of rcClient */
   rcClient& clientHandler (void);
 
+
 protected:
+
   virtual void input_callback (void);
+
   // monitor on callback for status
   static void  statusCallback (int status, void *arg, daqNetData* data);
+
   // monitor mastership
   static void  mastershipCallback (int status, void* arg, daqNetData* data);
+
   // monitor callback on online/offline option
   static void  onlineCallback     (int status, void* arg, daqNetData* data);
+
   // monitor callback on update interval
   static void  updateIntervalCbk  (int status, void* arg, daqNetData* data);
+
   // monitor on number of clients connections
   static void  clientsCallback (int status, void* arg, daqNetData* data);
+
   // requestMaster and giveup master callback
   static void  reqMastershipCbk   (int status, void* arg, daqNetData* data);
   static void  giveupMastershipCbk(int status, void* arg, daqNetData* data);
 
   // moinitor on all databases
   static void  dbaseCallback      (int status, void* arg, daqNetData* data);
+
   // moinitor on all sessions
   static void  sessionsCallback   (int status, void* arg, daqNetData* data);
   static void  sessionStatusCallback (int status, void* arg, daqNetData* data);
@@ -158,8 +179,15 @@ protected:
   // monitor on log file descriptor
   static void  logFileDesCallback (int status, void* arg, daqNetData* data);
 
+
+
   // monitor token interval
   static void  tokenIntervalCallback (int status, void* arg, daqNetData* data);
+
+  /* sergey: config file callback */
+  static void confFileCallback    (int status, void* arg, daqNetData* data);
+
+
 
   // monitor on rcs msg logging to a database
   static void  rcsMsgToDbaseCbk      (int status, void* arg, daqNetData* data);
@@ -178,9 +206,6 @@ protected:
   // ana log callback
   static void anaLogCallback      (int status, void* arg, daqNetData* data);
 
-  // sergey: config file callback
-  static void confFileCallback    (int status, void* arg, daqNetData* data);
-
   // when any changes happen to a ANA components, tell everyone attached
   // to this handler
   void        anaLogChanged  (daqNetData* info, int added);
@@ -191,14 +216,19 @@ protected:
   // disconnect callback
   static void  discCallback   (int status, void *arg, daqNetData* data);
 
+
 private:
+
   // cached value of runcontrol server status
   int      status_;
+
   // master value
   int      master_;
+
   // all active components
   char*    components_[RCXUI_MAX_COMPONENTS];
   int      numComps_;
+
   // all connected clients
   char*    clients_[RCXUI_MAX_CLIENTS];
   int      numClients_;
@@ -219,9 +249,10 @@ private:
   daqMonitorStruct*  monParms_;
 
   char* datalogFile_;
-  char* conflogFile_; //sergey
   char* logFileDes_;
+
   int   tokenIVal_;
+  char* confFile_; /*sergey*/
 
   // network handler to runcontrol server
   rcClient handler_;

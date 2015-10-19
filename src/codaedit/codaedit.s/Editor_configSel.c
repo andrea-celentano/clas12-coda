@@ -123,7 +123,9 @@ configSelOk (Widget w, XtPointer data, XmAnyCallbackStruct* cbs)
   }
   else
   {
+#ifdef DEBUG
 	printf("configSelOk: currconfig >%s<\n",currconfig); fflush(stdout);
+#endif
 
     XcodaEditorShowConfigName (currconfig);
     if (constructRcnetCompsWithConfig (currconfig, 
@@ -158,7 +160,9 @@ EditorSelectConfig (char *confn)
   ConfigInfo* configs[EDITOR_MAX_CONFIGS];
   int        num_configs;
 
+#ifdef DEBUG
   printf("EditorSelectConfig: confn >%s<\n",confn);
+#endif
 
   currconfig = confn;
 
@@ -209,11 +213,15 @@ initConfigSel (Widget parent)
   Widget actionForm, sep;
   static int configSelInited = 0;
   
+#ifdef DEBUG
   printf("initConfigSel reached\n");
+#endif
 
   if (configSelInited) 
   {
+#ifdef DEBUG
     printf("initConfigSel: already inited - do nothing\n");
+#endif
     return;
   }
 

@@ -12,7 +12,18 @@
 // Description:
 //      RunControl RunConfig Dialog Class
 //
-// Sergey: copied from rcRunTypeDialog.h and modified
+// Author:  
+//      Jie Chen
+//      CEBAF Data Acquisition Group
+//
+// Revision History:
+//   $Log: rcRunConfigDialog.h,v $
+//   Revision 1.2  1997/06/16 12:26:51  heyes
+//   add dbedit and so on
+//
+//   Revision 1.1.1.1  1996/10/11 13:39:24  chen
+//   run control source
+//
 //
 
 #ifndef _RC_RUN_CONFIG_DIALOG_H
@@ -23,14 +34,17 @@
 #include <assert.h>
 
 #include <rcClientHandler.h>
-#include <XcodaFormDialog.h>
+#include <XcodaFileSelDialog.h>
 
 class rcRunConfigOption;
 class XcodaErrorDialog;
+class XcodaFileSelDialog; /*sergey*/
 
-class rcRunConfigDialog: public XcodaFormDialog
+class rcRunConfigDialog: public XcodaFileSelDialog
 {
+
 public:
+
   // constructor and destructor
   rcRunConfigDialog (Widget parent,
 		   char* name,
@@ -38,13 +52,8 @@ public:
 		   rcClientHandler& handler);
   virtual ~rcRunConfigDialog (void);
 
-  // start monitoring runConfig of runControl server
-  // this will be called by runPanel manage routine
-  void startMonitoringRunConfigs (void);
-  void endMonitoringRunConfigs   (void);
-
-  // dialog send out configure command
-  void configure (void);
+  // dialog sends out download command
+  void download (void);
 
   // redefine popup function
   void popup (void);
@@ -52,34 +61,42 @@ public:
   // class name
   virtual const char* className (void) const {return "rcRunConfigDialog";}
 
+
 protected:
-  // implementation of this class required by super class of XcodaFormDialog
-  void createFormChildren (void);
+
+  /* sergey: providing method(s) required by XcodaFileSelDialog */
+  void execute(void);
 
   // report error message
   void reportErrorMsg (char *msg);
 
-  // push button callbacks
-  static void okCallback (Widget, XtPointer data, XmAnyCallbackStruct *);
-  static void cancelCallback (Widget, XtPointer data, XmAnyCallbackStruct *);
+  // send download command to the server callback
+  static void downloadCallback (int status, void* arg, daqNetData* data);
 
-  // send configure command to the server callback
-  static void configureCallback (int status, void* arg, daqNetData* data);
-
-private:
-  // network handler
-  rcClientHandler& netHandler_;
-  // option menu
-  rcRunConfigOption* option_;
-  // widget of pushbuttons
-  // error dialog
-  XcodaErrorDialog* errDialog_;
-  // push button widgets
-  Widget ok_;
-  Widget cancel_;
+  /* send command to update 'confFile' in database */
+  static void confFileCallback (int status, void* arg, daqNetData* );
 
   /*sergey*/
-  Widget filedialog;
+  int parseConfigFile(char *fname);
+  void updateConfFile (char *fname);
+
+
+private:
+
+  // network handler
+  rcClientHandler& netHandler_;
+
+  // option menu
+  //rcRunTypeOption* option_;
+  rcRunConfigOption* option_;
+
+  // widget of pushbuttons
+
+  // error dialog
+  XcodaErrorDialog* errDialog_;
+
+  /*sergey*/
+  char *confname; 
 
 };
 #endif

@@ -158,11 +158,7 @@ rcRunCInfoPanel::init (void)
   XtSetArg (arg[ac], XmNrightPosition, 2); ac++;
   Widget frame3 = XmCreateFrame (sform, "frame3", arg, ac );
   ac = 0;
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   t = XmStringCreateSimple ("Session");
-#else
-  t = XmStringCreateSimple ("Name");
-#endif
   XtSetArg (arg[ac], XmNlabelString, t); ac++;
   XtSetArg (arg[ac], XmNchildType, XmFRAME_TITLE_CHILD); ac++;
   Widget enlabel = XtCreateManagedWidget ("expnameLabel",
@@ -180,7 +176,12 @@ rcRunCInfoPanel::init (void)
 				     frame3, arg, ac);
   XmStringFree (t);  
 
-  // create label for experiment run type
+
+
+
+  /****************************************/
+  /* create label for experiment run type */
+
   ac = 0;
   XtSetArg (arg[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
   XtSetArg (arg[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
@@ -206,7 +207,7 @@ rcRunCInfoPanel::init (void)
   t = XmStringCreateSimple ("");
   XtSetArg (arg[ac], XmNlabelString, t); ac++;
   XtSetArg (arg[ac], XmNrecomputeSize, FALSE); ac++;
-  runType_ = XtCreateManagedWidget ("runType",xmLabelWidgetClass, frame4, arg, ac); /* sergey: runTypee scruds up color of Configuration fiend */
+  runType_ = XtCreateManagedWidget ("runType",xmLabelWidgetClass, frame4, arg, ac); /* sergey: runTypee scruds up color of Configuration field */
   XmStringFree (t);
 
 
@@ -223,8 +224,9 @@ rcRunCInfoPanel::init (void)
 
 
 
+  /***************************************/
+  /* create run control server host info */
 
-  // create run control server host info
   ac = 0;
   XtSetArg (arg[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
   XtSetArg (arg[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;

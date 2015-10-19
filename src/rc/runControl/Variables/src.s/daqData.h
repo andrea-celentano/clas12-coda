@@ -44,12 +44,14 @@ typedef void (*daqUpdater)(char *compname,
 class daqData
 {
 public:
+
   // constructors and destructor
   daqData (char* compname, char* attrname, int    data);
   daqData (char* compname, char* attrname, float  data);
   daqData (char* compname, char* attrname, double data);
   daqData (char* compname, char* attrname, char*  data);
   daqData (char* compname, char* attrname, daqArbStruct*  data);
+
   // constructors for array of elements
   daqData (char* compname, char* attrname, int* data, int count);
   daqData (char* compname, char* attrname, float* data, int count);
@@ -178,17 +180,24 @@ protected:
 
   // real network data
   daqNetData data_;
-  // Monitor Channels
-  // use void* to represent TCP/Callbacks
+
+  /* Monitor Channels */
+  /* use void* to represent TCP/Callbacks */
   codaSlist channels_;
+
   // get callback list
   codaSlist getCbkList_;
+
   // set callback list
   codaSlist setCbkList_;
+
   // monitorOff callback list
   codaSlist offCbkList_;
 
+
+
 private:
+
   // data area
   char       *key_;
   int        active_;

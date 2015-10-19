@@ -46,14 +46,14 @@ rcRepCompOption::rcRepCompOption (Widget parent, char* name,
  dpanel_ (panel), numComp_ (0)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("                   Create rcRepCompOption Class Object\n");
+  printf ("rcRepCompOption::rcRepCompOption: Create rcRepCompOption Class Object\n");
 #endif
 }
 
 rcRepCompOption::~rcRepCompOption (void)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("                   Delete rcRepCompOption Class Object\n");
+  printf ("rcRepCompOption::rcRepCompOption: Delete rcRepCompOption Class Object\n");
 #endif
   for (int i = 0; i < numComp_; i++)
     delete []components_[i];
@@ -63,7 +63,8 @@ void
 rcRepCompOption::manage (void)
 {
   XcodaSimpleOptionMenu::manage ();
-  // add monitor on callbacks for active components
+
+  /* add monitor on callbacks for active components */
   rcClient& client = netHandler_.clientHandler ();
   if (client.monitorOnCallback (client.exptname (), "components",
                                 (rcCallback)&(rcRepCompOption::compCallback),
@@ -75,7 +76,8 @@ void
 rcRepCompOption::unmanage (void)
 {
   XcodaSimpleOptionMenu::unmanage ();
-  // add monitor off callback
+
+  /* add monitor off callback */
   rcClient& client = netHandler_.clientHandler ();
   if (client.monitorOffCallback (client.exptname (), "components",
 				 (rcCallback)&(rcRepCompOption::compCallback),
@@ -93,16 +95,19 @@ rcRepCompOption::compCallback (int status, void* arg, daqNetData* data)
 {
   rcRepCompOption* obj = (rcRepCompOption *)arg;
 
-  if (status == CODA_SUCCESS) {
-    // do not expect more than RCXUI_MAX_COMPONENTS components
+  printf("+++++ rcRepCompOption::compCallback: obj->numComp_=%d\n",obj->numComp_);
+
+  if (status == CODA_SUCCESS)
+  {
+    /* do not expect more than RCXUI_MAX_COMPONENTS components */
     int count = RCXUI_MAX_COMPONENTS;
     
-    // delete old result
-    for (int i = 0; i < obj->numComp_; i++)
-      delete obj->components_[i];
+    /* delete old result */
+    for (int i = 0; i < obj->numComp_; i++) delete obj->components_[i];
     obj->numComp_ = 0;
 
-    if (data->getData (obj->components_, count) != CODA_ERROR) {
+    if (data->getData (obj->components_, count) != CODA_ERROR)
+    {
       obj->removeAll ();
       obj->numComp_ = count;
       obj->addEntries (obj->components_, count);
@@ -117,13 +122,20 @@ rcRepCompOption::offCallback (int status, void *, daqNetData* data)
     printf ("monitor off failed\n");
 }
 
+
+/* called when component switched in runcontrol GUI ( see "Read From:") */
 void
 rcRepCompOption::doit (void)
 {
   assert (currentSel_ < numComp_);
 
-  if (netHandler_.status () >= DA_DOWNLOADED ) {
-    if (currentSel_ != prevSel_) {
+  printf("rcRepCompOption::doit reached, switching from >%s< to >%s<\n",components_[prevSel_],components_[currentSel_]);
+
+  /* if DA_DOWNLOADED, then stop monitoring previous component and start monitoring new one */
+  if (netHandler_.status () >= DA_DOWNLOADED )
+  {
+    if (currentSel_ != prevSel_)
+    {
       dpanel_->stopMonitoringInfo (components_[prevSel_]);
       dpanel_->startMonitoringInfo (components_[currentSel_]);
     }

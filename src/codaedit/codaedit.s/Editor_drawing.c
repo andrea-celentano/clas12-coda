@@ -67,11 +67,9 @@
 #include "Editor_drawing.h"
 #include "Editor_pixmap.h"
 
-#if defined (__STDC__)
-void setCompState(char *name,int state);
-#else
-void setCompState(name,state);
-#endif
+#undef DEBUG
+
+void setCompState(char *name, int state);
 
 static char *names[] = {
   "TS",
@@ -332,23 +330,14 @@ static int XTextHeight(font)
  * Description:                                               *
  *    draw all CODA supported daq components                  *
  *************************************************************/
-#if defined (__STDC__)
-void draw_original(drawComp* draw_comp, 
-		   Display* dpy, 
-		   Drawable win, 
-		   int x, int y, 
-		   Dimension wd, 
-		   Dimension ht, 
-		   int r, int c)
-#else
-void draw_original(draw_comp, dpy, win, x, y, wd, ht, r, c)
-     drawComp *draw_comp;
-     Display *dpy;
-     Drawable win;
-     int      x, y;
-     int      r, c;
-     Dimension wd, ht;
-#endif
+void
+draw_original(drawComp* draw_comp, 
+			  Display* dpy, 
+			  Drawable win, 
+			  int x, int y, 
+			  Dimension wd, 
+			  Dimension ht, 
+			  int r, int c)
 {
   Dimension xdiv, ydiv;
   XPoint    pp[10];
@@ -414,7 +403,8 @@ void draw_original(draw_comp, dpy, win, x, y, wd, ht, r, c)
 		   rec_ht);
 		   */
     i = sw_geometry.zoomscale - 1;
-    if (i>0) {
+    if (i>0)
+    {
       XSetForeground(dpy, gc, xgc.Black);
       XSetFont(dpy, gc, xgc.font[2]->fid);
       yy = xgc.font[2]->max_bounds.ascent + y + 2;
@@ -422,17 +412,19 @@ void draw_original(draw_comp, dpy, win, x, y, wd, ht, r, c)
       xx = x + wd - text_wd - xgc.font[2]->max_bounds.ascent/2;
       XDrawString(dpy, win, gc, xx, yy, long_name, strlen(long_name));
     }
+
     {
       ipPort   *port;
       int      i;
-      for(i=0;i <draw_comp->num_ports; i++){
-	port = &(draw_comp->ip_port[i]);
-	(*port->write_name)(port, dpy, win);
+      for(i=0;i <draw_comp->num_ports; i++)
+      {
+	    port = &(draw_comp->ip_port[i]);
+	    (*port->write_name)(port, dpy, win);
       }
       draw_host_name(draw_comp,dpy,win);
       draw_comp_name(draw_comp,dpy,win);
       if (draw_comp->comp.comp_name)
-	setCompState(draw_comp->comp.comp_name,-1);
+	    setCompState(draw_comp->comp.comp_name, -1);
     }
   }
   else /* sergey: starting from data files */
@@ -480,7 +472,9 @@ void draw_original(draw_comp, dpy, win, x, y, wd, ht, r, c)
       if (draw_comp->comp.code[0])
       {
 	    int j;
+#ifdef DEBUG
         printf("Editor_drawing::draw_original: code[0] >%s<\n",draw_comp->comp.code[0]);
+#endif
 	    for(j=strlen(draw_comp->comp.code[0]);j>0;j--)
 		{
 	      if (draw_comp->comp.code[0][j] == '/')
@@ -489,18 +483,26 @@ void draw_original(draw_comp, dpy, win, x, y, wd, ht, r, c)
 	        break;
 	      }
 		}
+#ifdef DEBUG
         printf("Editor_drawing::draw_original: &code[0][%d] >%s<\n",j,(char *)&draw_comp->comp.code[0][j]);
+#endif
 	    long_name = &draw_comp->comp.code[0][j];
 	    yy = xgc.font[2]->max_bounds.ascent + y + 2;
 	    xx = x +  xgc.font[2]->max_bounds.ascent/2;
+#ifdef DEBUG
         printf("Editor_drawing::draw_original: long_name 1 >%s<\n",long_name);
+#endif
 	    XDrawString(dpy, win, gc, xx, yy, long_name, strlen(long_name)); /* sergey: text in upper left corner (file name without path) */
       }
       yy = ht - xgc.font[2]->max_bounds.ascent + y + 2;
       xx = x +  xgc.font[2]->max_bounds.ascent/2;
+#ifdef DEBUG
       printf("draw_comp->comp.type=%d\n",draw_comp->comp.type);
+#endif
       long_name = names[draw_comp->comp.type];
-        printf("Editor_drawing::draw_original: long_name 2 >%s<\n",long_name);
+#ifdef DEBUG
+      printf("Editor_drawing::draw_original: long_name 2 >%s<\n",long_name);
+#endif
       XDrawString(dpy, win, gc, xx, yy, long_name, strlen(long_name)); /* sergey: text in bottom left corner (usually 'Coda file')*/
 
     }
@@ -513,21 +515,13 @@ void draw_original(draw_comp, dpy, win, x, y, wd, ht, r, c)
  * Description:                                                *
  *    Draw a moving component                                  *
  ***************************************************************/
-#if defined (__STDC__)
-void draw_rubber_comp(drawComp* draw_comp, 
-		      Display* dpy, 
-		      Drawable win, 
-		      int x, int y, 
-		      Dimension wd, 
-		      Dimension ht)
-#else
-void draw_rubber_comp(draw_comp, dpy, win, x, y, wd, ht)
-     drawComp *draw_comp;
-     Display *dpy;
-     Drawable win;
-     int      x, y;
-     Dimension wd, ht;
-#endif
+void
+draw_rubber_comp(drawComp* draw_comp, 
+				 Display* dpy, 
+				 Drawable win, 
+				 int x, int y, 
+				 Dimension wd, 
+				 Dimension ht)
 {
   Dimension xdiv, ydiv;
   XPoint    pp[10];
@@ -542,8 +536,7 @@ void draw_rubber_comp(draw_comp, dpy, win, x, y, wd, ht)
   char *short_name = "U";
 
   /* if either x or y is out of viewing region, do nothing */
-  if (y < 0 || x < 0)
-    return;
+  if (y < 0 || x < 0) return;
 
   XSetLineAttributes(dpy, gc, 1, LineSolid, CapButt, JoinRound);
   
@@ -585,7 +578,7 @@ void draw_rubber_comp(draw_comp, dpy, win, x, y, wd, ht)
 		   wd-1,
 		   rec_ht);*/
     if (draw_comp->comp.comp_name)
-      setCompState(draw_comp->comp.comp_name,-1);
+      setCompState(draw_comp->comp.comp_name, -1);
 
     i = sw_geometry.zoomscale - 1;
     if (i>0)
@@ -606,7 +599,9 @@ void draw_rubber_comp(draw_comp, dpy, win, x, y, wd, ht)
   else
   {
     long_name = draw_comp->comp.code[0];
+#ifdef DEBUG
     printf("Editor_drawing::draw_rubber_comp: long_name 1 >%s<\n",long_name);
+#endif
 
     XSetForeground(dpy, gc, xgc.White);
     XFillRectangle(dpy, win,gc,x,y,wd,ht);
@@ -655,7 +650,9 @@ void draw_rubber_comp(draw_comp, dpy, win, x, y, wd, ht)
       yy = ht - xgc.font[2]->max_bounds.ascent + y + 2;
       xx = x +  xgc.font[2]->max_bounds.ascent/2;
       long_name = names[draw_comp->comp.type];
+#ifdef DEBUG
       printf("Editor_drawing::draw_rubber_comp: long_name 2 >%s<\n",long_name);
+#endif
       XDrawString(dpy, win, gc, xx, yy, long_name, strlen(long_name));
       
     }
@@ -770,14 +767,19 @@ erase_comp(drawComp* p,
 }
 
 /**************************************************************
- *  void setCompState()                                         *
+ *  void setCompState()                                       *
  * Description:                                               *
- *    erase a particular component                            *
+ *    set state for particular component                      *
  *************************************************************/
 void
-setCompState(char *name,int state)
+setCompState(char *name, int state)
 {
   compList *p2;
+
+#ifdef DEBUG
+  printf("Editor_drawing::setCompState: name >%s<, state=%d\n",name,state);
+#endif
+
   for(p2 = coda_graph.comp_list_head->next; p2 != coda_graph.comp_list_tail;p2=p2->next)
   {
     drawComp *comp;
@@ -797,12 +799,18 @@ setCompState(char *name,int state)
       int wd = comp->width;
  
       if ((daq->status <=0) || ( daq->status >=DA_STATES))
+	  {
 	    daq->status = 0;
+	  }
 
       if ((state <=0) || ( state >=DA_STATES))
+	  {
 	    state = daq->status;
+	  }
       else
+	  {
 	    daq->status = state;
+	  }
 
       y -= 1;
       x += 1;
@@ -810,57 +818,57 @@ setCompState(char *name,int state)
       switch (state)
       {
       case DA_BOOTING:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.Yellow);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.Yellow);
+	    break;
       case DA_BOOTED:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.Yellow);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.Yellow);
+	    break;
       case DA_CONFIGURING:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.Yellow);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.Yellow);
+	    break;
       case DA_CONFIGURED:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.Yellow);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.Yellow);
+	    break;
       case DA_DOWNLOADED:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.White);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.White);
+	    break;
       case DA_PRESTARTING:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.Cyan);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.Cyan);
+	    break;
       case DA_PAUSED:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.Paused);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.Paused);
+	    break;
       case DA_PAUSING:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.White);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.White);
+	    break;
       case DA_ACTIVATING:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.White);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.White);
+	    break;
       case DA_ACTIVE:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.Green);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.Green);
+	    break;
       case DA_ENDING:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.Ending);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.Ending);
+	    break;
       case DA_VERIFYING:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.White);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.White);
+	    break;
       case DA_VERIFIED:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.White);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.White);
+	    break;
       case DA_TERMINATING:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.Red);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.Red);
+	    break;
       case DA_PRESTARTED:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.Paused);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.Paused);
+	    break;
       case DA_RESUMING:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.White);
-	break;
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.White);
+	    break;
       case DA_UNKNOWN:
-	continue;
+	    continue;
       default:
-	XSetForeground(xgc.dpy, xgc.r_gc, xgc.Red);
+	    XSetForeground(xgc.dpy, xgc.r_gc, xgc.Red);
       }
 
       XFillRectangle(xgc.dpy, win,xgc.r_gc,x,
@@ -919,7 +927,9 @@ void draw_comp_name(comp, dpy, win)
     xx = comp->x + comp->width/8 + xgc.font[2]->max_bounds.ascent/2;
     yy = comp->y + xgc.font[2]->max_bounds.ascent + 2;
     XSetFont(dpy, gc, xgc.font[2]->fid);
+#ifdef DEBUG
     printf("Editor_drawing::draw_comp_name: >%s<\n",daq->comp_name);
+#endif
     XDrawString(dpy, win, gc, xx, yy, daq->comp_name, strlen(daq->comp_name));
   }
 }
@@ -951,7 +961,9 @@ erase_comp_name(drawComp* comp,
       xx = comp->x + comp->width/8 + xgc.font[2]->max_bounds.ascent/2;
       yy = comp->y + xgc.font[2]->max_bounds.ascent + 2;
       XSetFont(dpy, gc, xgc.font[2]->fid);
+#ifdef DEBUG
       printf("Editor_drawing::erase_comp_name: >%s<\n",daq->comp_name);
+#endif
       XDrawString(dpy, win, gc, xx, yy, daq->comp_name, strlen(daq->comp_name));
       /*XFillRectangle(dpy, win, gc, xx, yy, text_wd, text_ht);*/
     }
@@ -995,7 +1007,9 @@ void move_comp_name(comp, dpy, win, x, y, wd, ht)
       xx = x + comp->width/8 + xgc.font[2]->max_bounds.ascent/2;
       yy = y + xgc.font[2]->max_bounds.ascent + 2;
       XSetFont(dpy, gc, xgc.font[2]->fid);
+#ifdef DEBUG
       printf("Editor_drawing::move_comp_name: >%s<\n",daq->comp_name);
+#endif
       XDrawString(dpy, win, gc, xx, yy, daq->comp_name, strlen(daq->comp_name));      
     }
   }
@@ -1031,7 +1045,9 @@ void draw_host_name(comp, dpy, win)
       xx = comp->x + comp->width/8 +xgc.font[2]->max_bounds.ascent/2;
       yy = comp->y + xgc.font[2]->max_bounds.ascent*2 + 4;
       XSetFont(dpy, gc, xgc.font[2]->fid);
+#ifdef DEBUG
       printf("Editor_drawing::draw_host_name: >%s<\n",daq->node_name);
+#endif
       XDrawString(dpy, win, gc, xx, yy, daq->node_name, 
 		  strlen(daq->node_name));
     }
@@ -1107,7 +1123,9 @@ void move_host_name(comp, dpy, win, x, y, wd, ht)
       xx = x + comp->width/8 + xgc.font[2]->max_bounds.ascent/2;
       yy = y + xgc.font[2]->max_bounds.ascent*2 + 4;
       XSetFont(dpy, gc, xgc.font[2]->fid);
+#ifdef DEBUG
       printf("Editor_drawing::move_host_name: >%s<\n",daq->node_name);
+#endif
       XDrawString(dpy, win, gc, xx, yy, daq->node_name, 
 		  strlen(daq->node_name));      
     }

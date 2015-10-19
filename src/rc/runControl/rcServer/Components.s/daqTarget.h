@@ -40,7 +40,9 @@
 
 class daqTarget: public target
 {
+
 public:
+
   // operations
   virtual int configure (void) = 0;
   virtual int download  (void) = 0;
@@ -53,11 +55,14 @@ public:
 
   // set state
   void  setState (int newst);
+
   // get state information
   virtual int   state (void);
+
   // state2 may return real network call 
   // while state1 may return internal information
   virtual int   state2 (void);
+
   // get previous state information
   virtual int   previousState (void);
   
@@ -77,20 +82,25 @@ public:
   virtual ~daqTarget (void);
   
 protected:
+
   // constructor
   daqTarget (char *title);
 
   // data area
+
   // current state
   int state_;
+
   // previous stage state
   int prevState_;
+
   // usually it is ok to check state information locally. The following
   // is the flag to tell whether one has to go out to find real
   // state information from remote (or not) component. This usually happens
   // when one goes through a state transition
   int prevtime_;
   int overrideState_;
+
   // target status from transition
   int status_;
 };

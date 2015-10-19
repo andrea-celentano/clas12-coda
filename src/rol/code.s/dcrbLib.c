@@ -619,7 +619,7 @@ dcrbStatus(int id, int sflag)
   unsigned int intr, geo;
   unsigned int fifoWordCnt, fifoEventCnt, fifoBlockCnt;
   unsigned int readoutCfg;
-  unsigned int chDisable[3], tdcConfig[3];
+  unsigned int chDisable[6], tdcConfig[6];
 
   if(id==0) id=dcrbID[0];
 
@@ -656,9 +656,15 @@ dcrbStatus(int id, int sflag)
   tdcConfig[0] = vmeRead32(&DCRBp[id]->Tdc[0].DeadCycles);
   tdcConfig[1] = vmeRead32(&DCRBp[id]->Tdc[1].DeadCycles);
   tdcConfig[2] = vmeRead32(&DCRBp[id]->Tdc[2].DeadCycles);
+  tdcConfig[3] = vmeRead32(&DCRBp[id]->Tdc[3].DeadCycles);
+  tdcConfig[4] = vmeRead32(&DCRBp[id]->Tdc[4].DeadCycles);
+  tdcConfig[5] = vmeRead32(&DCRBp[id]->Tdc[5].DeadCycles);
   chDisable[0] = ~(vmeRead32(&DCRBp[id]->Tdc[0].EnableN));
   chDisable[1] = ~(vmeRead32(&DCRBp[id]->Tdc[1].EnableN));
   chDisable[2] = ~(vmeRead32(&DCRBp[id]->Tdc[2].EnableN));
+  chDisable[3] = ~(vmeRead32(&DCRBp[id]->Tdc[3].EnableN));
+  chDisable[4] = ~(vmeRead32(&DCRBp[id]->Tdc[4].EnableN));
+  chDisable[5] = ~(vmeRead32(&DCRBp[id]->Tdc[5].EnableN));
   DCRBUNLOCK;
 
 #ifdef VXWORKS
@@ -735,16 +741,19 @@ dcrbStatus(int id, int sflag)
     printf("   MultiBlock transfer DISABLED\n");
 
   printf("\n TDC Processing Configuration:\n");
-  printf("   Channel Disable Mask[31- 0] = 0x%08x, Deadtime = %d\n", chDisable[0], tdcConfig[0]*8);
-  printf("   Channel Disable Mask[63-32] = 0x%08x, Deadtime = %d\n", chDisable[1], tdcConfig[1]*8);
-  printf("   Channel Disable Mask[95-64] = 0x%08x, Deadtime = %d\n", chDisable[2], tdcConfig[2]*8);
+  printf("   Channel Disable Mask[15- 0] = 0x%04x, Deadtime = %d\n", chDisable[0], tdcConfig[0]*8);
+  printf("   Channel Disable Mask[31-16] = 0x%04x, Deadtime = %d\n", chDisable[1], tdcConfig[1]*8);
+  printf("   Channel Disable Mask[47-32] = 0x%04x, Deadtime = %d\n", chDisable[2], tdcConfig[2]*8);
+  printf("   Channel Disable Mask[63-48] = 0x%04x, Deadtime = %d\n", chDisable[3], tdcConfig[3]*8);
+  printf("   Channel Disable Mask[79-64] = 0x%04x, Deadtime = %d\n", chDisable[4], tdcConfig[4]*8);
+  printf("   Channel Disable Mask[95-80] = 0x%04x, Deadtime = %d\n", chDisable[5], tdcConfig[5]*8);
   printf("   Lookback (PL)    = %d ns   Time Window (PTW) = %d ns\n", lookBack, windowWidth);
 
   printf("   Blocks in FIFO  = %u  (Block level = %d)\n", fifoBlockCnt, blockConfig & 0x7ff);
   printf("   Events in FIFO  = %u\n", fifoEventCnt);
   printf("   Words in FIFO   = %u = %u\n", fifoWordCnt);
   
-  printf("\n DAC Threshold: %dmV", dacConfig-2048);
+  printf("\n DAC Threshold: %dmV", dcrbGetDAC(id));
   printf("\n");
 }
 
@@ -801,6 +810,9 @@ dcrbSetProcMode(int id, unsigned int lookBack, unsigned int windowWidth, unsigne
   vmeWrite32(&DCRBp[id]->Tdc[0].DeadCycles, deadTime);
   vmeWrite32(&DCRBp[id]->Tdc[1].DeadCycles, deadTime);
   vmeWrite32(&DCRBp[id]->Tdc[2].DeadCycles, deadTime);
+  vmeWrite32(&DCRBp[id]->Tdc[3].DeadCycles, deadTime);
+  vmeWrite32(&DCRBp[id]->Tdc[4].DeadCycles, deadTime);
+  vmeWrite32(&DCRBp[id]->Tdc[5].DeadCycles, deadTime);
   DCRBUNLOCK;
 
   return(OK);
@@ -1320,9 +1332,12 @@ dcrbChanDisable(int id, unsigned int cmask0, unsigned int cmask1, unsigned int c
 
   DCRBLOCK;
   /* Write New Disable Mask */
-  vmeWrite32(&(DCRBp[id]->Tdc[0].EnableN), cmask0);
-  vmeWrite32(&(DCRBp[id]->Tdc[1].EnableN), cmask1);
-  vmeWrite32(&(DCRBp[id]->Tdc[2].EnableN), cmask2);
+  vmeWrite32(&(DCRBp[id]->Tdc[0].EnableN), (cmask0>>0)&0xFFFF);
+  vmeWrite32(&(DCRBp[id]->Tdc[1].EnableN), (cmask0>>16)&0xFFFF);
+  vmeWrite32(&(DCRBp[id]->Tdc[2].EnableN), (cmask1>>0)&0xFFFF);
+  vmeWrite32(&(DCRBp[id]->Tdc[3].EnableN), (cmask1>>16)&0xFFFF);
+  vmeWrite32(&(DCRBp[id]->Tdc[4].EnableN), (cmask2>>0)&0xFFFF);
+  vmeWrite32(&(DCRBp[id]->Tdc[5].EnableN), (cmask2>>16)&0xFFFF);
   DCRBUNLOCK;
 
 }

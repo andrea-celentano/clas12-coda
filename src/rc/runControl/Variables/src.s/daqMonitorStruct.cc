@@ -49,7 +49,8 @@ daqMonitorStruct::daqMonitorStruct (void)
 
   c_.components_ = new char*[daqMonitorStruct::maxNumComps];
 
-  for (int i = 0; i < daqMonitorStruct::maxNumComps; i++) {
+  for (int i = 0; i < daqMonitorStruct::maxNumComps; i++)
+  {
     m_.monitored_[i] = -1;
     c_.components_[i] = 0;
   }
@@ -73,8 +74,10 @@ daqMonitorStruct::dup (void)
 {
   daqMonitorStruct* tmp = new daqMonitorStruct ();
 
-  if (numComponents_ > 0) {
-    for (int i = 0; i < numComponents_; i++) {
+  if (numComponents_ > 0)
+  {
+    for (int i = 0; i < numComponents_; i++)
+    {
       tmp->m_.monitored_[i] = m_.monitored_[i];
       tmp->c_.components_[i] = new char[daqMonitorStruct::maxCompNameLen];
       ::strcpy (tmp->c_.components_[i], c_.components_[i]);
@@ -137,11 +140,13 @@ daqMonitorStruct::timerInterval (void) const
 /*long*/int64_t
 daqMonitorStruct::monitorParms (char** &components, int64_t*/*long*/ &monitored, long& autoend, long& interval)
 {
-  if (numComponents_ > 0) {
+  if (numComponents_ > 0)
+  {
     components = c_.components_;
     monitored = m_.monitored_;
   }
-  else {
+  else
+  {
     components = 0;
     monitored = 0;
   }
@@ -164,7 +169,8 @@ daqMonitorStruct::cleanUp (void)
 void
 daqMonitorStruct::encodeData (void)
 {
-  if (numComponents_ > 0) {
+  if (numComponents_ > 0)
+  {
     for (int i = 0; i < numComponents_; i++)
       m_.monitored_[i] = htonl (m_.monitored_[i]);
   }
@@ -182,7 +188,8 @@ daqMonitorStruct::restoreData (void)
   autoend_ = ntohl (autoend_);
   interval_ = ntohl (interval_);
 
-  if (numComponents_ > 0) {
+  if (numComponents_ > 0)
+  {
     for (int i = 0; i < numComponents_; i++)
       m_.monitored_[i] = ntohl (m_.monitored_[i]);
   }
@@ -206,7 +213,8 @@ daqMonitorStruct::encode (char* buffer, size_t& bufsize)
   i += numComps*sizeof (/*long*/int64_t);
 
   // copy all components to the buffer
-  for (j = 0; j < numComps; j++) {
+  for (j = 0; j < numComps; j++)
+  {
     ::memcpy (&(buffer[i]), (void *)c_.components_[j], 
     daqMonitorStruct::maxCompNameLen);
     i = i + daqMonitorStruct::maxCompNameLen;
@@ -240,7 +248,8 @@ daqMonitorStruct::decode (char* buffer, size_t size)
   autoend_ = ntohl (autoend_);
   interval_ = ntohl (interval_);
 
-  if (numComponents_) {
+  if (numComponents_)
+  {
     // make sure number of components < maximum number of components
     assert (numComponents_ < (daqMonitorStruct::maxNumComps));
 
@@ -253,7 +262,8 @@ daqMonitorStruct::decode (char* buffer, size_t size)
     i += numComponents_*sizeof (/*long*/int64_t);
 
     // copy components name info
-    for (j = 0; j < numComponents_; j++) {
+    for (j = 0; j < numComponents_; j++)
+    {
       c_.components_[j] = new char[(daqMonitorStruct::maxCompNameLen)];
       ::memcpy ((void *)c_.components_[j], &(buffer[i]),
       daqMonitorStruct::maxCompNameLen);
@@ -273,7 +283,8 @@ daqMonitorStruct::size (void)
 
   s += realsize;
 
-  if (numComponents_ > 0) {
+  if (numComponents_ > 0)
+  {
     s = s + sizeof (/*long*/int64_t)*numComponents_;
     s = s + numComponents_*(daqMonitorStruct::maxCompNameLen);
   }
@@ -289,7 +300,8 @@ daqMonitorStruct::id (void)
 void
 daqMonitorStruct::dumpAll (void)
 {
-  for (int i = 0; i < numComponents_; i++) {
+  for (int i = 0; i < numComponents_; i++)
+  {
     printf ("Component %s monitored info %d\n", c_.components_[i],
 	    m_.monitored_[i]);
   }

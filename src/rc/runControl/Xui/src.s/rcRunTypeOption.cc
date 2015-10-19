@@ -71,22 +71,20 @@ rcRunTypeOption::~rcRunTypeOption (void)
 #ifdef _TRACE_OBJECTS
   printf ("                       Delete rcRunTypeOption Class Object\n");
 #endif
-  if (currRunType_)
-    delete []currRunType_;
-
-  for (int i = 0; i < numRuntypes_; i++)
-    delete []runtypes_[i];
+  if (currRunType_) delete []currRunType_;
+  for (int i = 0; i < numRuntypes_; i++) delete []runtypes_[i];
 }
 
 
-/* sergey: access 'runTypes' db table here ???*/
+/* sergey: allows access 'runTypes' db table */
 void
 rcRunTypeOption::startMonitoringRunTypes (void)
 {
   rcClient& client = netHandler_.clientHandler ();
   if (client.monitorOnCallback (client.exptname (), "allRunTypes",
 				(rcCallback)&(rcRunTypeOption::runTypesCallback),
-				(void *)this) != CODA_SUCCESS) {
+				(void *)this) != CODA_SUCCESS)
+  {
 #ifdef _CODA_DEBUG
     fprintf (stderr, "Cannot register monitor on allRunTypes callback\n");
 #endif
@@ -101,7 +99,8 @@ rcRunTypeOption::endMonitoringRunTypes (void)
 				 (rcCallback)&(rcRunTypeOption::runTypesCallback),
 				 (void *)this,
 				 (rcCallback)&(rcRunTypeOption::offCallback),
-				 (void *)this) != CODA_SUCCESS) {
+				 (void *)this) != CODA_SUCCESS)
+  {
 #ifdef _CODA_DEBUG
     fprintf (stderr, "Cannot register monitor off allRunTypes callback\n");
 #endif
@@ -113,24 +112,24 @@ rcRunTypeOption::runTypesCallback (int status, void* arg, daqNetData* data)
 {
   rcRunTypeOption* obj = (rcRunTypeOption *)arg;
 
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     // do not expecet more than 100 run types
     int count = RCXUI_MAX_RUNTYPES;
 
     // delete old run types
-    for (int i = 0; i < obj->numRuntypes_; i++)
-      delete obj->runtypes_[i];
+    for (int i = 0; i < obj->numRuntypes_; i++) delete obj->runtypes_[i];
     obj->numRuntypes_ = 0;
 
-    if (data->getData (obj->runtypes_, count) != CODA_ERROR) 
-      obj->numRuntypes_ = count;
+    if (data->getData (obj->runtypes_, count) != CODA_ERROR) obj->numRuntypes_ = count;
   }
 }
 
 void
 rcRunTypeOption::offCallback (int status, void* , daqNetData* data)
 {
-  if (status != CODA_SUCCESS) {
+  if (status != CODA_SUCCESS)
+  {
 #ifdef _CODA_DEBUG
     printf ("monitor off failed\n");
 #endif
@@ -144,28 +143,30 @@ rcRunTypeOption::setAllEntries (void)
   // clean up old entries and add new ones
   removeAll  ();
 
-  if (currRunType_) {
-    for (i = 0; i < numRuntypes_; i++) {
-      if (::strcmp (currRunType_, runtypes_[i]) == 0) 
-	break;
+  if (currRunType_)
+  {
+    for (i = 0; i < numRuntypes_; i++)
+    {
+      if (::strcmp (currRunType_, runtypes_[i]) == 0) break;
     }
-    if (i < numRuntypes_)
-      addEntries (runtypes_, numRuntypes_, i);
-    else
-      addEntries (runtypes_, numRuntypes_);
+
+    if (i < numRuntypes_) addEntries (runtypes_, numRuntypes_, i);
+    else                  addEntries (runtypes_, numRuntypes_);
   }
   else
+  {
     addEntries (runtypes_, numRuntypes_);
+  }
 }
 
+/*
 extern int doTk;
+*/
 
 char *
 rcRunTypeOption::currentRunType (void)
 {
-  printf("rcRunTypeOption::currentRunType 1 ---------------------------\n");
   assert (currentSel_ < numRuntypes_);
-  printf("rcRunTypeOption::currentRunType 2 ---------------------------\n");
 
   // remove old information
   if (currRunType_) delete []currRunType_;
@@ -180,18 +181,6 @@ rcRunTypeOption::currentRunType (void)
     currRunType_ = new char[::strlen (runtypes_[currentSel_]) + 1];
     ::strcpy (currRunType_, runtypes_[currentSel_]);
 
-	/*
-    {
-      char cmd[100];
-      sprintf(cmd,"c:%s",currRunType_);
-printf("CEDIT 4: >%s<\n",cmd);
-#ifdef USE_CREG
-      coda_Send(XtDisplay(this->baseWidget()),"CEDIT",cmd);
-      coda_Send(XtDisplay(this->baseWidget()),"ALLROCS",cmd);
-#endif
-    }
-    */
-
-    return runtypes_[currentSel_];
+    return(runtypes_[currentSel_]);
   }
 }

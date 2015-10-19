@@ -66,7 +66,7 @@ public:
   ~rcClient (void);
 
   // client interface
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   //=======================================================================
   // int connect (char* database, char* exptname)
   //     Try to establish connection to server with name exptname
@@ -76,7 +76,6 @@ public:
   //     return anything else for failure
   //=======================================================================
   int connect (char* database, char* exptname, char* msql = 0);
-#endif
 
 
   //=======================================================================
@@ -228,6 +227,7 @@ protected:
   rcClient& operator = (const rcClient&);
 
   static void attr2Callback (int status, void* arg, daqNetData* data);
+  static void attr6Callback (int status, void* arg, daqNetData* data);
   static void offCallback (int status, void* arg, daqNetData* data);
 
   // inherited functions from event_handler
@@ -300,14 +300,14 @@ private:
   daqData* nlongs_;
   daqData* runType_;
   daqData* runTypeNum_;
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   daqData* database_;
   daqData* dataFile_;
   daqData* confFile_; //sergey
   daqData* rcsMsgToDbase_;
   daqData* logFileDescriptor_;
   daqData* tokenInterval_;
-#endif
+
   daqData* allRunTypes_;
   daqData* exptName_;
   daqData* exptId_;
@@ -317,6 +317,7 @@ private:
   daqData* dataLimit_;
   daqData* updateInterval_;  
   daqData* compnames_;
+  daqData* compstates_; /* sergey*/
   daqData* clientList_;
   daqData* master_;
   daqData* controlDisp_;

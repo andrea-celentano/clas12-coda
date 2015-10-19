@@ -76,11 +76,11 @@ class rcButtonFeedBack;
 class rcDisplayMsg;
 class rcOnLine;
 class rcAnaLogDialog;
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
 class rcAudioOption;
 class rcTokenIButton;
 class rcRcsMsgToDbase;
-#endif
+
 class rcWidthOption;
 class rcUpdateIntervalDialog;
 class rcCompBootDialog;
@@ -100,9 +100,10 @@ extern rcHelpMsgWin*  helpWindow;
 /* extern */
 class rcMenuWindow: public XcodaMenuWindow, public rcPanel
 {
+
 public:
-  rcMenuWindow          (Widget parent, 
-			 char* name, rcClientHandler& handler);
+
+  rcMenuWindow (Widget parent, char* name, rcClientHandler& handler);
   virtual ~rcMenuWindow (void);
 
   Widget createTabFrame (char *name,int pid);
@@ -121,10 +122,9 @@ public:
   const Widget dialogBaseWidget (void);
   void  reportErrorMsg (char* msg);
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   void    configRcsMsgToDbase (int yes);
   void    configTokenInterval (int interval);
-#endif
+
   Widget            rframe_;
   Widget            rform_;
   Widget            rtab_;
@@ -136,12 +136,14 @@ public:
   int bootall_;
   
 protected:
+
   // enter and leaving window event handler
   static void crossEventHandler (Widget w, XtPointer, XEvent*, Boolean);
   virtual Widget createMenuWindow (Widget );
   virtual void   createMenuPanes  (void);
   
 private:
+
   // tab widgets
   char* tabLabels_[200];
   int numTabs_;
@@ -154,18 +156,18 @@ private:
   // preference menu
   rcButtonFeedBack* feedBack_;
   rcDisplayMsg*     dispMsg_;
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   rcAudioOption*    audio_;
   rcWidthOption*    Owidth_;
   rcRcsMsgToDbase*  serverMsgToDbase_;
-#endif
+
   rcOnLine*         online_;
   // option menu
   rcAnaLogDialog*   anaLogButton_;
   rcUpdateIntervalDialog* updateInterval_;
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   rcTokenIButton*   tokenIButton_;
-#endif
+
   rcMonitorParmsDialog* monParmsButton_;
   rcZoomButton*     zoomButton_;
   rcRateGraphButton* rateGraphButton_;

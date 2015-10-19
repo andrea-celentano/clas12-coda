@@ -36,7 +36,7 @@
 class codaComd;
 class codaComdList;
 
-class XcodaMenuBar: public XcodaUi{
+class XcodaMenuBar: public XcodaUi {
 
  public:
   XcodaMenuBar (Widget, char *);

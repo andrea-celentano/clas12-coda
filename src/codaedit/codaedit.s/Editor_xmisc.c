@@ -956,8 +956,9 @@ popup_comp_attributes(drawComp* comp,
   XtSetArg(args[ac], XmNrightOffset, 5); ac++;
   sub_form1 = XtCreateWidget("sub_form", xmFormWidgetClass,
 			     form, args, ac);
-  ac = 0;
 
+  /**/
+  ac = 0;
   t = XmStringCreateSimple("Ethernet Host:");
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
   XtSetArg(args[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
@@ -991,6 +992,8 @@ popup_comp_attributes(drawComp* comp,
   XtSetArg(args[ac], XmNrightOffset, 5); ac++;
   sub_form2 = XtCreateWidget("sub_form", xmFormWidgetClass,
 			     form, args, ac);
+
+  /**/
   ac = 0;
   t = XmStringCreateSimple("Id Number:");
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
@@ -1025,6 +1028,8 @@ popup_comp_attributes(drawComp* comp,
   XtSetArg(args[ac], XmNrightOffset, 5); ac++;
   sub_form3 = XtCreateWidget("sub_form", xmFormWidgetClass,
 			     form, args, ac);
+
+  /**/
   ac = 0;
   t = XmStringCreateSimple("Booting String:");
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
@@ -1059,6 +1064,8 @@ popup_comp_attributes(drawComp* comp,
   XtSetArg(args[ac], XmNrightOffset, 5); ac++;
   sub_form4 = XtCreateWidget("sub_form", xmFormWidgetClass,
 			     form, args, ac);
+
+  /**/
   ac = 0;
   t = XmStringCreateSimple("Readout List:");
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
@@ -1283,21 +1290,22 @@ popup_comp_attributes(drawComp* comp,
     if(comp->comp.code[i] != NULL)
       XmTextFieldSetString(atw.code_widget[i], comp->comp.code[i]);
   }
-
- 
-  if (comp->comp.type == CODA_ROC)
+  /*
+printf("comp->comp.type = %d\n",comp->comp.type);
+  */
+  if ((comp->comp.type == CODA_ROC) || (comp->comp.type == CODA_TRIG))
   {
     if(comp->comp.boot_string != NULL)
       XmTextFieldSetString(text_w3, comp->comp.boot_string);
     else
-      XmTextFieldSetString(text_w3, "$CODA_BIN/coda_roc");
+      XmTextFieldSetString(text_w3, "coda_roc_gef");
   }
   else if (comp->comp.type == CODA_EB)
   {
     if(comp->comp.boot_string != NULL)
       XmTextFieldSetString(text_w3, comp->comp.boot_string);
     else
-      XmTextFieldSetString(text_w3, "$CODA_BIN/coda_eb");
+      XmTextFieldSetString(text_w3, "coda_eb");
 
     t = XmStringCreateSimple("Incoming Format");
     ac = 0;
@@ -1329,21 +1337,21 @@ popup_comp_attributes(drawComp* comp,
     if(comp->comp.boot_string != NULL)
       XmTextFieldSetString(text_w3, comp->comp.boot_string);
     else
-      XmTextFieldSetString(text_w3, "$CODA_BIN/coda_et");
+      XmTextFieldSetString(text_w3, "coda_et");
   }
   else if (comp->comp.type == CODA_ETT)
   {
     if(comp->comp.boot_string != NULL)
       XmTextFieldSetString(text_w3, comp->comp.boot_string);
     else
-      XmTextFieldSetString(text_w3, "$CODA_BIN/coda_ett");
+      XmTextFieldSetString(text_w3, "coda_ett");
   }
   else if (comp->comp.type == CODA_ER)
   {
     if(comp->comp.boot_string != NULL)
       XmTextFieldSetString(text_w3, comp->comp.boot_string);
     else
-      XmTextFieldSetString(text_w3, "$CODA_BIN/coda_er");
+      XmTextFieldSetString(text_w3, "coda_er");
 
     XtUnmanageChild(label_w4);
     XtUnmanageChild(text_w4);
@@ -1480,7 +1488,7 @@ popup_comp_attributes(drawComp* comp,
       XmTextFieldSetString(text_w2, (char *) comp->comp.id_num);
     else
       XmTextFieldSetString(text_w2, temp);
-    XmTextFieldSetString(text_w3, "$CODA_BIN/coda_mon");
+    XmTextFieldSetString(text_w3, "coda_mon");
     
   }
   else if (comp->comp.type == CODA_NONE)

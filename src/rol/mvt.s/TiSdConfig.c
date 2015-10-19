@@ -20,6 +20,9 @@
 --
 --------------------------------------------------------------------------------
 */
+
+#ifdef Linux_vme
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -381,3 +384,17 @@ int TiGo( TiParams *params )
 	// All went fine
 	return D_RetCode_Sucsess;
 }
+
+
+#else
+
+void
+TiSdConfig_dummy()
+{
+  return;
+}
+
+#endif
+
+
+

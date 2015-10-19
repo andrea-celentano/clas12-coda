@@ -41,7 +41,7 @@ class rcRunSInfoPanel;
 class rcRunDInfoPanel;
 class rcRunStatusPanel;
 class rcRunTypeDialog;
-//class rcRunConfigDialog;
+class rcRunConfigDialog;
 class daqNetData;
 
 class rcInfoRunPanel: public XcodaUi
@@ -59,8 +59,15 @@ public:
   virtual void unmanage  (void);
   // config function
   void         config (int status);
+
   // handle ana log changed information
   void         anaLogChanged (daqNetData* info, int added);
+
+
+  /*sergey*/
+  void         confFileChanged (daqNetData* info, int added);
+
+
 
   // stop any dynamic feature of the panel
   void         stop   (void);
@@ -69,7 +76,7 @@ public:
   rcRunTypeDialog* runTypeDialog (void);
 
   // return run config dialog
-  //rcRunConfigDialog* runConfigDialog (void);
+  rcRunConfigDialog* runConfigDialog (void);
 
   // popup zoomed display of event information
   void zoomOnEventInfo (void);
@@ -80,13 +87,14 @@ public:
   // class name
   virtual const char* className (void) const {return "rcInfoRunPanel";}
 
+
 private:
+
   // network handler to run control server
   rcClientHandler& netHandler_;
   // parent widget
   Widget parent_;  
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   // widget to hold data file
   Widget datafile_;
 
@@ -98,13 +106,12 @@ private:
 
   /*sergey*/
   void updateConfFileLabel (void);
-#endif
        
   Widget statusPanel_;
-  rcRunCInfoPanel*  cinfoPanel_;
-  rcRunSInfoPanel*  sinfoPanel_;
-  rcRunDInfoPanel*  dinfoPanel_;
-  rcRunTypeDialog*  runTypeDialog_;
-  //rcRunConfigDialog*  runConfigDialog_;
+  rcRunCInfoPanel*    cinfoPanel_;
+  rcRunSInfoPanel*    sinfoPanel_;
+  rcRunDInfoPanel*    dinfoPanel_;
+  rcRunTypeDialog*    runTypeDialog_;
+  rcRunConfigDialog*  runConfigDialog_;
 };
 #endif

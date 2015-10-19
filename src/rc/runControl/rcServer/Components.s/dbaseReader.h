@@ -78,8 +78,8 @@ private:
 #define DBASE_EVENTLIMIT      "eventLimit"
 #define DBASE_DATALIMIT       "dataLimit"
 #define DBASE_DATAFILE        "dataFile"
-#define DBASE_CONFFILE        "confFile"
 #define DBASE_TOKEN_INTERVAL  "tokenInterval"
+#define DBASE_CONFFILE        "confFile"
 #endif
 
 class factory;
@@ -97,7 +97,6 @@ public:
   void database  (char *dbaseDir);
   char* database (void) const;
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
   int isDatabaseOpen    (void) const;
   int databaseSelected  (void) const;
 
@@ -120,18 +119,20 @@ public:
   void  putDataFileName (char* name);
   char* getDataFileName (void);
 
-  // sergey: get config file name
-  void  putConfFileName (char* name);
-  char* getConfFileName (void);
-
-  // put token interval value to database
+  /* put token interval value to database */
   void  putTokenInterval (int itval);
+
+  /* sergey: put config file name to database */
+  void  putConfFileName (char* name);
+  /* sergey: get config file name from database; there is no 'get' for 'TokenInterval' because it obtained in 'parseOptions'
+  along with others when called from 'Configure' transition; we need it separately to be able to call it from 'Download' transition */
+  int getConfFileName (void);
 
   // insert runControl information into the database
   int insertRcServerToDbase (void);
+
   // remove runControl information from the database
   int removeRcServerFromDbase (void);
-#endif
 
   // Following functions return CODA_SUCCESS on success
   // read rcNetwork and rcPriority file and create all components

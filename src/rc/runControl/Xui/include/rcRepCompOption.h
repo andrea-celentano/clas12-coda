@@ -58,11 +58,14 @@ protected:
   static void offCallback  (int status, void* arg, daqNetData* data);
 
 private:
+
   // network handler
   rcClientHandler& netHandler_;
+
   // parent dynamic information panel
   rcRunDInfoPanel* dpanel_;
-  // all components: potentail danger: not exceeding 100 components
+
+  // all components: potentail danger: not exceeding RCXUI_MAX_COMPONENTS components
   char*            components_[RCXUI_MAX_COMPONENTS];
   int              numComp_;
 };

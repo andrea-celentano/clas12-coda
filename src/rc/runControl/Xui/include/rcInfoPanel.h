@@ -42,7 +42,7 @@
 class rcInfoInitPanel;
 class rcInfoRunPanel;
 class rcRunTypeDialog;
-//class rcRunConfigDialog;
+class rcRunConfigDialog;
 
 class rcInfoPanel: public XcodaUi, public rcPanel
 {
@@ -58,6 +58,9 @@ public:
   virtual void config (int status);
   virtual void anaLogChanged (daqNetData* info, int added);
 
+  /*sergey*/
+  virtual void confFileChanged (daqNetData* info, int added);
+
   // stop all dynamic features
   virtual void stop   (void);
   // get ready to exit the runcontrol
@@ -67,7 +70,7 @@ public:
   rcRunTypeDialog* runTypeDialog (void);
 
   // return runConfig dialog
-  //rcRunConfigDialog* runConfigDialog (void);
+  rcRunConfigDialog* runConfigDialog (void);
 
   // popup zoomed dialog box for event display
   void zoomOnEventInfo (void);

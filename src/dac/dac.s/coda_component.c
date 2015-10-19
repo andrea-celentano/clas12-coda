@@ -622,8 +622,8 @@ signal_thread (void *arg)
   int        thr = (int) arg;
   char       *rtn;
 
-
-  if (global_env_depth[thr]>0) {
+  if (global_env_depth[thr]>0)
+  {
     global_env_depth[thr]--;
   }
   rtn = global_routine[global_env_depth[thr]][thr];
@@ -636,16 +636,25 @@ signal_thread (void *arg)
   sigaddset(&signal_set, SIGTRAP);
   sigaddset(&signal_set, SIGINT);
   sigaddset(&signal_set, SIGTERM);
+  sigaddset(&signal_set, SIGHUP);
   
-  while (1) {
+  while (1)
+  {
     sigwait(&signal_set, &sig_number);
-    printf("signal_thread got %d\n",sig_number);
-    switch (sig_number) {
+    printf("signal_thread got signal number %d (%s)\n",sig_number,strsignal(sig_number));fflush(stdout);
+    switch (sig_number)
+    {
       case SIGSEGV:
         printf ("ERROR Segmentation fault - presumed fatal in %s\n", rtn);
         fprintf (stdout, "ERROR Segmentation fault - presumed fatal in %s\n", rtn);
         break;
     
+		/* we are here when xterm closed, exit gracefully */
+      case SIGHUP:
+        printf ("SIGHUP in %s (xterm probably closed)\n", rtn);
+	    exit(0);
+        break;
+
       case SIGBUS:
         printf ("ERROR Bus error in %s - presumed fatal\n", rtn);
         break;
@@ -665,7 +674,8 @@ signal_thread (void *arg)
          
       case SIGINT:
         printf ("ERROR got SIGINT\n");
-	    exit(-1);
+	    exit(0);
+
       case SIGTERM:
 		/*
         debug_printf (2,"killed by: %s", Tcl_SignalMsg (sig_number));

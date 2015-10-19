@@ -420,6 +420,14 @@ tiUploadAll(char *string, int length)
 
 
 
+int
+tiUploadAllPrint()
+{
+  char str[16001];
+  tiUploadAll(str, 16000);
+  printf("%s",str);
+}
+
 
 
 

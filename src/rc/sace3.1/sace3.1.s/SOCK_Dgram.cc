@@ -61,8 +61,9 @@ ssize_t
 SOCK_Dgram::send (const iovec iov[], size_t n, const Addr &addr, int flags) const
 {
   msghdr send_msg;  
+#ifdef DEBUG
   printf("SOCK_Dgram::send 1\n");
-
+#endif
   send_msg.msg_iov          = (iovec *) iov;
   send_msg.msg_iovlen       = n;
   send_msg.msg_name	        = (char *) addr.get_addr ();
@@ -78,8 +79,9 @@ SOCK_Dgram::recv (iovec iov[], size_t n, Addr &addr, int flags) const
 {
   msghdr recv_msg;  
 
-printf("SOCK_Dgram::recv: reached\n");
-
+#ifdef DEBUG
+  printf("SOCK_Dgram::recv: reached\n");
+#endif
   recv_msg.msg_iov          = (iovec *) iov;
   recv_msg.msg_iovlen       = n;
   recv_msg.msg_name	       = (char *) addr.get_addr ();

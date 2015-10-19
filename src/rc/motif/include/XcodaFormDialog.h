@@ -31,7 +31,9 @@
 
 class XcodaFormDialog: public XcodaUi
 {
+
 public:
+
   //destructor
   virtual ~XcodaFormDialog (void);
   void    init             (void);
@@ -42,7 +44,9 @@ public:
   void    unsetModal       (void);
   virtual const char *className(void) const {return "XcodaFormDialog";}
 
+
 protected:
+
   // constructor
   XcodaFormDialog(Widget parent, char *name, char *title);
   // Children who inherit from this must provide real routine here
@@ -50,7 +54,9 @@ protected:
   // set default button
   virtual void defaultButton (Widget w);
 
+
 private:
+
   Widget _parent;
   char   *_title;
   int    alreadyManaged;

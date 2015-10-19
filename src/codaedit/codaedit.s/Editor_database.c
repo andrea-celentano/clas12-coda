@@ -1045,9 +1045,9 @@ insertValToOptionTable (char* config, char* name, char* value)
 {
   char queryString[1024];
   char valString[256];
-
+#ifdef _CODA_DEBUG
   printf("Editor_database: insertValToOptionTable(%s,%s,%s)\n",config,name,value);
-
+#endif
   if (databaseSelected ())
   {
     /* delete old entry */
@@ -1210,14 +1210,18 @@ insertDaqCompToProcTable (daqComp* comp)
 
   if (databaseSelected ()) {
     sprintf (queryString, "insert into %s\n", PROCESS_TABLE_NAME);
-    if (comp->boot_string != 0) 
+    if (comp->boot_string != 0)
+	{ 
       sprintf (valString, "values ('%s',%d,'%s','%s','%s',0,'dormant',0,'no','no')",
 	       comp->comp_name, comp->id_num, comp->boot_string, 
 	       compTypeString [comp->type], comp->node_name);
+	}
     else
+	{
       sprintf (valString, "values ('%s',%d,'','%s','%s',0,'dormant',0,'no','no')",
 	       comp->comp_name, comp->id_num, 
 	       compTypeString [comp->type], comp->node_name);
+	}
     strcat (queryString, valString);
     if (mysql_query (mysql, queryString) != 0)
       return -1;
@@ -1232,16 +1236,20 @@ updateDaqCompToProcTable (daqComp* comp)
   char queryString[1024];
 
   if (databaseSelected ()) {
-    if (comp->boot_string != 0) 
+    if (comp->boot_string != 0)
+	{ 
       sprintf (queryString, "update %s set id = %d, cmd = '%s', type = '%s', host = '%s' where name = '%s'", 
 	       PROCESS_TABLE_NAME, comp->id_num, comp->boot_string, 
 	       compTypeString [comp->type], comp->node_name,
 	       comp->comp_name);
+	}
     else
+	{
       sprintf (queryString, "update %s set id = %d, cmd = '', type = '%s', host = '%s' where name = '%s'", 
 	       PROCESS_TABLE_NAME, comp->id_num, 
 	       compTypeString [comp->type], comp->node_name,
 	       comp->comp_name);
+	}
     if (mysql_query (mysql, queryString) != 0) {
 #ifdef _CODA_DEBUG
       printf ("Update %s component to process table error: %s\n", comp->comp_name,
@@ -1315,9 +1323,9 @@ createRcNetCompsFromDbase (rcNetComp** comp, int *num)
   i = 0;
   while ((row = mysql_fetch_row (res)))
   {
-/*#ifdef _CODA_DEBUG*/
+#ifdef _CODA_DEBUG
     printf ("Construct comp %s %s %s %s %s \n",row[0], row[1], row[2], row[3], row[4]);
-/*#endif*/
+#endif
     if (strcasecmp (row[3], "RCS") != 0 && strcasecmp (row[3], "USER") != 0)
     {
       comp[i] = newRcNetComp ();

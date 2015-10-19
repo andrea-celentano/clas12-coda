@@ -100,7 +100,9 @@ daqCompBootStruct::insertInfo (char* component, int autoboot)
 
   numComponents_ ++;
 
+#ifdef _TRACE_OBJECTS
   printf("daqCompBootStruct::insertInfo: component >%s< numComponents_=%d ====================\n",component,numComponents_);
+#endif
 }
 
 /*long*/int64_t
@@ -125,7 +127,9 @@ daqCompBootStruct::cleanUp (void)
       delete []c_.components_[i];
   }
   numComponents_ = 0;
+#ifdef _TRACE_OBJECTS
   printf("daqCompBootStruct::cleanUp =====================\n");
+#endif
 }    
 
 void
@@ -136,19 +140,26 @@ daqCompBootStruct::encodeData (void)
       a_.autoboot_[i] = htonl (a_.autoboot_[i]);
   }
 
+#ifdef _TRACE_OBJECTS
   printf("daqCompBootStruct::encodeData(1) numComponents_=%d =============================\n",numComponents_);
+#endif
   numComponents_ = htonl (numComponents_);
   id_ = htonl (id_);
+#ifdef _TRACE_OBJECTS
   printf("daqCompBootStruct::encodeData(2) numComponents_=%d =============================\n",numComponents_);
+#endif
 }
 
 void
 daqCompBootStruct::restoreData (void)
 {
+#ifdef _TRACE_OBJECTS
   printf("daqCompBootStruct::restoreData(1) numComponents_=%d =============================\n",numComponents_);
+#endif
   numComponents_ = ntohl (numComponents_);
+#ifdef _TRACE_OBJECTS
   printf("daqCompBootStruct::restoreData(2) numComponents_=%d =============================\n",numComponents_);
-
+#endif
   id_ = ntohl (id_);
 
   if (numComponents_ > 0) {
@@ -199,8 +210,9 @@ daqCompBootStruct::decode (char* buffer, size_t size)
   int i = 0;
   int j = 0;
   
+#ifdef _TRACE_OBJECTS
   printf("daqCompBootStruct::decode: size=%d (%d %d)\n",size,sizeof(daqCompBootStruct),sizeof(daqArbStruct));
-
+#endif
   /* clean up old information (in particular sets 'numComponents_' to 0) */
   cleanUp ();
 
@@ -212,9 +224,10 @@ daqCompBootStruct::decode (char* buffer, size_t size)
   // skip all other elements
   i += realsize;
 
+#ifdef _TRACE_OBJECTS
   printf("daqCompBootStruct::decode: i(1)=%d\n",i);fflush(stdout);
-
   printf("daqCompBootStruct::decode: befor: numComponents_=%d id_=%d\n",numComponents_,id_);fflush(stdout);
+#endif
 
   /* get number of components value */
   numComponents_ = ntohl (numComponents_);
@@ -222,7 +235,9 @@ daqCompBootStruct::decode (char* buffer, size_t size)
   /* get id number */
   id_ = ntohl (id_);
 
+#ifdef _TRACE_OBJECTS
   printf("daqCompBootStruct::decode: after: numComponents_=%d id_=%d\n",numComponents_,id_);fflush(stdout);
+#endif
 
   if (numComponents_)
   {
@@ -238,8 +253,9 @@ daqCompBootStruct::decode (char* buffer, size_t size)
 	}
 
     i += numComponents_*sizeof (/*long*/int64_t);
+#ifdef _TRACE_OBJECTS
     printf("daqCompBootStruct::decode: i(2)=%d\n",i);fflush(stdout);
-
+#endif
     // copy components name info
     for (j = 0; j < numComponents_; j++)
     {
@@ -247,7 +263,9 @@ daqCompBootStruct::decode (char* buffer, size_t size)
       ::memcpy ((void *)c_.components_[j], &(buffer[i]),
       daqCompBootStruct::maxCompNameLen);
       i = i + daqCompBootStruct::maxCompNameLen;
+#ifdef _TRACE_OBJECTS
 	  printf("daqCompBootStruct::decode: i(3)=%d (j=%d)\n",i,j);fflush(stdout);
+#endif
     }
   }
   
@@ -280,9 +298,9 @@ daqCompBootStruct::id (void)
 void
 daqCompBootStruct::dumpAll (void)
 {
-  for (int i = 0; i < numComponents_; i++) {
-    printf ("Component %s boot info %d\n", c_.components_[i],
-	    a_.autoboot_[i]);
+  for (int i = 0; i < numComponents_; i++)
+  {
+    printf ("daqCompBootStruct::dumpAll: Component %s boot info %d\n", c_.components_[i], a_.autoboot_[i]);
   }
 }
 

@@ -96,22 +96,24 @@ rcMsgWindow::init (void)
   installDestroyHandler ();
 }
 
+
+/* connect out handler 'rcMsgWindow::runMsgCallback' to the RC_MSG_ATTR="runMessage" messages coming from rcServer */
 void
 rcMsgWindow::monitorRunMsg (void)
 {
-  if (connectionHist_ == 0 && netHandler_.connected ()) {
-    // first time to connect to remote server
-    // expriment name must be non null
+  int st;
+
+  if (connectionHist_ == 0 && netHandler_.connected ())
+  {
+    /* first time to connect to remote server;
+       expriment name must be non null */
     assert (netHandler_.clientHandler ().exptname());
 	
-    int st;
-    st = netHandler_.clientHandler ().monitorOnCallback (
-		netHandler_.clientHandler().exptname(),
-		(char *)RC_MSG_ATTR,
-		&(rcMsgWindow::runMsgCallback),
-		(void *)this);
-    if (st == CODA_SUCCESS) 
-      connectionHist_ = 1;
+    st = netHandler_.clientHandler ().monitorOnCallback ( netHandler_.clientHandler().exptname(),
+														  (char *)RC_MSG_ATTR,
+														  &(rcMsgWindow::runMsgCallback),
+														  (void *)this );
+    if (st == CODA_SUCCESS) connectionHist_ = 1;
   }
 }
 
@@ -124,28 +126,35 @@ rcMsgWindow::config (int status)
     connectionHist_ = 0;
 }
 
+/* actual message output to the msg window */
 void
 rcMsgWindow::runMsgCallback (int status, void* arg, daqNetData* data)
 {
   rcMsgWindow* obj = (rcMsgWindow *)arg;
-  if (status == CODA_SUCCESS) {
-    if (obj->showText_) {
+  if (status == CODA_SUCCESS)
+  {
+    if (obj->showText_)
+    {
       Arg arg[10];
       int ac = 0;
 
       char *msg = (char *)(*data);
       XmTextInsert (obj->textw_, obj->wprPosition_, msg);
       (obj->wprPosition_) += ::strlen (msg);
-      // set cursor position
+
+      /* set cursor position */
       XtSetArg (arg[ac], XmNcursorPosition, obj->wprPosition_); ac++;
       XtSetValues (obj->textw_, arg, ac); 
       ac = 0;
-      // show new cursor position
+
+      /* show new cursor position */
       XmTextShowPosition (obj->textw_, obj->wprPosition_);
     }
   }
-  else 
+  else
+  { 
     obj->connectionHist_ = 0;
+  }
 }
 
 void

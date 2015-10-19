@@ -88,12 +88,13 @@ rcTokenIDialog::checkSyntax (void)
   int st;
 
   if((st = sscanf(_result,"%d",&value)) < 1) 
+  {
     return 0;
-  else {
-    if (value >= 0)
-      return 1;
-    else
-      return 0;
+  }
+  else
+  {
+    if (value >= 0) return 1;
+    else            return 0;
   }
 } 
 

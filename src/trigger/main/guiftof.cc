@@ -51,13 +51,13 @@
 
 #include "guiftof.h"
 
-#include "vmeclient.h"
+#include "cratemsgclient.h"
 #include "libtcp.h"
 #include "libdb.h"
 
 #include "scope.h"
 
-VMEClient *tcpvme; //sergey: global for now, will find appropriate place later
+CrateMsgClient *tcp; //sergey: global for now, will find appropriate place later
 
 const char *filetypes[] = { "All files",     "*",
                             "ROOT files",    "*.root",
@@ -146,7 +146,6 @@ GUIMainFrame::GUIMainFrame(const TGWindow *p, UInt_t w, UInt_t h, char *host) : 
 {
 
    // create VME communication
-   tcpvme = new VMEClient();
    strcpy(hostname,host);
 
    fScalersDlg = NULL;
@@ -297,6 +296,7 @@ void GUIMainFrame::CloseWindow()
 
 Bool_t GUIMainFrame::ProcessMessage(Long_t msg, Long_t parm1, Long_t)
 {
+  Int_t ret;
    // Handle messages send to the GUIMainFrame object. E.g. all menu button
    // messages.
 
@@ -325,12 +325,28 @@ Bool_t GUIMainFrame::ProcessMessage(Long_t msg, Long_t parm1, Long_t)
 			  if(parm1 == 11) // Connect
 			  {
 				printf("Connect reached\n");fflush(stdout);
-				Bool_t res = tcpvme->ConnectVME(hostname,0);
-				if(res)
-				{
+
+                tcp = new CrateMsgClient(hostname,6102);
+                if(tcp->IsValid())
+                {
+                  printf("Connected\n");
 				  btConnect->SetEnabled(kFALSE);
 				  btDisconnect->SetEnabled(kTRUE);
-				}
+
+		unsigned short sval = 0xFBFB;
+		ret = tcp->Read16((unsigned int)(FTOF_BOARD_ADDRESS_1+0x800C), &sval);
+        printf("ret=%d, VME FIRMWARE val=0x%04x\n",ret,sval);
+				  
+		unsigned int val = 0xFBFBFBFB;
+		ret = tcp->Read32((unsigned int)(FTOF_BOARD_ADDRESS_1+0x1000), &val);
+        printf("ret=%d, USER FIRMWARE val=0x%08x\n",ret,val);
+                }
+                else
+                {
+                  printf("NOT CONNECTED - EXIT\n");
+                  exit(0);
+                }
+
                 if(fDelaysDlg)
 				{
 				  fDelaysDlg->ReadVME();
@@ -351,12 +367,9 @@ Bool_t GUIMainFrame::ProcessMessage(Long_t msg, Long_t parm1, Long_t)
 			  else if(parm1 == 12) // Disconnect
 			  {
 			    printf("Disconnect reached\n");
-			    Bool_t res = tcpvme->DisconnectVME();
-				if(res)
-				{
-			      btConnect->SetEnabled(kTRUE);
-			      btDisconnect->SetEnabled(kFALSE);
-				}
+                tcp->Disconnect();
+			    btConnect->SetEnabled(kTRUE);
+			    btDisconnect->SetEnabled(kFALSE);
 			  }
               break;
 
@@ -752,7 +765,6 @@ ScalersDlg::ScalersDlg(const TGWindow *p, GUIMainFrame *main,
    MapWindow();
    //fClient->WaitFor(this);    // otherwise canvas contextmenu does not work
 
-   if(tcpvme->m_bConnected)
    {
      // read VME and update GUI for the first time
      ReadVME();
@@ -1004,28 +1016,30 @@ Bool_t ScalersDlg::ProcessMessage(Long_t msg, Long_t parm1, Long_t)
 void ScalersDlg::ReadVME()
 {
 
-  if(tcpvme->m_bConnected)
   {
     Int_t jj;
+    UInt_t tmp;
     for(jj=0; jj<46; jj++) {U1[jj] = 0;U2[jj] = 0;}
 	for(jj=0; jj<46; jj++) {V1[jj] = 0;V2[jj] = 0;}
 	for(jj=0; jj<46; jj++) {W1[jj] = 0;W2[jj] = 0;}
 
-	tcpvme->VMEWrite32(FTOF_BOARD_ADDRESS_1 + FTOF_ENABLE_SCALERS, 0x0000, TRUE);
-	tcpvme->VMEWrite32(FTOF_BOARD_ADDRESS_2 + FTOF_ENABLE_SCALERS, 0x0000, TRUE);
+    tmp = 0x0000;
+	tcp->Write32(FTOF_BOARD_ADDRESS_1 + FTOF_ENABLE_SCALERS, &tmp);
+	tcp->Write32(FTOF_BOARD_ADDRESS_2 + FTOF_ENABLE_SCALERS, &tmp);
 
-	for(jj=0; jj<46; jj++) tcpvme->VMERead32(FTOF_BOARD_ADDRESS_1 + FTOF_U_SCALER_BASE + jj*4, &U1[jj], TRUE);
-	for(jj=0; jj<46; jj++) tcpvme->VMERead32(FTOF_BOARD_ADDRESS_1 + FTOF_V_SCALER_BASE + jj*4, &V1[jj], TRUE);
-	for(jj=0; jj<46; jj++) tcpvme->VMERead32(FTOF_BOARD_ADDRESS_1 + FTOF_W_SCALER_BASE + jj*4, &W1[jj], TRUE);	
-	for(jj=0; jj<46; jj++) tcpvme->VMERead32(FTOF_BOARD_ADDRESS_2 + FTOF_U_SCALER_BASE + jj*4, &U2[jj], TRUE);
-	for(jj=0; jj<46; jj++) tcpvme->VMERead32(FTOF_BOARD_ADDRESS_2 + FTOF_V_SCALER_BASE + jj*4, &V2[jj], TRUE);
-	for(jj=0; jj<46; jj++) tcpvme->VMERead32(FTOF_BOARD_ADDRESS_2 + FTOF_W_SCALER_BASE + jj*4, &W2[jj], TRUE);	
+	for(jj=0; jj<46; jj++) tcp->Read32(FTOF_BOARD_ADDRESS_1 + FTOF_U_SCALER_BASE + jj*4, &U1[jj]);
+	for(jj=0; jj<46; jj++) tcp->Read32(FTOF_BOARD_ADDRESS_1 + FTOF_V_SCALER_BASE + jj*4, &V1[jj]);
+	for(jj=0; jj<46; jj++) tcp->Read32(FTOF_BOARD_ADDRESS_1 + FTOF_W_SCALER_BASE + jj*4, &W1[jj]);	
+	for(jj=0; jj<46; jj++) tcp->Read32(FTOF_BOARD_ADDRESS_2 + FTOF_U_SCALER_BASE + jj*4, &U2[jj]);
+	for(jj=0; jj<46; jj++) tcp->Read32(FTOF_BOARD_ADDRESS_2 + FTOF_V_SCALER_BASE + jj*4, &V2[jj]);
+	for(jj=0; jj<46; jj++) tcp->Read32(FTOF_BOARD_ADDRESS_2 + FTOF_W_SCALER_BASE + jj*4, &W2[jj]);	
 	
-    tcpvme->VMERead32(FTOF_BOARD_ADDRESS_1 + FTOF_REF_SCALER, &REF1, TRUE);
-    tcpvme->VMERead32(FTOF_BOARD_ADDRESS_2 + FTOF_REF_SCALER, &REF2, TRUE);
+    tcp->Read32(FTOF_BOARD_ADDRESS_1 + FTOF_REF_SCALER, &REF1);
+    tcp->Read32(FTOF_BOARD_ADDRESS_2 + FTOF_REF_SCALER, &REF2);
 
-	tcpvme->VMEWrite32(FTOF_BOARD_ADDRESS_1 + FTOF_ENABLE_SCALERS, 0x0001, TRUE);
-	tcpvme->VMEWrite32(FTOF_BOARD_ADDRESS_2 + FTOF_ENABLE_SCALERS, 0x0001, TRUE);
+    tmp = 0x0001;
+	tcp->Write32(FTOF_BOARD_ADDRESS_1 + FTOF_ENABLE_SCALERS, &tmp);
+	tcp->Write32(FTOF_BOARD_ADDRESS_2 + FTOF_ENABLE_SCALERS, &tmp);
 
 	// normalize
     if(REF1>0)
@@ -1247,7 +1261,6 @@ Dsc2Dlg::Dsc2Dlg(const TGWindow *p, GUIMainFrame *main,
    //fClient->WaitFor(this);    // otherwise canvas contextmenu does not work
 
    HistAccumulate = 0;
-   if(tcpvme->m_bConnected)
    {
      // read VME and update GUI for the first time
      ReadVME();
@@ -1432,7 +1445,7 @@ Bool_t Dsc2Dlg::ProcessMessage(Long_t msg, Long_t parm1, Long_t)
 void Dsc2Dlg::ReadVME()
 {
   Int_t ii, jj, ndsc;
-  UInt_t addr[NDSC];
+  UInt_t tmp, addr[NDSC];
 
   ndsc = NDSC;
 
@@ -1449,38 +1462,39 @@ void Dsc2Dlg::ReadVME()
   addr[10] = FTOF_DSC2_ADDRESS_SLOT18;
   addr[11] = FTOF_DSC2_ADDRESS_SLOT20;
 
-  if(tcpvme->m_bConnected)
   {
     /* should do in dsc2Config, here just in case; will move it to constructor, should be called once */
-    for(ii=0; ii<NDSC; ii++) tcpvme->VMEWrite32(addr[ii] + FTOF_DSC2_SCALER_GATE, 0x0004, FALSE);
+    tmp = 0x0004;
+    for(ii=0; ii<NDSC; ii++) tcp->Write32(addr[ii] + FTOF_DSC2_SCALER_GATE, &tmp);
 
-    for(ii=0; ii<NDSC; ii++) tcpvme->VMEWrite32(addr[ii] + FTOF_DSC2_SCALER_LATCH, 0x0000, FALSE);
+    tmp = 0x0000;
+    for(ii=0; ii<NDSC; ii++) tcp->Write32(addr[ii] + FTOF_DSC2_SCALER_LATCH, &tmp);
 
     for(jj=0; jj<NU; jj++) U1[jj] = 0;
     for(jj=0; jj<NV; jj++) V1[jj] = 0;
     for(jj=0; jj<NW; jj++) W1[jj] = 0;
 
 
-    for(ii=0; ii<NDSC; ii++) tcpvme->VMERead32(addr[ii] + FTOF_DSC2_SCALER_REF, &ref[ii], FALSE);
+    for(ii=0; ii<NDSC; ii++) tcp->Read32(addr[ii] + FTOF_DSC2_SCALER_REF, &ref[ii]);
 
 
 
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[0] + FTOF_DSC2_SCALER_BASE + jj*4,     &U1[jj],    FALSE); refU1[jj]    = ref[0];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[1] + FTOF_DSC2_SCALER_BASE + jj*4,     &U1[jj+16], FALSE); refU1[jj+16] = ref[1];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[2] + FTOF_DSC2_SCALER_BASE + jj*4,     &U1[jj+32], FALSE); refU1[jj+32] = ref[2];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[3] + FTOF_DSC2_SCALER_BASE + jj*4,     &U1[jj+48], FALSE); refU1[jj+48] = ref[3];}
-    for(jj=0; jj<4; jj++)  {tcpvme->VMERead32(addr[4] + FTOF_DSC2_SCALER_BASE + jj*4,     &U1[jj+64], FALSE); refU1[jj+64] = ref[4];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[0] + FTOF_DSC2_SCALER_BASE + jj*4,     &U1[jj]); refU1[jj]    = ref[0];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[1] + FTOF_DSC2_SCALER_BASE + jj*4,     &U1[jj+16]); refU1[jj+16] = ref[1];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[2] + FTOF_DSC2_SCALER_BASE + jj*4,     &U1[jj+32]); refU1[jj+32] = ref[2];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[3] + FTOF_DSC2_SCALER_BASE + jj*4,     &U1[jj+48]); refU1[jj+48] = ref[3];}
+    for(jj=0; jj<4; jj++)  {tcp->Read32(addr[4] + FTOF_DSC2_SCALER_BASE + jj*4,     &U1[jj+64]); refU1[jj+64] = ref[4];}
 
-    for(jj=0; jj<12; jj++) {tcpvme->VMERead32(addr[4] + FTOF_DSC2_SCALER_BASE + (jj+4)*4, &V1[jj],    FALSE); refV1[jj]    = ref[4];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[5] + FTOF_DSC2_SCALER_BASE + jj*4,     &V1[jj+12], FALSE); refV1[jj+12] = ref[5];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[6] + FTOF_DSC2_SCALER_BASE + jj*4,     &V1[jj+28], FALSE); refV1[jj+28] = ref[6];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[7] + FTOF_DSC2_SCALER_BASE + jj*4,     &V1[jj+44], FALSE); refV1[jj+44] = ref[7];}
-    for(jj=0; jj<2; jj++)  {tcpvme->VMERead32(addr[8] + FTOF_DSC2_SCALER_BASE + jj*4,     &V1[jj+60], FALSE); refV1[jj+60] = ref[8];}
+    for(jj=0; jj<12; jj++) {tcp->Read32(addr[4] + FTOF_DSC2_SCALER_BASE + (jj+4)*4, &V1[jj]); refV1[jj]    = ref[4];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[5] + FTOF_DSC2_SCALER_BASE + jj*4,     &V1[jj+12]); refV1[jj+12] = ref[5];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[6] + FTOF_DSC2_SCALER_BASE + jj*4,     &V1[jj+28]); refV1[jj+28] = ref[6];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[7] + FTOF_DSC2_SCALER_BASE + jj*4,     &V1[jj+44]); refV1[jj+44] = ref[7];}
+    for(jj=0; jj<2; jj++)  {tcp->Read32(addr[8] + FTOF_DSC2_SCALER_BASE + jj*4,     &V1[jj+60]); refV1[jj+60] = ref[8];}
 
-    for(jj=0; jj<14; jj++) {tcpvme->VMERead32(addr[8] + FTOF_DSC2_SCALER_BASE + (jj+2)*4, &W1[jj],    FALSE); refW1[jj]    = ref[8];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[9] + FTOF_DSC2_SCALER_BASE + jj*4,     &W1[jj+14], FALSE); refW1[jj+14] = ref[9];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[10]+ FTOF_DSC2_SCALER_BASE + jj*4,     &W1[jj+30], FALSE); refW1[jj+30] = ref[10];}
-    for(jj=0; jj<16; jj++) {tcpvme->VMERead32(addr[11]+ FTOF_DSC2_SCALER_BASE + jj*4,     &W1[jj+46], FALSE); refW1[jj+46] = ref[11];}
+    for(jj=0; jj<14; jj++) {tcp->Read32(addr[8] + FTOF_DSC2_SCALER_BASE + (jj+2)*4, &W1[jj]); refW1[jj]    = ref[8];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[9] + FTOF_DSC2_SCALER_BASE + jj*4,     &W1[jj+14]); refW1[jj+14] = ref[9];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[10]+ FTOF_DSC2_SCALER_BASE + jj*4,     &W1[jj+30]); refW1[jj+30] = ref[10];}
+    for(jj=0; jj<16; jj++) {tcp->Read32(addr[11]+ FTOF_DSC2_SCALER_BASE + jj*4,     &W1[jj+46]); refW1[jj+46] = ref[11];}
 	
 
 	printf("Scalers: ref1=%d, U1=%d %d %d (address=0x%08x)\n",
@@ -1633,7 +1647,6 @@ DelaysDlg::DelaysDlg(const TGWindow *p, GUIMainFrame *main,
    MapWindow();
    //fClient->WaitFor(this);    // otherwise canvas contextmenu does not work
 
-   if(tcpvme->m_bConnected)
    {
      // read VME and update GUI for the first time
      ReadVME();
@@ -1669,16 +1682,15 @@ void DelaysDlg::ReadVME()
 {
   printf("DelaysDlg::ReadVME reached\n");
 
-  if(tcpvme->m_bConnected)
   {
     Int_t jj;
     for(jj=0; jj<46; jj++) U1[jj] = 0;
     for(jj=0; jj<46; jj++) V1[jj] = 0;
     for(jj=0; jj<46; jj++) W1[jj] = 0;
 
-	for(jj=0; jj<46; jj++) tcpvme->VMERead32(FTOF_BOARD_ADDRESS_1 + FTOF_U_DELAY_BASE + jj*4, &U1[jj], TRUE);
-	for(jj=0; jj<46; jj++) tcpvme->VMERead32(FTOF_BOARD_ADDRESS_1 + FTOF_V_DELAY_BASE + jj*4, &V1[jj], TRUE);
-	for(jj=0; jj<46; jj++) tcpvme->VMERead32(FTOF_BOARD_ADDRESS_1 + FTOF_W_DELAY_BASE + jj*4, &W1[jj], TRUE);
+	for(jj=0; jj<46; jj++) tcp->Read32(FTOF_BOARD_ADDRESS_1 + FTOF_U_DELAY_BASE + jj*4, &U1[jj]);
+	for(jj=0; jj<46; jj++) tcp->Read32(FTOF_BOARD_ADDRESS_1 + FTOF_V_DELAY_BASE + jj*4, &V1[jj]);
+	for(jj=0; jj<46; jj++) tcp->Read32(FTOF_BOARD_ADDRESS_1 + FTOF_W_DELAY_BASE + jj*4, &W1[jj]);
 
 	//printf("Delays: %d %d %d\n",U1[0],U1[1],U1[2]);
   }
@@ -1710,15 +1722,14 @@ void DelaysDlg::WriteVME()
 {
   Int_t jj;
 
-  if(tcpvme->m_bConnected)
   {
 	printf("DelaysDlg::WriteDelays reached\n");
 
     ReadGUI();
 
-    for(jj=0; jj<46; jj++) if(U1[jj] != U1GUI[jj]) tcpvme->VMEWrite32(FTOF_BOARD_ADDRESS_1 + FTOF_U_DELAY_BASE + jj*4, U1GUI[jj], TRUE);
-    for(jj=0; jj<46; jj++) if(V1[jj] != V1GUI[jj]) tcpvme->VMEWrite32(FTOF_BOARD_ADDRESS_1 + FTOF_V_DELAY_BASE + jj*4, V1GUI[jj], TRUE);
-    for(jj=0; jj<46; jj++) if(W1[jj] != W1GUI[jj]) tcpvme->VMEWrite32(FTOF_BOARD_ADDRESS_1 + FTOF_W_DELAY_BASE + jj*4, W1GUI[jj], TRUE);
+    for(jj=0; jj<46; jj++) if(U1[jj] != U1GUI[jj]) tcp->Write32(FTOF_BOARD_ADDRESS_1 + FTOF_U_DELAY_BASE + jj*4, &U1GUI[jj]);
+    for(jj=0; jj<46; jj++) if(V1[jj] != V1GUI[jj]) tcp->Write32(FTOF_BOARD_ADDRESS_1 + FTOF_V_DELAY_BASE + jj*4, &V1GUI[jj]);
+    for(jj=0; jj<46; jj++) if(W1[jj] != W1GUI[jj]) tcp->Write32(FTOF_BOARD_ADDRESS_1 + FTOF_W_DELAY_BASE + jj*4, &W1GUI[jj]);
   }
 
 }

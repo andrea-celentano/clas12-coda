@@ -437,9 +437,9 @@ createExtraDrawCompFromCinfo(XcodaEditorGraph* graph, ConfigInfo* cinfo, int typ
   int      row, col, abs_col, abs_row;
   ipPort   *port;
   char     hname[80];
-
+#ifdef DEBUG
   printf("Editor_converter::createExtraDrawCompFromCinfo reached\n");
-
+#endif
   if (gethostname (hname, sizeof (hname)) != 0) strcpy (hname, "unknown");
   
   p = (drawComp *)malloc(sizeof(drawComp));
@@ -475,7 +475,9 @@ createExtraDrawCompFromCinfo(XcodaEditorGraph* graph, ConfigInfo* cinfo, int typ
     if (config)
 	{
       /* sergey: now it is done already when config was saved (see XcodaEditorWriteToConfig), will not harm through ... */
+#ifdef DEBUG
       printf("Editor_converter:insertValToOptionTable(%s,%s,%s)\n",config,"dataFile",cinfo->code[0]);
+#endif
       insertValToOptionTable (config,"dataFile",cinfo->code[0]);
 	}
     p->comp.code[0] = strsave(cinfo->code[0]);
@@ -495,7 +497,9 @@ createExtraDrawCompFromCinfo(XcodaEditorGraph* graph, ConfigInfo* cinfo, int typ
   else
     p->comp.code[2] = (char *)NULL;
   
+#ifdef DEBUG
   printf("Editor_converter::createExtraDrawCompFromCinfo: code >%s< >%s< >%s<\n",p->comp.code[0],p->comp.code[1],p->comp.code[2]);
+#endif
 
   p->editable = 0;
   if (cinfo->row == -1 && cinfo->col == -1)
@@ -963,11 +967,8 @@ freeConfigInfo (ConfigInfo* cinfo)
  * Description:                                                         *
  *      Create a new rcNetComp with all initial value set               *
  ***********************************************************************/
-#if defined (__STDC__)
-rcNetComp* newRcNetComp (void)
-#else
-rcNetComp* newRcNetComp ()
-#endif
+rcNetComp*
+newRcNetComp (void)
 {
   rcNetComp* comp = (rcNetComp *)malloc (sizeof(rcNetComp));
   
@@ -1028,6 +1029,7 @@ setRcNetComp (rcNetComp* comp,
 		   char* host)
 {
   comp->daq.comp_name = strsave (name);
+
   if (comp->daq.type == CODA_NONE)
   {
     comp->daq.node_name = strsave("none");
@@ -1036,7 +1038,9 @@ setRcNetComp (rcNetComp* comp,
   {
     comp->daq.node_name = strsave (host);
   }
+
   comp->daq.id_num = id;
+
   if (cmd != 0)
     comp->daq.boot_string = strsave (cmd);
   else
@@ -1076,6 +1080,7 @@ setRcNetComp (rcNetComp* comp,
     comp->daq.type = CODA_NONE;
   else
     comp->daq.type = CODA_UNKNOWN;
+
   comp->daq.status = 0;
 
   /* set initial port name */
@@ -1228,7 +1233,9 @@ XcodaEditorWriteToConfig(char* config_name, XcodaEditorGraph* graph)
   int      err = 0;
   char     temp[1024];
 
+#ifdef DEBUG
   printf("Editor_converter::XcodaEditorWriteToConfig reached\n");
+#endif
 
   if (isEmptyGraph (graph)) return;
 
@@ -1346,13 +1353,17 @@ XcodaEditorWriteToConfig(char* config_name, XcodaEditorGraph* graph)
 	    fComp = firstComp (daq->type, mesh, m, n);
 
 	    /* update the configuration table */
+#ifdef DEBUG
         printf("Editor_converter::XcodaEditorWriteToConfig: insertValToConfigTable(%s,%s,%s,%s,%s)\n",config_name, daq->comp_name, code, inputStr, outputStr);
+#endif
 	    err = insertValToConfigTable (config_name, daq->comp_name, code, inputStr, outputStr, nextComp, fComp);
 	
 		/* sergey: if name starts from "coda_", use daq->code[0] as filename to update _option table */
         if(!strncmp(daq->comp_name,"coda_",5))
 		{
+#ifdef DEBUG
           printf("Editor_converter::XcodaEditorWriteToConfig:insertValToOptionTable(%s,%s,%s)\n",config_name,"dataFile",daq->code[0]);
+#endif
           insertValToOptionTable (config_name,"dataFile",daq->code[0]);
 		}
 
@@ -1438,25 +1449,24 @@ int getConfigurationInfo (config, cinfo, num)
  *     Fill out information about component's code, user_string       *
  *     and port names                                                 *
  *********************************************************************/
-#if defined (__STDC__)
-static void updateCompAuxInfo(ConfigInfo** cinfo, 
-			      int num_cinfo, 
+static void
+updateCompAuxInfo(ConfigInfo** cinfo, 
+                  int num_cinfo, 
 			      rcNetComp* comp)
-#else
-static void updateCompAuxInfo(cinfo, num_cinfo, comp)
-     ConfigInfo **cinfo;
-     int        num_cinfo;
-     rcNetComp  *comp;
-#endif
 {
   int        i, j, k;
   daqComp    *daq = &(comp->daq);
   IoId       *io;
   daq->status = 0;
 
+
   /* update code and user_string first */
-  for(i=0;i<num_cinfo;i++)
+  for(i=0; i<num_cinfo; i++)
   {
+#ifdef DEBUG
+    printf("updateCompAuxInfo[%d] 1>%s<\n",i,daq->comp_name);fflush(stdout);
+    printf("updateCompAuxInfo[%d] 2>%s<\n",i,cinfo[i]->comp_name);fflush(stdout);
+#endif
     if(strcmp(daq->comp_name, cinfo[i]->comp_name)==0)
     {
       if(daq->code[0] != NULL)
@@ -1582,7 +1592,9 @@ constructRcnetCompsWithConfig (char* config,
 
   if (createRcNetCompsFromDbase (comps, num) < 0)
   {
+#ifdef DEBUG
     printf("constructRcnetCompsWithConfig error 1\n");
+#endif
     return(-1);
   }
 
@@ -1622,7 +1634,9 @@ XcodaEditorConstructGraphFromConfig(XcodaEditorGraph* graph,
   Arc       *arc;
   int       i, j, error;
   
+#ifdef DEBUG
   printf("Editor_converter::XcodaEditorConstructGraphFromConfig reached\n");
+#endif
 
   for(i=0;i<num_cinfos;i++)
   {

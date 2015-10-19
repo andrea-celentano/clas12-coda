@@ -134,12 +134,10 @@ daqData::~daqData (void)
   printf ("Delete daqData Class Object\n");
 #endif
   delete []key_;
-  if (writer_)
-    delete writer_;
-  if (trigger_)
-    delete trigger_;
-  // all these elements inside list have to be freed by caller
-  // derived class handles free all the stuff inside callback list
+  if (writer_) delete writer_;
+  if (trigger_) delete trigger_;
+  /* all these elements inside list have to be freed by caller
+     derived class handles free all the stuff inside callback list */
 }
 
 int
@@ -457,15 +455,13 @@ daqData::dumpAll (void)
 void
 daqData::monitorOn (void* channel)
 {
-  if (!channels_.includes (channel))
-    channels_.add (channel);
+  if (!channels_.includes (channel)) channels_.add (channel);
 }
 
 void
 daqData::monitorOff (void* channel)
 {
-  if (channels_.includes (channel))
-    channels_.remove (channel);
+  if (channels_.includes (channel)) channels_.remove (channel);
 }
 
 int
@@ -477,6 +473,8 @@ daqData::monitored (void)
     return 1;
 }
 
+
+/*sergey: 'rcServer/Components.s/rcsDaqData' inherits 'daqData' and provides 'notifyChannels' method */
 void
 daqData::notifyChannels (void)
 {

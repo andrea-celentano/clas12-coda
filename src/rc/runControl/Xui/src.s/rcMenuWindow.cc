@@ -592,19 +592,21 @@ rcMenuWindow::createMenuWindow (Widget parent)
   
   // net status
   netStatus_ = new rcNetStatus (bform, "netstatus", 150, 10);
+
   // mastership button
-  rcMastership* master = new rcMastership (bform, 
-					   "mastership",
-					   netHandler_);
+  rcMastership* master = new rcMastership (bform, "mastership", netHandler_);
   master->init ();
+
   // create rcLog Image
   XcodaXpmLabel *log = new XcodaXpmLabel (bform, "      ", RCLogo_xpm);
   log->init ();
 
   // set help msg window pointer to button panel
   bpanel->helpMsgWin (helpMsgWin_);
+
   // set network status window to button panel
   bpanel->netStatusWin (netStatus_);
+
   // set run information panel to button panel
   bpanel->infoPanel (rcipanel_);
 
@@ -690,25 +692,17 @@ rcMenuWindow::createMenuWindow (Widget parent)
   tabChildren_[0] = XtCreateManagedWidget ("HelpWidget", xmFormWidgetClass, rframe_,
 			      arg, ac);
 
- 
-  XtManageChild (tabChildren_[0]);
+   XtManageChild (tabChildren_[0]);
 
 
-  /*sergey: playing*/
-#if 0
-  XtUnmanageChild (tabChildren_[0]);
-  XtUnmapWidget(rtab_);
-  XSync(XtDisplay(rtab_),False);
-  XtMapWidget(rtab_);
-#endif
+
+
 
 
 
   rcipanel_->popupRateDisplay (this);
 
-  anaLogButton_ = new rcAnaLogDialog (this, "Ana Log Dialog", 
-				      "Logging File Dialog",
-				      netHandler_);
+  anaLogButton_ = new rcAnaLogDialog (this, "Ana Log Dialog", "Logging File Dialog", netHandler_);
   
   updateInterval_ = new rcUpdateIntervalDialog ("updateI","Update Interval", netHandler_); 
   
@@ -726,14 +720,9 @@ rcMenuWindow::createMenuWindow (Widget parent)
   monParmsButton_->init();
   monParmsButton_->popup();
 
-  zoomButton_ = new rcZoomButton ("Zoom on event information", 0, 
-				  "Alt<Key>z",
-				  "Alt/Z", netHandler_);
+  zoomButton_ = new rcZoomButton ("Zoom on event information", 0, "Alt<Key>z", "Alt/Z", netHandler_);
   
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
-  tokenIButton_ = new rcTokenIButton ("Token interval value", 0,
-				      "Alt<Key>t", "Alt/T", netHandler_);
-#endif
+  tokenIButton_ = new rcTokenIButton ("Token interval value", 0, "Alt<Key>t", "Alt/T", netHandler_);
   
   
   anaLogButton_->init();
@@ -745,31 +734,22 @@ rcMenuWindow::createMenuWindow (Widget parent)
 void
 rcMenuWindow::config (int status)
 {
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
   //  if (status >= DA_CONFIGURED) {
   //    anaLogButton_->activate ();
     
   //}
   //else
   //  anaLogButton_->deactivate ();
-#else
-  if (status == DA_DOWNLOADED) {
-    anaLogButton_->activate ();
+
+
+  if (status != DA_NOT_CONNECTED)
+  {
+    serverMsgToDbase_->activate ();
   }
   else
-    anaLogButton_->deactivate ();
-#endif
-
-
-  if (status != DA_NOT_CONNECTED) {
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
-    serverMsgToDbase_->activate ();
-#endif
-  }
-  else {
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+  {
     serverMsgToDbase_->deactivate ();
-#endif
   }
 
   if (status >= DA_CONFIGURED) {
@@ -788,10 +768,8 @@ rcMenuWindow::config (int status)
 void
 rcMenuWindow::configOnlineOption (int online)
 {
-  if (online)
-    online_->setState (1);
-  else
-    online_->setState (0);
+  if (online) online_->setState (1);
+  else        online_->setState (0);
 }
 
 void
@@ -814,7 +792,7 @@ rcMenuWindow::configMonParms ()
   monParmsButton_->popup();
 }
 
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
+
 void
 rcMenuWindow::configTokenInterval (int interval)
 {
@@ -826,7 +804,7 @@ rcMenuWindow::configRcsMsgToDbase (int state)
 {
   serverMsgToDbase_->setState (state);
 }
-#endif
+
 
 const Widget
 rcMenuWindow::dialogBaseWidget (void)
@@ -838,7 +816,8 @@ rcMenuWindow::dialogBaseWidget (void)
 void
 rcMenuWindow::reportErrorMsg (char* msg)
 {
-  if (rcMenuWindow::errDialog_ == 0) {
+  if (rcMenuWindow::errDialog_ == 0)
+  {
     rcMenuWindow::errDialog_ = new XcodaErrorDialog (dialogBaseWidget(),
                                                    "comdError",
                                                    "Error Dialog");

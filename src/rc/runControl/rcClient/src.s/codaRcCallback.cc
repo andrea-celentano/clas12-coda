@@ -20,7 +20,7 @@
 //
 #include "codaRcCallback.h"
 
-#define _TRACE_OBJECTS
+#undef _TRACE_OBJECTS
 
 //==========================================================================
 //     Implementation of codaRcCallback

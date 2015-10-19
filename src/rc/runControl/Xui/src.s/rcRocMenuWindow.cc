@@ -104,12 +104,12 @@ static int pids_[200]; // store process ID
 extern "C" int codaterm(int argc, char *argv[]);
 extern "C" void	codatermtest();
 
-/* 'daqComp' described in codaedit.s/Editor.h */
+/* 'daqComp' described in codaedit.s/Editor.h, and MAX_NUM_COMPS defined there */
 static int ncomp_;
-static daqComp comp[200];
-static char *type_name[200];
-static char *bg_name[200];
-static pid_t proc_id[200];
+static daqComp comp[MAX_NUM_COMPS];
+static char *type_name[MAX_NUM_COMPS];
+static char *bg_name[MAX_NUM_COMPS];
+static pid_t proc_id[MAX_NUM_COMPS];
 
 
 rcRocMenuWindow *menu_window;
@@ -1099,6 +1099,11 @@ rcRocMenuWindow::RocsSelectConfig(char *currconfig)
             else                                        {type_name[ncomp_] = "UNKNOWN";  bg_name[ncomp_] = "white";}
 
             ncomp_ ++;
+            if(ncomp_ >= MAX_NUM_COMPS)
+			{
+              printf("MAX_NUM_COMPS=%d is not enough, increase it in Editor.h !!!\n"); fflush(stdout);
+              exit(0);
+			}
             break;
 		  }
 		}

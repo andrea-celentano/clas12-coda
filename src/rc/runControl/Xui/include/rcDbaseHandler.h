@@ -61,8 +61,9 @@ public:
   // get all sessions
   int    listAllSessions  (void);
 
-  /*sergey: update run config file name*/
+  /*sergey: update run config file name
   int updateConfFileName (char *, char *);
+*/
 
   // get all databases
   char** allDatabases     (int& numdbases);

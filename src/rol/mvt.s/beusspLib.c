@@ -1,3 +1,5 @@
+#ifdef Linux_vme
+
 #define _GNU_SOURCE
 #define DEVEL
 
@@ -2453,6 +2455,15 @@ int beusspBZRDLow(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
 }
 
 
+#else
+
+void
+beusspLib_dummy()
+{
+  return;
+}
+
+#endif
 
 
 

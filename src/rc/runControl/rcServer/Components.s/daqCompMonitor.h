@@ -67,12 +67,16 @@ public:
   void timerCallback       (void);
 
 private:
+
   // daqRun reference
   daqRun& run_;
+
   // disconnected components are here
   codaSlist junkList_;
+
   // timer object
   daqCompMonitorTimer timer_;
+
   // autoend flag
   int autoend_;
 };

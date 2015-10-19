@@ -45,8 +45,10 @@
 
 inline int64_t roundLen (int64_t len)
 {
+#ifdef _TRACE_OBJECTS
   printf("roundLen: len=%d\n",len);
   printf("roundLen: %d\n",~(ALIGN_WORDB-1));
+#endif
   return ( (len + (ALIGN_WORDB-1)) & (~(ALIGN_WORDB-1)) );
 }
 

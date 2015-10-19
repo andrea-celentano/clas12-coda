@@ -59,6 +59,8 @@
 //
 //
 
+#include <stdio.h>
+
 #include <Xm/Frame.h>
 #include <Xm/Label.h>
 #include <Xm/LabelG.h>
@@ -176,11 +178,11 @@ rcRunDInfoPanel::init (void)
 
 
 
-  // This little widget is the pull down menu of all possible sources
-  // from which the event number can be read.
 
-  compOption_ = new rcRepCompOption (evnbForm, "compOption",
-				     "Read From:", netHandler_, this);
+  /* This little widget is the pull down menu of all possible sources from which the event number can be read */
+
+  compOption_ = new rcRepCompOption (evnbForm, "compOption", "Read From:", netHandler_, this);
+
   compOption_->init ();
   XtSetArg (arg[ac], XmNtopOffset, 10); ac++;
   XtSetArg (arg[ac], XmNbottomOffset, 10); ac++;
@@ -480,8 +482,8 @@ rcRunDInfoPanel::manage (void)
 {
   XcodaUi::manage ();
   compOption_->manage ();
-  // start monitoring on time and start time
-  // get network handler first
+
+  /* start monitoring on time and start time; get network handler first */
   rcClient& client = netHandler_.clientHandler ();
 
   if (client.monitorOnCallback (client.exptname(), "timeBin",
@@ -498,6 +500,7 @@ rcRunDInfoPanel::manage (void)
 		(rcCallback)&(rcRunDInfoPanel::endTimeCallback),
 		(void *)this) != CODA_SUCCESS) 
     fprintf (stderr, "Cannot register monitor on endTimeBin\n");
+
   if (client.monitorOnCallback (client.exptname (), "updateInterval",
 		(rcCallback)&(rcRunDInfoPanel::updateCallback),
 		(void *)this) != CODA_SUCCESS) {
@@ -513,24 +516,87 @@ rcRunDInfoPanel::unmanage (void)
   XcodaUi::unmanage ();
 }
 
+
+
+/*sergey: temporary, see another USE_CREG for right way*/
+extern Display *MainDisplay;
+
+
+
+
+/* config this panel according to the state */
+
+/* sergey: called at the beginning AND at the end of every transition */
+/* (at the beginning 'state' is old one, at the end - new one, so '...ing' never shown !!??) */
+/* called ONLY for the component currently shown on runcontrol GUI */
 void
 rcRunDInfoPanel::config (int state)
 {
+  int ii;
 
-  if (state >= DA_PAUSED) {
-    if (startTime_ != 0 && endTime_ == 0) {
-      if (!monitorOn_) {
-	ratePanel_->manage ();
-	//evRateDisp_->reset ();
-	startMonitoringInfo (compOption_->currentComponent() );
+#ifdef _TRACE_OBJECTS
+  printf(">> rcRunDInfoPanel::config: state %d (>=%d) monitorOn_=%d !!!!!!!!!!!!!!!!!!!!!!!!!!!!\n",
+    state,DA_PAUSED,monitorOn_);
+#endif
+
+  if (state >= DA_PAUSED/*sergey: maybe DA_DOWNLOADING ???*/)
+  {
+#ifdef _TRACE_OBJECTS
+    printf("rcRunDInfoPanel::config 1\n");
+#endif
+    if(startTime_ != 0 && endTime_ == 0 /*sergey: 1 ??? */)
+    {
+#ifdef _TRACE_OBJECTS
+      printf("rcRunDInfoPanel::config 2\n");
+#endif
+
+
+
+/*sergey*/
+#if 0
+      {
+        char cmd[1000];
+
+        /* send to current component only; want to send to all active components so they can draw status */
+        sprintf(cmd,"s:%d %s",state,compOption_->currentComponent());
+
+		/*
+        for(ii=0; ii<compOption_->numComp_; ii++)
+		{
+          printf("33: [%d] >%s<\n",ii,compOption_->components_[ii]);
+        }
+		*/
+
+		/* will do it in other place every time component report it's status */
+printf("CEDIT 33: rcRunDInfoPanel::config: cmd >%s<\n",cmd);fflush(stdout);
+#ifdef USE_CREG
+        coda_Send(MainDisplay,"CEDIT",cmd);
+#endif
+      }
+#endif	  
+/*sergey*/
+
+
+
+
+
+      if (!monitorOn_)
+      {
+#ifdef _TRACE_OBJECTS
+        printf("rcRunDInfoPanel::config 3\n");
+#endif
+	    ratePanel_->manage ();
+	    //evRateDisp_->reset ();
+	    startMonitoringInfo (compOption_->currentComponent() );
       }
     }
-    else {
-      if (monitorOn_)
-	stopMonitoringInfo (compOption_->currentComponent ());
+    else
+    {
+      if (monitorOn_) stopMonitoringInfo (compOption_->currentComponent ());
     }
   }
-  else {
+  else
+  {
     ratePanel_->unmanage ();
     //if (ratePanel_ && ratePanel_->isMapped ())
     //ratePanel_->cleanDisplay ();
@@ -548,45 +614,55 @@ void
 rcRunDInfoPanel::startMonitoringInfo (char* compname)
 {
   int err = 0;
-  // get network handler first
+
+  /* get network handler first */
   rcClient& client = netHandler_.clientHandler ();
 
 #ifdef _CODA_DEBUG
-  printf("start monitoring %s\n",compname);
+  printf("starting monitoring %s ....................................................\n",compname);
 #endif
 
   if (client.monitorOnCallback (compname, DYN_ATTR0,
 		(rcCallback)&(rcRunDInfoPanel::attr0Callback),
-		(void *)this) != CODA_SUCCESS) {
-    fprintf (stderr, "Cannot register monitor on %s %s\n", 
+		(void *)this) != CODA_SUCCESS)
+  {
+    fprintf (stderr, "rcRunDInfoPanel::startMonitoringInfo: Cannot register monitor on %s %s\n", 
 	     compname, DYN_ATTR0);
     err = 1;
   }
+
   if (client.monitorOnCallback (compname, DYN_ATTR1,
 		(rcCallback)&(rcRunDInfoPanel::attr1Callback),
-		(void *)this) != CODA_SUCCESS) {
-    fprintf (stderr, "Cannot register monitor on %s %s\n", 
+		(void *)this) != CODA_SUCCESS)
+  {
+    fprintf (stderr, "rcRunDInfoPanel::startMonitoringInfo: Cannot register monitor on %s %s\n", 
 	     compname, DYN_ATTR1);
     err = 1;
   }
+
   if (client.monitorOnCallback (compname, DYN_ATTR2,
 		(rcCallback)&(rcRunDInfoPanel::attr2Callback),
-		(void *)this) != CODA_SUCCESS) {
-    fprintf (stderr, "Cannot register monitor on %s %s\n", 
+		(void *)this) != CODA_SUCCESS)
+  {
+    fprintf (stderr, "rcRunDInfoPanel::startMonitoringInfo: Cannot register monitor on %s %s\n", 
 	     compname, DYN_ATTR2);
     err = 1;
   }
+
   if (client.monitorOnCallback (compname, DYN_ATTR3,
 		(rcCallback)&(rcRunDInfoPanel::attr3Callback),
-		(void *)this) != CODA_SUCCESS) {
-    fprintf (stderr, "Cannot register monitor on %s %s\n", 
+		(void *)this) != CODA_SUCCESS)
+  {
+    fprintf (stderr, "rcRunDInfoPanel::startMonitoringInfo: Cannot register monitor on %s %s\n", 
 	     compname, DYN_ATTR3);
     err = 1;
   }
+
   if (client.monitorOnCallback (compname, DYN_ATTR4,
 		(rcCallback)&(rcRunDInfoPanel::attr4Callback),
-		(void *)this) != CODA_SUCCESS) {
-    fprintf (stderr, "Cannot register monitor on %s %s\n", 
+		(void *)this) != CODA_SUCCESS)
+  {
+    fprintf (stderr, "rcRunDInfoPanel::startMonitoringInfo: Cannot register monitor on %s %s\n", 
 	     compname, DYN_ATTR4);
     err = 1;
   }
@@ -595,22 +671,29 @@ rcRunDInfoPanel::startMonitoringInfo (char* compname)
   /*sergey*/
   if (client.monitorOnCallback (compname, DYN_ATTR5,
 		(rcCallback)&(rcRunDInfoPanel::attr5Callback),
-		(void *)this) != CODA_SUCCESS) {
-    fprintf (stderr, "Cannot register monitor on %s %s\n", 
+		(void *)this) != CODA_SUCCESS)
+  {
+    fprintf (stderr, "rcRunDInfoPanel::startMonitoringInfo: Cannot register monitor on %s %s\n", 
 	     compname, DYN_ATTR5);
     err = 1;
   }
 
 
-  if (!err) {
+  if (!err)
+  {
+#ifdef _TRACE_OBJECTS
+    printf("started monitoring %s !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n",compname);
+#endif
     monitorOn_ = 1;
     // reset counters to zero
     evc_ = drc_ = 0;
     // display event rate
     ratePanel_->cleanDisplay ();
     ratePanel_->manage ();
-	//printf("reset display!!!\n");
-	}
+#ifdef _TRACE_OBJECTS
+	printf("reset display!!!\n");
+#endif
+  }
 }
 
 void
@@ -619,11 +702,15 @@ rcRunDInfoPanel::stopMonitoringInfo (char* compname)
   rcClient& client = netHandler_.clientHandler ();
   
 #ifdef _CODA_DEBUG
-  printf("try to stop monitoring %s\n",compname);
+  printf("rcRunDInfoPanel::stopMonitoringInfo: try to stop monitoring comp >%s< (monitorOn_=%d)\n",compname,monitorOn_);
 #endif
-  if (monitorOn_) {
+  if (monitorOn_)
+  {
+
+	/*sergey: never here when switching components on GUI ??? why ??? */
+
 #ifdef _CODA_DEBUG
-    printf("stop monitoring %s\n",compname);
+    printf("rcRunDInfoPanel::stopMonitoringInfo: stop monitoring %s\n",compname);
 #endif
 
     if (client.monitorOffCallback (compname, DYN_ATTR0,
@@ -631,38 +718,40 @@ rcRunDInfoPanel::stopMonitoringInfo (char* compname)
 				   (void *)this,
 				   (rcCallback)&(rcRunDInfoPanel::offCallback),
 				   (void *)this) != CODA_SUCCESS)
-      fprintf (stderr, "Cannot unregister monitor on callback on %s %s\n", 
+      fprintf (stderr, "rcRunDInfoPanel::stopMonitoringInfo: Cannot unregister monitor on callback on %s %s\n", 
 	       compname,DYN_ATTR0);
+
     if (client.monitorOffCallback (compname, DYN_ATTR1,
 				   (rcCallback)&(rcRunDInfoPanel::attr1Callback),
 				   (void *)this,
 		   (rcCallback)&(rcRunDInfoPanel::offCallback),
 				   (void *)this) != CODA_SUCCESS)
-      fprintf (stderr, "Cannot unregister monitor on callback on %s %s\n", 
+      fprintf (stderr, "rcRunDInfoPanel::stopMonitoringInfo: Cannot unregister monitor on callback on %s %s\n", 
 	       compname,DYN_ATTR1);
+
     if (client.monitorOffCallback (compname, DYN_ATTR2,
 				   (rcCallback)&(rcRunDInfoPanel::attr2Callback),
 				   (void *)this,
 		   (rcCallback)&(rcRunDInfoPanel::offCallback),
 				   (void *)this) != CODA_SUCCESS)
-      fprintf (stderr, "Cannot unregister monitor on callback on %s %s\n", 
+      fprintf (stderr, "rcRunDInfoPanel::stopMonitoringInfo: Cannot unregister monitor on callback on %s %s\n", 
 	       compname,DYN_ATTR1);
+
     if (client.monitorOffCallback (compname, DYN_ATTR3,
 				   (rcCallback)&(rcRunDInfoPanel::attr3Callback),
 				   (void *)this,
 				   (rcCallback)&(rcRunDInfoPanel::offCallback),
 				   (void *)this) != CODA_SUCCESS)
-      fprintf (stderr, "Cannot unregister monitor on callback on %s %s\n", 
+      fprintf (stderr, "rcRunDInfoPanel::stopMonitoringInfo: Cannot unregister monitor on callback on %s %s\n", 
 	       compname,DYN_ATTR3);
+
     if (client.monitorOffCallback (compname, DYN_ATTR4,
 				   (rcCallback)&(rcRunDInfoPanel::attr4Callback),
 				   (void *)this,
 				   (rcCallback)&(rcRunDInfoPanel::offCallback),
 				   (void *)this) != CODA_SUCCESS)
-      fprintf (stderr, "Cannot unregister monitor on callback on %s %s\n", 
+      fprintf (stderr, "rcRunDInfoPanel::stopMonitoringInfo: Cannot unregister monitor on callback on %s %s\n", 
 	       compname,DYN_ATTR4);
-
-
 
     /*sergey*/
     if (client.monitorOffCallback (compname, DYN_ATTR5,
@@ -670,7 +759,7 @@ rcRunDInfoPanel::stopMonitoringInfo (char* compname)
 				   (void *)this,
 				   (rcCallback)&(rcRunDInfoPanel::offCallback),
 				   (void *)this) != CODA_SUCCESS)
-      fprintf (stderr, "Cannot unregister monitor on callback on %s %s\n", 
+      fprintf (stderr, "rcRunDInfoPanel::stopMonitoringInfo: Cannot unregister monitor on callback on %s %s\n", 
 	       compname,DYN_ATTR5);
 
 
@@ -679,27 +768,27 @@ rcRunDInfoPanel::stopMonitoringInfo (char* compname)
   }
 }
 
+
+
+
+
+
+
 void
-rcRunDInfoPanel::attr2Callback (int status, void* arg, daqNetData* data)
+rcRunDInfoPanel::attr0Callback (int status, void* arg, daqNetData* data)
 {
   rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
 
-  if(obj->monitorOn_)
-  {
-    if(status == CODA_SUCCESS)
-    {
-      int tevn = (int)(*data);
-
-      //setCompState(data->name(),tevn);
-      {
-        char cmd[100];
-        sprintf(cmd,"s:%d %s",tevn,data->name());
-printf("CEDIT 3\n");
-#ifdef USE_CREG
-        coda_Send(XtDisplay(obj->baseWidget()),"CEDIT",cmd);
-        coda_Send(XtDisplay(obj->baseWidget()),"ALLROCS",cmd);
+#ifdef _CODA_DEBUG
+  printf("======================= rcRunDInfoPanel::attr0Callback reached\n");
 #endif
-      }
+
+  if (obj->monitorOn_)
+  {
+    if (status == CODA_SUCCESS)
+    {
+      int temp = (int)(*data);
+      obj->numKbytes_ = ((unsigned long)temp)/256.0;
     }
   }
 }
@@ -709,8 +798,14 @@ rcRunDInfoPanel::attr1Callback (int status, void* arg, daqNetData* data)
 {
   rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
 
-  if (obj->monitorOn_) {
-    if (status == CODA_SUCCESS) {
+#ifdef _CODA_DEBUG
+  printf("======================= rcRunDInfoPanel::attr1Callback reached\n");
+#endif
+
+  if (obj->monitorOn_)
+  {
+    if (status == CODA_SUCCESS)
+    {
       Arg arg[10];
       int ac = 0;
 
@@ -726,6 +821,53 @@ rcRunDInfoPanel::attr1Callback (int status, void* arg, daqNetData* data)
     }
   }
 }
+
+
+
+/* sergey: called only for one component currently choosen on runcontrol GUI, and only if state is >= DA_DOWNLOADED;
+called every time component switched on runcontrol GUI, as well as in the end of Go() and beginning of End() because of
+'if(state >= DA_PAUSED)' in rcRunDInfoPanel::config */
+
+void
+rcRunDInfoPanel::attr2Callback (int status, void* arg, daqNetData* data)
+{
+  rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
+
+#ifdef _TRACE_OBJECTS
+  printf("rcRunDInfoPanel::attr2Callback reached\n");fflush(stdout);
+#endif
+
+  /* need it here ???
+  if(status != 0) return;
+  */
+
+  if(obj->monitorOn_)
+  {
+#ifdef _TRACE_OBJECTS
+    printf("rcRunDInfoPanel::attr2Callback 1\n");fflush(stdout);
+#endif
+    if(status == CODA_SUCCESS)
+    {
+#ifdef _TRACE_OBJECTS
+      printf("rcRunDInfoPanel::attr2Callback 2\n");fflush(stdout);
+#endif
+      int tevn = (int)(*data);
+
+      {
+        char cmd[1000];
+        sprintf(cmd,"s:%d %s",tevn,data->name());
+#ifdef _TRACE_OBJECTS
+        printf("CEDIT 3: rcRunDInfoPanel::attr2Callback: cmd >%s<\n",cmd);fflush(stdout);
+#endif
+#ifdef USE_CREG
+        coda_Send(XtDisplay(obj->baseWidget()),"CEDIT",cmd);
+        coda_Send(XtDisplay(obj->baseWidget()),"ALLROCS",cmd);
+#endif
+      }
+    }
+  }
+}
+
 
 void
 rcRunDInfoPanel::attr3Callback (int status, void* arg, daqNetData* data)
@@ -797,53 +939,45 @@ rcRunDInfoPanel::attr5Callback (int status, void* arg, daqNetData* data)
 {
   rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
 
-	if (obj->monitorOn_) {
-		if (status == CODA_SUCCESS) {
-			// update to window
-			Arg arg[10];
-			int ac = 0;
+  if (obj->monitorOn_)
+  {
+	if (status == CODA_SUCCESS)
+    {
+	  // update to window
+	  Arg arg[10];
+	  int ac = 0;
 
 			/*
 printf("attr5Callback: got livetime=%d\n",(*data));
 			*/
 
-			obj->ratePanel_->addLivetimeData ((float)(*data));
-		}
+	  obj->ratePanel_->addLivetimeData ((float)(*data));
 	}
-}
-
-
-
-
-void
-rcRunDInfoPanel::attr0Callback (int status, void* arg, daqNetData* data)
-{
-  rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
-
-  if (obj->monitorOn_) {    
-    if (status == CODA_SUCCESS) {
-      int temp = (int)(*data);
-      obj->numKbytes_ = ((unsigned long)temp)/256.0;
-    }
   }
 }
+
+
+
+
 
 void
 rcRunDInfoPanel::updateCallback (int status, void* arg, daqNetData* data)
 {
   rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
 
-  if (status == CODA_SUCCESS) {
-    printf("rcRunDInfoPanel::updateCallback: update interval = %d\n",
-      (int) (*data));
-
+  if (status == CODA_SUCCESS)
+  {
+#ifdef _TRACE_OBJECTS
+    printf("rcRunDInfoPanel::updateCallback: update interval = %d\n",(int) (*data));
+#endif
 	/*
     *data = 5;
     printf("sergey: set update interval = %d\n",(int) (*data));
 	*/
 
     obj->ratePanel_->setUpdateRate((int)(*data));
-    if (obj->monitorOn_) {
+    if (obj->monitorOn_)
+    {
       obj->stopMonitoringInfo (obj->compOption_->currentComponent ());
       obj->startMonitoringInfo (obj->compOption_->currentComponent() );
     }
@@ -857,6 +991,10 @@ rcRunDInfoPanel::timeCallback (int status, void* arg, daqNetData* data)
 {
   rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
 
+#ifdef _TRACE_OBJECTS
+  printf("rcRunDInfoPanel::timeCallback reached\n");
+#endif
+
   if (status == CODA_SUCCESS) 
     obj->time_ = (int64_t)(*data);
 }
@@ -866,7 +1004,8 @@ rcRunDInfoPanel::startTimeCallback (int status, void* arg, daqNetData* data)
 {
   rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
 
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     obj->startTime_ = (int64_t)(*data);
   }
 }
@@ -876,7 +1015,8 @@ rcRunDInfoPanel::endTimeCallback (int status, void* arg, daqNetData* data)
 {
   rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
 
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     obj->endTime_ = (int64_t)(*data);
   }
 }
@@ -884,8 +1024,7 @@ rcRunDInfoPanel::endTimeCallback (int status, void* arg, daqNetData* data)
 void
 rcRunDInfoPanel::offCallback (int status, void* arg, daqNetData* data)
 {
-  if (status != CODA_SUCCESS)
-    printf ("monitor off failed\n");
+  if (status != CODA_SUCCESS) printf ("monitor off failed\n");
 }
 
 // integrated event rate counter window (not histogram !)
@@ -893,14 +1032,16 @@ void
 rcRunDInfoPanel::updateEventRate (void)
 {
   double irate = 0.0;
-  if (evc_ < RC_CACHE_SIZE) {
+  if (evc_ < RC_CACHE_SIZE)
+  {
     pastTime_[evc_]= time_;
     pastEvn_[evc_++] = numEvents_;
     if (time_ > startTime_) {
       irate = numEvents_/(double)(time_- startTime_);
     }
   }
-  else {
+  else
+  {
     irate = numEvents_/(double)(time_- startTime_);
     // remember old values
     pastEvn_[evc_ - RC_CACHE_SIZE] = numEvents_;
@@ -932,7 +1073,8 @@ rcRunDInfoPanel::updateDataRate (void)
 {
   double irate = 0.0;
 
-  if (drc_ < RC_CACHE_SIZE) {
+  if (drc_ < RC_CACHE_SIZE)
+  {
     pastTimeB_[drc_]= time_;
     pastDataB_[drc_] = numKbytes_;
     drc_ ++;
@@ -940,7 +1082,8 @@ rcRunDInfoPanel::updateDataRate (void)
       irate = numKbytes_/(double)(time_- startTime_);
     }
   }
-  else {
+  else
+  {
     irate = numKbytes_/(double)(time_- startTime_);
       (double)(time_ - pastTimeB_[drc_ - RC_CACHE_SIZE]);
     // remember old values
@@ -970,25 +1113,18 @@ rcRunDInfoPanel::updateDataRate (void)
 void
 rcRunDInfoPanel::zoomOnEventInfo (void)
 {
-
+  ;
 }
 
 void
 rcRunDInfoPanel::popupRateDisplay (rcMenuWindow *menW)
 {
-  if (!ratePanel_) {
-
+  if (!ratePanel_)
+  {
     Widget stattab = menW->createTabFrame("Statistics",0);
-  
-    ratePanel_ = new rcRateDisplay (stattab, netHandler_,statusPanel_,"rcRateDisplay",
-				    "Event/Data Rate Display",
-				    60);
+    ratePanel_ = new rcRateDisplay (stattab, netHandler_,statusPanel_,"rcRateDisplay","Event/Data Rate Display",60);
     ratePanel_->init (menW);
   }
 
   ratePanel_->popup ();
 }
-
-				    
-  
-

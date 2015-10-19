@@ -39,7 +39,6 @@
 //
 #include <rcInfoPanel.h>
 #include <rcRunTypeDialog.h>
-//#include <rcRunConfigDialog.h>
 #include <rcButtonPanel.h>
 #include <rcComdOption.h>
 #include <rcAudioOutput.h>
@@ -92,18 +91,20 @@ void
 rcConfigure::loadRcDbase (char *dbase, char* session)
 {
 /*printf("c3\n");fflush(stdout);*/
-  // get network handler
+  /* get network handler */
   rcClient& client = netHandler_.clientHandler ();
 
   daqData data ("RCS", "command", "unknown");
-  // insert database name + session name into data object
+
+  /* insert database name + session name into data object */
   char* temp[2];
   temp[0] = new char[::strlen (dbase) + 1];
   ::strcpy (temp[0], dbase);
   temp[1] = new char[::strlen (session) + 1];
   ::strcpy (temp[1], session);
   data.assignData (temp, 2);
-  // free memory
+
+  /* free memory */
   delete []temp[0]; 
   delete []temp[1];
 
@@ -124,7 +125,8 @@ rcConfigure::loadRcDbaseCbk (int status, void* arg, daqNetData* data)
 {
 /*printf("c4\n");fflush(stdout);*/
   rcConfigure* obj = (rcConfigure *)arg;
-  if (status != CODA_SUCCESS && status != CODA_IGNORED) {
+  if (status != CODA_SUCCESS && status != CODA_IGNORED)
+  {
     obj->reportErrorMsg ("rcConfigure::loadRcDbaseCbk: Loading database failed !!!");
     rcAudio ("rcConfigure::loadRcDbaseCbk: loading database failed");
   }

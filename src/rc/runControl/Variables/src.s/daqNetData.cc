@@ -25,14 +25,16 @@
 //   run control source
 //
 //
-#include "daqNetData.h"
+
 #include <stdlib.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <daqArbStructFactory.h>
 
+#include "daqNetData.h"
 
-#define _TRACE_OBJECTS
+
+#undef _TRACE_OBJECTS
 
 const int CODA_FDCONV_LEN = 32;
 
@@ -133,6 +135,8 @@ daqNetData::daqNetData (char* compname, char* attrname, daqArbStruct* data)
   ctrNameAndAttr (compname, attrname);
   u_.arb = data->dup ();
 }
+
+
 
 #ifdef Linux_x86_64
 daqNetData::daqNetData (char* compname, char* attrname, int64_t* data, int count)
@@ -343,7 +347,9 @@ daqNetData::daqNetData (const daqNetData& data)
     break;
 
   case CODA_STR:
+#ifdef _TRACE_OBJECTS
     printf ("Create daqNetData Class Object 105: count_=%d\n",count_);
+#endif
     if (count_ == 1)
     {
       u_.sval = new char[CODA_CONV_LEN];
@@ -357,7 +363,9 @@ daqNetData::daqNetData (const daqNetData& data)
       {
 	    tdata[i] = new char[::strlen (cdata[i]) + 1];
 	    ::strcpy (tdata[i], cdata[i]);
+#ifdef _TRACE_OBJECTS
         printf("105: [%d] >%s<\n",i,tdata[i]);
+#endif
       }
       u_.data = (void *)tdata;
     }
@@ -1654,14 +1662,14 @@ daqNetData::operator daqArbStruct* (void)
 int
 daqNetData::getData (int data[], int& count)
 {
-  if (count == 0 || count_ == 0)
-    return CODA_ERROR;
+  if (count == 0 || count_ == 0) return CODA_ERROR;
   int warning = CODA_SUCCESS;
-  if (count != count_)
-    warning = CODA_WARNING;
+  if (count != count_) warning = CODA_WARNING;
 
-  if (count_ == 1) {
-    switch (type_) {
+  if (count_ == 1)
+  {
+    switch (type_)
+    {
     case CODA_INT64:
       data[0] = u_.lval;
       break;
@@ -1682,9 +1690,11 @@ daqNetData::getData (int data[], int& count)
       break;
     }
   }
-  else if (count_ > 1) {
+  else if (count_ > 1)
+  {
     int realCount = (count_ < count) ? count_ : count;
-    switch (type_) {
+    switch (type_)
+    {
     case CODA_INT32:
       {
 	int *cdata = (int *)u_.data;
@@ -1864,97 +1874,117 @@ daqNetData::getData (double data[], int& count)
 int
 daqNetData::getData (char* data[], int& count)
 {
-  if (count == 0 || count_ == 0)
-    return CODA_ERROR;
+  if (count == 0 || count_ == 0) return CODA_ERROR;
   int warning = CODA_SUCCESS;
-  if (count != count_)
-    warning = CODA_WARNING;
+  if (count != count_) warning = CODA_WARNING;
 
-  if (count_ == 1) {
-    switch (type_) {
+#ifdef _TRACE_OBJECTS
+  printf("11: count=%d count_=%d\n",count,count_);
+#endif
+
+  if (count_ == 1)
+  {
+    switch (type_)
+    {
     case CODA_INT32:
       {
-	char temp[32];
-	::sprintf (temp, "%d",u_.ival);
-	data[0] = new char[::strlen (temp) + 1];
-	::strcpy (data[0], temp);
+	    char temp[32];
+	    ::sprintf (temp, "%d",u_.ival);
+	    data[0] = new char[::strlen (temp) + 1];
+	    ::strcpy (data[0], temp);
       }
       break;
+
     case CODA_FLT:
       {
-	char temp[CODA_FDCONV_LEN];
-	::sprintf (temp, "%-30.4f",u_.fval);
-	data[0] = new char[::strlen (temp) + 1];
-	::strcpy (data[0], temp);
+	    char temp[CODA_FDCONV_LEN];
+	    ::sprintf (temp, "%-30.4f",u_.fval);
+	    data[0] = new char[::strlen (temp) + 1];
+	    ::strcpy (data[0], temp);
       }
       break;
+
     case CODA_DBL:
       {
-	char temp[CODA_FDCONV_LEN];
-	::sprintf (temp, "%-30.4lf",u_.dval);
-	data[0] = new char[::strlen (temp) + 1];
-	::strcpy (data[0], temp);
+	    char temp[CODA_FDCONV_LEN];
+	    ::sprintf (temp, "%-30.4lf",u_.dval);
+	    data[0] = new char[::strlen (temp) + 1];
+	    ::strcpy (data[0], temp);
       }
       break;
+
     case CODA_STR:
       data[0] = new char[::strlen (u_.sval) + 1];
       ::strcpy (data[0], u_.sval);
       break;
+
     default:
       break;
     }
   }
-  else {
+  else
+  {
     int realCount = (count_ < count) ? count_ : count;
-    switch (type_) {
+    switch (type_)
+    {
     case CODA_INT32:
       {
-	int *cdata = (int *)u_.data;
-	char temp[32];
-	for (int i = 0; i < realCount; i++) {
-	  ::sprintf (temp, "%d", cdata[i]);
-	  data[i] = new char[::strlen (temp) + 1];
-	  ::strcpy (data[i], temp);
-	}
+	    int *cdata = (int *)u_.data;
+	    char temp[32];
+	    for (int i = 0; i < realCount; i++)
+        {
+	      ::sprintf (temp, "%d", cdata[i]);
+	      data[i] = new char[::strlen (temp) + 1];
+	      ::strcpy (data[i], temp);
+	    }
       }
       break;
+
     case CODA_FLT:
       {
-	float *cdata = (float *)u_.data;
-	char temp[CODA_FDCONV_LEN];
-	for (int i = 0; i < realCount; i++) {
-	  ::sprintf (temp, "%-32.4f", cdata[i]);
-	  data[i] = new char[::strlen (temp) + 1];
-	  ::strcpy (data[i], temp);
-	}
+	    float *cdata = (float *)u_.data;
+	    char temp[CODA_FDCONV_LEN];
+	    for (int i = 0; i < realCount; i++)
+        {
+	      ::sprintf (temp, "%-32.4f", cdata[i]);
+	      data[i] = new char[::strlen (temp) + 1];
+	      ::strcpy (data[i], temp);
+	    }
       }
       break;
+
     case CODA_DBL:
       {
-	double *cdata = (double *)u_.data;
-	char temp[CODA_FDCONV_LEN];
-	for (int i = 0; i < realCount; i++) {
-	  ::sprintf (temp, "%-32.4lf", cdata[i]);
-	  data[i] = new char[::strlen (temp) + 1];
-	  ::strcpy (data[i], temp);
-	}
+	    double *cdata = (double *)u_.data;
+	    char temp[CODA_FDCONV_LEN];
+	    for (int i = 0; i < realCount; i++)
+        {
+	      ::sprintf (temp, "%-32.4lf", cdata[i]);
+	      data[i] = new char[::strlen (temp) + 1];
+	      ::strcpy (data[i], temp);
+	    }
       }
       break;
+
     case CODA_STR:
       {
-	char **cdata = (char **)u_.data;
-	for (int i = 0; i < realCount; i++) {
-	  data[i] = new char[::strlen (cdata[i]) + 1];
-	  ::strcpy (data[i], cdata[i]);
-	}
+	    char **cdata = (char **)u_.data;
+	    for (int i = 0; i < realCount; i++)
+        {
+	      data[i] = new char[::strlen (cdata[i]) + 1];
+	      ::strcpy (data[i], cdata[i]);
+	    }
       }
       break;
+
     default:
       break;
     }
   }
+
   count = count_;
-  return warning;
+
+  return(warning);
 }
 
 
@@ -2072,7 +2102,9 @@ void
 encodeNetData (daqNetData& data, char* &buffer, int64_t& bufsize)
 {
 
+#ifdef _TRACE_OBJECTS
   printf("RC_DAQ_NETDATA_SIZE sizes: %d %d %d %d\n",sizeof(dataType),sizeof(int),sizeof(int64_t),sizeof(double));
+#endif
 
   /*32bit: RC_DAQ_NETDATA_SIZE sizes: 4 4 4 8
     64bit: RC_DAQ_NETDATA_SIZE sizes: 4 4 8 8
@@ -2080,11 +2112,17 @@ encodeNetData (daqNetData& data, char* &buffer, int64_t& bufsize)
 
 
   int64_t size = RC_DAQ_NETDATA_SIZE;
+#ifdef _TRACE_OBJECTS
   printf("size1=%d\n",size);
+#endif
   size += data.nameLen_;
+#ifdef _TRACE_OBJECTS
   printf("size2=%d\n",size);
+#endif
   size += data.attrLen_;
+#ifdef _TRACE_OBJECTS
   printf("size3=%d\n",size);
+#endif
   
   if (data.count_ > 1)
   {
@@ -2093,17 +2131,23 @@ encodeNetData (daqNetData& data, char* &buffer, int64_t& bufsize)
 	  /*sergey*/
     case CODA_INT64:
       size += (sizeof (int64_t) * data.count_);
+#ifdef _TRACE_OBJECTS
   printf("size44=%d\n",size);
+#endif
       break;
 
     case CODA_INT32:
       size += (sizeof (int) * data.count_);
+#ifdef _TRACE_OBJECTS
   printf("size4=%d\n",size);
+#endif
       break;
     case CODA_FLT:
     case CODA_DBL:
       size += (CODA_FDCONV_LEN * data.count_);
+#ifdef _TRACE_OBJECTS
   printf("size5=%d\n",size);
+#endif
       break;
     case CODA_STR:
     {
@@ -2112,7 +2156,9 @@ encodeNetData (daqNetData& data, char* &buffer, int64_t& bufsize)
 	  {
 	    size += (::strlen (cdata[i]) + 1);
 	  }
+#ifdef _TRACE_OBJECTS
   printf("size6=%d\n",size);
+#endif
     }
       break;
     default:
@@ -2125,35 +2171,45 @@ encodeNetData (daqNetData& data, char* &buffer, int64_t& bufsize)
     {
     case CODA_STR:
       size += (::strlen (data.u_.sval) + 1);
+#ifdef _TRACE_OBJECTS
   printf("size7=%d\n",size);
+#endif
       break;
     case CODA_FLT:
     case CODA_DBL:
       size += CODA_FDCONV_LEN;
+#ifdef _TRACE_OBJECTS
   printf("size8=%d\n",size);
+#endif
       break;
     case CODA_STRUCT:
       size += 2*sizeof(int64_t); /* run time id + size info */
+#ifdef _TRACE_OBJECTS
   printf("size9=%d\n",size);
+#endif
       size += data.u_.arb->size ();
+#ifdef _TRACE_OBJECTS
   printf("size10=%d\n",size);
+#endif
       break;
     default:
       break;
     }
   }
 
+#ifdef _TRACE_OBJECTS
   printf("size=%d\n",size);
   printf("befor: bufsize=%lld\n",bufsize);
+#endif
 
   /* roundup size to align with word boundary
      now put everything into the buffer */
   bufsize = roundLen(size);
   buffer = new char[bufsize];
 
+#ifdef _TRACE_OBJECTS
   printf("after: bufsize=%lld (%lld)\n",bufsize,roundLen(size));
-
-
+#endif
 
 
   /* convert all integer values into the network byte ordering */

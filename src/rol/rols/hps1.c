@@ -998,8 +998,10 @@ vmeBusLock();
   ndcrb = dcrbInit((4<<19), 0x80000, 16+2, 7); /* 7 boards from slot 4, 7 boards from slot 13 */
   if(ndcrb>0)
   {
-    dcrbGSetDAC(-150); /* threshold in mV */
-    dcrbGSetProcMode(/*4000*/2000,/*4000*/2000,32);
+    dcrbGSetDAC(-20); /* threshold in mV */
+
+    /* last param is double-hit resolution in ns */
+    dcrbGSetProcMode(/*4000*/2000,/*4000*/2000,1000);
   }
 vmeBusUnlock();
 

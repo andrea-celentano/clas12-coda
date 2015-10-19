@@ -252,7 +252,7 @@ rcDbaseHandler::listAllSessions (void)
 
 
 
-/*sergey: update field 'confFile' in '<confname>_option' table*/
+/*sergey: update field 'confFile' in '<confname>_option' table
 int
 rcDbaseHandler::updateConfFileName (char *confname, char *conffilename)
 {
@@ -302,17 +302,7 @@ rcDbaseHandler::updateConfFileName (char *confname, char *conffilename)
       found = 1;
       break;
     }
-	/*
-    if (ii++ >= RCXUI_MAX_OPTIONS)
-	{
-      printf("ERROR: the number of options exceeds RCXUI_MAX_OPTIONS=%d\n",RCXUI_MAX_OPTIONS);
-      break;
-	}
-	*/
   }
-  /*
-  numOptions_ = ii;
-  */
 
   if(found)
   {
@@ -344,5 +334,7 @@ rcDbaseHandler::updateConfFileName (char *confname, char *conffilename)
 
   return CODA_SUCCESS;
 }
+
+*/
 
 #endif

@@ -116,7 +116,10 @@ extern "C" int gethostname (char*, int);
 extern "C" int get_hostport(char *msqlHost,char *theName,char *theHost,int *thePort,char *result);
 sig_atomic_t finished = 0;
 Reactor*     glbReactor = 0;
+
+/* decribed as 'extern' in rcMsgReporter.h which is included in several *.cc files and used as 'reporter->.. */
 rcMsgReporter *reporter = 0;
+
 static char  expidenv[80];     /* EXPID environment variables */
 static char  tcphostenv[80];
 static int tcl_interactive = 0;
@@ -349,11 +352,15 @@ main(int argc, char **argv)
   // update runControl server udp port number to daq run object
   daqrun.udpPort (brdHandler.port_number ());
 
-  // setup message reporter
+
+
+  /* setup message reporter */
   rcMsgReporter codaReporter (daqrun);
 
-  // setup global reporter
+  /* setup global reporter */
   reporter = &codaReporter;
+
+
 
   // create database reader
   dbaseReader dbreader (0, daqrun); 

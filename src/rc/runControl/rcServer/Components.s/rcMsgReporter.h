@@ -54,20 +54,26 @@ class rcMsgReporterLocker;
 
 class rcMsgReporter
 {
+
 public:
-  // constructor
+
+  /* constructor */
   rcMsgReporter   (daqRun& run);
   ~rcMsgReporter  (void);
   
-  // reporting level
+  /* reporting level */
   void reportingLevel (int level);   
   int  reportingLevel (void) const;
-  // user call this to report message
+
+  /* user call this to report message */
   void reportMessage (char *format, ...);
   void cmsglog (int msg_class, char *format, ...);
 
+
+
 private:
-  // reporting level
+
+  /* reporting level */
   int level_;
   daqRun& run_;
 #ifdef _CODA_USE_THREADS
@@ -78,6 +84,8 @@ private:
   friend class rcMsgReporterLocker;
 };
 
+
+/*sergey: it was like this ! actually allocated in rcServer.cc */
 extern rcMsgReporter* reporter;
 
 class rcMsgReporterLocker
@@ -89,7 +97,7 @@ public:
 private:
   rcMsgReporter* reporter_;
 
-  // deny access to copy and assignment
+  /* deny access to copy and assignment */
   rcMsgReporterLocker (const rcMsgReporterLocker& );
   rcMsgReporterLocker& operator = (const rcMsgReporterLocker& );
 };

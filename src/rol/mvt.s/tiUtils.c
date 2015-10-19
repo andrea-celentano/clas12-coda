@@ -22,6 +22,8 @@
  * </pre>
  *----------------------------------------------------------------------------*/
 
+#ifdef Linux_vme
+
 #define _GNU_SOURCE
 
 #define DEVEL
@@ -204,3 +206,12 @@ my_tiLive()
 }
 
 
+#else
+
+void
+tiUtils_dummy()
+{
+  return;
+}
+
+#endif

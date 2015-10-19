@@ -49,6 +49,7 @@
 //   run control source
 //
 //
+
 #include <rcMsgReporter.h>
 #include <daqComponent.h>
 #include "daqCompMonitor.h"
@@ -80,7 +81,9 @@ daqCompMonitor::startMonitoringComp (void)
 {
   // remove old information
 
-printf("daqCompMonitor::startMonitoringComp reached\n");
+#ifdef _TRACE_OBJECTS
+  printf("daqCompMonitor::startMonitoringComp reached\n");
+#endif
   junkList_.deleteAllValues ();
 
   int mint = timer_.timerInterval () * 1000;
@@ -90,14 +93,17 @@ printf("daqCompMonitor::startMonitoringComp reached\n");
 void
 daqCompMonitor::endMonitoringComp (void)
 {
-printf("daqCompMonitor::endMonitoringComp reached\n");
+#ifdef _TRACE_OBJECTS
+  printf("daqCompMonitor::endMonitoringComp reached\n");
+#endif
   timer_.dis_arm ();
 }
 
 void
 daqCompMonitor::timerInterval (int sec)
 {
-  if (timer_.auto_armed ()) {
+  if (timer_.auto_armed ())
+  {
     timer_.dis_arm ();
     timer_.timerInterval (sec);
     startMonitoringComp ();
@@ -122,8 +128,9 @@ daqCompMonitor::timerCallback (void)
   int          numComps = 0;
   int          state = 0, found = 0;
 
-printf("daqCompMonitor::timerCallback reached\n");
-
+#ifdef _TRACE_OBJECTS
+  printf("daqCompMonitor::timerCallback reached\n");
+#endif
   numComps = system.allEnabledComponents (comps, bufsize);
 
   if (numComps > 0) 

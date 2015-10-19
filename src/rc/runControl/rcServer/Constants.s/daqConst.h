@@ -72,25 +72,38 @@
 #define CODA_TERMINATE_ACTION    11
 #define CODA_NUM_ACTIONS         12
 
+
+
 // constant strings of class names
+
 #define CODA_ANALYSIS            "analysis"
 #define CODA_ANA_CLASS           "ANA"
+
 #define CODA_EVENT_BUILDER       "event_builder"
 #define CODA_EB_CLASS            "EB"
+
 #define CODA_EVENT_RECORDER      "event_recorder"
 #define CODA_ER_CLASS            "ER"
+
 #define CODA_LOG                 "console_log"
 #define CODA_LOG_CLASS           "LOG"
+
 #define CODA_READOUT             "readout_controller"
 #define CODA_ROC_CLASS           "ROC"
+
 #define CODA_RUNCONTROL          "run_control"
 #define CODA_RC_CLASS            "RC"
+
 #define CODA_USER_SCRIPT         "user_script"
 #define CODA_SCRIPT_CLASS        "USER_SCRIPT"
+
 #define CODA_TRIGGER_SUPVSOR     "trigger_supervisor"
 #define CODA_TS_CLASS            "TS"
+
 #define CODA_USER_COMP           "user_component"
 #define CODA_UC_CLASS            "UC"
+
+
 
 // constants associated with files
 #define CODA_RUNENV              "$RCDATABASE"

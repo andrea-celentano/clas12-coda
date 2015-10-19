@@ -134,7 +134,7 @@ rccAcceptor::handle_input (int)
   // accept the connection from a client
   if (listener_.accept (*client, &rem_addr) != -1){
 #ifdef _CODA_DEBUG
-    printf ("Received client connection from host %s at port %d\n",
+    printf ("rccAcceptor::handle_input: Received client connection from host %s at port %d\n",
 	    rem_addr.get_host_name (), client->get_handle ());
 #endif
     // remeber client address
@@ -146,7 +146,7 @@ rccAcceptor::handle_input (int)
     if (reactor_.register_handler (client,
 				   Event_Handler::READ_MASK) == -1) {
 #ifdef _CODA_DEBUG
-      printf ("Unable to register rccIO handler\n");
+      printf ("rccAcceptor::handle_input: Unable to register rccIO handler\n");
 #endif
       return -1;
     }
@@ -156,16 +156,24 @@ rccAcceptor::handle_input (int)
 
     // register this acceptor to rccIO
     client->manager (this);
+
     // add this client TCP connection to the list
     rcClientList_.add ((void *)client);
+
     // pass data acquisition run pointer
     client->setupRun (run_);
+
+#ifdef _CODA_DEBUG
+      printf ("?????????????????? rccAcceptor::handle_input: sending dynamic vars information to the client\n");
+#endif
     // send dynamic vars information to the client
     run_->sendDynamicVarsInfo (client);
+
     // send ana log vars information to the client
     run_->sendAnaLogVarsInfo (client);
   }
-  else {
+  else
+  {
 #ifdef _CODA_DEBUG
     printf ("Accept failed\n");
 #endif
