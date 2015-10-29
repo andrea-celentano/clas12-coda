@@ -44,7 +44,9 @@
 #include <rcRunConfigDialog.h>
 #include "rcInfoPanel.h"
 #include <rcMenuWindow.h>
-
+/*
+#define _TRACE_OBJECTS
+*/
 /*extern "C" void loadAndOrJump(char *file, char *loc, Boolean store);*/
 
 rcInfoPanel::rcInfoPanel (Widget parent,
@@ -78,6 +80,10 @@ rcInfoPanel::init (void)
   int ac = 0;
 
   _w = XtCreateWidget ("infoForm", xmFormWidgetClass, parent_, arg, ac);
+#ifdef _TRACE_OBJECTS
+  printf ("rcInfoPanel::init: _w=0x%08x !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n",_w);
+#endif
+
   // handle destroy callback
   installDestroyHandler ();
 
@@ -121,28 +127,37 @@ void
 rcInfoPanel::config (int status)
 {
   static int rimanaged = 0;
+#ifdef _TRACE_OBJECTS
+  printf("rcInfoPanel::config: status=%d\n",status);fflush(stdout);
+#endif
 
   char *dollar_coda, file[1024];
   
   dollar_coda = getenv("CODA");
   
-  if (status == DA_NOT_CONNECTED) {
+  if (status == DA_NOT_CONNECTED)
+  {
 
     runPanel_->unmanage ();
     initPanel_->manage();
-    if (dollar_coda) {
+    if (dollar_coda)
+    {
       sprintf(file,"%s/common/html/rc/Notice.html", dollar_coda);
     }
     /*loadAndOrJump(file,NULL,1);*/
     rimanaged = 0;
-  } else {
-    if (!rimanaged) {
+  }
+  else
+  {
+    if (!rimanaged)
+    {
 
       initPanel_->unmanage();
       runPanel_->manage ();
 
-      if (dollar_coda) {
-	sprintf(file,"%s/common/html/rc/contextHelp.html", dollar_coda);
+      if (dollar_coda)
+      {
+	    sprintf(file,"%s/common/html/rc/contextHelp.html", dollar_coda);
       }
       /*loadAndOrJump(file,NULL,1);*/
       rimanaged = 1;

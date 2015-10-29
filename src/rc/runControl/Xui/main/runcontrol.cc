@@ -552,7 +552,8 @@ main (int argc, char** argv)
   static int once = 0;
   
   dollar_coda = getenv("CODA");
-  if (dollar_coda == NULL) {
+  if (dollar_coda == NULL)
+  {
     printf ("$CODA must be set\n");
     exit(0);
   }
@@ -567,7 +568,7 @@ main (int argc, char** argv)
 
   /*__rsd_selectDebugLevels("1");*/
   
-  // set up command option
+  /* set up command option */
   
   rcComdOption::initOptionParser (argc, argv);
   rcComdOption* option = rcComdOption::option ();
@@ -575,10 +576,9 @@ main (int argc, char** argv)
   option->reportMsgOn ();
   option->parseOptions ();
   
-#if defined (_CODA_2_0_T) || defined (_CODA_2_0)
-  // setup database connection handler
+  /* setup database connection handler */
   (void)rcDbaseHandler::dbaseHandler ();
-#endif
+
   
   XcodaApp* app = new XcodaApp (argv[0], fallback_res);
   // open a X display

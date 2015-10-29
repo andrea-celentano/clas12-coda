@@ -51,9 +51,9 @@
 #include <daqMonitorStruct.h>
 #include <rcAudioOutput.h>
 #include "rcClientHandler.h"
-
-#undef _TRACE_OBJECTS
-
+/*
+#define _TRACE_OBJECTS
+*/
 rcClientHandler::rcClientHandler (Widget parent)
 :XcodaInput (parent), status_ (DA_NOT_CONNECTED), master_ (0), 
  numComps_ (0), numClients_ (0), numDbases_ (0), numSessions_ (0),
@@ -679,15 +679,15 @@ rcClientHandler::confFileCallback (int status, void* arg, daqNetData* data)
 {
   rcClientHandler* obj = (rcClientHandler *)arg;
 
-/*#ifdef _CODA_DEBUG*/
+#ifdef _CODA_DEBUG
   printf("!!!!!!!!!! rcClientHandler::confFileCallback reached\n");fflush(stdout);
-/*#endif*/
+#endif
 
   if (status == CODA_SUCCESS)
   {
-/*#ifdef _CODA_DEBUG*/
+#ifdef _CODA_DEBUG
     printf("!!!!!!!!!! rcClientHandler::confFileCallback: connected\n");fflush(stdout);
-/*#endif*/
+#endif
 	char* file;
 
     /* update config file here */
@@ -706,9 +706,9 @@ rcClientHandler::confFileCallback (int status, void* arg, daqNetData* data)
   }
   else  /* disconnection, so remove data */
   {
-/*#ifdef _CODA_DEBUG*/
+#ifdef _CODA_DEBUG
     printf("!!!!!!!!!! rcClientHandler::confFileCallback: disconnected (or not yet connected)\n");fflush(stdout);
-/*#endif*/
+#endif
     obj->confFileChanged (0, 0);
   }
 
@@ -863,6 +863,9 @@ rcClientHandler::status (int st)
   for (ite.init(); !ite; ++ite)
   {
     panel = (rcPanel *) ite ();
+#ifdef _TRACE_OBJECTS
+	printf("rcClientHandler::status: st=%d, panel=0x%08x\n",st,panel);fflush(stdout);
+#endif
     panel->config (st);
   }
 }

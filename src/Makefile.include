@@ -181,7 +181,7 @@ CFLAGS = -g
     CFLAGS += -fPIC -DLinux -DLINUX
 ### -D_CODA_DEBUG
 
-    CXX = g++
+    CXX = g++ -g
     CXXFLAGS = $(CFLAGS)
 
     LD = ld
@@ -211,7 +211,8 @@ endif
     LDFLAGS = 
 
 #SHLD = g++ -Wl,-soname,libBosio.so -shared -g
-    SHLD = g++ -shared $(OPT2)
+###    SHLD = g++ -shared $(OPT2)
+    SHLD = g++ -shared -g
 
     AR = ar
 

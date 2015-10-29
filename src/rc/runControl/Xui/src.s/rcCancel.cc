@@ -52,7 +52,9 @@ void
 rcCancel::doit (void)
 {
   rcAudio ("cancel this transition");
-
+#ifdef _TRACE_OBJECTS
+  printf("rcCancel::doit: cancel this transition\n");fflush(stdout);
+#endif
   assert (stWin_);
 
   // get network handler first
@@ -61,7 +63,9 @@ rcCancel::doit (void)
   if (client.sendCmdCallback (DACANCELTRAN, data,
 			      (rcCallback)&(rcCancel::cancelCallback),
 			      (void *)this) != CODA_SUCCESS)
+  {
     reportErrorMsg ("Cannot send download command to the server.");
+  }
 }
 
 void
@@ -75,7 +79,13 @@ rcCancel::cancelCallback (int status, void* arg, daqNetData* data)
 {
   rcCancel* obj = (rcCancel *)arg;
 
+#ifdef _TRACE_OBJECTS
+  printf("rcCancel::cancelCallback reached\n");fflush(stdout);
+#endif
+
   if (status != CODA_SUCCESS)
+  {
     obj->reportErrorMsg ("Cancel a transaction failed !!!\n");
+  }
 }
 

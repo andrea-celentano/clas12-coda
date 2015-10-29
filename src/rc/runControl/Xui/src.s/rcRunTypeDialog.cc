@@ -56,6 +56,9 @@
 
 #include <XcodaFileSelDialog.h>
 
+/*
+#define _TRACE_OBJECTS
+*/
 
 rcRunTypeDialog::rcRunTypeDialog (Widget parent,
 				  char* name,
@@ -65,7 +68,7 @@ rcRunTypeDialog::rcRunTypeDialog (Widget parent,
  option_ (0), errDialog_ (0), ok_ (0), cancel_ (0)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("                   Create rcRunTypeDialog Class Object\n");
+  printf ("rcRunTypeDialog::rcRunTypeDialog: Create rcRunTypeDialog Class Object, _w=0x%08x !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 #endif
   // empty
 }
@@ -205,8 +208,8 @@ rcRunTypeDialog::configure (void)
     {
       char cmd[100];
       sprintf(cmd,"c:%s",currentruntype);
-printf("CEDIT 4: >%s<\n",cmd);
 #ifdef USE_CREG
+      printf("CEDIT 4: >%s<\n",cmd);
       coda_Send(XtDisplay(this->baseWidget()),"CEDIT",cmd);
       coda_Send(XtDisplay(this->baseWidget()),"ALLROCS",cmd);
 #endif

@@ -562,7 +562,8 @@ daqRun::createAllVariables (void)
 
   confFWriter_ = new rcsConfFileNameWriter (this); /*sergey*/
   confFile_->writer (confFWriter_);                /*sergey*/
-  confFile_->disableWrite ();         /*sergey*/
+  confFile_->enableWrite ();         /*sergey: have to be enabled; will temporary disable it in daqRun::confFile()
+                                          if necessary*/
 
 
 
@@ -1129,16 +1130,31 @@ daqRun::tokenInterval (int itval, int writeUpdate)
   rcsConfFileNameWriter::write -> daqRun::updateConfFile -> dbaseReader::putConfFileName;
   it happens because operator '=' overloaded in daqData class, calling 'notifychannels' and 'write'
   methods; 'write' method calls rcsConfFileNameWriter::write */
+
+/*this funs not called when conffile choosen by runcontrol, following called:
+
+  runcontrol side:
+
+!!!!!!!!!! rcClientHandler::confFileCallback reached
+!!!!!!!!!! rcClientHandler::confFileCallback: connected
+
+  rcServer side:
+
+!!!!!!!!!!!!!!! rcsConfFileNameWriter::write >/usr/local/clas12/release/0.3/parms/trigger/classvt.cnf<
+daqRun::updateConfFile: fname >/usr/local/clas12/release/0.3/parms/trigger/classvt.cnf<
+dbaseReader::putConfFileName reached, name >/usr/local/clas12/release/0.3/parms/trigger/classvt.cnf<
+
+ */
 void
 daqRun::confFile (char *fname, int writeUpdate)
 {
-#ifdef _CODA_DEBUG
+/*#ifdef _CODA_DEBUG*/
   printf("daqRun::confFile: fname >%s< writeUpdate=%d\n",fname,writeUpdate);
-#endif
+/*#endif*/
   /* if not write to database, disable the write */
-  //if (!writeUpdate) confFile_->disableWrite ();
+  if (!writeUpdate) confFile_->disableWrite ();
   *confFile_ = fname; /* sergey: that overloaded operation triggers described above */
-  //if (!writeUpdate) confFile_->enableWrite ();  
+  if (!writeUpdate) confFile_->enableWrite ();  
 }
 
 
@@ -1146,9 +1162,9 @@ daqRun::confFile (char *fname, int writeUpdate)
 void
 daqRun::updateConfFile (char *fname)
 {
-#ifdef _CODA_DEBUG
+/*#ifdef _CODA_DEBUG*/
   printf("daqRun::updateConfFile: fname >%s<\n",fname);
-#endif
+/*#endif*/
   dbreader_->putConfFileName (fname); /* update database */
 }
 

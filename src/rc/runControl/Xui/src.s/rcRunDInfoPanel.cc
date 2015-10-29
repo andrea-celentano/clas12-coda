@@ -872,33 +872,34 @@ rcRunDInfoPanel::attr2Callback (int status, void* arg, daqNetData* data)
 void
 rcRunDInfoPanel::attr3Callback (int status, void* arg, daqNetData* data)
 {
-	rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
+  rcRunDInfoPanel *obj = (rcRunDInfoPanel *)arg;
 
-	if (obj->monitorOn_) {
-		if (status == CODA_SUCCESS) {
+  if (obj->monitorOn_)
+  {
+	if (status == CODA_SUCCESS)
+    {
+	  // update to window
+	  Arg arg[10];
+	  int ac = 0;
+	  XmString t;
+	  char tempi[50], tempd[50];
 
-			// update to window
-			Arg arg[10];
-			int ac = 0;
-			XmString t;
-			char tempi[50], tempd[50];
+	  // integrated event rate
+	  sprintf (tempi, "%-20.4lf", (float) (*data));
 
-			// integrated event rate
-			sprintf (tempi, "%-20.4lf", (float) (*data));
+	  t = XmStringCreateSimple (tempi);
+	  XtSetArg (arg[ac], XmNlabelString, t); ac++;
+	  XtSetValues (obj->dEvRate_, arg, ac);
+	  ac = 0;
+	  XmStringFree (t);  
 
-			t = XmStringCreateSimple (tempi);
-			XtSetArg (arg[ac], XmNlabelString, t); ac++;
-			XtSetValues (obj->dEvRate_, arg, ac);
-			ac = 0;
-			XmStringFree (t);  
+	  // update rate graph display if it is mapped
+	  //if (ratePanel_ && ratePanel_->isMapped ())
+          obj->updateEventRate();
+	  obj->ratePanel_->addEvRateData ((double) (*data));
 
-			// update rate graph display if it is mapped
-			//if (ratePanel_ && ratePanel_->isMapped ())
-                        obj->updateEventRate();
-			obj->ratePanel_->addEvRateData ((double) (*data));
-
-		}
 	}
+  }
 }
 
 void

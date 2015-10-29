@@ -234,7 +234,9 @@ Boolean notify;
 */
 
   /* when crashes, autoend is used as 2nd argument; if 0 or 1 used, does not crash !!! */
+#ifdef _TRACE_OBJECTS
   printf("rcMonitorParmsDialog::popup: 1 0x%08x 0x%08x\n",autoend_, autoend);fflush(stdout);
+#endif
 
   /* guess: crashes if first time called with '1', and second time with '0' ??? */
   /* if both times the same, it does not crash .. */
@@ -243,8 +245,9 @@ Boolean notify;
   /*sergey XmToggleButtonGadgetSetState (autoend_, autoend, 1);*/
   XmToggleButtonGadgetSetState (autoend_, 0, 1);
 
+#ifdef _TRACE_OBJECTS
   printf("rcMonitorParmsDialog::popup: 2\n");fflush(stdout);
-
+#endif
 
 }
 

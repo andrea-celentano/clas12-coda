@@ -469,6 +469,7 @@ create_menu(Widget w, XtermWidget xtw, MenuIndex num)
 	return m;
   }
 #else
+  printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! m=0x%08x\n",m);fflush(stdout);
   m = XtCreatePopupShell(data->internal_name, simpleMenuWidgetClass, toplevel, NULL, 0);
   printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! m=0x%08x\n",m);
   list->w = m;

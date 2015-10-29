@@ -107,7 +107,7 @@
 #define STD_IN stdin
 
 
-#undef DEBUG_MSGS
+#define DEBUG_MSGS
 
 
 #include "libtcp.h"

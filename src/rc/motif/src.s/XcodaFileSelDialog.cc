@@ -35,7 +35,9 @@
 #include <XcodaErrorDialog.h>
 #include <XcodaFileSelDialog.h>
 
-#undef _TRACE_OBJECTS
+/*
+#define _TRACE_OBJECTS
+*/
 
 XcodaFileSelDialog::XcodaFileSelDialog(Widget parent, char *name, char *title)
 :XcodaUi(name)
@@ -74,12 +76,15 @@ XcodaFileSelDialog::init()
   char str[256];
 
 #ifdef _TRACE_OBJECTS
-  printf("------------------------------- XcodaFileSelDialog::init() reached\n");
+  printf("------------------------------- XcodaFileSelDialog::init reached\n");
 #endif
 
-  if(_w == 0)
+  if(_w == NULL)
   {
     _w = XmCreateFileSelectionDialog(_parent, _name, NULL, 0);
+#ifdef _TRACE_OBJECTS
+	printf("------------------------------- XcodaFileSelDialog::init: _w=0x%08x\n",_w);
+#endif
     XtSetSensitive(XmFileSelectionBoxGetChild(_w, XmDIALOG_HELP_BUTTON), False);
     XtAddCallback (_w, XmNokCallback, (XtCallbackProc)&XcodaFileSelDialog::okCallback, (XtPointer)this);
     XtAddCallback (_w, XmNcancelCallback, (XtCallbackProc)&XcodaFileSelDialog::cancelCallback, (XtPointer)this);
@@ -151,7 +156,11 @@ XcodaFileSelDialog::popdown()
 
   /*sergey: to force next popup's init() to create new 'FileSelectionDialog', so it picks newly created files in directory*/
   XtUnmanageChild(_w);
-  _w = NULL;
+#ifdef _TRACE_OBJECTS
+  printf("XcodaFileSelDialog::popdown: _w=0x%08x !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n",_w);
+#endif
+  /*_w = NULL;*/ /* it comes from XcodaBasic.h, so it is rcRunConfigDialog's '_w' as well; if set to NULL,
+                error will occur in rcRunConfigDialog::reportErrorMsg(_w,...)  */
 
   alreadyManaged = 0;
 }

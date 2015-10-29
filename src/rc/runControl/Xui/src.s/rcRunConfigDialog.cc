@@ -42,22 +42,27 @@
 #include <stdlib.h>
 #include <string.h>
 
-/*for fchmod*/
+/*for chmod */
 #include <sys/types.h>
 #include <sys/stat.h>
+
 
 #include <Xm/Form.h>
 #include <Xm/PushBG.h>
 
 #include <rcDbaseHandler.h>
 #include <XcodaErrorDialog.h>
+/*
 #ifdef USE_CREG
 #include <codaRegistry.h>
 #endif
-
+*/
 #include "rcRunConfigDialog.h"
 #include "rcXpmComdButton.h"
 
+/*
+#define _TRACE_OBJECTS
+*/
 
 rcRunConfigDialog::rcRunConfigDialog (Widget parent,
 				  char* name,
@@ -67,8 +72,10 @@ rcRunConfigDialog::rcRunConfigDialog (Widget parent,
  option_ (0), errDialog_ (0)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("rcRunConfigDialog: Create rcRunConfigDialog Class Object\n");
+  printf ("rcRunConfigDialog: Create rcRunConfigDialog Class Object, _w=0x%08x !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n",_w);
 #endif
+
+  /* _w = parent; sergey ??? */
 }
 
 rcRunConfigDialog::~rcRunConfigDialog (void)
@@ -105,8 +112,17 @@ rcRunConfigDialog::download (void)
 void
 rcRunConfigDialog::popup (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcRunConfigDialog::popup reached\n");
+#endif
   XcodaFileSelDialog::init(); /* creates new 'FileSelectionDialog', so it picks newly created files in directory */
+#ifdef _TRACE_OBJECTS
+  printf("rcRunConfigDialog::popup 1, _w=0x%08x\n",_w);
+#endif
   XcodaFileSelDialog::popup();
+#ifdef _TRACE_OBJECTS
+  printf("rcRunConfigDialog::popup 2, _w=0x%08x\n",_w);
+#endif
 }
 
 
@@ -309,13 +325,31 @@ rcRunConfigDialog::confFileCallback (int status, void* arg, daqNetData* )
 
 
 
+/*sergey: '_w' here from XcodaBasic.h !!!???*/
 
 void
 rcRunConfigDialog::reportErrorMsg (char* error)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcRunConfigDialog::reportErrorMsg: _w=0x%08x error >%s<\n",_w,error);fflush(stdout);
+#endif
+  /*sergey*/
+  if(_w==NULL)
+  {
+    printf("rcRunConfigDialog::reportErrorMsg: return\n");fflush(stdout);
+    return;
+  }
+  /*sergey*/
+
   if (!errDialog_)
   {
-    errDialog_ = new XcodaErrorDialog (_w,"runConfigError", "Configuration Error");
+#ifdef _TRACE_OBJECTS
+    printf("rcRunConfigDialog::reportErrorMsg: _w = 0x%08x, errDialog_ = 0x%08x\n",_w,errDialog_);fflush(stdout);
+#endif
+    errDialog_ = new XcodaErrorDialog (_w, "runConfigError", "Configuration Error");
+#ifdef _TRACE_OBJECTS
+    printf("rcRunConfigDialog::reportErrorMsg: errDialog_ = 0x%08x\n",errDialog_);fflush(stdout);
+#endif
     errDialog_->init ();
   }
   if (errDialog_->isMapped ()) errDialog_->popdown ();
@@ -329,7 +363,7 @@ rcRunConfigDialog::downloadCallback (int status, void* arg, daqNetData* data)
 {
   rcRunConfigDialog* obj = (rcRunConfigDialog *)arg;
 
-  if (status != CODA_SUCCESS) obj->reportErrorMsg ("Configuring a run failed !!!");
+  if (status != CODA_SUCCESS) obj->reportErrorMsg ("Downloading a run failed !!!");
 }
 
 

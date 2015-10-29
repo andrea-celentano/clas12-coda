@@ -6,16 +6,25 @@ rcServer -m clondb1 -d clasdev -s clastest0
 ./Linux_i686/bin/rcline clasdev clastest0 clondb1
 
 type commands:
+
   load
   configure
-    test0
+    sector5_er
   download
   prestart
   go
   end
-  monitorOn
-    ER0 erate
 
+  monitorOn
+    ER15 erate
+
+  getvalue
+    ER15 state
+
+  setvalue
+    clastest (session)
+    confFile
+    bla
 */
 
 #include <stdio.h>
@@ -39,16 +48,20 @@ type commands:
 
 
 /* to resolve reference in rcClient.cc */
-Display *MainDisplay;
+Display *MainDisplay = NULL;
 
 
 static void
 callback (int status, void* arg, daqNetData* data)
 {
   if (status == CODA_SUCCESS)
+  {
     printf ("command finished successfully\n");
+  }
   else
+  {
     printf ("command failed ++++++++++++++++++\n");    
+  }
 }
 
 static void
@@ -56,52 +69,65 @@ getValCallback (int status, void* arg, daqNetData* data)
 {
   rcClient* obj = (rcClient *)arg;
 
-  if (status == CODA_SUCCESS) {
-    printf ("get data %s %s is %s\n",data->name(), data->attribute(),
+  if (status == CODA_SUCCESS)
+  {
+    printf ("get comp >%s< attr>%s< data >%s<\n",data->name(), data->attribute(),
 	    (char *)(*data));
-    printf ("Pend IO command returns %d\n", obj->pendIO (2.0));
+    //printf ("Pend IO command returns %d\n", obj->pendIO (2.0));
   }
-  else 
+  else
+  { 
     printf ("Get value has bad value\n");
+  }
 }
 
 static void
 setValCallback (int status, void* arg, daqNetData* data)
 {
-  if (status == CODA_SUCCESS) {
-    printf ("set data %s %s is %s\n",data->name(), data->attribute(),
+  if (status == CODA_SUCCESS)
+  {
+    printf ("set comp >%s< attr >%s< data >%s<\n",data->name(), data->attribute(),
 	    (char *)(*data));
   }
-  else 
+  else
+  { 
     printf ("set value has bad value\n");
+  }
 }
 
 static void
 monCallback (int status, void* arg, daqNetData* data)
 {
-  if (status == CODA_SUCCESS) {
-    printf ("data %s %s changed to %s\n",data->name(), data->attribute(),
-	    (char *)(*data));
+  if (status == CODA_SUCCESS)
+  {
+    printf ("comp >%s< attr >%s< data >%s<\n",data->name(), data->attribute(), (char *)(*data));
   }
-  else 
+  else
+  { 
     printf ("monitor value has bad value\n");
+  }
 }
 
 static void
 msgCallback (int status, void* arg, daqNetData* data)
 {
   if (status == CODA_SUCCESS)
+  {
     printf ("%s", (char *)(*data));
+  }
 }
 
 static void
 monOffCallback (int status, void* arg, daqNetData* data)
 {
-  if (status == CODA_SUCCESS) {
+  if (status == CODA_SUCCESS)
+  {
     printf ("data %s %s monitor off \n",data->name(), data->attribute());
   }
-  else 
+  else
+  { 
     printf ("monitor off failed\n");
+  }
 }
 
 
@@ -131,7 +157,7 @@ main (int argc, char **argv)
 
   if (argc != 4)
   {
-    fprintf (stderr, "Usage: %s database session mysqld\n", argv[0]);
+    fprintf (stderr, "Usage: %s expid session mysqld\n", argv[0]);
     exit (1);
   }
   
@@ -144,12 +170,10 @@ main (int argc, char **argv)
     printf ("%s RunControl Server is not running\n", argv[2]);
     exit (1);
   }
-
-
-  /*
-handler_.monitorOnCallback ("RCS", "runMessage", msgCallback, 0);
-  */
-
+  else
+  {
+    printf ("Connected to %s RunControl Server\n", argv[2]);
+  }
 
 
   handler_.monitorOnCallback ("RCS", "runMessage", msgCallback, 0);
@@ -198,8 +222,11 @@ handler_.monitorOnCallback ("RCS", "runMessage", msgCallback, 0);
       }
       else if (::strcmp (command, "getruntypes") == 0)
 	  {
-	    status = handler_.getValueCallback (argv[2], "allRunTypes", 
-					  getValCallback, (void *)&handler_);
+	    status = handler_.getValueCallback (argv[2], "allRunTypes", getValCallback, (void *)&handler_);
+	  }
+      else if (::strcmp (command, "getconffile") == 0)
+	  {
+	    status = handler_.getValueCallback (argv[2], "confFile", getValCallback, (void *)&handler_);
 	  }
       else if (::strcmp (command, "configure") == 0)
       {
@@ -248,8 +275,7 @@ handler_.monitorOnCallback ("RCS", "runMessage", msgCallback, 0);
 	      char compname[32];
 	      char attr[32];
 	      scanf ("%s %s",compname, attr);
-	      handler_.getValueCallback (compname, attr, getValCallback, 
-				   (void *)&handler_);
+	      handler_.getValueCallback (compname, attr, getValCallback, (void *)&handler_);
 	    }
       }
       else if (::strcmp (command, "setvalue") == 0)

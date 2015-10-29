@@ -42,7 +42,7 @@
 #endif
 
 
-#define DEBUG
+#undef DEBUG
 
 
 int root_height;
@@ -696,12 +696,12 @@ main(int argc, char** argv)
   }
 #endif
 
-#if 0
+#if 1
   menW->createTabFrame("rocs2",0, &firstxtermframe, &nxtermframes);
   for(ii=firstxtermframe; ii<firstxtermframe+nxtermframes; ii++)
   {
     sprintf(tmp,"%02d_",ii);
-    printf("rocs1: xtermsFrame number %d, window prefix >%s<\n",ii,tmp);
+    printf("rocs2: xtermsFrame number %d, window prefix >%s<\n",ii,tmp);
     menW->createXterms (menW->xtermsFrame_[ii], tmp);
     XtUnmanageChild (menW->xtermsFrame_[ii]);
   }

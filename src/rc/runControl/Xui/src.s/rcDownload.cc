@@ -38,6 +38,10 @@
 #define RC_DOWNLOAD_NAME " Download "
 #define RC_DOWNLOAD_MSG  "Download object code"
 
+/*
+#define DEBUG_MSGS
+*/
+
 rcDownload::rcDownload (Widget parent, rcButtonPanel* panel,
 			rcClientHandler& handler)
 :rcComdButton (parent, RC_DOWNLOAD_NAME, RC_DOWNLOAD_MSG, panel, handler, "B")

@@ -1009,6 +1009,9 @@ popupSaveQDialog(Widget parent,
   XtSetArg(args[ac], XmNtitle, "QuestionDialog"); ac++;
   XtSetArg(args[ac], XmNx, ret_x); ac++;
   XtSetArg(args[ac], XmNy, ret_y); ac++;
+
+  printf("Editor_menu:popupSaveQDialog: q_shell\n");fflush(stdout);
+
   q_dialog = XtCreatePopupShell("q_shell", transientShellWidgetClass,
 				parent, args ,ac);
   ac = 0;

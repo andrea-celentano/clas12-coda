@@ -50,13 +50,15 @@
 
 #include "rcInfoRunPanel.h"
 #include <rcMenuWindow.h>
-
+/*
+#define _TRACE_OBJECTS
+*/
 rcInfoRunPanel::rcInfoRunPanel (Widget parent, char* name, 
 				rcClientHandler& handler)
 :XcodaUi (name), parent_ (parent), netHandler_ (handler)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("              Create rcInfoRunPanel Class Object\n");
+  printf ("rcInfoRunPanel::rcInfoRunPanel::Create rcInfoRunPanel Class Object\n");
 #endif
   datafile_ = 0;
   conffile_ = 0;
@@ -65,7 +67,7 @@ rcInfoRunPanel::rcInfoRunPanel (Widget parent, char* name,
 rcInfoRunPanel::~rcInfoRunPanel (void)
 {
 #ifdef _TRACE_OBJECTS
-  printf ("              Delete rcInfoRunPanel Class Object\n");
+  printf ("rcInfoRunPanel::rcInfoRunPanel:: Delete rcInfoRunPanel Class Object\n");
 #endif
   // delete rcRunStatusPanel since it has no destroy handler
   //delete statusPanel_;
@@ -81,6 +83,10 @@ rcInfoRunPanel::init (void)
 
   XtSetArg (arg[ac], XmNshadowType, XmSHADOW_ETCHED_IN); ac++;
   _w = XtCreateWidget ("runInfoPanel", xmFrameWidgetClass, parent_, arg, ac);
+#ifdef _TRACE_OBJECTS
+  printf ("rcInfoRunPanel::init: _w=0x%08x !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n",_w);
+#endif
+
   ac = 0; 
   XtSetArg (arg[ac], XmNshadowThickness, 0); ac++;
   Widget form = XtCreateWidget ("runPanelForm", xmFormWidgetClass,
@@ -94,7 +100,7 @@ rcInfoRunPanel::init (void)
   runTypeDialog_->setModal ();
 
   runConfigDialog_ = new rcRunConfigDialog (form, "runConfigDialog", "Run Config Configuration", netHandler_);
-  /*runConfigDialog_->init (); will do it in popup() */
+/*runConfigDialog_->init (); will do it in popup() */
 
   // setup x resources for all
   ac = 0;
@@ -407,6 +413,9 @@ rcInfoRunPanel::zoomOnEventInfo (void)
 void
 rcInfoRunPanel::popupRateDisplay (rcMenuWindow *menW)
 {
+#ifdef _CODA_DEBUG
+  printf("rcInfoRunPanel::popupRateDisplay reached\n");fflush(stdout);
+#endif
   dinfoPanel_->popupRateDisplay (menW);
 }
 

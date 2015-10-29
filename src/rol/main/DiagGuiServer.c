@@ -820,20 +820,25 @@ main(int argc, char *argv[])
 
 
 
-  /*always init !!!
+  /*check if 'init' flag specified; if so, will init all boards found*/
   init_boards = 0;
   if(argc==2)
   {
     if(!strncmp(argv[1],"init",4))
 	{
       init_boards = 1;
-      printf("NOTE: boards initialization will be performed, it will break DAQ if running !!!\n");
+      printf("NOTE: boards initialization will be performed, can be a problem if DAQ is running !!!\n");
+	}
+    else
+	{
+      printf("NOTE: boards initialization will NOT be performed\n");
 	}
   }
-  */
+
+  /*always init !!!
   init_boards = 1;
   printf("NOTE: boards initialization will be performed\n");
-
+  */
 
 
   if(signal(SIGINT, sig_handler) == SIG_ERR)
@@ -886,9 +891,9 @@ main(int argc, char *argv[])
   gCrateServerCBFcn.GetChannelParams = Vme_GetChannelParams;
   gCrateServerCBFcn.SetChannelParams = Vme_SetChannelParams;
 
-  printf("Starting CrateMsgServer...");
+  printf("Starting CrateMsgServer...");fflush(stdout);
   CrateMsgServerStart(&gCrateServerCBFcn, CRATEMSG_LISTEN_PORT);
-  printf("Done.\n");
+  printf("Done.\n");fflush(stdout);
 
 
   while(1) sleep(1);

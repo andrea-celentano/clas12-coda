@@ -93,7 +93,9 @@
 #include <rcCancel.h>
 
 #include "rcButtonPanel.h"
-
+/*
+#define _TRACE_OBJECTS
+*/
 rcButtonPanel::rcButtonPanel (Widget parent,
 			      char* name,
 			      rcClientHandler& handler)
@@ -144,6 +146,10 @@ rcButtonPanel::init (void)
   Arg arg[20];
   int ac = 0;
 
+#ifdef _TRACE_OBJECTS
+  printf ("rcButtonPanel::init\n");
+#endif
+
   ac = 0; 
 
   ac = 0;
@@ -154,6 +160,9 @@ rcButtonPanel::init (void)
   
   _w = XtCreateManagedWidget ("buttonFrame", xmFrameWidgetClass, parent_,
 			      arg, ac);
+#ifdef _TRACE_OBJECTS
+  printf ("rcButtonPanel::init: _w=0x%08x !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n",_w);
+#endif
 
   // create frame title
   
@@ -306,10 +315,12 @@ rcButtonPanel::init (void)
   //Editor_save_callback = (void *)doitCbk;
 
   config (netHandler_.status ());
-  if (getenv("LIMIT_BUTTONS")) {
+  if (getenv("LIMIT_BUTTONS"))
+  {
     limitButtons_ = 1;
   }
-  if (getenv("LIMIT_BUTTONS2")) {
+  if (getenv("LIMIT_BUTTONS2"))
+  {
     limitButtons_ = 2;
   }
 }
@@ -319,32 +330,51 @@ rcButtonPanel::config (int status)
 {
   static int hackIsActive = 0;
 
-  if (status == DA_NOT_CONNECTED)
+#ifdef _TRACE_OBJECTS
+  printf ("rcButtonPanel::config\n");
+#endif
+ if (status == DA_NOT_CONNECTED)
   {
     notConnected ();
   }
   else
   {
     connected ();
+#ifdef _TRACE_OBJECTS
+	printf("rcButtonPanel::config: status=%d\n",status);fflush(stdout);
+#endif
     switch (status)
     {
     case DA_DORMANT:
-      // printf("    case DA_DORMANT:\n");
+#ifdef _TRACE_OBJECTS
+      printf("rcButtonPanel::config:     case DA_DORMANT:\n");
+#endif
       loadAndConfigure ();
       break;
     case DA_BOOTED:
-      // printf("    case DA_BOOTED:\n");
+#ifdef _TRACE_OBJECTS
+      printf("rcButtonPanel::config:     case DA_BOOTED:\n");
+#endif
     case DA_CONFIGURED:
-      // printf("    case DA_CONFIGURED:\n");
+#ifdef _TRACE_OBJECTS
+      printf("rcButtonPanel::config:     case DA_CONFIGURED:\n");
+#endif
       download ();
+#ifdef _TRACE_OBJECTS
+      printf("rcButtonPanel::config:     download finished\n");
+#endif
       break;
     case DA_DOWNLOADED:
-      // printf("    case DA_DOWNLOADED:\n");
+#ifdef _TRACE_OBJECTS
+      printf("rcButtonPanel::config:     case DA_DOWNLOADED:\n");
+#endif
       hackIsActive = 0;
       prestart ();
       break;
     case DA_PAUSED:
-      // printf("    case DA_PAUSED:\n");
+#ifdef _TRACE_OBJECTS
+      printf("rcButtonPanel::config:     case DA_PAUSED:\n");
+#endif
       if (hackIsActive)
       {
 	    resumeAndEnd ();
@@ -361,28 +391,47 @@ rcButtonPanel::config (int status)
       }
       break;
     case DA_ACTIVE:
-      // printf("    case DA_ACTIVE:\n");
+#ifdef _TRACE_OBJECTS
+      printf("rcButtonPanel::config:     case DA_ACTIVE:\n");
+#endif
       hackIsActive = 2;
       endAndPause ();
       break;
     default:
-      // printf("    default.\n");
+#ifdef _TRACE_OBJECTS
+      printf("rcButtonPanel::config:     default.\n");
+#endif
       break;
     }
   }
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::config done\n");
+#endif
 }
 
 void
 rcButtonPanel::configMastership (int type)
 {
-  if (type == CODA_LOCKED) {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::configMastership\n");fflush(stdout);
+#endif
+
+  if (type == CODA_LOCKED)
+  {
     deactivateTransitionPanel ();
     reset_->deactivate ();
+#ifdef _TRACE_OBJECTS
+    printf("rcButtonPanel::configMastership: CANCEL 1\n");fflush(stdout);
+#endif
     cancel_->unmanage ();
   }
-  else {
+  else
+  {
     activateTransitionPanel ();
     reset_->activate ();
+#ifdef _TRACE_OBJECTS
+    printf("rcButtonPanel::configMastership: CANCEL 2\n");fflush(stdout);
+#endif
     cancel_->unmanage ();
   }
 }
@@ -390,6 +439,9 @@ rcButtonPanel::configMastership (int type)
 void
 rcButtonPanel::helpMsgWin (rcHelpMsgWin* win)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::helpMsgWin\n");fflush(stdout);
+#endif
   disc_->helpMsgWin (win);
   reset_->helpMsgWin (win);
   cancel_->helpMsgWin (win);
@@ -410,6 +462,9 @@ rcButtonPanel::helpMsgWin (rcHelpMsgWin* win)
 void
 rcButtonPanel::netStatusWin (rcNetStatus* win)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::netStatusWin\n");fflush(stdout);
+#endif
   disc_->netStatusWin (win);
   reset_->netStatusWin (win);
   cancel_->netStatusWin (win);
@@ -430,6 +485,9 @@ rcButtonPanel::netStatusWin (rcNetStatus* win)
 void
 rcButtonPanel::infoPanel (rcInfoPanel* panel)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::infoPanel\n");fflush(stdout);
+#endif
   disc_->infoPanel (panel);
   reset_->infoPanel (panel);
   cancel_->infoPanel (panel);
@@ -450,12 +508,18 @@ rcButtonPanel::infoPanel (rcInfoPanel* panel)
 void
 rcButtonPanel::unmanageButton (rcComdButton* button)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::unmanageButton\n");fflush(stdout);
+#endif
   button->unmanage ();
 }
 
 void
 rcButtonPanel::notConnected (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::notConnected\n");fflush(stdout);
+#endif
   unmanageButton (disc_);
   unmanageButton (reset_);
   unmanageButton (cancel_);
@@ -477,6 +541,9 @@ rcButtonPanel::notConnected (void)
 void
 rcButtonPanel::connected (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel:connected\n");fflush(stdout);
+#endif
   unmanageButton ((class rcComdButton *)connect_);
 
   disc_->manage ();
@@ -487,6 +554,9 @@ rcButtonPanel::connected (void)
 void
 rcButtonPanel::loadAndConfigure (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::loadAndConfigure\n");fflush(stdout);
+#endif
   download_->unmanage ();
   prestart_->unmanage ();
   go_->unmanage ();
@@ -501,6 +571,9 @@ rcButtonPanel::loadAndConfigure (void)
 void
 rcButtonPanel::download (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::download reached\n");fflush(stdout);
+#endif
   load_->unmanage ();
   prestart_->unmanage ();
   go_->unmanage ();
@@ -509,22 +582,23 @@ rcButtonPanel::download (void)
   resume_->unmanage ();
   abort_->unmanage ();
 
-
-  /*sergey: playing
-panel->runTypeDialog()->popup ();
-*/
-
   if (!(limitButtons_ & 1))
   {
     download_->manage ();
   }
   config_->manage ();
-  if (!(limitButtons_ & 2)) auto_->manage ();
+  if (!(limitButtons_ & 2))
+  {
+    auto_->manage ();
+  }
 }
 
 void
 rcButtonPanel::prestart (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::prestart\n");fflush(stdout);
+#endif
   load_->unmanage ();
   config_->unmanage ();
   download_->unmanage ();
@@ -548,6 +622,9 @@ rcButtonPanel::prestart (void)
 void
 rcButtonPanel::goAndEnd (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::goAndEnd\n");fflush(stdout);
+#endif
   // puts("RWM: goAndEnd called.");
   load_->unmanage ();
   config_->unmanage ();
@@ -569,6 +646,9 @@ rcButtonPanel::goAndEnd (void)
 void
 rcButtonPanel::endAndPause (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::endAndPause\n");fflush(stdout);
+#endif
   load_->unmanage ();
   config_->unmanage ();
   download_->unmanage ();
@@ -588,6 +668,9 @@ rcButtonPanel::endAndPause (void)
 void
 rcButtonPanel::resumeAndEnd (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::resumeAndEnd\n");fflush(stdout);
+#endif
   load_->unmanage ();
   config_->unmanage ();
   download_->unmanage ();
@@ -608,6 +691,9 @@ rcButtonPanel::resumeAndEnd (void)
 void
 rcButtonPanel::deactivateTransitionPanel (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::deactivateTransitionPanel\n");fflush(stdout);
+#endif
   reset_->unmanage ();
   disc_->unmanage ();  
   XtSetSensitive (rw_, FALSE);
@@ -620,6 +706,9 @@ rcButtonPanel::deactivateTransitionPanel (void)
 void
 rcButtonPanel::activateTransitionPanel (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("rcButtonPanel::activateTransitionPanel\n");fflush(stdout);
+#endif
   XtSetSensitive (rw_, TRUE);
   cancel_->manage ();
   reset_->manage ();

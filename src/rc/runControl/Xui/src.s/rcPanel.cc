@@ -31,6 +31,8 @@
 #include <daqNetData.h>
 #include "rcPanel.h"
 
+#define _TRACE_OBJECTS
+
 rcPanel::rcPanel (void)
 {
 #ifdef _TRACE_OBJECTS

@@ -189,17 +189,17 @@ rcClient::connected (void) const
 void
 rcClient::createAllVariables (void)
 {
-  version_      = new rccDaqData (exptname_, "version",      "unknown");
-  startTime_    = new rccDaqData (exptname_, "startTime",    "      ");
-  startTimeBin_ = new rccDaqData (exptname_, "startTimeBin", 0);
-  endTime_      = new rccDaqData (exptname_, "endTime",      "      ");
-  endTimeBin_   = new rccDaqData (exptname_, "endTimeBin",   0);
-  currTime_     = new rccDaqData (exptname_, "currentTime",  "       ");
-  currTimeBin_  = new rccDaqData (exptname_, "timeBin",      0);
-  runNumber_    = new rccDaqData (exptname_, "runNumber",    0);
-  status_       = new rccDaqData (exptname_, "status",       0);
-  nevents_      = new rccDaqData (exptname_, "nevents",      0);
-  nlongs_       = new rccDaqData (exptname_, "nlongs",       0);
+  version_           = new rccDaqData (exptname_, "version",           "unknown");
+  startTime_         = new rccDaqData (exptname_, "startTime",         "      ");
+  startTimeBin_      = new rccDaqData (exptname_, "startTimeBin",      0);
+  endTime_           = new rccDaqData (exptname_, "endTime",           "      ");
+  endTimeBin_        = new rccDaqData (exptname_, "endTimeBin",        0);
+  currTime_          = new rccDaqData (exptname_, "currentTime",       "       ");
+  currTimeBin_       = new rccDaqData (exptname_, "timeBin",           0);
+  runNumber_         = new rccDaqData (exptname_, "runNumber",         0);
+  status_            = new rccDaqData (exptname_, "status",            0);
+  nevents_           = new rccDaqData (exptname_, "nevents",           0);
+  nlongs_            = new rccDaqData (exptname_, "nlongs",            0);
 
   database_          = new rccDaqData (exptname_, "database",          "unknown");
 
@@ -210,23 +210,23 @@ rcClient::createAllVariables (void)
   logFileDescriptor_ = new rccDaqData (exptname_, "logFileDescriptor", "unknown");
   tokenInterval_     = new rccDaqData (exptname_, "tokenInterval",     0);
 
-  allRunTypes_    = new rccDaqData (exptname_, "allRunTypes",    "unknown");
-  runType_        = new rccDaqData (exptname_, "runType",        "unknown");
-  runTypeNum_     = new rccDaqData (exptname_,"runTypeNum",      0);
-  exptName_       = new rccDaqData (exptname_, "exptName",       exptname_);
-  exptId_         = new rccDaqData (exptname_, "exptId",         0);
-  hostName_       = new rccDaqData (exptname_, "hostName",       "unknown");
-  autoIncrement_  = new rccDaqData (exptname_, "autoIncrement",  1);
-  eventLimit_     = new rccDaqData (exptname_, "eventLimit",     0);
-  dataLimit_      = new rccDaqData (exptname_, "dataLimit",      0);
-  updateInterval_ = new rccDaqData (exptname_, "updateInterval", 1);
-  compnames_      = new rccDaqData (exptname_, "components",     "unknown");
-  compstates_     = new rccDaqData (exptname_, "compstates",     "unknown");
-  clientList_     = new rccDaqData (exptname_, "clientList",     "unknown");
-  master_         = new rccDaqData (exptname_, "master",         "unknown");
-  controlDisp_    = new rccDaqData (exptname_, "controlDisplay", "unknown");
-  online_         = new rccDaqData (exptname_, "online",         1);
-  runMsg_         = new rccDaqData (exptname_, "runMessage",     "       ");
+  allRunTypes_       = new rccDaqData (exptname_, "allRunTypes",       "unknown");
+  runType_           = new rccDaqData (exptname_, "runType",           "unknown");
+  runTypeNum_        = new rccDaqData (exptname_, "runTypeNum",        0);
+  exptName_          = new rccDaqData (exptname_, "exptName",          exptname_);
+  exptId_            = new rccDaqData (exptname_, "exptId",            0);
+  hostName_          = new rccDaqData (exptname_, "hostName",          "unknown");
+  autoIncrement_     = new rccDaqData (exptname_, "autoIncrement",     1);
+  eventLimit_        = new rccDaqData (exptname_, "eventLimit",        0);
+  dataLimit_         = new rccDaqData (exptname_, "dataLimit",         0);
+  updateInterval_    = new rccDaqData (exptname_, "updateInterval",    1);
+  compnames_         = new rccDaqData (exptname_, "components",        "unknown");
+  compstates_        = new rccDaqData (exptname_, "compstates",        "unknown");
+  clientList_        = new rccDaqData (exptname_, "clientList",        "unknown");
+  master_            = new rccDaqData (exptname_, "master",            "unknown");
+  controlDisp_       = new rccDaqData (exptname_, "controlDisplay",    "unknown");
+  online_            = new rccDaqData (exptname_, "online",            1);
+  runMsg_            = new rccDaqData (exptname_, "runMessage",        "       ");
 
   /* create data structure boot infor which has all information
      about auto boot flag of components */
@@ -1234,7 +1234,7 @@ rcClient::attr2Callback (int status, void* arg, daqNetData* data)
 #ifdef _CODA_DEBUG
   printf("!!!!!!!!! CEDIT 39: rcClient::attr2Callback: coda_Send() cmd=>%s<\n",cmd);
 #endif
-  coda_Send(MainDisplay,"CEDIT",cmd);
+  if(MainDisplay) coda_Send(MainDisplay,"CEDIT",cmd);
   /*coda_Send(XtDisplay(obj->baseWidget()),"CEDIT",cmd);*/
 #endif
 
@@ -1276,7 +1276,7 @@ rcClient::attr6Callback (int status, void* arg, daqNetData* data)
 #ifdef _CODA_DEBUG
   printf("!!!!!!!!! CEDIT 30: rcClient::attr6Callback: coda_Send() cmd=>%s<\n",cmd);
 #endif
-  coda_Send(MainDisplay,"CEDIT",cmd);
+  if(MainDisplay) coda_Send(MainDisplay,"CEDIT",cmd);
   /*coda_Send(XtDisplay(obj->baseWidget()),"CEDIT",cmd);*/
 #endif
 }

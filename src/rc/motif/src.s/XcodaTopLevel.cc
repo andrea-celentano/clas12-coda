@@ -55,7 +55,9 @@ void XcodaTopLevel::initialize (void)
   // All toplevel windows in the MotifApp framework are 
   // implemented as a popup shell off the Application's
   // base widget.
-    
+
+  printf("XcodaTopLevel::initialize _name=>%s<\n",_name);fflush(stdout);
+
   _w = XtCreatePopupShell ( _name, 
 			   applicationShellWidgetClass,
 			   theApplication->baseWidget(),

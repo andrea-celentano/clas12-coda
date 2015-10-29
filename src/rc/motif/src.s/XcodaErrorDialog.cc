@@ -26,16 +26,20 @@
 //
 #include <XcodaErrorDialog.h>
 
-XcodaErrorDialog::XcodaErrorDialog(Widget parent,
-				   char   *name,
-				   char   *title)
+XcodaErrorDialog::XcodaErrorDialog(Widget parent, char *name, char *title)
 :XcodaMsgDialog(parent, name, title)
 {
+#ifdef _TRACE_OBJECTS
+  printf("XcodaErrorDialog::XcodaErrorDialog: parent=0x%08x, name >%s<, title >%s<\n",parent,name,title);fflush(stdout);
+#endif
   // empty
 }
 
 Widget XcodaErrorDialog::createDialog(Widget parent, char *name)
 {
+#ifdef _TRACE_OBJECTS
+  printf("XcodaErrorDialog::createDialog: parent=0x%08x, name >%s<\n",parent,name);fflush(stdout);
+#endif
   Widget res = XmCreateErrorDialog(parent, name, NULL, 0);
   return res;
 }

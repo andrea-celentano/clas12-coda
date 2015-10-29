@@ -30,6 +30,7 @@
  *  cwikla@wri.com
 */
 
+#include <stdio.h>
 
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
@@ -100,6 +101,8 @@ Cardinal _numWarg;
 		newWarg[n].name = _warg[tn].name;
 		newWarg[n].value = _warg[tn].value;
 	}
+
+  printf("XtPlusCreatePopupShell: _name=>%s<\n",_name);fflush(stdout);
 
 	popup = XtCreatePopupShell(_name, _wc, _parent, newWarg, newNumWarg);
 
@@ -251,6 +254,9 @@ int _type;
 	}
 
 	sprintf(b, "popup_%s", _name);
+
+  printf("createPlusMenu: b=>%s<\n",b);fflush(stdout);
+
 	mp = XtCreatePopupShell(b, xmMenuShellWidgetClass, _parent, newWarg, n);
 
 	n = 0;

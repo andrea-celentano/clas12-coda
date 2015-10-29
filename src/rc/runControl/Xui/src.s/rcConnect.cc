@@ -157,7 +157,9 @@ rcConnect::connect (void)
   if (status != CODA_SUCCESS)
     return status;
 
+#ifdef _TRACE_OBJECTS
   printf("rcConnect::connect reached\n");
+#endif
 
   if(::getenv("DEFAULT_RUN") != 0)
   {
@@ -200,8 +202,8 @@ rcConnect::connect (void)
       char cmd[100];
       sprintf(cmd,"c:%s",::getenv("DEFAULT_RUN"));
 
-printf("CEDIT 1\n");
 #ifdef USE_CREG
+printf("CEDIT 1\n");
       coda_Send(XtDisplay(this->baseWidget()),"CEDIT",cmd);
       coda_Send(XtDisplay(this->baseWidget()),"ALLROCS",cmd);
 #endif
@@ -211,7 +213,9 @@ printf("CEDIT 1\n");
   }
 
 
+#ifdef _TRACE_OBJECTS
   printf("rcConnect::connect done\n");
+#endif
 
   return status;
 }

@@ -124,11 +124,16 @@ cgDispDev::createWidget (Dimension width, Dimension height)
   XtGetValues (parent_, args, ac);
   ac = 0;
 
-  if (mode_ == CG_POPUP_MODE) {
-    if (colormode_ == CG_PRIVATE_CMAP) {
+  if (mode_ == CG_POPUP_MODE)
+  {
+    if (colormode_ == CG_PRIVATE_CMAP)
+    {
       XtSetArg (args[ac], XtNusePrivateColormap, TRUE);
       ac++;
     }
+
+  printf("cgDispDev::createWidget: name_=>%s<\n",name_);fflush(stdout);
+
     shell_ = XtCreatePopupShell (name_, appPlusShellWidgetClass, parent_,
 				 args, ac);
     ac = 0;

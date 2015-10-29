@@ -48,7 +48,9 @@
 #include <assert.h>
 #include <X11/xpm.h>
 #include <stone.xpm>
-
+/*
+#define _TRACE_OBJECTS
+*/
 extern "C" void exit(int);
 
 extern "C" Pixmap XcodaCreatePixmapFromXpm(Widget,char**,int);
@@ -105,6 +107,9 @@ XcodaApp::XcodaApp ( char *appClassName, char **res)
 int
 XcodaApp::open (int* argcp, char** argv)
 {
+#ifdef _TRACE_OBJECTS
+  printf("XcodaApp::open\n");
+#endif
   if(_fallback_resources){
     _w = XtAppInitialize ( &_appContext, 
 			  _applicationClass, NULL, 0, 
@@ -126,6 +131,9 @@ XcodaApp::open (int* argcp, char** argv)
 
 int Xhandler(Display *d, XErrorEvent *e)
 {
+#ifdef _TRACE_OBJECTS
+  printf("XcodaApp::Xhandler\n");
+#endif
   return 0;
 }
 
@@ -137,6 +145,9 @@ void XcodaApp::initialize ( unsigned int *argcp, char **argv )
 {
   Arg  arg[20];
   int  ac = 0;
+#ifdef _TRACE_OBJECTS
+  printf("XcodaApp::initialize\n");
+#endif
 
   if (!_opened)
     open (argcp, argv);
@@ -221,6 +232,9 @@ void XcodaApp::cleanMemory()
 void
 XcodaApp::execute (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("XcodaApp::execute\n");
+#endif
   // Just loop forever
   XtAppMainLoop ( _appContext );
 }
@@ -228,6 +242,9 @@ XcodaApp::execute (void)
 void
 XcodaApp::handleone (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("XcodaApp::handleone\n");
+#endif
   // Just one X event
   XtInputMask mask;
   mask = XtAppPending(_appContext);
@@ -241,6 +258,9 @@ XcodaApp::registerWindow ( XcodaTopLevel *window )
 {
   int i;
   XcodaTopLevel **newList;
+#ifdef _TRACE_OBJECTS
+  printf("XcodaApp::registerWindow\n");
+#endif
     
   /*
    Allocate a new list large enough to hold the new
@@ -266,6 +286,9 @@ XcodaApp::unregisterWindow ( XcodaTopLevel *window )
 {
   int i, index;
   XcodaTopLevel **newList;
+#ifdef _TRACE_OBJECTS
+  printf("XcodaApp::unregisterWindow\n");
+#endif
 
   if(_numWindows <= 1){
     _windows[0] = 0;
@@ -297,6 +320,9 @@ XcodaApp::unregisterWindow ( XcodaTopLevel *window )
 void
 XcodaApp::removeAllWindows()
 {
+#ifdef _TRACE_OBJECTS
+  printf("XcodaApp::removeAllWindows\n");
+#endif
   // lock this list first
   _listLocked = 1;
   // delete all windows
@@ -311,6 +337,9 @@ XcodaApp::removeAllWindows()
 void
 XcodaApp::manage (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("XcodaApp::manage\n");
+#endif
   // Manage all application windows. This will pop up
   // iconified windows as well.
     
@@ -321,6 +350,9 @@ XcodaApp::manage (void)
 void 
 XcodaApp::unmanage (void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("XcodaApp::unmanage\n");
+#endif
   // Unmanage all application windows
     
   for ( int i = 0; i < _numWindows; i++ )
@@ -330,6 +362,9 @@ XcodaApp::unmanage (void)
 void
 XcodaApp::iconify(void)
 {
+#ifdef _TRACE_OBJECTS
+  printf("XcodaApp::iconify\n");
+#endif
   // Iconify all top-level windows.
     
   for ( int i = 0; i < _numWindows; i++ )
@@ -339,5 +374,8 @@ XcodaApp::iconify(void)
 void 
 XcodaApp::exitTimer (XtPointer client_data, XtIntervalId *id)
 {
+#ifdef _TRACE_OBJECTS
+  printf("XcodaApp::exitTimer\n");
+#endif
   exit (0);
 }

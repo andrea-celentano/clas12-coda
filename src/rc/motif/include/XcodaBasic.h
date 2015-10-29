@@ -44,7 +44,7 @@ public:
     
 protected:
   char    *_name;
-  Widget  _w;    
+  Widget  _w;
   // Protected constructor to prevent instantiation
   XcodaBasic ( const char * );   
 };

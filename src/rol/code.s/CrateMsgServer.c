@@ -332,101 +332,117 @@ ConnectionThread_exit:
 void *
 ListenerThread(void *p)
 {
-	pthread_t cThread;
-	SocketThreadStruct *pcThreadParm;
-	socklen_t sockAddrSize = sizeof(struct sockaddr_in);
-	struct sockaddr_in clientAddr;
-	struct sockaddr_in serverAddr;
-	int lsock, csock;
+  pthread_t cThread;
+  SocketThreadStruct *pcThreadParm;
+  socklen_t sockAddrSize = sizeof(struct sockaddr_in);
+  struct sockaddr_in clientAddr;
+  struct sockaddr_in serverAddr;
+  int lsock, csock;
 
-	printf("ListenerThread reached, port >%d<\n",gListenPort);fflush(stdout);
+  printf("ListenerThread reached, port >%d<\n",gListenPort);fflush(stdout);
 
-	memset((char *)&serverAddr, 0, sockAddrSize);
-	serverAddr.sin_family = AF_INET;
-	serverAddr.sin_port = htons(gListenPort);
-	serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+  memset((char *)&serverAddr, 0, sockAddrSize);
+  serverAddr.sin_family = AF_INET;
+  serverAddr.sin_port = htons(gListenPort);
+  serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	
-	printf("ListenerThread befor socket\n");fflush(stdout);
-	lsock = socket(AF_INET, SOCK_STREAM, 0);
-	printf("ListenerThread after socket\n");fflush(stdout);
-	if(lsock == -1)
-	{
-		printf("Error in %s: create socket failed\n", __FUNCTION__);
-		return 0;
-	}
-
-next_port:	
-	printf("ListenerThread befor bind\n");fflush(stdout);
-	if(bind(lsock, (struct sockaddr *)&serverAddr, sockAddrSize) == -1)
-	{
-		printf("Error in %s: bind() failed\n", __FUNCTION__);
-
-		/* in case if port is busy, grab next one */
-        gListenPort ++;
-        serverAddr.sin_port = htons(gListenPort);
-        goto next_port;
-
-		close(lsock);
-		return 0;
-	}
-	printf("ListenerThread after bind\n");fflush(stdout);
-	
-	printf("ListenerThread befor listen\n");fflush(stdout);
-	if(listen(lsock, 1) == -1)
-	{
-		printf("Error in %s: listen() failed\n", __FUNCTION__);
-		close(lsock);
-		return 0;
-	}
-	printf("ListenerThread after listen\n");fflush(stdout);
-
-	while(1)
-	{
-	  printf("waiting for accept, port >%d<\n",gListenPort);fflush(stdout);
-	  csock = accept(lsock, (struct sockaddr *)&clientAddr, &sockAddrSize);
-	  printf("accepted\n");fflush(stdout);
-	  if(csock < 0)
-	  {
-	  	printf("Error in %s: accept() failed\n", __FUNCTION__);
-	  	break;
-	  }
-	  pcThreadParm = (SocketThreadStruct *) malloc(sizeof(SocketThreadStruct));
-	  pcThreadParm->sock = csock;
-	  if(!pcThreadParm)
-	  {
-	  	printf("Error in %s: malloc() failed\n", __FUNCTION__);
-	  	break;
-	  }
-      else
-	  {
-        printf("pcThreadParm=0x%08x\n",pcThreadParm);
-	  }
-
-
-
-
-	  /* block annoying IP address(es) */
-	  {
-        char *address;
-        unsigned short port;
-
-        address = inet_ntoa(clientAddr.sin_addr);
-        port = ntohs (clientAddr.sin_port);
-
-        if(!strncmp(address,"129.57.71.",10))
-	    {
-          printf("CrateMsgServer: ignore request from %s\n",address);
-          close(lsock);
-          return 0;
-	    }
-	  }
-
-
-	  pthread_create(&cThread, NULL, ConnectionThread, (void *)pcThreadParm);
-	}
-	close(lsock);
-	
+  printf("ListenerThread befor socket\n");fflush(stdout);
+  lsock = socket(AF_INET, SOCK_STREAM, 0);
+  printf("ListenerThread after socket\n");fflush(stdout);
+  if(lsock == -1)
+  {
+	printf("Error in %s: create socket failed\n", __FUNCTION__);fflush(stdout);
 	return 0;
+  }
+
+
+next_port:
+	
+  printf("ListenerThread befor bind\n");fflush(stdout);
+  if(bind(lsock, (struct sockaddr *)&serverAddr, sockAddrSize) == -1)
+  {
+	printf("Error in %s: bind() failed\n", __FUNCTION__);fflush(stdout);
+
+	/* in case if port is busy, grab next one */
+    gListenPort ++;
+    serverAddr.sin_port = htons(gListenPort);
+    goto next_port;
+
+	close(lsock);
+	return 0;
+  }
+  printf("ListenerThread after bind\n");fflush(stdout);
+	
+  printf("ListenerThread befor listen\n");fflush(stdout);
+  if(listen(lsock, 1) == -1)
+  {
+	printf("Error in %s: listen() failed\n", __FUNCTION__);fflush(stdout);
+	close(lsock);
+	return 0;
+  }
+  printf("ListenerThread after listen\n");fflush(stdout);
+
+  while(1)
+  {
+	printf("waiting for accept, port >%d<\n",gListenPort);fflush(stdout);
+    csock = accept(lsock, (struct sockaddr *)&clientAddr, &sockAddrSize);
+	printf("accepted\n");fflush(stdout);
+    if(csock < 0)
+	{
+      printf("Error in %s: accept() failed\n", __FUNCTION__);fflush(stdout);
+	  break;
+	}
+	pcThreadParm = (SocketThreadStruct *) malloc(sizeof(SocketThreadStruct));
+	pcThreadParm->sock = csock;
+	if(!pcThreadParm)
+	{
+	  printf("Error in %s: malloc() failed\n", __FUNCTION__);fflush(stdout);
+	  break;
+	}
+    else
+	{
+      printf("pcThreadParm=0x%08x\n",pcThreadParm);fflush(stdout);
+	}
+
+
+
+
+	/* block annoying IP address(es) */
+	{
+      char *address;
+      unsigned short port;
+
+      address = inet_ntoa(clientAddr.sin_addr);
+      port = ntohs (clientAddr.sin_port);
+
+	  /*
+      if(!strncmp(address,"129.57.71.",10))
+	  {
+        printf("CrateMsgServer: ignore request from %s\n",address);fflush(stdout);
+        close(lsock);
+        return 0;
+	  }
+	  */
+
+      if( strncmp(address,"129.57.167.",11) &&
+          strncmp(address,"129.57.160.",11) &&
+          strncmp(address,"129.57.68.",10)  &&
+          strncmp(address,"129.57.69.",10)  &&
+          strncmp(address,"129.57.86.",10) )
+	  {
+        printf("CrateMsgServer: ignore request from %s\n",address);fflush(stdout);
+        close(lsock);
+        return 0;
+	  }
+
+	}
+
+
+	pthread_create(&cThread, NULL, ConnectionThread, (void *)pcThreadParm);
+  }
+  close(lsock);
+	
+  return 0;
 }
 
 

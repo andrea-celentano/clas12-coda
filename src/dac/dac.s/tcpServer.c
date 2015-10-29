@@ -219,11 +219,13 @@ my_execute(char *string)
 int
 tcpServer(char *name)
 {
-  int id;
-
-  strcpy(localname,name);
-
+  pthread_t id;
   pthread_attr_t attr;
+
+  printf("tcpServer reached, name >%s<\n",name);fflush(stdout);
+  strcpy(localname,name);
+  printf("tcpServer reached, localname >%s<\n",localname);fflush(stdout);
+
   pthread_attr_init(&attr); /* initialize attr with default attributes */
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
   pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);

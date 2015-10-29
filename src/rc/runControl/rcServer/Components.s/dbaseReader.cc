@@ -1229,22 +1229,59 @@ dbaseReader::putTokenInterval   (int itval)
 void 
 dbaseReader::putConfFileName (char* name)
 {
+  MYSQL_RES* res;
+  MYSQL_ROW row;
+  int numRows;
   char qstring[1024];
+
+  printf("dbaseReader::putConfFileName reached, name >%s<\n",name);fflush(stdout);
   
   if (strcmp(run_.runtype (), "unknown") == 0)
   {
-#ifdef _CODA_DEBUG
+/*#ifdef _CODA_DEBUG*/
     printf("dbaseReader::putConfFileName: ignore 'unknown'\n");
-#endif
+/*#endif*/
     return;
   }  
 
-  ::sprintf (qstring, "update %s%s set value = '%s' where name = '%s'",
-	     run_.runtype (), DBASE_OPTION_TABLE, name, DBASE_CONFFILE);
-
-#ifdef _CODA_DEBUG
+  ::sprintf (qstring, "select name from %s%s where name = '%s'",
+			 run_.runtype(),DBASE_OPTION_TABLE, DBASE_CONFFILE);
+/*#ifdef _CODA_DEBUG*/
   printf("dbaseReader::putConfFileName: query >%s<\n",qstring);
-#endif
+/*#endif*/
+
+  if (::mysql_query (dbaseSock_, qstring) != 0)
+  {
+    printf("dbaseReader::putConfFileName: ERROR !!!\n");
+    return;
+  }
+
+  res = mysql_store_result(dbaseSock_);
+  if (!res)
+  {
+    printf ("dbaseReader::putConfFileName error: %s\n", mysql_error(dbaseSock_));
+    return;
+  }
+  numRows = mysql_num_rows(res);
+  if(numRows==0)
+  {
+    ::sprintf (qstring, "insert into %s%s (name, value) values ('%s','%s')",
+			 run_.runtype(),DBASE_OPTION_TABLE, DBASE_CONFFILE, name);
+  }
+  else if(numRows==1)
+  {
+    ::sprintf (qstring, "update %s%s set value = '%s' where name = '%s'",
+			   run_.runtype(),DBASE_OPTION_TABLE, name, DBASE_CONFFILE);
+  }
+  else
+  {
+    printf("dbaseReader::putConfFileName: ERROR: the number of '%s' rows is %d, must be 0 or 1\n",DBASE_CONFFILE,numRows);
+    return;
+  }
+
+/*#ifdef _CODA_DEBUG*/
+  printf("dbaseReader::putConfFileName: query >%s<\n",qstring);
+/*#endif*/
 
   if (::mysql_query (dbaseSock_, qstring) != 0)
   {
@@ -1256,6 +1293,10 @@ dbaseReader::putConfFileName (char* name)
       if (::mysql_query (dbaseSock_, qstring) != 0) 
 	    reporter->cmsglog (CMSGLOG_ERROR,"Update confFile error: %s\n", mysql_error(dbaseSock_));
     }
+  }
+  else
+  {
+    printf ("confFile updated\n");
   }
 }
 

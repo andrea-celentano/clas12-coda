@@ -67,7 +67,7 @@ typedef struct ETpriv
 
   /* variables */
   char          host[ET_FILENAME_LENGTH];
-  char         *et_filename;
+  char          et_filename[ET_FILENAME_LENGTH];
   char          et_name[ET_FILENAME_LENGTH];
   char          mcastAddr[ET_IPADDRSTRLEN];
   int           sig_num;
@@ -219,20 +219,16 @@ etStart()
   etp->maxNumStations = 0;
   etp->sendBufSize = 0;
   etp->recvBufSize = 0;
-  etp->et_verbose = ET_DEBUG_NONE;
+  etp->et_verbose = 1/*ET_DEBUG_NONE*/;
 
 
   /* Use default multicast address */
   memset(etp->mcastAddr, 0, ET_IPADDRSTRLEN);
   strcpy(etp->mcastAddr, ET_MULTICAST_ADDR);
 
-
-  /* see if env variable SESSION is defined */
-  if ( (etp->et_filename = getenv("SESSION")) == NULL )
-  {
-    fprintf(stderr, "No ET file name given and SESSION env variable not defined\n");
-    exit(-1);
-  }
+  /* ET file name uses session name */
+  strncpy(etp->et_filename, session, ET_FILENAME_LENGTH-1);
+  printf("et_start: session name '%s' will be used to construct ET file name\n", etp->et_filename);
 
   /* check length of name */
   if ( (strlen(etp->et_filename) + 12) >=  ET_FILENAME_LENGTH)
@@ -241,6 +237,7 @@ etStart()
     exit(-1);
   }
   sprintf(etp->et_name, "/tmp/et_sys_%s", etp->et_filename);
+  printf("et_start: ET name '%s'\n", etp->et_name);
 
 
   if (etp->et_verbose)
@@ -267,6 +264,7 @@ etStart()
 
   /* we do not have config name yet, will get it in Download(), so get the config name
   from the database table 'session' - mmmmmmmmmm.... */
+  printf("coda_et: trying to get 'config' from 'sessions' table for session >%s<\n",session);
   sprintf(tmp,"SELECT config FROM sessions WHERE name='%s'",session);
   if(dbGetStr(dbsock, tmp, tmpp)==ET_ERROR)
   {
@@ -400,7 +398,8 @@ etStart()
   et_system_config_setsize(etp->config, etp->event_size);
 
   /* max # of stations */
-  if (etp->maxNumStations > 1) {
+  if (etp->maxNumStations > 1)
+  {
       et_system_config_setstations(etp->config, etp->maxNumStations);
   }
 
@@ -430,7 +429,8 @@ etStart()
   }
 
   /* Make sure filename is null-terminated string */
-  if (et_system_config_setfile(etp->config, etp->et_name) == ET_ERROR) {
+  if (et_system_config_setfile(etp->config, etp->et_name) == ET_ERROR)
+  {
     printf("et_start: bad filename argument\n");
     exit(1);
   }
@@ -441,7 +441,8 @@ etStart()
   
   sigfillset(&etp->sigblockset);
   status = pthread_sigmask(SIG_BLOCK, &etp->sigblockset, NULL);
-  if (status != 0) {
+  if (status != 0)
+  {
     printf("et_start: pthread_sigmask failure\n");
     exit(1);
   }
@@ -484,14 +485,15 @@ etStart()
 int
 etConstructor()
 {
-  int id, res;
+  int res;
+  pthread_t id;
+  pthread_attr_t attr;
 
   /*
   etStart();
 goto a321;
   */
 
-  pthread_attr_t attr;
   pthread_attr_init(&attr); /* initialize attr with default attributes */
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
   pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);

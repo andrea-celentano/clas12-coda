@@ -33,7 +33,9 @@
 #include <Xm/Form.h>
 
 #include <XcodaFormDialog.h>
-
+/*
+#define _TRACE_OBJECTS
+*/
 //==============================================================================
 //           Implementation of XcodaFormDialog Class
 //==============================================================================
@@ -41,19 +43,22 @@ XcodaFormDialog::XcodaFormDialog(Widget parent, char *name, char *title)
 :XcodaUi(name)
 {
 #ifdef _TRACE_OBJECTS
-  printf("    Create XcodaFormDialog Object\n");
+  printf("XcodaFormDialog::XcodaFormDialog: Create XcodaFormDialog Object reached, _w=0x%08x\n",_w);
 #endif
   _parent = parent;
   _title = new char[::strlen(title) + 1];
   ::strcpy (_title, title);
   alreadyManaged = 0;
   modalDialog = 0;
+#ifdef _TRACE_OBJECTS
+  printf("XcodaFormDialog::XcodaFormDialog: Create XcodaFormDialog Object done, _w=0x%08x\n",_w);
+#endif
 }
 
 XcodaFormDialog::~XcodaFormDialog()
 {
 #ifdef _TRACE_OBJECTS
-  printf("    Delete XcodaFormDialog Object\n");
+  printf("XcodaFormDialog::XcodaFormDialog: Delete XcodaFormDialog Object\n");
 #endif
   delete []_title;
 }
@@ -63,12 +68,20 @@ void XcodaFormDialog::init()
   Arg arg[10];
   int ac = 0;
 
+#ifdef _TRACE_OBJECTS
+  printf("XcodaFormDialog::init reached\n");
+#endif
+
   ac = 0;  
 
   XtSetArg (arg[ac], XmNtitle, _title); ac++;
   XtSetArg (arg[ac], XmNautoUnmanage, False); ac++;
   _w = XmCreateFormDialog(_parent, _name, arg, ac);
   ac = 0;
+
+#ifdef _TRACE_OBJECTS
+  printf("XcodaFormDialog::init: _w=0x%08x\n",_w);
+#endif
   
   installDestroyHandler();
   createFormChildren();

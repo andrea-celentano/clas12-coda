@@ -261,6 +261,14 @@ portHandler::handle_input (int)
             *serverData = theState; /* '=' is overloaded for daqData class, calls 'notifyChannels()', and 'write' if needed ? */
           }
 
+          /* sergey: do it even we are not ACTIVE, so for example in prestart used see zero event count,
+             rather then the number of events from previous run */
+          serverData = 0;
+          if(dataManager.findData (compName, "nevents", serverData) == CODA_SUCCESS)
+          {
+            *serverData = nev;
+          }
+
           serverData = 0;
           if(daqrun_->status() == DA_ACTIVE)
           {   
@@ -268,11 +276,13 @@ portHandler::handle_input (int)
             {
               *serverData = nlong;
             }
+
             if(dataManager.findData (compName, "erate", serverData) == CODA_SUCCESS)
             {
               *serverData = evrate;
 			  /*printf("portHandler: >%s< erate=%f\n",compName,evrate);*/
             }
+
             if(dataManager.findData (compName, "drate", serverData) == CODA_SUCCESS)
             {
               *serverData = nlongrate;
