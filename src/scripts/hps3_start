@@ -30,7 +30,7 @@ set ER   = daq_comp.tcl
 set RC   = daq_comp.tcl
 set XT   = daq_comp.tcl
 
-set ET_comp  = 'et_start -n 1000 -s 500000 -f /tmp/et_sys_clashps'
+set ET_comp  = 'et_start -n 500 -s 500000 -f /tmp/et_sys_clashps'
 set EB_comp  = 'coda_ebc -s clashps -o "EB31 CDEB" '
 set ER_comp  = 'coda_erc -s clashps -o "ER31 ER" '
 set RC_comp  = 'runcontrol -s clashps -cedit -dbedit'

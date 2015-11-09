@@ -72,6 +72,10 @@ XcodaSimpleOptionMenu::init (void)
   Arg arg[20];
   int ac = 0;
   int i;
+
+  ac = 0;
+  XtSetArg(arg[ac], XmNpacking, XmPACK_COLUMN); ac++;
+  XtSetArg(arg[ac], XmNnumColumns, 1); ac++; /*will be changed on-flight based on the number of configs*/
   menu_ = XmCreatePulldownMenu (parent_, "optionPulldown", arg, ac);
   
   ac = 0;
@@ -205,6 +209,18 @@ XcodaSimpleOptionMenu::removeAll (void)
   pbmapped_ = 0;
   currentSel_ = 0;
   prevSel_ = -1;
+}
+
+void
+XcodaSimpleOptionMenu::setNcolumns (int ncols)
+{
+  int ac = 0;
+  Arg arg[20];
+
+  ac = 0;
+  XtSetArg(arg[ac], XmNnumColumns, ncols); ac++;
+  XtSetValues (menu_, arg, ac);
+
 }
 
 void

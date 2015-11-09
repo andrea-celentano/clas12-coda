@@ -140,6 +140,8 @@ void
 rcRunTypeOption::setAllEntries (void)
 {
   int i;
+  int ncols;
+
   // clean up old entries and add new ones
   removeAll  ();
 
@@ -157,6 +159,10 @@ rcRunTypeOption::setAllEntries (void)
   {
     addEntries (runtypes_, numRuntypes_);
   }
+
+  /* sergey: set pulldown menu to display 16 rows maxinum */
+  ncols = numRuntypes_ / 16 + 1;
+  setNcolumns(ncols);
 }
 
 /*

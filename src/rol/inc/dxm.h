@@ -23,9 +23,11 @@ static int writeConfig = 0;
 /* find run type for SVT DAQ */
 static int getRunType(char* filename) {
 	int type;
-    printf("look for calib str in \"%s\"\n",filename);
+    printf("LOOK for calib str in \"%s\"\n",filename);
 	if(strstr(filename,"injection")!=NULL) 
        type = 1;
+	else if(strstr(filename,"t0Single")!=NULL) 
+       type = 3;
 	else if(strstr(filename,"t0")!=NULL) 
        type = 2;
     else 
@@ -130,24 +132,24 @@ static void getValueFromConfig(char* confFile, const char* keyword, char* outVal
    char value[SVTDAQMAXSTRLEN];
    int active;
    FILE* file;
-
+   const int debug = 0;
    //baseDir = getenv("CLON_PARMS");   
    strcpy(baseDir,"/usr/clas12/release/0.2/parms");
-   printf("baseDir %s\n", baseDir);
+   if(debug>0) printf("baseDir %s\n", baseDir);
    //gethostname(host,256);
    strcpy(host,"all");
-   printf("host %s\n", host);
+   if(debug>0) printf("host %s\n", host);
    
    //initialize to empty
    strcpy(outValue,"");
 
    
    if(strlen(confFile)==0 || strcmp(confFile,"none")==0) {   
-      printf("Extract keyword \"%s\" from default conf file.\n", keyword);
+      if(debug>0) printf("Extract keyword \"%s\" from default conf file.\n", keyword);
       sprintf(filename,"%s/dpm/dpm-default.cnf",baseDir);
       
    } else {
-      printf("Extract keyword \"%s\" from conf file \"%s\".\n", keyword, confFile);
+      if(debug>0) printf("Extract keyword \"%s\" from conf file \"%s\".\n", keyword, confFile);
       sprintf(filename,"%s",confFile);
    }      
    
@@ -163,27 +165,27 @@ static void getValueFromConfig(char* confFile, const char* keyword, char* outVal
    active = 0;
    while( fgets(line,256,file) != NULL ) {
       
-      printf("active %d: Processing line \"%s\"\n", active,line);
+      if(debug>0) printf("active %d: Processing line \"%s\"\n", active,line);
       
       if(strlen(line)>0) {
          
          if(line[0]!='#') {
 
-            printf("1\n");
+            if(debug>0) printf("1\n");
             // reset
             strcpy(key,"");
             strcpy(value,"");
 
             sscanf(line, "%s %s", key, value);
 
-            printf("%s %s\n",key,value);
+            if(debug>0) printf("%s %s\n",key,value);
             
             // look for the DPM crate
             if(strcmp(key,"DPM_CRATE")==0) {  
 
                printf("got crate\n");
-               printf("compare host %s\n",host);
-               printf("compare value %s\n",value);
+               if(debug>0) printf("compare host %s\n",host);
+               if(debug>0) printf("compare value %s\n",value);
                
                if(strcmp(value,host)==0) {
                   active = 1;            

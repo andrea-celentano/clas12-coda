@@ -945,11 +945,16 @@ rcRocMenuWindow::CreateOptionMenu (Widget parent)
   Widget menu;
   Widget option;
   int    i = 0;
+  int ncols = 2;
 
   printf("rcRocMenuWindow::CreateOptionMenu reached\n");
 
-  menu = XmCreatePulldownMenu (parent, "optionPullDown", NULL, 0);
+  ac = 0;
+  XtSetArg(arg[ac], XmNpacking, XmPACK_COLUMN); ac++;
+  XtSetArg(arg[ac], XmNnumColumns, ncols); ac++;
+  menu = XmCreatePulldownMenu (parent, "optionPullDown", arg, ac);
 
+  ac = 0;
   t = XmStringCreateSimple ("Run Type ");
   XtSetArg (arg[ac], XmNlabelString, t); ac++;
   XtSetArg (arg[ac], XmNsubMenuId, menu); ac++;

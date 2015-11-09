@@ -48,7 +48,10 @@ public:
   virtual void   addEntries (char **names, int* active, 
 			     int num, int selection = 0);
   // remove all entries
-  virtual void   removeAll  (void);
+  virtual void   removeAll (void);
+
+  //sergey: set the number of columns in pulldown menu
+  virtual void   setNcolumns (int ncols = 1);
 
   // class name
   virtual const char *className (void) const {return "XcodaSimpleOptionMenu";}

@@ -109,8 +109,11 @@ extern char    *session; /* coda_component.c */
 
 /* the number of output buffers */
 /* buffer size defined in circbuf.h */
-#define NUM_SEND_BUFS        16   /* 16 */
-
+#ifdef Linux_nios2
+#define NUM_SEND_BUFS        4
+#else
+#define NUM_SEND_BUFS        16
+#endif
 
 static int print_output_buffers_are_full = 1; /* enable warning message */
 /* was reenabled in LINK_sized_write, removed temporarily */
@@ -1154,7 +1157,6 @@ rocp->async_roc_flag = 0;
     return(CODA_ERROR);
   }
 
-
   /*****/
   /*   */
   /*****/
@@ -1165,10 +1167,6 @@ rocp->async_roc_flag = 0;
 **/
   /*rocp->last_event = 0;*/ /* will do it in Prestart again ??? */
   last_event_check = 0;
-
-
-
-
 
   /******************** VERY IMPORTANT:
   here we will set how 'coda_proc' and 'coda_net' will communicate to surrounding
@@ -1199,7 +1197,7 @@ rocp->async_roc_flag = 0;
 
   printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
   printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-  printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+  printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");fflush(stdout);
 
 
 
@@ -1208,7 +1206,7 @@ rocp->async_roc_flag = 0;
 
   rocp->active = 1;
 
-printf("999: %d %d %d %d\n",rocp->state,DA_ENDING,clear_to_send,rocp_primefd);
+printf("999: %d %d %d %d\n",rocp->state,DA_ENDING,clear_to_send,rocp_primefd);fflush(stdout);
 
   /*sergey*/
   bigproc.failure = 0;
@@ -1221,7 +1219,7 @@ printf("999: %d %d %d %d\n",rocp->state,DA_ENDING,clear_to_send,rocp_primefd);
       pthread_attr_init(&detached_attr);
       pthread_attr_setdetachstate(&detached_attr, PTHREAD_CREATE_DETACHED);
       pthread_attr_setscope(&detached_attr,PTHREAD_SCOPE_SYSTEM/*PTHREAD_SCOPE_PROCESS*/);
-      pthread_create( (unsigned int *) &iTaskROL, &detached_attr,
+      pthread_create( /*(unsigned int *)*/ &iTaskROL, &detached_attr,
 		   (void *(*)(void *)) rols_loop, (void *) NULL);
     }
   }
@@ -1547,9 +1545,9 @@ codaPrestart()
 
   if(nrols>1)
   {
-printf("unix1\n");
+	printf("calling proc_prestart\n");fflush(stdout);
     proc_prestart(rocId());
-printf("unix2\n");
+    printf("proc_prestart done\n");fflush(stdout);
   }
 
   /* TODO: delete 'net_thread' if running */
@@ -1574,7 +1572,7 @@ printf("unix2\n");
     pthread_attr_init(&detached_attr);
     pthread_attr_setdetachstate(&detached_attr, PTHREAD_CREATE_DETACHED);
     pthread_attr_setscope(&detached_attr,PTHREAD_SCOPE_SYSTEM/*PTHREAD_SCOPE_PROCESS*/);
-    iii=pthread_create( (unsigned int *) &iTaskNET, &detached_attr,
+    iii=pthread_create( /*(unsigned int *)*/ &iTaskNET, &detached_attr,
 		   (void *(*)(void *)) net_thread, (void *) &bignet);
     printf("codaPrestart: net thread returned %d\n",iii);
 
@@ -1590,7 +1588,7 @@ printf("unix2\n");
       pthread_attr_init(&detached_attr);
       pthread_attr_setdetachstate(&detached_attr, PTHREAD_CREATE_DETACHED);
       pthread_attr_setscope(&detached_attr,PTHREAD_SCOPE_SYSTEM/*PTHREAD_SCOPE_PROCESS*/);
-      iii=pthread_create( (unsigned int *) &iTaskPROC, &detached_attr,
+      iii=pthread_create( /*(unsigned int *)*/ &iTaskPROC, &detached_attr,
 		   (void *(*)(void *)) proc_thread, (void *) &bigproc);
       printf("codaPrestart: proc thread returned %d\n",iii);
 	}

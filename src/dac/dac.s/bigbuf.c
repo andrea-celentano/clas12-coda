@@ -392,9 +392,13 @@ bb_init(BIGBUF **bbh)
   /* reset cleanup condition */
   bbp->cleanup = 0;
 
+
   /* need that ? */
+  printf("bb_init: clear memory for %d buffers\n",bbp->nbufs);fflush(stdout);
   for(i=0; i<bbp->nbufs; i++)
   {
+    printf("bb_init: buffer[%d]: clear %d bytes starting from 0x%08x\n",
+		   i,bbp->nbytes,bbp->data[i]);fflush(stdout);
     memset(bbp->data[i],0,bbp->nbytes);
   }
 

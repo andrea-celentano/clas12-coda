@@ -202,6 +202,9 @@ etStart()
   MYSQL *dbsock;
   char tmp[1000], tmpp[1000];
 
+  int  ix;  
+  int  listArgc;
+  char listArgv[LISTARGV1][LISTARGV2];
 
   /************************************/
   /* default configuration parameters */
@@ -262,8 +265,10 @@ etStart()
 
 
 
+
+
   /* we do not have config name yet, will get it in Download(), so get the config name
-  from the database table 'session' - mmmmmmmmmm.... */
+  from the database table 'session' - it means RUNCONTROL HAVE TO BE STARTED AND 'Configure' EXECUTED BY NOW !!! */
   printf("coda_et: trying to get 'config' from 'sessions' table for session >%s<\n",session);
   sprintf(tmp,"SELECT config FROM sessions WHERE name='%s'",session);
   if(dbGetStr(dbsock, tmp, tmpp)==ET_ERROR)
@@ -279,6 +284,7 @@ etStart()
     strcpy(configname,tmpp);
     printf("Got 'config' from 'session' table ======>%s<\n",configname);
 
+    /*nevents and event_size used to be in _option table, now it is 'code' field in config table, see below
     sprintf(tmp,"SELECT value FROM %s_option WHERE name='ET_nevents'",configname);
     if(dbGetInt(dbsock, tmp, &etp->nevents)==ET_ERROR)
     {
@@ -292,8 +298,28 @@ etStart()
       etp->event_size = 50000;
       printf("WARN: database does not have ET_event_size, will use default %d\n",etp->event_size);
     }
-  }
+    */
 
+    /* Get nevents and event_size from 'code' field in config table */
+    sprintf(tmpp,"SELECT code FROM %s WHERE name='%s'",configname,object->name);
+    if(dbGetStr(dbsock, tmpp, tmp)==ET_ERROR) return(ET_ERROR);
+
+    /* Decode 'code' string extracting the number of events and event size */
+    listArgc = 0;
+    if(!((strcmp (tmp, "{}") == 0)||(strcmp (tmp, "") == 0)))
+    {
+      if(listSplit1(tmp, 1, &listArgc, listArgv)) return(ET_ERROR);
+      for(ix=0; ix<listArgc; ix++) printf("code [%1d] >%s<\n",ix,listArgv[ix]);
+      if(listArgc>0) etp->nevents = atoi(listArgv[0]);
+      if(listArgc>1) etp->event_size = atoi(listArgv[1]);
+    }
+    else
+    {
+      printf("Nothing in 'code' field >%s<, will use default values\n",tmp);
+      etp->nevents = 400;
+      etp->event_size = 200000;
+    }
+  }
 
   /* obtain our hostname */
   status = gethostname(etp->host,hostlen);  
@@ -560,9 +586,6 @@ codaDownload(char *conf)
 
   static char tmp[1000];
   static char tmp2[1000];
-  int  ix;  
-  int  listArgc;
-  char listArgv[LISTARGV1][LISTARGV2];
 
   MYSQL *dbsock;
   char tmpp[1000];
@@ -599,29 +622,9 @@ codaDownload(char *conf)
 
   /* connect to database */
   dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
-  /* Get the list of readout-lists from the database */
-  sprintf(tmpp,"SELECT code FROM %s WHERE name='%s'",configname,object->name);
-  if(dbGetStr(dbsock, tmpp, tmp)==ET_ERROR) return(ET_ERROR);
-printf("++++++======>%s<\n",tmp);
-
 
   /* disconnect from database */
   dbDisconnect(dbsock);
-
-
-  /* Decode configuration string
-  listArgc = 0;
-  if(!((strcmp (tmp, "{}") == 0)||(strcmp (tmp, "") == 0)))
-  {
-    if(listSplit1(tmp, 1, &listArgc, listArgv)) return(ET_ERROR);
-    for(ix=0; ix<listArgc; ix++) printf("nrols [%1d] >%s<\n",ix,listArgv[ix]);
-  }
-  else
-  {
-    printf("download: do not split list >%s<\n",tmp);
-  }
-  */
-
 
   /* If we need to initialize, reinitialize, or
    * if et_alive fails on Linux, then initialize.

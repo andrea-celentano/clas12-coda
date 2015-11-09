@@ -1850,7 +1850,7 @@ UDP_start()
   char tmpp[512];
   int ii, iii;
 
-  printf("111\n");fflush(stdout);
+  printf("UDP_start 111\n");fflush(stdout);
 
   dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
   if(dbsock==NULL)

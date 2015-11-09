@@ -715,7 +715,7 @@ main (int argc, char** argv)
     {
       char temp2[256],temp3[256];
 
-      if (option->startCedit_)
+      if (1/*always start codaedit*//*option->startCedit_*/)
       {
         if (option->noEdit_)
         {

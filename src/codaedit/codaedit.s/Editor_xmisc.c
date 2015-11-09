@@ -901,6 +901,8 @@ popup_comp_attributes(drawComp* comp,
   form = XmCreateFormDialog(base, "attributes_form", args, ac);
   shell = XtParent(form);
 
+
+  /*Name*/
   if (comp->comp.type != CODA_EBANA)
   {
     XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
@@ -950,14 +952,13 @@ popup_comp_attributes(drawComp* comp,
   }
   
 
+  /*Ethernet Host*/
   XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
   XtSetArg(args[ac], XmNleftOffset, 5); ac++;
   XtSetArg(args[ac], XmNrightAttachment, XmATTACH_FORM); ac++;  
   XtSetArg(args[ac], XmNrightOffset, 5); ac++;
   sub_form1 = XtCreateWidget("sub_form", xmFormWidgetClass,
 			     form, args, ac);
-
-  /**/
   ac = 0;
   t = XmStringCreateSimple("Ethernet Host:");
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
@@ -984,6 +985,8 @@ popup_comp_attributes(drawComp* comp,
   ac = 0;
   XtManageChild(sub_form1);  
 
+
+  /*Id Number*/
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
   XtSetArg(args[ac], XmNtopWidget, sub_form1); ac++;
   XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
@@ -992,8 +995,6 @@ popup_comp_attributes(drawComp* comp,
   XtSetArg(args[ac], XmNrightOffset, 5); ac++;
   sub_form2 = XtCreateWidget("sub_form", xmFormWidgetClass,
 			     form, args, ac);
-
-  /**/
   ac = 0;
   t = XmStringCreateSimple("Id Number:");
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
@@ -1020,6 +1021,8 @@ popup_comp_attributes(drawComp* comp,
   ac = 0;
   XtManageChild(sub_form2);  
 
+
+  /*Booting String*/
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
   XtSetArg(args[ac], XmNtopWidget, sub_form2); ac++;
   XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
@@ -1028,8 +1031,6 @@ popup_comp_attributes(drawComp* comp,
   XtSetArg(args[ac], XmNrightOffset, 5); ac++;
   sub_form3 = XtCreateWidget("sub_form", xmFormWidgetClass,
 			     form, args, ac);
-
-  /**/
   ac = 0;
   t = XmStringCreateSimple("Booting String:");
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
@@ -1056,6 +1057,8 @@ popup_comp_attributes(drawComp* comp,
   ac = 0;
   XtManageChild(sub_form3);  
 
+
+  /*Readout List 1*/
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
   XtSetArg(args[ac], XmNtopWidget, sub_form3); ac++;
   XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
@@ -1064,10 +1067,8 @@ popup_comp_attributes(drawComp* comp,
   XtSetArg(args[ac], XmNrightOffset, 5); ac++;
   sub_form4 = XtCreateWidget("sub_form", xmFormWidgetClass,
 			     form, args, ac);
-
-  /**/
   ac = 0;
-  t = XmStringCreateSimple("Readout List:");
+  t = XmStringCreateSimple("Readout List 1:");
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
   XtSetArg(args[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
   XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
@@ -1093,6 +1094,7 @@ popup_comp_attributes(drawComp* comp,
   ac = 0;
   XtManageChild(sub_form4);  
 
+  /*Readout List 2*/
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
   XtSetArg(args[ac], XmNtopWidget, sub_form4); ac++;
   XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
@@ -1102,7 +1104,7 @@ popup_comp_attributes(drawComp* comp,
   sub_form5 = XtCreateWidget("sub_form", xmFormWidgetClass,
 			     form, args, ac);
   ac = 0;
-  t = XmStringCreateSimple("Readout List:");
+  t = XmStringCreateSimple("Readout List 2:");
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
   XtSetArg(args[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
   XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
@@ -1127,6 +1129,8 @@ popup_comp_attributes(drawComp* comp,
   ac = 0;
   XtManageChild(sub_form5);  
 
+
+  /*Readout List 3*/
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_WIDGET); ac++;
   XtSetArg(args[ac], XmNtopWidget, sub_form5); ac++;
   XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
@@ -1136,7 +1140,7 @@ popup_comp_attributes(drawComp* comp,
   sub_form6 = XtCreateWidget("sub_form", xmFormWidgetClass,
 			     form, args, ac);
   ac = 0;
-  t = XmStringCreateSimple("Readout List:");
+  t = XmStringCreateSimple("Readout List 3:");
   XtSetArg(args[ac], XmNtopAttachment, XmATTACH_FORM); ac++;
   XtSetArg(args[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
   XtSetArg(args[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
@@ -1161,10 +1165,19 @@ popup_comp_attributes(drawComp* comp,
   ac = 0;
   XtManageChild(sub_form6);  
 
+
+
+
+
+  /*****/
   if (comp->comp.type != CODA_EBANA)
+  {
     atw.name_widget = text_w0;
+  }
   else
+  {
     atw.name_widget = 0;
+  }
 
   atw.host_widget = text_w1;
   atw.id_widget = text_w2;
@@ -1282,8 +1295,8 @@ popup_comp_attributes(drawComp* comp,
 
 
 
-  /********************************************/
-  /* set up initial values for all attributes */
+  /****************************************************************/
+  /* custimize attributes for different component types if needed */
 
   for (i = 0; i < 3; i++)
   {
@@ -1324,8 +1337,8 @@ printf("comp->comp.type = %d\n",comp->comp.type);
     XtSetValues (label_w5, args, ac);
     XmStringFree(t);
 
-    if(comp->comp.code[0] != NULL)
-      XmTextFieldSetString(text_w5, comp->comp.code[0]);
+    if(comp->comp.code[1] != NULL)
+      XmTextFieldSetString(text_w5, comp->comp.code[1]);
     else
       XmTextFieldSetString(text_w5, "CODA");
 
@@ -1338,6 +1351,34 @@ printf("comp->comp.type = %d\n",comp->comp.type);
       XmTextFieldSetString(text_w3, comp->comp.boot_string);
     else
       XmTextFieldSetString(text_w3, "coda_et");
+
+    /* replace label 'Readout List 1' by 'Event Number' */
+    t = XmStringCreateSimple("Number Of Events:");
+    ac = 0;
+    XtSetArg(args[ac], XmNlabelString, t); ac++;
+    XtSetValues (label_w4, args, ac);
+    XmStringFree(t);
+
+     if(comp->comp.code[0] != NULL)
+      XmTextFieldSetString(text_w4, comp->comp.code[0]);
+    else
+      XmTextFieldSetString(text_w4, "1000");
+
+   /* replace label 'Readout List 2' by 'Event Size' */
+    t = XmStringCreateSimple("Event Size:");
+    ac = 0;
+    XtSetArg(args[ac], XmNlabelString, t); ac++;
+    XtSetValues (label_w5, args, ac);
+    XmStringFree(t);
+
+    if(comp->comp.code[1] != NULL)
+      XmTextFieldSetString(text_w5, comp->comp.code[1]);
+    else
+      XmTextFieldSetString(text_w5, "50000");
+
+    /* disable label 'Readout List 3' */
+    XtUnmanageChild(label_w6);
+    XtUnmanageChild(text_w6);
   }
   else if (comp->comp.type == CODA_ETT)
   {
@@ -1353,17 +1394,20 @@ printf("comp->comp.type = %d\n",comp->comp.type);
     else
       XmTextFieldSetString(text_w3, "coda_er");
 
+    /* disable 'Readut List' labels */
     XtUnmanageChild(label_w4);
     XtUnmanageChild(text_w4);
     XtUnmanageChild(label_w5);
     XtUnmanageChild(text_w5);
     XtUnmanageChild(label_w6);
     XtUnmanageChild(text_w6);
+	/*
     t = XmStringCreateSimple("Data Format");
     ac = 0;
     XtSetArg(args[ac], XmNlabelString, t); ac++;
     XtSetValues (label_w4, args, ac);
     XmStringFree(t);
+	*/
 
     if(comp->comp.code[0] != NULL)
       XmTextFieldSetString(text_w4, comp->comp.code[0]);

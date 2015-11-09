@@ -313,8 +313,9 @@ __download()
   /* Flag if this is a charge injection run */
   run_type = getRunType(rol->confFile);
   if (run_type == 0) printf("Normal run type\n");
-  else if (run_type == 1) printf("Gain calibration run\n");
-  else if (run_type == 2) printf("t0 calibration run\n");
+  else if (run_type == 1) printf("Gain calibration RUN\n");
+  else if (run_type == 2) printf("t0 calibration RUN\n");
+  else if (run_type == 3) printf("t0 calibration RUN over single calibration group\n");
   else {
     printf("invalid run type (%d)\n",run_type);
     exit(1);
@@ -446,7 +447,7 @@ __prestart()
   }
 
   /* set calibration specific configuration */
-  if(run_type==1 || run_type==2) {
+  if(run_type==1 || run_type==2 || run_type==3) {
 	printf("set charge injection specific configuration\n");
     // reset calib group
     cal_group=0;
@@ -473,7 +474,7 @@ __prestart()
     cal_level++;
 	cal_group++;	
 
-    if(run_type==2) {
+    if(run_type==2 || run_type==3) {
        //reset delay
        sprintf(rocIdStr,"%i",cal_delay);
        printf("Setting CalDelay to %s\n",rocIdStr);
@@ -621,7 +622,7 @@ TIMERL_START;
 
 
     /* dump config to data stream */
-    if(syncEventFlag>0 && EVENT_NUMBER%50000==0 && run_type!=1 && run_type!=2 && (rol->pid==dpmWithConfigDump|| rol->pid==controlDpmRocId)) {       
+    if(syncEventFlag>0 && EVENT_NUMBER%50000==0 && run_type!=1 && run_type!=2 && run_type!=3 && (rol->pid==dpmWithConfigDump|| rol->pid==controlDpmRocId)) {       
        printf("open config bank\n");
        BANKOPEN(0xe10E,3,rol->pid);
        chptr =(char *)rol->dabufp;
@@ -647,7 +648,7 @@ TIMERL_START;
 
     //========
     // Calibration
-    if( run_type==1 || run_type==2) {
+    if( run_type==1 || run_type==2 || run_type==3) {
        
        // Switch on config dump for the first event
        if( EVENT_NUMBER==1) {              
@@ -681,7 +682,8 @@ TIMERL_START;
           printf("Processing cal_group %d at EVENT_NUMBER %d\n",cal_group,EVENT_NUMBER);
           
           // only 8 cal groups. Should stop before the 9th	
-          if(cal_group<8) {
+          // one run_type only uses one group
+          if(cal_group<8 && run_type!=3) {
              sprintf(rocIdStr,"%i",cal_group);
              printf("Setting calibration group to %s\n",rocIdStr);
              controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetCalibGroup",rocIdStr);
@@ -696,8 +698,23 @@ TIMERL_START;
           } else {
              
              // start all over again for different delay
-             if(run_type==2 && cal_delay<9) {              
+             if(run_type==3 && cal_delay<9) {              
                 sprintf(rocIdStr,"%i",cal_delay);
+                printf("Setting CalDelay to %s\n",rocIdStr);
+                controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetCalibDelay",rocIdStr);
+                if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+                   printf ("Timeout waiting for daq response\n");
+                   exit(1);
+                }              
+                
+                cal_delay++;
+                
+                //do not update calgroup for this run type
+                
+             } 
+             // start all over again for different delay
+             else if(run_type==2 && cal_delay<9) {              
+                sprintf(rocIdStr,"%i",cal_delay);                
                 printf("Setting CalDelay to %s\n",rocIdStr);
                 controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetCalibDelay",rocIdStr);
                 if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {

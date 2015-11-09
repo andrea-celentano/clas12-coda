@@ -103,20 +103,25 @@ int compIdOk (comp, id)
   compList *p;
   XcodaEditorGraph *g = &coda_graph;
 
-  if (comp->comp.type > CODA_ER)
-    return 1;
+  if (comp->comp.type > CODA_ER) return(1);
 
-  for (p = g->comp_list_head->next; p != g->comp_list_tail; p = p->next){
-    if (p->draw_comp != comp){
-      if (comp->comp.type != CODA_EBANA){
-	if (p->draw_comp->comp.type == comp->comp.type &&
-	    p->draw_comp->comp.id_num == id)
-	  return 0;
+  for (p = g->comp_list_head->next; p != g->comp_list_tail; p = p->next)
+  {
+    if (p->draw_comp != comp)
+    {
+      if (comp->comp.type != CODA_EBANA)
+      {
+	    if (p->draw_comp->comp.type == comp->comp.type && p->draw_comp->comp.id_num == id)
+		{
+	      return(0);
+		}
       }
-      else{
-	if ((p->draw_comp->comp.type == CODA_EB) &&
-	    p->draw_comp->comp.id_num == id)
-	  return 0;
+      else
+      {
+	    if ((p->draw_comp->comp.type == CODA_EB) && p->draw_comp->comp.id_num == id)
+		{
+	      return(0);
+		}
       }
     }
   }

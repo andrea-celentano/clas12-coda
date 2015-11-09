@@ -89,14 +89,12 @@ rcRunTypeDialog::createFormChildren (void)
   int ac = 0;
 
   ac = 0;  
-
   XtSetValues (_w, arg, ac);
   // create option menu first
-  option_ = new rcRunTypeOption (_w, "runtype","RunType:",netHandler_, this);
+  option_ = new rcRunTypeOption (_w, "runtype","Run Type ",netHandler_, this);
   option_->init ();
   
   ac = 0;  
-
   // create action form
   XtSetArg (arg[ac], XmNbottomAttachment, XmATTACH_FORM); ac++;
   XtSetArg (arg[ac], XmNleftAttachment, XmATTACH_FORM); ac++;
@@ -107,7 +105,6 @@ rcRunTypeDialog::createFormChildren (void)
   XtManageChild (actionForm);
 
   ac = 0;
-
   // create push buttons
   rcXpmComdButton *ok     = new rcXpmComdButton(actionForm,"Ok",    NULL,"select run type",NULL,netHandler_);
   rcXpmComdButton *cancel = new rcXpmComdButton(actionForm,"Cancel",NULL,"cancel",NULL,netHandler_);

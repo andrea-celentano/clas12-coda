@@ -47,6 +47,7 @@
 #include "Editor.h"
 #include "Editor_graph.h"
 
+Widget menu;
 static editorConfigSel  iconfigSel;
 
 static Widget
@@ -55,12 +56,17 @@ createOptionMenu (Widget parent)
   Arg arg[20];
   int ac = 0;
   XmString t;
-  Widget menu;
   Widget option;
   int    i = 0;
 
-  menu = XmCreatePulldownMenu (parent, "optionPullDown", NULL, 0);
+  printf(">>> iconfigSel.numConfigs_=%d\n",iconfigSel.numConfigs_);
 
+  ac = 0;
+  XtSetArg(arg[ac], XmNpacking, XmPACK_COLUMN); ac++;
+  XtSetArg(arg[ac], XmNnumColumns, 1); ac++; /*will be changed on-flight based on the number of configs*/
+  menu = XmCreatePulldownMenu (parent, "optionPullDown", arg, ac);
+
+  ac = 0;
   t = XmStringCreateSimple ("Run Type ");
   XtSetArg (arg[ac], XmNlabelString, t); ac++;
   XtSetArg (arg[ac], XmNsubMenuId, menu); ac++;
@@ -70,12 +76,10 @@ createOptionMenu (Widget parent)
 
   t = XmStringCreateSimple ("              ");
   XtSetArg (arg[ac], XmNlabelString, t); ac++;
-  for (i = 0; i < EDITOR_MAX_CONFIGS; i++) {
-    iconfigSel.pushb[i] = XtCreateWidget ("optionButton", 
-					 xmPushButtonGadgetClass,
-					 menu, arg, ac);
-    if (i == 0)
-      XtManageChild (iconfigSel.pushb[i]);
+  for (i = 0; i < EDITOR_MAX_CONFIGS; i++)
+  {
+    iconfigSel.pushb[i] = XtCreateWidget ("optionButton", xmPushButtonGadgetClass, menu, arg, ac);
+    if (i == 0) XtManageChild (iconfigSel.pushb[i]);
   }
   ac = 0;
   XmStringFree (t);
@@ -107,9 +111,9 @@ configSelOk (Widget w, XtPointer data, XmAnyCallbackStruct* cbs)
   XtGetValues (sel->option_, arg, ac);
   ac = 0;
   
-  for (i = 0; i < sel->numConfigs_; i++) {
-    if (curr == sel->pushb[i])
-      break;
+  for (i = 0; i < sel->numConfigs_; i++)
+  {
+    if (curr == sel->pushb[i]) break;
   }
   currconfig = sel->configs_[i];
 
@@ -332,30 +336,42 @@ configSelPopup (void)
   Arg  arg[10];
   int  ac = 0;
   XmString t;
+  int ncols;
 
   if (iconfigSel.managed_) 
     configSelPopdown ();
   
   /* remove old database information */
-  for (i = 0; i < iconfigSel.numConfigs_; i++)
-    free (iconfigSel.configs_[i]);
+  for (i = 0; i < iconfigSel.numConfigs_; i++) free (iconfigSel.configs_[i]);
 
   /* get all database names */
   status = listAllConfigs (iconfigSel.configs_, &(iconfigSel.numConfigs_));
+  /*printf("=== iconfigSel.numConfigs_=%d\n",iconfigSel.numConfigs_);*/
 
-  if (status == 0) {
-    if (iconfigSel.numConfigs_ > 0) {
-      for (i = 0; i < iconfigSel.numConfigs_; i++) {
-	ac = 0;
-	t = XmStringCreateSimple (iconfigSel.configs_[i]);
-	XtSetArg (arg[ac], XmNlabelString, t); ac++;
-	XtSetValues (iconfigSel.pushb[i], arg, ac);
-	ac = 0;
-	XmStringFree (t);
-	XtManageChild (iconfigSel.pushb[i]);
+  ncols = iconfigSel.numConfigs_ / 16 + 1;
+  /*printf("setting ncols in pulldown menu to %d\n",ncols);*/
+  ac = 0;
+  XtSetArg(arg[ac], XmNnumColumns, ncols); ac++;
+  XtSetValues (menu, arg, ac);
+
+
+  if (status == 0)
+  {
+    if (iconfigSel.numConfigs_ > 0)
+    {
+      for (i = 0; i < iconfigSel.numConfigs_; i++)
+      {
+	    ac = 0;
+	    t = XmStringCreateSimple (iconfigSel.configs_[i]);
+	    XtSetArg (arg[ac], XmNlabelString, t); ac++;
+	    XtSetValues (iconfigSel.pushb[i], arg, ac);
+	    ac = 0;
+	    XmStringFree (t);
+	    XtManageChild (iconfigSel.pushb[i]);
       }
     }
-    else {
+    else
+    {
       t = XmStringCreateSimple ("no runtypes");
       XtSetArg (arg[ac], XmNlabelString, t); ac++;
       XtSetValues (iconfigSel.pushb[0], arg, ac);
@@ -366,8 +382,10 @@ configSelPopup (void)
     }
   }
   else
+  {
     iconfigSel.numConfigs_ = 0;
-      
+  }  
+    
   XtManageChild (iconfigSel.w_);
   XtPopup (XtParent (iconfigSel.w_), XtGrabNone);
   iconfigSel.managed_ = 1;
@@ -378,11 +396,12 @@ configSelPopdown (void)
 {
   int i = 0;
 
-  if (iconfigSel.managed_) 
-    XtPopdown (XtParent (iconfigSel.w_));
+  if (iconfigSel.managed_) XtPopdown (XtParent (iconfigSel.w_));
   iconfigSel.managed_ = 0;
   for (i = 0; i < EDITOR_MAX_DATABASES; i++)
+  {
     XtUnmanageChild (iconfigSel.pushb[i]);
+  }
   /* reset ok button sensitivity */
   XtSetSensitive (iconfigSel.ok_, TRUE);
 }

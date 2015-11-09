@@ -3428,7 +3428,8 @@ static drawComp* createDrawComp (graph, type)
   q = (drawComp *)malloc(1*sizeof(drawComp));
   q->draw_original = draw_original;
   q->draw_rubber_comp = draw_rubber_comp;
-  switch(type){
+  switch(type)
+  {
   case ADD_ROC_ACTION:
     q->comp.type = CODA_ROC;
     break;
@@ -3465,6 +3466,7 @@ static drawComp* createDrawComp (graph, type)
   default:
     break;
   }
+
   graph->start_x = 0;
   graph->start_y = 0;
   graph->current_comp = q;
@@ -3489,7 +3491,7 @@ static drawComp* createDrawComp (graph, type)
   q->comp.boot_string = (char *)0;
   q->comp.id_num = -1;
 
-  return q;
+  return(q);
 }
 
 /***************************************************************
