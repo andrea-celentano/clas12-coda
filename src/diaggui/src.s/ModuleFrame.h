@@ -60,8 +60,11 @@ public:
 
 	Bool_t BlkReadReg32(volatile unsigned int *p, unsigned int *val, int cnt = 1, int flags = 0)
 	{
+	  Bool_t res;
 		unsigned long addr = (unsigned long)p;
-		return pCrateMsgClient->Read32((unsigned int)addr, val, cnt, flags);
+		res = pCrateMsgClient->Read32((unsigned int)addr, val, cnt, flags);
+        //printf("cnt=%d 0x%0x 0x%0x %d %d %d\n",cnt,(unsigned int)addr,val,*val,*(val+1),*(val+2));
+		return res;
 	}
 
 	unsigned int ReadReg32(volatile unsigned int *p)

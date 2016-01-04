@@ -3,6 +3,7 @@ Linux_i686/
 Linux_i686_vme/
 Linux_ppc/
 Linux_x86_64/
+Linux_x86_64_RHEL6/
 SunOS_i86pc/
 SunOS_sun4u/
 VXWORKS_ppc/

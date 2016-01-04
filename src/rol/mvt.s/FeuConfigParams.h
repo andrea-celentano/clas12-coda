@@ -50,7 +50,7 @@ extern void parse_line(char *s);
 #define H_FeuConfigParams
 
 #ifndef DEF_MAX_NB_OF_FEU
-#define DEF_MAX_NB_OF_FEU 49
+#define DEF_MAX_NB_OF_FEU 256
 #endif
 
 #ifndef DEF_MAX_NB_OF_DREAM
@@ -190,6 +190,7 @@ typedef struct _FeuParams
 	// EE Prom values
 	short ee_prom[D_FeuPar_EeProm_Size];
 } FeuParams;
+int FeuParams_Init( FeuParams *feu_params );
 
 #define D_FeuParamsCol_NumOfFeuParams (DEF_MAX_NB_OF_FEU+1)
 typedef struct _FeuParamsCol

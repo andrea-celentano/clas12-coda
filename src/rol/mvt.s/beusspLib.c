@@ -204,9 +204,9 @@ void tokenize(char * line, int * pargc, char ** argv, unsigned int max_arguments
 //------------------------------------------------------------------------------------------------
 int  beusspInit(unsigned int vmebaseaddr, volatile struct BEUSSP_A24RegStruct  * * BEUSSPreg, volatile unsigned int * *BEUSSPfifo, BeuSspConf  * BEUSSPconf){
 
-	unsigned int laddr;
-	unsigned int rval;
-	int stat;
+	unsigned int laddr=0;
+	unsigned int rval=0;
+	int stat=0;
 
 	/* Check VME address */
 	if(vmebaseaddr<0 || vmebaseaddr>0xffffff)
@@ -909,10 +909,10 @@ return OK;
 
 int beusspReadBlock(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg,  volatile unsigned int *BEUSSPfifo, volatile unsigned int * data, unsigned int nwrds, int rflag)
 {
-  int retVal, xferCount;
+  int retVal=0, xferCount=0;
   volatile unsigned int *laddr;
-	unsigned int vmeAdr;
-	unsigned int a32base;
+	unsigned int vmeAdr=0;
+	unsigned int a32base=0;
 	unsigned int a32Enabled=0;
 
   if(BEUSSPreg==NULL)
@@ -955,8 +955,7 @@ int beusspReadBlock(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg,  volatile u
 	
 	vmeAdr = (unsigned int)  ( (a32base & BEUSSP_ADR32_BASE_MASK ) << 16) ; 
 
-/*	printf("vmeAdr=0x%08x\n",vmeAdr);  */
-
+	/*printf("vmeAdr=0x%08x laddr=0x%08x\n",vmeAdr,laddr );  */
 	/*retVal = vmeDmaSend((UINT32)laddr, vmeAdr, (nwrds<<2));*/
 	retVal = usrVme2MemDmaStart(vmeAdr, (unsigned int *)laddr, (nwrds << 2));
 
@@ -2289,8 +2288,9 @@ int beusspTokenReadBlock(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg,  volat
 											//au lieu de recalculer à chaque transfer!
 	vmeAdr = (unsigned int)  ( a32mblk & BEUSSP_ADR32_MBLK_ADDR_MIN_MASK) << 23 ;
 
-/*	retVal = vmeDmaSend          */
-        retVal = usrVme2MemDmaStart(vmeAdr, (unsigned int *)laddr, (nwrds << 2));
+	/*	retVal = vmeDmaSend          */
+
+	retVal = usrVme2MemDmaStart(vmeAdr, (unsigned int *)laddr, (nwrds << 2));
 	
 	
       if(retVal |= 0) 
@@ -2454,16 +2454,11 @@ int beusspBZRDLow(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
   return bzrd;
 }
 
-
 #else
 
 void
 beusspLib_dummy()
 {
-  return;
 }
 
 #endif
-
-
-

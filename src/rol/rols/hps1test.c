@@ -1,14 +1,4 @@
 
-/* hps1
-
-net_thread:  waiting=    280    sending=      0 microsec per event (nev=728)
-setHeartError: 0 >sys 0, mask 21<
-WARN: HeartBeat[0]: heartbeat=1426780246(1426780246) heartmask=21
-UDP_cancel: cancel >inf:hps1 sys 0, mask 21<
-UDP_cancel: cancel >inf:hps1 sys 0, mask 21<
-wait: request in progress
-*/
-
 /* hps1test.c */
 
 #if defined(VXWORKS) || defined(Linux_vme)
@@ -23,21 +13,22 @@ tcpClient adcecal1 'tiInit(0xa80000,3,0)'
 coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 */
 
+
 #undef SSIPC
+
 
 #undef DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
 
-/* hps1test.c - first readout list for VXS crates with FADC250 and new TI */
 
 #define USE_FADC250
-#define USE_DSC2
-#define USE_V1190
-#define USE_SSP
-#define USE_VSCM
-/*#define USE_DC*/
-#define USE_DCRB
-#define USE_VETROC
-#define USE_MVT
+#undef USE_DSC2
+#undef USE_V1190
+#undef USE_SSP
+#undef USE_VSCM
+#undef USE_DCRB
+#undef USE_VETROC
+
+#define USE_FLP
 
 /* if event rate goes higher then 10kHz, with random triggers we have wrong
 slot number reported in GLOBAL HEADER and/or GLOBAL TRAILER words; to work
@@ -61,12 +52,12 @@ typedef      long long       hrtime_t;
 */
 #endif
 
+
 #ifdef SSIPC
 #include <rtworks/ipc.h>
 #include "epicsutil.h"
 static char ssname[80];
 #endif
-
 
 #include "circbuf.h"
 
@@ -81,6 +72,7 @@ static char ssname[80];
 
 /* main TI board */
 #define TI_ADDR   (21<<19)  /* if 0 - default will be used, assuming slot 21*/
+
 
 
 /* name used by loader */
@@ -124,11 +116,6 @@ void usrtrig_done();
 static int nssp;   /* Number of SSPs found with sspInit(..) */
 #endif
 
-#ifdef USE_MVT
-#include "mvtLib.h"
-static int nmvt;   /* Number of MVT SSPs found with mvtInit(..) */
-#endif
-
 static char rcname[5];
 
 #define NBOARDS 22    /* maximum number of VME boards: we have 21 boards, but numbering starts from 1 */
@@ -142,6 +129,7 @@ extern unsigned int dabufp_physmembase;
 /*#endif*/
 
 extern int rocMask; /* defined in roc_component.c */
+
 #define NTICKS 1000 /* the number of ticks per second */
 /*temporary here: for time profiling */
 
@@ -193,6 +181,8 @@ extern int rocMask; /* defined in roc_component.c */
 }
 
 #endif
+
+
 
 void
 tsleep(int n)
@@ -290,15 +280,14 @@ static unsigned int sspSlotMask = 0; /* bit=slot (starting from 0) */
 static int SSP_SLOT;
 #endif
 
-#ifdef USE_MVT
-static unsigned int mvtSlotMask = 0; /* bit=slot (starting from 0) */
-static int MVT_SLOT;
-#endif
-
 #ifdef USE_VSCM
 static unsigned int vscmSlotMask = 0; /* bit=slot (starting from 0) */
 static int nvscm1 = 0;
 static int VSCM_ROFLAG = 1;
+#endif
+
+#ifdef USE_FLP
+#include "flpLib.h"
 #endif
 
 #ifdef USE_FADC250
@@ -365,6 +354,11 @@ static void
 __download()
 {
   int i1, i2, i3;
+ 
+#ifdef  USE_FLP
+ float v1 = 0, v2 = 0, v3 = 0;
+#endif
+
 #ifdef USE_FADC250
 
   int ii, id, isl, ichan, slot;
@@ -373,7 +367,6 @@ __download()
   int ich, NSA, NSB;
   unsigned int maxA32Address;
   unsigned int fadcA32Address = 0x09000000;
-
 #endif
 #ifdef POLLING_MODE
   rol->poll = 1;
@@ -438,7 +431,7 @@ vmeBusUnlock();
 
 
   /*
-if(rol->pid==58)
+if(rol->pid==18)
 {
   usrVmeDmaSetConfig(2,3,0);
 }
@@ -456,6 +449,32 @@ if(rol->pid==58)
 
   /******************/
   /* USER code here */
+
+
+#ifdef USE_FLP
+  printf("FLP Download() starts =========================\n");
+vmeBusLock();
+  flpInit(0x00300000, 0); /* FLP in slot 6 */
+  
+  flpEnableOutput(0);
+  flpEnableOutput(1);
+  flpEnableIntPulser(0);
+  flpEnableIntPulser(1);
+  flpStatus(0);
+  flpSetOutputVoltages(0, 3.7, 3.7, 4.7);
+  flpSetOutputVoltages(1, 3.7, 3.7, 4.7);
+
+  flpGetOutputVoltages(1, &v1, &v2, &v3);
+  printf ("output voltage from 1 %3.2f, %3.2f, %3.2f\n", v1, v2, v3);
+
+  flpGetOutputVoltages(0, &v1, &v2, &v3);
+  printf ("output voltage %from 0 3.2f, %3.2f, %3.2f\n", v1, v2, v3);
+  flpSetPulserPeriod(0, 200000);
+
+  flpSetPulserPeriod(1, 200000);
+  flpStatus(0);
+  vmeBusUnlock();
+#endif
 
 
 #ifdef USE_DSC2
@@ -523,8 +542,6 @@ vmeBusUnlock();
 
    */
 
-
-
   NFADC = 16 + 2; /* 16 slots + 2 (for the switch slots) */
 
   /* NOTE: starting from 'fadcA32Base' address, memory chunks size=FA_MAX_A32_MEM(=0x800000)
@@ -555,7 +572,6 @@ v1495: 0x11xx0000, where xx follows the same scheme as FADCs
 v1190: 0x11xx0000, where xx follows the same scheme as FADCs
 
 */
-
 
   /* Setup the iFlag.. flags for FADC initialization */
   iFlag = 0;
@@ -775,6 +791,7 @@ vmeBusUnlock();
     slot = vscmSlot(ii);      /* Grab the current module's slot number */
     vscmSlotMask |= (1<<slot); /* Add it to the mask */
   }
+
   printf("VSCM Download() ends =========================\n\n");
 #endif
 
@@ -847,34 +864,6 @@ vmeBusUnlock();
   }
   printf("DC Download() ends =========================\n\n");
 #endif
-
-
-
-
-#ifdef USE_MVT
-  printf("\nMVT: start\n\n");
-  nmvt = mvtDownload();
-  /* have to be mvtInit(0x08100000,0x80000,20,0); */
-  printf("\nMVT: found %d boards\n\n",nmvt);
-  /*
-  mvtSlotMask=0;
-  for(id=0; id<nmvt; id++)
-  {
-    MVT_SLOT = mvtSlot(id);
-    mvtSlotMask |= (1<<MVT_SLOT);
-    printf("=======================> mvtSlotMask=0x%08x\n",mvtSlotMask);
-  }
-*/
-  /*
-vmeBusLock();
-  sdInit(1);
-  sdSetActiveVmeSlots(mvtSlotMask);
-  sdStatus();
-vmeBusUnlock();
-*/
-#endif
-
-
 
   sprintf(rcname,"RC%02d",rol->pid);
   printf("rcname >%4.4s<\n",rcname);
@@ -1034,8 +1023,10 @@ vmeBusLock();
   ndcrb = dcrbInit((4<<19), 0x80000, 16+2, 7); /* 7 boards from slot 4, 7 boards from slot 13 */
   if(ndcrb>0)
   {
-    dcrbGSetDAC(-150); /* threshold in mV */
-    dcrbGSetProcMode(/*4000*/2000,/*4000*/2000,32);
+    dcrbGSetDAC(-30); /* threshold in mV */
+
+    /* last param is double-hit resolution in ns */
+    dcrbGSetProcMode(/*4000*/2000,/*4000*/2000,1000);
   }
 vmeBusUnlock();
 
@@ -1372,43 +1363,6 @@ vmeBusUnlock();
   }
 #endif
 
-
-
-#ifdef USE_MVT
-  /*
-  for(id=0; id<nmvt; id++)
-  {
-    slot = mvtSlot(id);
-vmeBusLock();
-    mvtSetBlockLevel(slot, block_level);
-vmeBusUnlock();
-  }
-  */
-  if(nmvt>0)
-  {
-    mvtPrestart();
-	/*
-    if(nmvt>0)
-    {
-      MVT_READ_CONF_FILE;
-    }
-	*/
-  }
-  /*
-  for(id=0; id<nmvt; id++)
-  {
-    slot = mvtSlot(id);
-vmeBusLock();
-    mvtSetBlockLevel(slot, block_level);
-    mvtGetBlockLevel(slot);
-vmeBusUnlock();
-  }
-  */
-#endif
-
-
-
-
 vmeBusLock();
   tiStatus(1);
 vmeBusUnlock();
@@ -1470,15 +1424,6 @@ vmeBusLock();
 vmeBusUnlock();
 #endif
 
-
-#ifdef USE_MVT
-  if(nmvt>0)
-  {
-    mvtEnd();
-  }
-#endif
-
-
 vmeBusLock();
   tiStatus(1);
 vmeBusUnlock();
@@ -1511,6 +1456,7 @@ vmeBusLock();
  tiSetSyncEventInterval(10000/*block_level*/);
 vmeBusUnlock();
 #endif
+
 
 #ifdef USE_FADC250
 
@@ -1632,15 +1578,6 @@ vmeBusUnlock();
   }
 #endif
 
-
-#ifdef USE_MVT
-  if(nmvt>0)
-  {
-    mvtGo();
-  }
-#endif
-
-
   /* always clear exceptions */
   jlabgefClearException(1);
 
@@ -1659,6 +1596,7 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   unsigned int *tdcbuf_save, *tdc;
   unsigned int *dabufp1, *dabufp2;
   int njjloops, slot;
+  float v1, v2, v3;
   int nwords;
 #ifndef VXWORKS
   TIMERL_VAR;
@@ -1701,6 +1639,27 @@ usleep(100);
 
 
   CEOPEN(EVTYPE, BT_BANKS); /* reformatted on CODA_format.c !!! */
+  /*
+  if (syncFlag){
+    printf("lalala 10 0000 moe");
+#ifdef USE_FLP
+    vmeBusLock();
+    printf ("hcho tam s flp klsajhfksadjfhsalkdfj");
+    flpStatus(0);
+    flpGetOutputVoltages(0, &v1, &v2, &v3);
+    printf ("initial slkdjfhskdlajfhasdlkfjhaslkdjfh %3.2f %3.2f %3.2f\n ", v1, v2, v3);
+    if (v3 < 5.5){
+      v3 = v3 + 0.1;
+      flpSetOutputVoltages(0, v1, v2, v3);
+    }
+    flpGetOutputVoltages(0, &v1, &v2, &v3);
+    sleep(3);
+    printf ("final  %3.2f\n", v3);
+    flpStatus(0);
+    vmeBusUnlock();
+#endif 
+  }
+  */
 
   if((syncFlag<0)||(syncFlag>1))         /* illegal */
   {
@@ -1838,48 +1797,6 @@ vmeBusUnlock();
 #endif /* USE_V1190 */
 
 
-#ifdef USE_MVT
-    if(nmvt>0)
-   {
-      for(itime=0; itime<100000; itime++) 
-	  {
-vmeBusLock();
-	    gbready = mvtGBReady(rol->pid);
-vmeBusUnlock();
-	    stat = (gbready == mvtSlotMask);
-	    if (stat>0) 
-	    {
-	      break;
-	    }
-#ifdef DEBUG
-		else
-		{
-          printf("MVT NOT READY: gbready=0x%08x, expect 0x%08x\n",gbready,mvtSlotMask);
-		}
-#endif
-	  }
-
-	  /*
-vmeBusLock();
-     gbready = mvtGBReady();
-vmeBusUnlock();
-	  */
-
-
-vmeBusLock();
-      len = mvtReadBlock(rol->pid,tdcbuf,1000000,1);
-vmeBusUnlock();
-	  
-	  
-      if(len>0)
-      {
-        BANKOPEN(0xe118,1,rol->pid);
-        for(jj=0; jj<len; jj++) *rol->dabufp++ = tdcbuf[jj];
-        BANKCLOSE;
-      }
-
-   }
-#endif
 
 
 
@@ -2847,19 +2764,6 @@ vmeBusUnlock();
 	  }
 #endif
 
-	  /*
-#ifdef USE_MVT
-      if(nmvt>0)
-      {
-vmeBusLock();
-        len = mvtUploadAll(chptr, 10000);
-vmeBusUnlock();
-        chptr += len;
-        nbytes += len;
-	  }
-#endif
-	  */
-
 
 	  /* temporary for crates with GTP */
       if(rol->pid==37||rol->pid==39)
@@ -2924,29 +2828,29 @@ vmeBusUnlock();
 	  /*printf("ndsc2_daq=%d\n",ndsc2_daq);*/
 	  if(ndsc2_daq>0)
 	  {
-      BANKOPEN(0xe115,1,rol->pid);
-      for(jj=0; jj<ndsc2_daq; jj++)
-      {
-        slot = dsc2Slot_daq(jj);
+        BANKOPEN(0xe115,1,rol->pid);
+        for(jj=0; jj<ndsc2_daq; jj++)
+        {
+          slot = dsc2Slot_daq(jj);
 vmeBusLock();
-        /* in following argument 4 set to 0xFF means latch and read everything, 0x3F - do not latch and read everything */
-        nwords = dsc2ReadScalers(slot, tdcbuf, 0x10000, 0xFF, 1);
-        /*printf("nwords=%d, nwords = 0x%08x 0x%08x 0x%08x 0x%08x\n",nwords,tdcbuf[0],tdcbuf[1],tdcbuf[2],tdcbuf[3]);*/
+          /* in following argument 4 set to 0xFF means latch and read everything, 0x3F - do not latch and read everything */
+          nwords = dsc2ReadScalers(slot, tdcbuf, 0x10000, 0xFF, 1);
+          /*printf("nwords=%d, nwords = 0x%08x 0x%08x 0x%08x 0x%08x\n",nwords,tdcbuf[0],tdcbuf[1],tdcbuf[2],tdcbuf[3]);*/
 vmeBusUnlock();
 
 #ifdef SSIPC
-	  {
-        int status, mm;
-        unsigned int dd[72];
-        for(mm=0; mm<72; mm++) dd[mm] = tdcbuf[mm];
-        status = epics_msg_send("hallb_dsc2_hps2_slot2","uint",72,dd);
-	  }
+	      {
+            int status, mm;
+            unsigned int dd[72];
+            for(mm=0; mm<72; mm++) dd[mm] = tdcbuf[mm];
+            status = epics_msg_send("hallb_dsc2_hps2_slot2","uint",72,dd);
+	      }
 #endif
-        /* unlike other boards, dcs2 scaler readout already swapped in 'dsc2ReadScalers', so swap it back, because
-        hps2.c expects big-endian format*/
-        for(ii=0; ii<nwords; ii++) *rol->dabufp ++ = LSWAP(tdcbuf[ii]);
-      }
-      BANKCLOSE;
+          /* unlike other boards, dcs2 scaler readout already swapped in 'dsc2ReadScalers', so swap it back, because
+          hps2.c expects big-endian format*/
+          for(ii=0; ii<nwords; ii++) *rol->dabufp ++ = LSWAP(tdcbuf[ii]);
+        }
+        BANKCLOSE;
 	  }
 
 #endif
@@ -2990,6 +2894,10 @@ vmeBusUnlock();
       rol->dabufp += bosMclose_(jw,ind2,1,1);
     }
 #endif
+    //to stop run at 10000
+    if (syncFlag==1){
+      printf("============= opnaslgflfglasdkjfglsajkgflasjhgflsajhdgfljashdfglj");
+    }
 
 
   }

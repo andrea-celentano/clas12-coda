@@ -317,7 +317,7 @@ flpInit(unsigned int tAddr, int iFlag)
       supportedVersion = FLP_SUPPORTED_FIRMWARE;
       
       flpVersion = rval&FLP_FW_VERSION_MASK;
-      printf("  ID: 0x%x \tFirmware version: 0x%X \n",
+      printf("FLP ID: 0x%x \tFirmware version: 0x%X \n",
 	     (rval&FLP_FW_VERSION_ID_MASK), flpVersion);
       
       if(flpVersion < supportedVersion)

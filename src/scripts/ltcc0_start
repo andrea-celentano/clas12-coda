@@ -31,7 +31,7 @@ set ER   = daq_comp_nossh.tcl
 set RC   = daq_comp_nossh.tcl
 set XT   = daq_comp_nossh.tcl
 
-set ET_comp  = 'et_start -n 2000 -s 500000 -f /tmp/et_sys_clasltcc'
+set ET_comp  = 'et_start -n 500 -s 400000 -f /tmp/et_sys_clasltcc'
 set EB_comp  = 'coda_ebc -s clasltcc -o "EB3 CDEB" '
 set ER_comp  = 'coda_erc -s clasltcc -o "ER3 ER" '
 set RC_comp  = 'runcontrol -s clasltcc -cedit -dbedit'

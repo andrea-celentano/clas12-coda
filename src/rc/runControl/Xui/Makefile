@@ -30,7 +30,7 @@ CLON_FLAGS += -I./include -I../Variables/src.s -I../Common/src.s -I../rcClient/s
 
 
 # rocs
-CLON_FLAGS += -I$(CODA)/src/codaterm/xterm.s -I$(CODA)/src/codaedit/codaedit.s
+CLON_FLAGS += -I$(CODA)/src/cterm/src.s -I$(CODA)/src/codaedit/codaedit.s
 
 
 LIBNAMES += ../Variables/$(OSTYPE_MACHINE)/lib/libVariables.a
@@ -51,8 +51,8 @@ LIBNAMES += $(globallib)/libcreg.a
 
 LIBNAMES += $(globallib)/libcodaedit.a
 
-#specific for codaterm
-LIBNAMES += $(globallib)/libcodaterm.a
+#specific for cterm
+LIBNAMES += $(globallib)/libcterm.a
 
 LIBNAMES += $(TERMCAPLIBS)
 
@@ -62,7 +62,7 @@ LIBNAMES += -pthread
 LIBNAMES += $(X11LIBS)
 
 
-# specific for codaterm: must be after X11LIBS, seems interfere with our custom motif ?????????????
+# specific for cterm: must be after X11LIBS, seems interfere with our custom motif ?????????????
 ###LIBNAMES += -lXaw
 ###LIBNAMES += $(SYSLIBS)
 LIBNAMES += -lXaw

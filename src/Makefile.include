@@ -16,14 +16,34 @@ else ifeq ("$(filter NIOS,$(MAKECMDGOALS))","NIOS")
 else
   OSTYPE    = $(shell uname)
   MACHINE   = $(shell uname -m)
+  PLATFORM  = $(shell uname -p)
 endif
+
+
+OSTYPE_PLATFORM = $(OSTYPE)_$(PLATFORM)
+
 
 # Darwin has funny -m, use -p instead
 ifeq ("$(OSTYPE)","Darwin")
   MACHINE   = $(shell uname -p)
 endif
 
+
+#obtain Linux release number (works on RHEL at least ..)
+ifeq ("$(OSTYPE)","Linux")
+  OSRELEASE = $(shell cat /etc/redhat-release | cut -d "." -f 1 | cut -d " " -f 7)
+endif
+
+#redefine MACHINE for 64bit RHEL6, use different naming scheme
+ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
+ifeq ("$(OSRELEASE)","6")
+  MACHINE = x86_64_RHEL6
+endif
+endif
+
+
 OSTYPE_MACHINE = $(OSTYPE)_$(MACHINE)
+
 
 #check if we are on VME controller; if so, use extra 'vme' addition
 ifeq ("$(OSTYPE)","Linux")
@@ -35,10 +55,6 @@ ifeq ("$(OSTYPE)","Linux")
 	endif
 endif
 
-#obtain Linux release number (works on RHEL at least ..)
-ifeq ("$(OSTYPE)","Linux")
-  OSRELEASE = $(shell cat /etc/redhat-release | cut -d "." -f 1 | cut -d " " -f 7)
-endif
 
 localobj = ./$(OSTYPE_MACHINE)/obj
 locallib = ./$(OSTYPE_MACHINE)/lib
@@ -159,7 +175,7 @@ ifeq ("$(OSTYPE)","Linux")
 #debug or optimize
     FFLAGS = $(OPT2)
     CFLAGS = $(OPT2)
-ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
+ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
     FFLAGS = -g
     CFLAGS = -g
 endif
@@ -170,6 +186,9 @@ CFLAGS = -g
 #CFLAGS = -O2
 
     FC = g77
+ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
+    FC = gfortran
+endif
 
     FFLAGS += -fno-automatic -finit-local-zero \
 			-ffixed-line-length-none -fno-second-underscore -DLinux
@@ -237,24 +256,24 @@ endif
     CLON_FLAGS = 
 # library directories and libraries
     X11LIBDIRS = /usr/X11R6/lib
-ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
+ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
     X11LIBDIRS = /usr/X11R6/lib64
 endif
 
     X11LIBS = -lXpm -lXm -lX11 -lXt -lXext
-ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
+ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
     X11LIBS += -lXmu
 endif
 
 TERMCAPLIBS = -ltermcap
-ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
+ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
 ifeq ("$(OSRELEASE)","7")
     TERMCAPLIBS += -lXft -lfontconfig
 endif
 endif
 
     SYSLIBDIRS = /usr/lib
-ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
+ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
     SYSLIBDIRS = /usr/lib64
 endif
 #donotneed??    SYSLIBS = -lpthread -lnsl -lrt -lresolv -lc
@@ -273,7 +292,7 @@ ifeq ("$(OSTYPE_MACHINE)","Linux_ppc")
     CFLAGS += -DLinux_ppc
 endif
 
-ifeq ("$(OSTYPE_MACHINE)","Linux_x86_64")
+ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
     CFLAGS += -DLinux_x86_64
 endif
 
@@ -771,6 +790,10 @@ LIB_FILES_ROL = $(subst .c,.so,$(TMP4))
 #--------------
 
 #print:
+#	echo ">$(OSTYPE)<"
+#	echo ">$(MACHINE)<"
+#	echo ">$(PLATFORM)<"
+#	echo ">$(OSTYPE_PLATFORM)<"
 #	echo ">$(OSRELEASE)<"
 #	echo ">$(MAKECMDGOALS)<"
 #	echo "VPATH_DIR3 >$(VPATH_DIR3)<"

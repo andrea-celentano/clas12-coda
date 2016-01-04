@@ -24,6 +24,8 @@ $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
 	./$(OSTYPE_MACHINE)/rol/hps1_slave.so \
 	./$(OSTYPE_MACHINE)/rol/hps1test_master.so \
 	./$(OSTYPE_MACHINE)/rol/hps1test_slave.so \
+	./$(OSTYPE_MACHINE)/rol/hps1mvt_master.so \
+	./$(OSTYPE_MACHINE)/rol/hps1mvt_slave.so \
 	./$(OSTYPE_MACHINE)/rol/tdc1_master.so \
 	./$(OSTYPE_MACHINE)/rol/tdc1_slave.so \
 	./$(OSTYPE_MACHINE)/rol/svt1_master.so \
@@ -50,6 +52,14 @@ $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
 	$(CC) -DTI_MASTER $(CCROLOPT)
 
 ./$(OSTYPE_MACHINE)/rol/hps1test_slave.o : rols/hps1test.c
+	$(MKROLDIR)
+	$(CC) -DTI_SLAVE $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/hps1mvt_master.o : rols/hps1mvt.c
+	$(MKROLDIR)
+	$(CC) -DTI_MASTER $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/hps1mvt_slave.o : rols/hps1mvt.c
 	$(MKROLDIR)
 	$(CC) -DTI_SLAVE $(CCROLOPT)
 

@@ -36,6 +36,12 @@
 
 #include "rcExit.h"
 
+/*sergey*/
+#include "Editor.h"
+extern int ncomp_;
+extern pid_t proc_id[MAX_NUM_COMPS];
+/*sergey*/
+
 rcExit::rcExit (char* name, int active,
 		char* acc, char* acc_text, 
 		rcClientHandler& handler)
@@ -57,6 +63,24 @@ rcExit::~rcExit (void)
 void
 rcExit::doit (void)
 {
+  int ii, ret;
+
+  /*sergey*/
+  {
+    /* cleanup previously opened components if any */
+    if(ncomp_)
+    {
+      printf("rcExit::doit: CLEANUP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+      for(ii=0; ii<ncomp_; ii++)
+	  {
+        ret = kill(proc_id[ii], SIGTERM);
+        printf("[%2d] pid=%d, kill() returned %d\n",ii,proc_id[ii],ret);
+	  }
+    }
+    ncomp_ = 0;
+  }
+  /*sergey*/
+
   if (!netHandler_.connected ()) 
     exitRunControl ();
   

@@ -1,4 +1,5 @@
 
+
 /* bosio_test1.c */
  
 #include <stdio.h>
@@ -158,8 +159,6 @@ int nev[] = {1358,1573,2027,2166,2838,4242,4350,6143,6645,7212,
 
   bcsfl = (float*)bcs_.iw;
   bosInit(bcs_.iw,NBCS);
-
-
 
 
   /* v1190 test */

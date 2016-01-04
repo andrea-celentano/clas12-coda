@@ -1,3 +1,5 @@
+#ifdef Linux_vme
+
 /*----------------------------------------------------------------------------*/
 /**
  * @mainpage
@@ -21,8 +23,6 @@
  *
  * </pre>
  *----------------------------------------------------------------------------*/
-
-#ifdef Linux_vme
 
 #define _GNU_SOURCE
 
@@ -208,10 +208,6 @@ my_tiLive()
 
 #else
 
-void
-tiUtils_dummy()
-{
-  return;
-}
+void tiUtils_dummy() {}
 
 #endif

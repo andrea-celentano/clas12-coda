@@ -54,7 +54,7 @@ int BeuRun( volatile struct BEUSSP_A24RegStruct *beu_regs, int run )
 	if( run )
 	{
 		//enable synchronous commands
-		if( (ret == beusspEnSyncCom( beu_regs )) != OK )
+		if( (ret = beusspEnSyncCom( beu_regs )) != OK )
 		{
 			fprintf( stderr, "%s: beusspEnSyncCom failed with %d\n", __FUNCTION__, ret ); 
 			return D_RetCode_Err_NetIO;
@@ -62,13 +62,13 @@ int BeuRun( volatile struct BEUSSP_A24RegStruct *beu_regs, int run )
 		usleep(50);
 
 		// Flush hardware
-		if( (ret == beusspFlushPipeline( beu_regs )) != OK )
+		if( (ret = beusspFlushPipeline( beu_regs )) != OK )
 		{
 			fprintf( stderr, "%s: beusspFlushPipeline failed with %d\n", __FUNCTION__, ret ); 
 			return D_RetCode_Err_NetIO;
 		}
 		// Enable triggers on beussp
-		if( (ret == beusspEnableTriggerSource( beu_regs )) != OK )
+		if( (ret = beusspEnableTriggerSource( beu_regs )) != OK )
 		{
 			fprintf( stderr, "%s: beusspEnableTriggerSource failed with %d\n", __FUNCTION__, ret ); 
 			return D_RetCode_Err_NetIO;
@@ -77,7 +77,7 @@ int BeuRun( volatile struct BEUSSP_A24RegStruct *beu_regs, int run )
 	else
 	{
 		// Enable triggers on beussp
-		if( (ret == beusspDisableTriggerSource( beu_regs )) != OK )
+		if( (ret = beusspDisableTriggerSource( beu_regs )) != OK )
 		{
 			fprintf( stderr, "%s: beusspDisableTriggerSource failed with %d\n", __FUNCTION__, ret ); 
 			return D_RetCode_Err_NetIO;
@@ -107,7 +107,7 @@ int BeuGo( volatile struct BEUSSP_A24RegStruct *beu_regs, BeuSspConf *params )
 
 	// Flush hardware
 /*
-	if( (ret == beusspFlushPipeline( beu_regs )) != OK )
+	if( (ret = beusspFlushPipeline( beu_regs )) != OK )
 	{
 		fprintf( stderr, "%s: beusspFlushPipeline failed with %d for beu %d in slot %d\n", __FUNCTION__, ret, params->Id, params->Slot ); 
 		return D_RetCode_Err_NetIO;
@@ -115,7 +115,7 @@ int BeuGo( volatile struct BEUSSP_A24RegStruct *beu_regs, BeuSspConf *params )
 */
 /*
 	// Enable triggers on beussp
-	if( (ret == beusspEnableTriggerSource( beu_regs )) != OK )
+	if( (ret = beusspEnableTriggerSource( beu_regs )) != OK )
 	{
 		fprintf( stderr, "%s: beusspEnableTriggerSource failed with %d\n", __FUNCTION__, ret ); 
 		return D_RetCode_Err_NetIO;
@@ -124,7 +124,7 @@ int BeuGo( volatile struct BEUSSP_A24RegStruct *beu_regs, BeuSspConf *params )
 	// Resync frontends if the sync source is set to siftware
 	if( params->SyncSrc == BeuSynSrc_Soft )
 	{
-		if( (ret == beusspVmeResyncRtsRec( beu_regs )) != OK )
+		if( (ret = beusspVmeResyncRtsRec( beu_regs )) != OK )
 		{
 			fprintf( stderr, "%s: beusspVmeResyncRtsRec failed with %d for beu %d in slot %d\n", __FUNCTION__, ret, params->Id, params->Slot ); 
 			return D_RetCode_Err_NetIO;

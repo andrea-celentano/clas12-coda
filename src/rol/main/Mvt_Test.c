@@ -1061,8 +1061,7 @@ int main(void )
 
 #else
 
-int
-main()
+int main()
 {
   exit(0);
 }

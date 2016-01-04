@@ -13,7 +13,7 @@
 -- Tool versions:  
 -- 
 -- Create Date:    0.0 2014/09/29 IM
--- Revision:       
+-- Revision:       1.0 2015/08/28 IM: SysParams_Parse added
 --
 -- Comments:
 --
@@ -82,6 +82,7 @@ int SysParams_Sprintf( SysParams *sys_params, char *buf  );
 int SysParams_Fprintf( SysParams *sys_params, FILE *fptr );
 int SysParams_Fread(   SysParams *sys_params, FILE *fptr );
 int SysParams_Prop(    SysParams *sys_params );
+int SysParams_Parse(   SysParams *sys_params, int line_num );
 
 
 #endif // #ifndef H_SysConfigParams

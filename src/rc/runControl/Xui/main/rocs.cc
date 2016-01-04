@@ -372,73 +372,6 @@ void warningHandler(char *msg)
 
 
 
-#if 0
-/*
-  w - widget that resized
-  event - ...
-  args[] - unused
-  num_args - unused
-*/
-
-/* 'w' here is one of sash's from panedwindow, we'll get it's parent which is panedwindow itself,
-   and resize all children (will change heights only, widths stays the same */
-static void
-resizeSash (Widget w, XEvent *event, String args[], Cardinal *num_args)
-{
-  printf("resize1111111111111111111111111111111111111111111111111111\n");
-  Widget w_parent;
-  WidgetList         children;
-  int                ii, nchildren=0;
-  Dimension          w_height, height, child_pos, sash_pos;
-  short              margin_w, margin_h;
-
-  /* get sash's position */
-  XtVaGetValues (w, XmNy, &sash_pos, NULL);
-  printf("111-1>  sash=0x%08x, pos=%d\n",w,sash_pos);
-
-  /* get parent's children and sizes */
-  w_parent = XtParent(w); /* get the parent of this sash */
-  XtVaGetValues (w_parent, XmNchildren, &children, XmNnumChildren, &nchildren, 
-                   XmNmarginHeight, &margin_h, XmNheight, &height, NULL);
-  printf("111-2>  parent=0x%08x, height=%d, nchildren=%d\n",w_parent,height,nchildren);
-  for(ii=0; ii<nchildren; ii++)
-  {
-    XtVaGetValues (children[ii], XmNheight, &height, XmNy, &child_pos, NULL);
-    printf("111-3> children[%d]: id=0x%08x, height=%d pos=%d, XmIsSash=%d, XmIsSeparator=%d\n",
-      ii,children[ii],height,child_pos,XmIsSash(children[ii]), XmIsSeparator(children[ii]));
-
-	/* we'll increase one pane in according to sash movement, and make all other panes equal */
-
-    if(XmIsSash(children[ii])) /* sash */
-	{
-      ;
-	}
-    else if(XmIsSeparator(children[ii])) /* separator */
-	{
-      ;
-	}
-    else /* pane */
-	{
-      ;
-	}
-
-
-  }
-
-
-
-  /*testing
-    w_height = 100+dd;
-    w_width = 100;
-    XtVaSetValues (children[0], XmNwidth, w_width, XmNheight, w_height, NULL);
-	dd++;
-  */
-}
-
-#endif
-
-
-
 
 
 /* 'w' is 'rframe_', children are 'xtermsFrame_[]' (panedwindow), 2 per tab, subchildren are 'xterms[] */
@@ -638,52 +571,6 @@ main(int argc, char** argv)
   menW->createXterms (menW->xtermsFrame_[1], "01_");
 
 
-  /*sergey: playing
-  XtRealizeWidget(menW->xterms[0]);
-  XtRealizeWidget(menW->xterms[1]);
-  XtRealizeWidget(menW->xterms[2]);
-  XtRealizeWidget(menW->xterms[3]);
-  XtRealizeWidget(menW->xterms[4]);
-
-  XtRealizeWidget(menW->xtermsFrame_[0]);
-  XtRealizeWidget(menW->xtermsFrame_[1]);
-
-  XtVaSetValues (menW->xtermsFrame_[0], XmNallowResize,  True, NULL);
-  XtVaSetValues (menW->xtermsFrame_[1], XmNallowResize,  True, NULL);
-
-  XtVaSetValues (menW->xtermsFrame_[0], XmNpreferredPaneSize, 95, NULL);
-  XtVaSetValues (menW->xtermsFrame_[1], XmNpreferredPaneSize, 95, NULL);
-
-  XtVaSetValues (menW->xterms[0], XmNpreferredPaneSize, 95, NULL);
-  XtVaSetValues (menW->xterms[1], XmNpreferredPaneSize, 95, NULL);
-  XtVaSetValues (menW->xterms[2], XmNpreferredPaneSize, 95, NULL);
-  XtVaSetValues (menW->xterms[3], XmNpreferredPaneSize, 95, NULL);
-  XtVaSetValues (menW->xterms[4], XmNpreferredPaneSize, 95, NULL);
-
-  XtVaSetValues (menW->xtermsFrame_[0], XmNresizeToPreferred,  True, NULL);
-  XtVaSetValues (menW->xtermsFrame_[1], XmNresizeToPreferred,  True, NULL);
-  sergey: playing*/
-
-
-
-
-
-
-
-  /* do not need it since we are registering individual roc widgets ???
-#ifdef USE_CREG
-  printf("CREG 0: rocs\n");
-  CODASetAppName (XtDisplay(menW->xtermsFrame_[0]),XtWindow(menW->xtermsFrame_[0]),"rocs_WINDOW");
-#endif
-  XStoreName(XtDisplay(menW->xtermsFrame_[0]),XtWindow(menW->xtermsFrame_[0]),"rocs_WINDOW");
-  */
-
-
-  /* create frame for codaedit; first par must coinside with
-  the name in following call from codaedit.c:
- parent = CODAGetAppWindow(XtDisplay(toplevel),"rocs_WINDOW"); */
-
-
 
 #if 1
   menW->createTabFrame("rocs1",0, &firstxtermframe, &nxtermframes);
@@ -709,32 +596,6 @@ main(int argc, char** argv)
 
 
 
-
-#if 0
-  /* set resizing for panedwindow's sash movement */
-  rec.string = "resizeSash";
-  rec.proc = resizeSash;
-  XtAppAddActions (app_context, &rec, 1);
-  /*works XtOverrideTranslations (menW->xtermsFrame_[0], XtParseTranslationTable ("<Configure>: resizeSash()"));*/
-  /*works if click on sash line, not on sash button XtOverrideTranslations (menW->xtermsFrame_[0], XtParseTranslationTable ("<Btn1Down>: resizeSash()"));*/
-
-  /* SashAction action routine is not a direct action routine of the XmPaned,
-  but rather an action of the Sash control created by the XmPaned, so we will find XmPaned's children,
-  identify which of them Sash'es, and set <Btn1Up>, <Btn1Down> or <Btn1Motion> for them */
-  printf("numTabs_=%d\n",menW->numTabs_);
-  for(jj=0; jj<menW->numTabs_; jj++)
-  {
-    XtVaGetValues (menW->xtermsFrame_[jj], XmNchildren, &children, XmNnumChildren, &nchildren, NULL);
-    for(ii=0; ii<nchildren; ii++)
-    {
-      printf(">>>>>>>>      children[%d]: XmIsSash=%d, XmIsSeparator=%d\n",ii,XmIsSash(children[ii]), XmIsSeparator(children[ii]));
-      if(XmIsSash(children[ii]))
-	  {
-        //XtOverrideTranslations (children[ii], XtParseTranslationTable ("<Btn1Motion>: resizeSash()")); /* can be also <Btn1Up>, <Btn1Down> etc */
-	  }
-    }
-  }
-#endif
 
 
 

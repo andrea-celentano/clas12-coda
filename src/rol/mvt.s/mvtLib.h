@@ -8,6 +8,8 @@
 *          June 2015
 *
 *  Revision  1.0 - Initial Revision
+*                  2015/08/27: mvtUploadAll added
+*                  2015/08/28: mvtConfig added
 *
 *  SVN: $Rev$
 *
@@ -25,5 +27,15 @@ int mvtEnd();
 int mvtGBReady( int id ); 
 int mvtReadBlock( int id, unsigned int *data, int nwrds, int rflag );
 int mvtCleanup();
+int mvtUploadAll( char *string, int length );
+int mvtConfig( char *sys_conf_params_filename, int run_number, int bec_id );
+
+int mvtGetNbrOfFeu(int id, int BeuId);
+int mvtGetNbrOfSamplesPerEvent(int id);
+int mvtGetNbrOfEventsPerBlock(int id);
+int mvtGetNbrOfBeu(int id);
+int mvtGetPrescale(int id);
+int mvtGetZSMode(int id);
+int mvtSetCurrentBlockLevel( int block_level );
 
 #endif // #ifndef __MVTLIB__

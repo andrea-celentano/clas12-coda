@@ -12,7 +12,7 @@
 #define DEBUG_PRINT						0
 
 #define CRATEMSG_LISTEN_PORT			6102
-#define MAX_MSG_SIZE						10000
+#define MAX_MSG_SIZE					10000
 
 #define CRATEMSG_HDR_ID					0x12345678
 
@@ -51,7 +51,7 @@ typedef struct
 typedef struct
 {
 	int cnt;
-	short vals[1];
+	short vals[MAX_MSG_SIZE/2];
 } Cmd_Read16_Rsp;
 
 typedef struct
@@ -59,7 +59,7 @@ typedef struct
 	int cnt;
 	int addr;
 	int flags;
-	short vals[1];
+	short vals[MAX_MSG_SIZE/2];
 } Cmd_Write16;
 
 typedef struct
@@ -72,7 +72,7 @@ typedef struct
 typedef struct
 {
 	int cnt;
-	int vals[1];
+	int vals[MAX_MSG_SIZE/4];
 } Cmd_Read32_Rsp;
 
 typedef struct
@@ -80,7 +80,7 @@ typedef struct
 	int cnt;
 	int addr;
 	int flags;
-	int vals[1];
+	int vals[MAX_MSG_SIZE/4];
 } Cmd_Write32;
 
 typedef struct
@@ -91,7 +91,7 @@ typedef struct
 typedef struct
 {
 	int cnt;
-	unsigned int vals[1];
+	unsigned int vals[MAX_MSG_SIZE/4];
 } Cmd_ReadScalers_Rsp;
 
 /*****************************************************/
@@ -239,6 +239,9 @@ public:
 				if(!Msg.len)
 					return kTRUE;
 
+#if DEBUG_PRINT
+				printf(">>> Msg.len=%d\n",Msg.len);
+#endif
 				if(RecvRaw(&Msg.msg, Msg.len) == Msg.len)
 					return kTRUE;
 			}
@@ -367,6 +370,7 @@ public:
 					val[i] = Msg.msg.m_Cmd_Read32_Rsp.vals[i];
 			}
 #if DEBUG_PRINT
+			printf("Msg.msg.m_Cmd_Read32_Rsp.cnt=%d\n",Msg.msg.m_Cmd_Read32_Rsp.cnt);
 		for(int i = 0; i < cnt; i++)
 			printf("0x%08X ", val[i]);
 		printf("\n");

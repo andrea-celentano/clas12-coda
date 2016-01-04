@@ -37,6 +37,17 @@
 #include <rcInfoPanel.h>
 #include "rcClose.h"
 
+/*sergey*/
+extern Widget toplevel;
+#ifdef USE_CREG
+#include <codaRegistry.h>
+#endif
+#include "Editor.h"
+extern int ncomp_;
+extern pid_t proc_id[MAX_NUM_COMPS];
+/*sergey*/
+
+
 rcClose::rcClose (char* name, int active,
 		  char* acc, char* acc_text,
 		  rcClientHandler& handler)
@@ -66,6 +77,8 @@ extern Widget toplevel;
 void
 rcClose::doit (void)
 {
+  int ii, ret;
+
   if (netHandler_.connected ()) {
     if (!dialog_) {
       dialog_ = new rcCloseDialog (this, "closeDialog", "Close Dialog",
@@ -84,6 +97,21 @@ rcClose::doit (void)
   }
   else
   {
+	/*sergey*/
+    /* cleanup previously opened components if any */
+    if(ncomp_)
+    {
+      printf("rcClose::doit: CLEANUP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+      for(ii=0; ii<ncomp_; ii++)
+	  {
+        ret = kill(proc_id[ii], SIGTERM);
+        printf("[%2d] pid=%d, kill() returned %d\n",ii,proc_id[ii],ret);
+	  }
+    }
+    ncomp_ = 0;
+	/*sergey*/
+
+#if 0
     /*sergey: testing*/
     {
       char cmd[100];
@@ -95,6 +123,7 @@ printf("CTERM: >%s<\n",cmd);
       coda_Send(XtDisplay(toplevel),"00_01_WINDOW",cmd);
 #endif
     }
+#endif
 
 	/*
     close ();

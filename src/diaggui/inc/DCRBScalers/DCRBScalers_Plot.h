@@ -661,7 +661,7 @@ public:
 								pScalers[i]->Fill(x, y);
 						}
 						else
-							pScalers[i]->Fill(x, y, (double)scalers[j+i*7][k]);
+						  pScalers[i]->Fill(x, y, (double)scalers[j+i*7][k]);
 					}
 				}
 			}

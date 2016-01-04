@@ -291,7 +291,7 @@ int BeuSspConf_Parse( BeuSspConf *params, int line_num )
 
 	if( argc > 0 )
 	{
-		if( strcmp( argv[0], "Beu" ) == 0 )
+		if( ( strcmp( argv[0], "Beu" ) == 0 ) || ( strcmp( argv[0], "MVT_Beu" ) == 0 ) || ( strcmp( argv[0], "FTT_Beu" ) == 0 ) )
 		{
 			// Get beu ID
 			if( strcmp( argv[1], "*" ) == 0 )
@@ -553,7 +553,7 @@ int BeuSspConfCol_Parse( BeuSspConfCol *col, int line_num )
 
 	if( argc > 0 )
 	{
-		if( strcmp( argv[0], "Beu" ) == 0 )
+		if( ( strcmp( argv[0], "Beu" ) == 0 ) || ( strcmp( argv[0], "MVT_Beu" ) == 0 ) || ( strcmp( argv[0], "FTT_Beu" ) == 0 ) )
 		{
 			// Get beu ID
 			if( strcmp( argv[1], "*" ) == 0 )

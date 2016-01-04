@@ -273,7 +273,7 @@ int TiParams_Parse( TiParams *params, int line_num )
 
 	if( argc > 0 )
 	{
-		if( strcmp( argv[0], "Ti" ) == 0 )
+		if( ( strcmp( argv[0], "Ti" ) == 0 ) || ( strcmp( argv[0], "MVT_Ti" ) == 0 ) || ( strcmp( argv[0], "FTT_Ti" ) == 0 ) )
 		{
 			// Get TI ID
 			if( strcmp( argv[1], "*" ) == 0 )
@@ -317,9 +317,9 @@ int TiParams_Parse( TiParams *params, int line_num )
 			{
 				if( strcmp( argv[3], "None" ) == 0 )
 					params->TrgSrc = TiTrgSrc_None;
-				if( strcmp( argv[3], "HFBR1" ) == 0 )
+				else if( strcmp( argv[3], "HFBR1" ) == 0 )
 					params->TrgSrc = TiTrgSrc_HFBR1;
-				if( strcmp( argv[3], "Soft" ) == 0 )
+				else if( strcmp( argv[3], "Soft" ) == 0 )
 					params->TrgSrc = TiTrgSrc_Soft;
 				else if( strcmp( argv[3], "FpInp1" ) == 0 )
 					params->TrgSrc = TiTrgSrc_FpInp1;

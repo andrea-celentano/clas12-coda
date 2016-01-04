@@ -17,6 +17,7 @@
 #include <Xm/RowColumn.h>
 #include <Xm/PushBG.h>
 #include <Xm/SeparatoG.h>
+#include <Xm/LabelG.h>
 
 #include <codaComd.h>
 #include <codaComdXInterface.h>
@@ -101,15 +102,16 @@ extern "C" {
 static int pids_[200]; // store process ID
 */
 
-extern "C" int codaterm(int argc, char *argv[]);
-extern "C" void	codatermtest();
+extern "C" int ctermlib(int argc, char *argv[]);
 
 /* 'daqComp' described in codaedit.s/Editor.h, and MAX_NUM_COMPS defined there */
-static int ncomp_;
+/*static*/ int ncomp_;
 static daqComp comp[MAX_NUM_COMPS];
 static char *type_name[MAX_NUM_COMPS];
 static char *bg_name[MAX_NUM_COMPS];
-static pid_t proc_id[MAX_NUM_COMPS];
+/*static*/ pid_t proc_id[MAX_NUM_COMPS];
+
+static Widget xtermsLabel[200];
 
 
 rcRocMenuWindow *menu_window;
@@ -405,6 +407,7 @@ void
 rcRocMenuWindow::createXterms (Widget widget, char *name)
 {
   Widget wid;
+  Widget workarea;
   int ac, ii, ix, iy, xpos, ypos, dx, dy;
   Arg arg[20];
   Dimension width, height, height1, height2, hmax, hmin;
@@ -453,14 +456,34 @@ rcRocMenuWindow::createXterms (Widget widget, char *name)
     XtSetArg (arg[ac], XtNheight, height); ac++;
     printf("INITIALLY xterms[%d] width=%d height=prefsize=%d\n",nxterms,width,height);
 
+    xterms[nxterms] = XtCreateManagedWidget ("frame", xmFrameWidgetClass, widget, arg, ac );
+
+    XtVaSetValues (xterms[nxterms], XmNpaneMaximum, hmax, XmNpaneMinimum, hmin, NULL);
+    /*XtVaSetValues (xterms[nxterms], XtNwidth, width, XtNheight, height, NULL);*/
+
+
+
+	/*label*/
+
+    //strcpy(xtermsTitle[nxterms],comp[nxterms].comp_name);
+
+    ac = 0;
+    XtSetArg (arg[ac], XmNframeChildType, XmFRAME_TITLE_CHILD); ac++;
+    xtermsLabel[nxterms] = XmCreateLabelGadget (xterms[nxterms], "title will be here", arg, ac);
+    XtManageChild (xtermsLabel[nxterms]);
+
+
+    /*workarea*/
 
     sprintf(tmp,"%s%02d_WINDOW",name,ii);
     printf("CREG11 name >%s<\n",tmp);
-    xterms[nxterms] = wid = XtCreateManagedWidget (tmp, xmFrameWidgetClass, widget, arg, ac );
+
+    ac = 0;
+    XtSetArg (arg[ac], XmNframeChildType, XmFRAME_WORKAREA_CHILD); ac++;
+    workarea = wid = XtCreateManagedWidget (tmp, xmFrameWidgetClass, xterms[nxterms], arg, ac );
+    XtManageChild (workarea);
 
 
-    XtVaSetValues (xterms[nxterms], XmNpaneMaximum, hmax, XmNpaneMinimum, hmin, NULL);
-    /*XtVaSetValues (wid, XtNwidth, width, XtNheight, height, NULL);*/
 
 
 #ifdef USE_CREG
@@ -1103,6 +1126,12 @@ rcRocMenuWindow::RocsSelectConfig(char *currconfig)
             else if(comp[ncomp_].type == CODA_NONE)     {type_name[ncomp_] = "NONE";     bg_name[ncomp_] = "white";}
             else                                        {type_name[ncomp_] = "UNKNOWN";  bg_name[ncomp_] = "white";}
 
+            /* set window title*/
+			sprintf(temp,"%s on %s",comp[ncomp_].comp_name,comp[ncomp_].node_name);
+            XmString t = XmStringCreateSimple(temp);
+            XtVaSetValues (xtermsLabel[ncomp_], XmNlabelString, t, NULL);
+            XmStringFree (t);
+
             ncomp_ ++;
             if(ncomp_ >= MAX_NUM_COMPS)
 			{
@@ -1153,15 +1182,15 @@ rcRocMenuWindow::RocsSelectConfig(char *currconfig)
 
           /* second param is process name as it will be in 'ps -ef' !!! */
           myargc = 0;
-          myargv[myargc++] = strdup( "codaterm" );
+          myargv[myargc++] = strdup( "cterm" );
+		  /*
           myargv[myargc++] = strdup( "-geometry" );
           myargv[myargc++] = strdup( "80x11" );
-
+		  */
           myargv[myargc++] = strdup( "-bg" );
           myargv[myargc++] = strdup( bg_name[kk] );
 
-          myargv[myargc++] = strdup( "-into" );
-
+          myargv[myargc++] = strdup( "-into_name" );
           sprintf(temp,"%02d_%02d",kk/5,kk%5);
           printf("kk=%d -> window index >%s<\n\n",kk,temp);
           myargv[myargc++] = strdup( temp );
@@ -1176,7 +1205,7 @@ rcRocMenuWindow::RocsSelectConfig(char *currconfig)
           sprintf(temp,"%s -s %s -o \"%s %s\":%s %s",comp[kk].boot_string,session,comp[kk].comp_name,type_name[kk],comp[kk].comp_name,type_name[kk]);
           myargv[myargc++] = strdup( temp );
 
-          sprintf(temp2,"%s/codaterm",getenv("CODA_BIN"));
+          sprintf(temp2,"%s/cterm",getenv("CODA_BIN"));
           printf("command >%s<\n",temp2);
 
           printf("myargc=%d\n",myargc);
@@ -1186,12 +1215,15 @@ rcRocMenuWindow::RocsSelectConfig(char *currconfig)
 		  while(1) sleep(1);
 		  */
 
-
+		  /*
           execl(temp2,
                 myargv[0], myargv[1], myargv[2], myargv[3], myargv[4],
                 myargv[5], myargv[6], myargv[7], myargv[8], myargv[9], myargv[10],
                 (char *)NULL);
-		  
+		  */
+
+          ctermlib(myargc, myargv);
+
 		}
         else
 		{
@@ -1233,11 +1265,11 @@ grep MaxStartups /etc/ssh/sshd_config
     }
 
   }
-
+  /*
   printf("sleep ..\n");fflush(stdout);
   sleep(3);
   printf("slept !!\n");fflush(stdout);
-
+  */
 }
 
 

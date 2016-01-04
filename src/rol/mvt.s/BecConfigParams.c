@@ -307,7 +307,7 @@ int BecParams_Parse( BecParams *params, int line_num )
 	}
 	if( argc > 0 )
 	{
-		if( strcmp( argv[0], "Bec" ) == 0 )
+		if( ( strcmp( argv[0], "Bec" ) == 0 ) || ( strcmp( argv[0], "MVT_Bec" ) == 0 ) || ( strcmp( argv[0], "FTT_Bec" ) == 0 ) )
 		{
 			bec = atoi( argv[1] );
 			if( (bec < 1) || (DEF_MAX_NB_OF_BEC <= bec) )
@@ -335,7 +335,7 @@ int BecParams_Parse( BecParams *params, int line_num )
 				// TI parameters
 				if( strcmp( argv[4], "Ti" ) == 0 )
 				{
-					if( (dev_id < 1) || (DEF_MAX_NB_OF_BEC <= dev_id) )
+					if( (dev_id < 0) || (DEF_MAX_NB_OF_BEC <= dev_id) )
 					{
 						fprintf( stderr, "%s: line %d: TI ID %d not in range [1,%d]\n", __FUNCTION__, line_num, dev_id, DEF_MAX_NB_OF_BEC ); 
 						return D_RetCode_Err_Wrong_Param;

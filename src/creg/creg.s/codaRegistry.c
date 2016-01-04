@@ -1141,7 +1141,7 @@ resizeHandler(Widget w, Window target, XEvent *eventPtr)
   wc.sibling = None;
   wc.stack_mode = Above;
 
-  /*HACK: if target is 'codaterm', then 'w' is paned widget, so we have to divide height by the number of w's childeren (=5) - for now !!!*/
+  /*HACK: if target is 'cterm', then 'w' is paned widget, so we have to divide height by the number of w's childeren (=5) - for now !!!*/
   {
     ret = XFetchName(XtDisplay(w), target, &name);
     if (ret > 0)
@@ -1149,12 +1149,13 @@ resizeHandler(Widget w, Window target, XEvent *eventPtr)
 #ifdef DEBUG
       printf("NAME >%s<\n",name);fflush(stdout);
 #endif
-      if(!strcmp(name,"codaterm"))
+      if(!strcmp(name,"cterm"))
 	  {
 #ifdef DEBUG
         printf("OLD HEIGHT %d\n",wc.height);fflush(stdout);
 #endif
-        wc.height = (wc.height - 38) / 5;
+        /*wc.height = (wc.height - 38) / 5;*/
+        wc.height = wc.height - 23;
 #ifdef DEBUG
         printf("NEW HEIGHT %d\n",wc.height);fflush(stdout);
 #endif
@@ -1193,7 +1194,9 @@ resizeHandler(Widget w, Window target, XEvent *eventPtr)
 #ifdef DEBUG
     printf("codaRegistry::resizeHandler: calling XConfigureWindow\n");
 #endif
+	
     XConfigureWindow(XtDisplay(w), target, CWWidth | CWHeight, &wc);
+	
   }
 }
 
@@ -1462,7 +1465,7 @@ printf("abc4 %d\n",abc[0]);fflush(stdout);
 	  printf("BEFOR !\n");fflush(stdout);	  
 #endif
 
-	  /*sergey: 'w1' for runcontrol/rocs, 'w2' for codaterm ??????????????????*/
+	  /*sergey: 'w1' for runcontrol/rocs, 'w2' for cterm ??????????????????*/
 
       /* first parameter 'w1' means tied to parent widget, in case of 'rocs' it will be called when 'xtermsFrame_[]' resized,
       and 'resizeHandler' will get xtermsFrame_[]'s sizes; if 'w2' used, handler will be called when 'xterms[]' resized, and

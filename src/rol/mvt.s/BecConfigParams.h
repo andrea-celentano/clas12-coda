@@ -31,7 +31,7 @@
 #endif
 
 #ifndef DEF_MAX_NB_OF_FEU
-#define DEF_MAX_NB_OF_FEU 49
+#define DEF_MAX_NB_OF_FEU 256
 #endif
 
 #ifndef DEF_MAX_NB_OF_FEU_PER_BEU

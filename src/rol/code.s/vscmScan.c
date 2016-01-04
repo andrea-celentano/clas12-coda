@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "vscmLib.h"
+#include <sys/stat.h>
 
 #ifndef VXWORKS
 #include "jvme.h"
@@ -40,6 +41,10 @@ fssrGainScan(int id, char *filename, \
   const int end_amp = 125;
   const int step_amp = 25;
   int steps = ((end_amp - start_amp) / step_amp) + 1;
+
+  /* Get current time for file saving */
+  time_t now;
+  time(&now);
 
   threshold_scan *data;
 
@@ -85,7 +90,14 @@ fssrGainScan(int id, char *filename, \
 
     if(filename)
     {
-      sprintf(fname,"%s_u%1d_s%02dc%1d", filename, ((ichip % 4) + 1), id, ((ichip > 3) ? 2 : 1));
+      char datetime[] = "YYYYMMDD_HHMM";
+      strftime(datetime, sizeof(datetime), "%Y%m%d_%H%M", localtime(&now));
+      struct stat sb;
+      if (stat(datetime, &sb) != 0)
+        mkdir(datetime, S_IRWXU | S_IRWXG | S_IROTH);
+      char host[255];
+      gethostname(host, 255);
+      sprintf(fname,"%s/%s_s%02d_c%1d_u%1d", datetime, host, id, ((ichip > 3) ? 2 : 1), ((ichip % 4) + 1));
       if( (fd = fopen(fname, "w")) <= NULL )
       {
         logMsg("ERROR: %s: Opening file: %s\n", __func__, fname);

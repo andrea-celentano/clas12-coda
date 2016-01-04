@@ -1,3 +1,5 @@
+#ifdef Linux_vme
+
 /*
 --------------------------------------------------------------------------------
 -- Company:        IRFU / CEA Saclay
@@ -20,9 +22,6 @@
 --
 --------------------------------------------------------------------------------
 */
-
-#ifdef Linux_vme
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -62,7 +61,7 @@ int TiConfig( TiParams *params )
 	{
 		// No need to check if vmeOpenDefaultWindows was already called
 		// The function tests internally its state
-		if( (ret == vmeOpenDefaultWindows()) < 0 )
+		if( (ret = vmeOpenDefaultWindows()) < 0 )
 		{
 			fprintf( stderr, "%s: vmeOpenDefaultWindows failed with %d\n", __FUNCTION__, ret );
 			return ret;
@@ -144,7 +143,59 @@ fprintf( stdout, "%s: **** Standalone APPLICATION ****\n", __FUNCTION__ );
 			return ret;
 		}
 	}
-	else if( (params->TrgSrc == TiTrgSrc_IntCst) || (params->TrgSrc == TiTrgSrc_IntRnd) || (params->TrgSrc == TiTrgSrc_Soft) || (params->TrgSrc == TiTrgSrc_None))
+	else if (params->TrgSrc == TiTrgSrc_IntCst)
+	{	int i_rate;	
+		i_rate = 1000000 /( 30.72 *(params->TrgRate));  
+		fprintf( stderr, "%s: PULSER RATE  %d, INCREMENT RATE = %d \n", __FUNCTION__, params->TrgRate, i_rate );
+
+		
+		if( (ret=tiSoftTrig(1, 0x7FFF, i_rate , 1)) != OK )
+		{
+			fprintf( stderr, "%s: tiSoftTrig failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
+			return ret;
+		}
+
+		if( (ret=tiSoftTrig(2, 0x7FFF, i_rate , 1)) != OK )
+		{
+			fprintf( stderr, "%s: tiSoftTrig failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
+			return ret;
+		}
+
+		if( (ret= tiSetRandomTrigger(1, 0x7)) != OK )
+		{
+			fprintf( stderr, "%s: tiSoftTrig failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
+			return ret;
+		}
+		if( (ret= tiSetRandomTrigger(2, 0x7)) != OK )
+		{
+			fprintf( stderr, "%s: tiSoftTrig failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
+			return ret;
+		}
+
+
+		if( (ret=tiSetTriggerPulse(1, 10, 10)) != OK )
+		{
+			fprintf( stderr, "%s: tiSetTriggerPulse failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
+			return ret;
+		}
+		if( (ret=tiSetTriggerPulse(2, 10, 10)) != OK )
+		{
+			fprintf( stderr, "%s: tiSetTriggerPulse failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
+			return ret;
+		}		
+		if( (ret=tiSetTriggerSource(TI_TRIGGER_PULSER)) != OK )
+		{
+			fprintf( stderr, "%s: tiSetTriggerSource(TI_TRIGGER_PULSER) failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
+			return ret;
+		}
+		if( (ret=tiDisableTSInput(TI_TSINPUT_ALL) )!= OK )
+		{
+			fprintf( stderr, "%s: tiDisableTSInput(TI_TSINPUT_ALL) failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
+			return ret;
+		}
+
+	}
+	else if(  (params->TrgSrc == TiTrgSrc_IntRnd) || (params->TrgSrc == TiTrgSrc_Soft) || (params->TrgSrc == TiTrgSrc_None))
 	{
 		fprintf( stderr, "%s: TI %d trigger source %s not yet implemented\n", __FUNCTION__, params->Id, TiTrgSrc2Str(params->TrgSrc) );
 		return D_RetCode_Err_Wrong_Param;
@@ -385,16 +436,8 @@ int TiGo( TiParams *params )
 	return D_RetCode_Sucsess;
 }
 
-
 #else
 
-void
-TiSdConfig_dummy()
-{
-  return;
-}
+void TiSdConfig_dummy() {}
 
 #endif
-
-
-

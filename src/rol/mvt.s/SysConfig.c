@@ -198,19 +198,24 @@ int SysConfig( SysParams *params )
 	for( bec=1; bec<DEF_MAX_NB_OF_BEC; bec++ )
 	{
 		/* First configure TI */
-		if( params->Ti_Params[bec].Id > 0 )
+		/* But do it only in Clas12 running mode */
+		if( params->RunMode != Clas12 )
 		{
-			if( (ret=TiConfig( &(params->Ti_Params[1]))) != D_RetCode_Sucsess )			// SOMETHING STRANGE HERE and below : should it be  params->Ti_Params[bec] ??
+			if( params->Ti_Params[bec].Id > 0 )
 			{
-				fprintf(stderr, "%s: TiConfig failed with %d for ti %d\n", __FUNCTION__, ret, params->Ti_Params[1].Id );
-				return ret;
+				//if( (ret=TiConfig( &(params->Ti_Params[1]))) != D_RetCode_Sucsess )			// SOMETHING STRANGE HERE and below : should it be  params->Ti_Params[bec] ??
+				if( (ret=TiConfig( &(params->Ti_Params[bec]))) != D_RetCode_Sucsess )			// SOMETHING STRANGE HERE and below : should it be  params->Ti_Params[bec] ??
+				{
+					fprintf(stderr, "%s: TiConfig failed with %d for ti %d\n", __FUNCTION__, ret, params->Ti_Params[bec].Id );
+					return ret;
+				}
 			}
 		}
 
 		/* Next configure SD */
 		if( params->Sd_Params[bec].Id > 0 )
 		{
-			if( (ret=SdConfig( &(params->Sd_Params[1]))) != D_RetCode_Sucsess )  // SOMETHING STRANGE HERE and below : should it be  params->Sd_Params[bec] ??
+			if( (ret=SdConfig( &(params->Sd_Params[bec]))) != D_RetCode_Sucsess )  // SOMETHING STRANGE HERE and below : should it be  params->Sd_Params[bec] ??
 			{
 				fprintf(stderr, "%s: SdConfig failed with %d\n", __FUNCTION__, ret );
 				return ret;
@@ -260,14 +265,20 @@ int SysConfig( SysParams *params )
 							__FUNCTION__, beu, bec, ret );
 						return D_RetCode_Err_Wrong_Param;
 					}
-					
-				/*	if( (ret=beusspDisableA32(beu_reg_control[beu])) < 0 )
+					if( (ret=beusspEnableA32(beu_reg_control[beu])) < 0 )
+					{
+						fprintf( stderr, "%s: beusspEnableA32 failed for beu %d in bec %d with %d\n",
+							__FUNCTION__, beu, bec, ret );
+						return D_RetCode_Err_Wrong_Param;
+					}
+
+/*					if( (ret=beusspDisableA32(beu_reg_control[beu])) < 0 )
 					{
 						fprintf( stderr, "%s: beusspDisableA32 failed for beu %d in bec %d with %d\n",
 							__FUNCTION__, beu, bec, ret );
 						return D_RetCode_Err_Wrong_Param;
-					}	
-				*/	
+					}
+*/						
 					if( (ret=beusspEnBerrTerm(beu_reg_control[beu])) < 0 )
 					{
 						fprintf( stderr, "%s: beusspEnBerrTerm failed for beu %d in bec %d with %d\n",
@@ -297,17 +308,16 @@ int SysConfig( SysParams *params )
 						fprintf( stderr, "%s: beusspEnableA32 failed for beu %d in bec %d with %d\n",
 							__FUNCTION__, beu, bec, ret );
 						return D_RetCode_Err_Wrong_Param;
-					}	
-					
-			/*		if( (ret=beusspEnBerrTerm(beu_reg_control[beu])) < 0 )
+					}
+/*
+					if( (ret=beusspEnBerrTerm(beu_reg_control[beu])) < 0 )
 					{
 						fprintf( stderr, "%s: beusspEnBerrTerm failed for beu %d in bec %d with %d\n",
 							__FUNCTION__, beu, bec, ret );
 						return D_RetCode_Err_Wrong_Param;
-					}
-			*/		
-					
-			//The readout list does not use bus error termination when reading BEUs separately, but it can be done !		
+					}	
+*/					
+					//The readout list does not use bus error termination when reading BEUs separately, but it can be done !		
 					if( (ret=beusspDisBerrTerm(beu_reg_control[beu])) < 0 )
 					{
 						fprintf( stderr, "%s: beusspDisBerrTerm failed for beu %d in bec %d with %d\n",

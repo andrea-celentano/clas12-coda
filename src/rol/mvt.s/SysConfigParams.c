@@ -13,7 +13,7 @@
 -- Tool versions:  
 -- 
 -- Create Date:    0.0 2014/09/29 IM
--- Revision:       
+-- Revision:       1.0 2015/08/28 IM: SysParams_Parse added
 --
 -- Comments:
 --
@@ -110,7 +110,7 @@ int SysParams_Init( SysParams *params )
 	params->SparseSmp         = 0;
 	params->NbOfSmpPerEvt     = 0;
 	params->NbOfEvtPerBlk     = 0;
-	params->BlockPrescale = 0;
+	params->BlockPrescale     = 1;
 
 	// System topology
 	for( bec=0; bec<DEF_MAX_NB_OF_BEC; bec++ )
@@ -206,14 +206,21 @@ int SysParams_Sprintf( SysParams *params, char *buf  )
 	sprintf( buf, "%s#####################\n", buf );
 	sprintf( buf, "%s# TI configurations #\n", buf );
 	sprintf( buf, "%s#####################\n", buf );
-	for( bec=0; bec<DEF_MAX_NB_OF_BEC; bec++ )
+	if( params->RunMode != Clas12 )
 	{
-		ret = TiParams_Sprintf( &(params->Ti_Params[bec]), buf );
-		if( ret != D_RetCode_Sucsess )
+		for( bec=0; bec<DEF_MAX_NB_OF_BEC; bec++ )
 		{
-			fprintf( stderr, "%s: TiParams_Sprintf failed for sd %d with %d\n", __FUNCTION__, bec, ret );
-			return ret;
+			ret = TiParams_Sprintf( &(params->Ti_Params[bec]), buf );
+			if( ret != D_RetCode_Sucsess )
+			{
+				fprintf( stderr, "%s: TiParams_Sprintf failed for sd %d with %d\n", __FUNCTION__, bec, ret );
+				return ret;
+			}
 		}
+	}
+	else
+	{
+		sprintf( buf, "%s# TI parameters do not apply in %s mode #\n", buf, SysRunMode2Str( params->RunMode ) );
 	}
 	sprintf( buf, "%s\n", buf );
 //fprintf( stderr, "%s: TiParams_Sprintf OK\n", __FUNCTION__ );
@@ -299,7 +306,6 @@ int SysParams_Fread( SysParams *params, FILE *fptr )
 {
 	char line[LINE_SIZE];
 	int line_num;
-	int bec;
 	int ret;
 
 	// Check for Null pointer
@@ -321,155 +327,12 @@ int SysParams_Fread( SysParams *params, FILE *fptr )
 		/* parse the line */
 		parse_line(line);
 		line_num++;
-		if( argc > 0 )
+		// Parse parameters
+		if( (ret = SysParams_Parse( params, line_num )) != D_RetCode_Sucsess )
 		{
-			if( strcmp( argv[0], "Sys" ) == 0 )
-			{
-				// Common system parameters
-				if( strcmp( argv[1], "Name" ) == 0 )
-					sprintf( params->Name, "%s", argv[2]);
-				else if( strcmp( argv[1], "RunMode" ) == 0 )
-				{
-					if( strcmp( argv[2], "Standalone" ) == 0 )
-						params->RunMode = Standalone;
-					else if( strcmp( argv[2], "Clas12" ) == 0 )
-						params->RunMode = Clas12;
-					else if( strcmp( argv[2], "Expert" ) == 0 )
-						params->RunMode = Expert;
-					else if( strcmp( argv[2], "Undefined" ) == 0 )
-					{
-						params->RunMode = SysModUdef;
-						fprintf( stderr, "%s: line %d: Sys RunMode explicitly set to Undefined\n", __FUNCTION__, line_num ); 
-						return D_RetCode_Err_Wrong_Param;
-					}
-					else
-					{
-						params->RunMode = SysModUdef;
-						fprintf( stderr, "%s: line %d: attempt to set unknown Sys RunMode %s\n", __FUNCTION__, line_num, argv[2] ); 
-						return D_RetCode_Err_Wrong_Param;
-					}
-				}
-				else if( strcmp( argv[1], "ClkMode" ) == 0 )
-				{
-					if( strcmp( argv[2], "Smp48_Rd48" ) == 0 )
-						params->ClkMode = Smp48_Rd48;
-					else if( strcmp( argv[2], "Smp44_Rd44" ) == 0 )
-						params->ClkMode = Smp44_Rd44;
-					else if( strcmp( argv[2], "Smp40_Rd40" ) == 0 )
-						params->ClkMode = Smp40_Rd40;
-					else if( strcmp( argv[2], "Smp36_Rd36" ) == 0 )
-						params->ClkMode = Smp36_Rd36;
-					else if( strcmp( argv[2], "Smp32_Rd32" ) == 0 )
-						params->ClkMode = Smp32_Rd32;
-					else if( strcmp( argv[2], "Smp24_Rd48" ) == 0 )
-						params->ClkMode = Smp24_Rd48;
-					else if( strcmp( argv[2], "SysClkUdef" ) == 0 )
-					{
-						params->ClkMode = SysClkUdef;
-						fprintf( stderr, "%s: line %d: Sys ClkMode explicitly set to Undefined\n", __FUNCTION__, line_num ); 
-						return D_RetCode_Err_Wrong_Param;
-					}
-					else
-					{
-						params->ClkMode = SysClkUdef;
-						fprintf( stderr, "%s: line %d: attempt to set unknown Sys ClkMode %s\n", __FUNCTION__, line_num, argv[2] ); 
-						return D_RetCode_Err_Wrong_Param;
-					}
-				}
-				else if( strcmp( argv[1], "SparseSmp" ) == 0 )
-				{
-					params->SparseSmp = atoi( argv[2] );
-					// Check the parameter: has to be derived from FeuConfigParams.h
-					if( (params->SparseSmp < 0) || (1 < params->SparseSmp) )
-					{
-						params->SparseSmp = 0;
-						fprintf( stderr, "%s: line %d: attempt to set unsupported SparseSmp %s; must be in [0,1]\n", __FUNCTION__, line_num, argv[2] ); 
-						return D_RetCode_Err_Wrong_Param;
-					}
-				}
-				else if( strcmp( argv[1], "NbOfSmpPerEvt" ) == 0 )
-				{
-					params->NbOfSmpPerEvt = atoi( argv[2] );
-					// Check the parameter: has to be derived from FeuConfigParams.h
-					if( (params->NbOfSmpPerEvt < 1) || (256 < params->NbOfSmpPerEvt) )
-					{
-						params->NbOfSmpPerEvt = 0;
-						fprintf( stderr, "%s: line %d: attempt to set unsupported NbOfSmpPerEvt %s; must be in [1,256]\n", __FUNCTION__, line_num, argv[2] ); 
-						return D_RetCode_Err_Wrong_Param;
-					}
-				}
-				else if( strcmp( argv[1], "NbOfEvtPerBlk" ) == 0 )
-				{
-					params->NbOfEvtPerBlk = atoi( argv[2] );
-					// Check the parameter: has to be derived from BeuConfigParams.h
-					if( (params->NbOfEvtPerBlk < 1) || (256 < params->NbOfEvtPerBlk) )
-					{
-						params->NbOfEvtPerBlk = 0;
-						fprintf( stderr, "%s: line %d: attempt to set unsupported NbOfEvtPerBlk %s; must be in [1,256]\n", __FUNCTION__, line_num, argv[2] ); 
-						return D_RetCode_Err_Wrong_Param;
-					}
-				}
-				else if( strcmp( argv[1], "BlockPrescale" ) == 0 )
-				{
-					params->BlockPrescale = atoi( argv[2] );
-					if( (params->BlockPrescale < 0) )
-					{
-						params->BlockPrescale = 0;
-						fprintf( stderr, "%s: line %d: attempt to set negative BlockPrescale %s; must be positive\n", __FUNCTION__, line_num, argv[2] ); 
-						return D_RetCode_Err_Wrong_Param;
-					}
-				}
-				else
-				{
-					fprintf( stderr, "%s: line %d: Unknown or empty keywod for Sys entry %s\n", __FUNCTION__, line_num, argv[1] ); 
-					return D_RetCode_Err_Wrong_Param;
-				}
-			}			
-			else if( strcmp( argv[0], "Bec" ) == 0 )
-			{
-				bec = atoi( argv[1] );
-				if( (bec < 1) || (DEF_MAX_NB_OF_BEC < bec) )
-				{
-					fprintf( stderr, "%s: line %d: bec id %d out of range [1,%d]\n", __FUNCTION__, line_num, bec, DEF_MAX_NB_OF_BEC ); 
-					return D_RetCode_Err_Wrong_Param;
-				}
-				if( (ret = BecParams_Parse( &(params->Bec_Params[bec]), line_num )) != D_RetCode_Sucsess )
-				{
-					fprintf( stderr, "%s: BecParams_Parse failed for bec %d with %d\n", __FUNCTION__, bec, ret );
-					return ret;
-				}
-			}
-			else if( strcmp( argv[0], "Ti" ) == 0 )
-			{
-				bec = atoi( argv[1] );
-				if( (bec < 0) || (DEF_MAX_NB_OF_BEC < bec) )
-				{
-					fprintf( stderr, "%s: line %d: ti id %d out of range [1,%d]\n", __FUNCTION__, line_num, bec, DEF_MAX_NB_OF_BEC ); 
-					return D_RetCode_Err_Wrong_Param;
-				}
-				if( (ret = TiParams_Parse( &(params->Ti_Params[bec]), line_num )) != D_RetCode_Sucsess )
-				{
-					fprintf( stderr, "%s: TiParams_Parse failed for ti %d with %d\n", __FUNCTION__, bec, ret );
-					return ret;
-				}
-			}
-			else if( strcmp( argv[0], "Beu" ) == 0 )
-			{
-				if( (ret = BeuSspConfCol_Parse( &(params->BeuSspConf_Col), line_num )) != D_RetCode_Sucsess )
-				{
-					fprintf( stderr, "%s: BeuSspConfCol_Parse failed with %d\n", __FUNCTION__, ret );
-					return ret;
-				}
-			}
-			else if( strcmp( argv[0], "Feu" ) == 0 )
-			{
-				if( (ret = FeuParamsCol_Parse( &(params->FeuParams_Col), line_num )) != D_RetCode_Sucsess )
-				{
-					fprintf( stderr, "%s: FeuParamsCol_Parse failed with %d\n", __FUNCTION__, ret );
-					return ret;
-				}
-			}
-		} // if( argc > 0 )
+			fprintf( stderr, "%s: SysParams_Parse failed with %d\n", __FUNCTION__, ret );
+			return ret;
+		}
 	} // while( fgets( line, LINE_SIZE, fptr ) != NULL )
 
 	// All went fine
@@ -500,7 +363,6 @@ int SysParams_Prop( SysParams *params )
 	// For TI
 	int trg_rule_0;
 	int drm_trg_dur;
-
 
 	// Check for Null pointer
 	if( params == (SysParams *)NULL )
@@ -544,13 +406,13 @@ int SysParams_Prop( SysParams *params )
 						// Emulated channel
 						if( bec_params->BeuFeuConnectivity[beu][feu] < 0 )
 						{
-							rol_enb = rol_enb & ((~(1<<feu)) & 0xFFFffff);
+							rol_enb = rol_enb & ((~(1<<feu)) & 0xFFFFffff);
 						}
 						// Masked channel
 						else if( bec_params->BeuFeuConnectivity[beu][feu] == 0 )
 						{
 							near_end_loop_enb += (1<<feu);
-							feu_emu_msk = feu_emu_msk & ((~(1<<feu)) & 0xFFFffff);
+							feu_emu_msk = feu_emu_msk & ((~(1<<feu)) & 0xFFFFffff);
 						}
 						// Enabled channels
 						else
@@ -595,6 +457,7 @@ int SysParams_Prop( SysParams *params )
 	if( ret = BeuSspConfCol_Prop( &(params->BeuSspConf_Col) ) != D_RetCode_Sucsess )
 	{
 		fprintf( stderr, "%s: BeuSspConfCol_Prop railed with %d\n", __FUNCTION__, ret );
+
 		return D_RetCode_Err_Null_Pointer;
 	}
 
@@ -629,7 +492,7 @@ int SysParams_Prop( SysParams *params )
 		}
 	}
 
-// propagate system wide configuration parameters
+	// propagate system wide configuration parameters
 	for( ti=1; ti<DEF_MAX_NB_OF_BEC; ti++ )
 	{
 		ti_params = &(params->Ti_Params[ti]);
@@ -653,17 +516,20 @@ int SysParams_Prop( SysParams *params )
 				return D_RetCode_Err_Null_Pointer;
 			}
 			// Recalculate trigger rule 0 for NbOfSamples
-			if( ti_params->TrgRules_TimeUnit[0] == 0 )
-				trg_rule_0 = ti_params->TrgRules_UnitCount[0] * Def_Ti_TrgRules_TimeUnit_016ns;
-			else if( ti_params->TrgRules_TimeUnit[0] == 1 )
-				trg_rule_0 = ti_params->TrgRules_UnitCount[0] * Def_Ti_TrgRules_TimeUnit_500ns;
-			else
+			if( params->RunMode != Clas12 )
 			{
-				fprintf( stderr, "%s: Wrong trigger rule 0 time unit %d for ti=%d\n", __FUNCTION__, ti_params->TrgRules_TimeUnit[0], ti );
-				return D_RetCode_Err_Wrong_Param;
+			  if( ti_params->TrgRules_TimeUnit[0] == 0 )
+			    trg_rule_0 = ti_params->TrgRules_UnitCount[0] * Def_Ti_TrgRules_TimeUnit_016ns;
+			  else if( ti_params->TrgRules_TimeUnit[0] == 1 )
+			    trg_rule_0 = ti_params->TrgRules_UnitCount[0] * Def_Ti_TrgRules_TimeUnit_500ns;
+			  else
+			  {
+			    fprintf( stderr, "%s: Wrong trigger rule 0 time unit %d for ti=%d\n", __FUNCTION__, ti_params->TrgRules_TimeUnit[0], ti );
+			    return D_RetCode_Err_Wrong_Param;
+			  }
 			}
 			drm_trg_dur = (params->NbOfSmpPerEvt+1) * PredefinedSysClcParams[params->ClkMode].DrmWrClkPeriod*(1+params->SparseSmp);
-			if( trg_rule_0 < drm_trg_dur )
+			if( (params->RunMode != Clas12) && (trg_rule_0 < drm_trg_dur) )
 			{
 				if( ( drm_trg_dur / Def_Ti_TrgRules_TimeUnit_016ns ) <= Def_Ti_TrgRules_MaxNumOfUnitCnt )
 				{
@@ -738,3 +604,176 @@ int SysParams_Prop( SysParams *params )
 	// All went fine
 	return D_RetCode_Sucsess;
 }
+
+// Fill the SysParams structure entries from externally parsed line
+int SysParams_Parse( SysParams *params, int line_num )
+{
+	int bec;
+	int ret;
+
+	// Check for Null pointer
+	if( params == (SysParams *)NULL )
+	{
+		fprintf( stderr, "%s: params=0\n", __FUNCTION__ );
+		return D_RetCode_Err_Null_Pointer;
+	}
+
+	if( argc > 0 )
+	{
+		if( ( strcmp( argv[0], "Sys" ) == 0 ) || ( strcmp( argv[0], "MVT_Sys" ) == 0 ) || ( strcmp( argv[0], "FTT_Sys" ) == 0 ) )
+		{
+			// Common system parameters
+			if( strcmp( argv[1], "Name" ) == 0 )
+				sprintf( params->Name, "%s", argv[2]);
+			else if( strcmp( argv[1], "RunMode" ) == 0 )
+			{
+				if( strcmp( argv[2], "Standalone" ) == 0 )
+					params->RunMode = Standalone;
+				else if( strcmp( argv[2], "Clas12" ) == 0 )
+					params->RunMode = Clas12;
+				else if( strcmp( argv[2], "Expert" ) == 0 )
+					params->RunMode = Expert;
+				else if( strcmp( argv[2], "Undefined" ) == 0 )
+				{
+					params->RunMode = SysModUdef;
+					fprintf( stderr, "%s: line %d: Sys RunMode explicitly set to Undefined\n", __FUNCTION__, line_num ); 
+					return D_RetCode_Err_Wrong_Param;
+				}
+				else
+				{
+					params->RunMode = SysModUdef;
+					fprintf( stderr, "%s: line %d: attempt to set unknown Sys RunMode %s\n", __FUNCTION__, line_num, argv[2] ); 
+					return D_RetCode_Err_Wrong_Param;
+				}
+			}
+			else if( strcmp( argv[1], "ClkMode" ) == 0 )
+			{
+				if( strcmp( argv[2], "Smp48_Rd48" ) == 0 )
+					params->ClkMode = Smp48_Rd48;
+				else if( strcmp( argv[2], "Smp44_Rd44" ) == 0 )
+					params->ClkMode = Smp44_Rd44;
+				else if( strcmp( argv[2], "Smp40_Rd40" ) == 0 )
+					params->ClkMode = Smp40_Rd40;
+				else if( strcmp( argv[2], "Smp36_Rd36" ) == 0 )
+					params->ClkMode = Smp36_Rd36;
+				else if( strcmp( argv[2], "Smp32_Rd32" ) == 0 )
+					params->ClkMode = Smp32_Rd32;
+				else if( strcmp( argv[2], "Smp24_Rd48" ) == 0 )
+					params->ClkMode = Smp24_Rd48;
+				else if( strcmp( argv[2], "SysClkUdef" ) == 0 )
+				{
+					params->ClkMode = SysClkUdef;
+					fprintf( stderr, "%s: line %d: Sys ClkMode explicitly set to Undefined\n", __FUNCTION__, line_num ); 
+					return D_RetCode_Err_Wrong_Param;
+				}
+				else
+				{
+					params->ClkMode = SysClkUdef;
+					fprintf( stderr, "%s: line %d: attempt to set unknown Sys ClkMode %s\n", __FUNCTION__, line_num, argv[2] ); 
+					return D_RetCode_Err_Wrong_Param;
+				}
+			}
+			else if( strcmp( argv[1], "SparseSmp" ) == 0 )
+			{
+				params->SparseSmp = atoi( argv[2] );
+				// Check the parameter: has to be derived from FeuConfigParams.h
+				if( (params->SparseSmp < 0) || (1 < params->SparseSmp) )
+				{
+					params->SparseSmp = 0;
+					fprintf( stderr, "%s: line %d: attempt to set unsupported SparseSmp %s; must be in [0,1]\n", __FUNCTION__, line_num, argv[2] ); 
+					return D_RetCode_Err_Wrong_Param;
+				}
+			}
+			else if( strcmp( argv[1], "NbOfSmpPerEvt" ) == 0 )
+			{
+				params->NbOfSmpPerEvt = atoi( argv[2] );
+				// Check the parameter: has to be derived from FeuConfigParams.h
+				if( (params->NbOfSmpPerEvt < 1) || (256 < params->NbOfSmpPerEvt) )
+				{
+					params->NbOfSmpPerEvt = 0;
+					fprintf( stderr, "%s: line %d: attempt to set unsupported NbOfSmpPerEvt %s; must be in [1,256]\n", __FUNCTION__, line_num, argv[2] ); 
+					return D_RetCode_Err_Wrong_Param;
+				}
+			}
+			else if( strcmp( argv[1], "NbOfEvtPerBlk" ) == 0 )
+			{
+				params->NbOfEvtPerBlk = atoi( argv[2] );
+				// Check the parameter: has to be derived from BeuConfigParams.h
+				if( (params->NbOfEvtPerBlk < 1) || (256 < params->NbOfEvtPerBlk) )
+				{
+					params->NbOfEvtPerBlk = 0;
+					fprintf( stderr, "%s: line %d: attempt to set unsupported NbOfEvtPerBlk %s; must be in [1,256]\n", __FUNCTION__, line_num, argv[2] ); 
+					return D_RetCode_Err_Wrong_Param;
+				}
+			}
+			else if( strcmp( argv[1], "BlockPrescale" ) == 0 )
+			{
+				params->BlockPrescale = atoi( argv[2] );
+				if( (params->BlockPrescale <= 0) )
+				{
+					params->BlockPrescale = 1;
+					fprintf( stderr, "%s: line %d: attempt to set negative or 0 BlockPrescale %s; must be positive\n", __FUNCTION__, line_num, argv[2] ); 
+					return D_RetCode_Err_Wrong_Param;
+				}
+			}
+			else
+			{
+				fprintf( stderr, "%s: line %d: Unknown or empty keywod for Sys entry %s\n", __FUNCTION__, line_num, argv[1] ); 
+				return D_RetCode_Err_Wrong_Param;
+			}
+		}			
+		else if( ( strcmp( argv[0], "Bec" ) == 0 ) || ( strcmp( argv[0], "MVT_Bec" ) == 0 ) || ( strcmp( argv[0], "FTT_Bec" ) == 0 ) )
+		{
+			bec = atoi( argv[1] );
+			if( (bec < 1) || (DEF_MAX_NB_OF_BEC < bec) )
+			{
+				fprintf( stderr, "%s: line %d: bec id %d out of range [1,%d]\n", __FUNCTION__, line_num, bec, DEF_MAX_NB_OF_BEC ); 
+				return D_RetCode_Err_Wrong_Param;
+			}
+			if( (ret = BecParams_Parse( &(params->Bec_Params[bec]), line_num )) != D_RetCode_Sucsess )
+			{
+				fprintf( stderr, "%s: BecParams_Parse failed for bec %d with %d\n", __FUNCTION__, bec, ret );
+				return ret;
+			}
+		}
+		else if( ( strcmp( argv[0], "Ti" ) == 0 ) || ( strcmp( argv[0], "MVT_Ti" ) == 0 ) || ( strcmp( argv[0], "FTT_Ti" ) == 0 ) )
+		{
+			// Read TI parameters only in Standalone and Expert modes 
+			if( params->RunMode != Clas12 )
+			{
+				bec = atoi( argv[1] );
+				if( (bec < 0) || (DEF_MAX_NB_OF_BEC < bec) )
+				{
+					fprintf( stderr, "%s: line %d: ti id %d out of range [1,%d]\n", __FUNCTION__, line_num, bec, DEF_MAX_NB_OF_BEC ); 
+					return D_RetCode_Err_Wrong_Param;
+				}
+				if( (ret = TiParams_Parse( &(params->Ti_Params[bec]), line_num )) != D_RetCode_Sucsess )
+				{
+					fprintf( stderr, "%s: TiParams_Parse failed for ti %d with %d\n", __FUNCTION__, bec, ret );
+					return ret;
+				}
+			}
+		}
+		else if( ( strcmp( argv[0], "Beu" ) == 0 ) || ( strcmp( argv[0], "MVT_Beu" ) == 0 ) || ( strcmp( argv[0], "FTT_Beu" ) == 0 ) )
+		{
+			if( (ret = BeuSspConfCol_Parse( &(params->BeuSspConf_Col), line_num )) != D_RetCode_Sucsess )
+			{
+				fprintf( stderr, "%s: BeuSspConfCol_Parse failed with %d\n", __FUNCTION__, ret );
+				return ret;
+			}
+		}
+		else if( ( strcmp( argv[0], "Feu" ) == 0 ) || ( strcmp( argv[0], "MVT_Feu" ) == 0 ) || ( strcmp( argv[0], "FTT_Feu" ) == 0 ) )
+		{
+			if( (ret = FeuParamsCol_Parse( &(params->FeuParams_Col), line_num )) != D_RetCode_Sucsess )
+			{
+				fprintf( stderr, "%s: FeuParamsCol_Parse failed with %d\n", __FUNCTION__, ret );
+				return ret;
+			}
+		}
+	} // if( argc > 0 )
+
+	// All went fine
+	return D_RetCode_Sucsess;
+}
+
+

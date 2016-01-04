@@ -20,8 +20,8 @@ all:
 	- cd codatcl1.0;                     $(MAKE) install
 	- cd codaedit;                       $(MAKE)
 	- cd codaedit;                       $(MAKE) install
-	- cd codaterm;                       $(MAKE)
-	- cd codaterm;                       $(MAKE) install
+	- cd cterm;                          $(MAKE)
+	- cd cterm;                          $(MAKE) install
 #	- cd rol;                            $(MAKE) jvmes
 	- cd rol/jvme;                       $(MAKE)
 	- cd dac;                            $(MAKE)
