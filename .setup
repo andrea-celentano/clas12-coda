@@ -1,6 +1,8 @@
 #!/bin/csh
 # ../coda/.setup
 #
+    setenv CODA $CLAS/coda
+
 	setenv CODA_VERSION 2.5
 
 #must be defined by now
