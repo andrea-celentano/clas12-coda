@@ -63,6 +63,7 @@
 #include <Xm/SelectioB.h>
 
 #include "Editor_graph.h"
+#include "Editor_database.h"
 #include "Editor_converter.h"
 #include "Editor_xmisc.h"
 #include "Editor_drawing.h"
@@ -864,7 +865,7 @@ setup_comp_attr(Widget w,
  *    type == 1 for later modification                              *
  ********************************************************************/
 static AttrWidgets atw;
-    
+
 void
 popup_comp_attributes(drawComp* comp, 
 			          Widget base, 
@@ -873,7 +874,7 @@ popup_comp_attributes(drawComp* comp,
 {
   Position ret_x, ret_y;
   Arg      args[20];
-  int      ac = 0, i;
+  int      ac = 0, i, res;
   ipPort   *port;
   daqComp  *daq;
   Widget   shell, form, sub_form0, sub_form1, sub_form2;
@@ -884,6 +885,7 @@ popup_comp_attributes(drawComp* comp,
   XmString t;
   Dimension wwd;
   char     hname[80];
+  char     *rols[3];
 
   /* first get current hostname */
   if (gethostname (hname, sizeof (hname)) != 0)
@@ -1296,7 +1298,7 @@ popup_comp_attributes(drawComp* comp,
 
 
   /****************************************************************/
-  /* custimize attributes for different component types if needed */
+  /* customize attributes for different component types if needed */
 
   for (i = 0; i < 3; i++)
   {
@@ -1312,13 +1314,50 @@ printf("comp->comp.type = %d\n",comp->comp.type);
       XmTextFieldSetString(text_w3, comp->comp.boot_string);
     else
       XmTextFieldSetString(text_w3, "coda_roc_gef");
+
+
+
+    /*sergey: for CODA_ROC and CODA_TRIG suggests default readout lists,
+      user can change it if necessary*/
+
+#if 0
+	printf("444\n");fflush(stdout);
+    if(comp->comp.boot_string == NULL)
+	{
+	printf("5\n");fflush(stdout);
+      for(i=0; i<3; i++) rols[i] = (char *) calloc(128,1);
+	printf("6\n");fflush(stdout);
+      if(comp->comp.type == CODA_TRIG)
+	  {
+        res = getDefaultCodeFromDbase ("TS", rols);
+	  }
+	  else
+	  {
+        res = getDefaultCodeFromDbase ("ROC", rols);
+	  }
+	printf("7\n");fflush(stdout);
+
+      if(res==0)
+	  {
+	    printf("--> rols[0] >%s<\n",rols[0]);
+
+        XmTextFieldSetString(atw.code_widget[0], rols[0]);
+        XmTextFieldSetString(atw.code_widget[1], rols[1]);
+        XmTextFieldSetString(atw.code_widget[2], rols[2]);
+	  }
+	printf("8\n");fflush(stdout);
+      for(i=0; i<3; i++) free(rols[i]);
+	printf("9\n");fflush(stdout);
+	}
+#endif
+
   }
   else if (comp->comp.type == CODA_EB)
   {
     if(comp->comp.boot_string != NULL)
       XmTextFieldSetString(text_w3, comp->comp.boot_string);
     else
-      XmTextFieldSetString(text_w3, "coda_eb");
+      XmTextFieldSetString(text_w3, "coda_ebc");
 
     t = XmStringCreateSimple("Incoming Format");
     ac = 0;
@@ -1392,7 +1431,7 @@ printf("comp->comp.type = %d\n",comp->comp.type);
     if(comp->comp.boot_string != NULL)
       XmTextFieldSetString(text_w3, comp->comp.boot_string);
     else
-      XmTextFieldSetString(text_w3, "coda_er");
+      XmTextFieldSetString(text_w3, "coda_erc");
 
     /* disable 'Readut List' labels */
     XtUnmanageChild(label_w4);

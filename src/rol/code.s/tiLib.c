@@ -5440,7 +5440,7 @@ tiGetConnectedFiberMask()
 
   if(!tiMaster)
     {
-      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      printf("%s: WARN: TI is not the TI Master.\n",__FUNCTION__);
       return ERROR;
     }
 

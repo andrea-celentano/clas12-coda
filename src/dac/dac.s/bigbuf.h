@@ -11,6 +11,8 @@
 
 typedef struct bigbuf
 {
+  int id; /* buffer id, should be unique to make debugging easy */
+
   /* buffers */
   int nbufs;                        /* the number of buffers */
   int nbytes;                       /* the size of buffers in bytes */
@@ -66,7 +68,7 @@ typedef struct bignet
 extern "C" {
 #endif
 
-BIGBUF       *bb_new(int nbufs, int nbytes);
+BIGBUF       *bb_new(int id, int nbufs, int nbytes);
 void          bb_delete(BIGBUF **bbp);
 void          bb_cleanup(BIGBUF **bbp);
 void          bb_init(BIGBUF **bbh);
@@ -78,7 +80,7 @@ unsigned int *bb_read(BIGBUF **bbp);
 
 #ifdef Linux_vme
 void bb_InitChunk(BIGBUF *bbp, int n);
-BIGBUF *bb_new_rol1(int nbufs, int nbytes);
+BIGBUF *bb_new_rol1(int id, int nbufs, int nbytes);
 unsigned int *bb_get_usermembase(BIGBUF **bbh);
 unsigned int *bb_get_physmembase(BIGBUF **bbh);
 void bb_dma_free();

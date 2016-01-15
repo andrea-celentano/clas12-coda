@@ -109,6 +109,7 @@ int  flpStatus(int rflag);
 int  flpSetOutput(int output, int v1, int v2, int vled);
 int  flpEnableOutput(int output);
 int  flpDisableOutput(int output);
+int  flpGetOutputStatus(int output);
 int  flpSetOutputVoltages(int output, float V1, float V2, float VLED);
 int  flpGetOutputVoltages(int output, float *V1, float *V2, float *VLED);
 int  flpSetPulserPeriod(int output, int period);

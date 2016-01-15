@@ -688,14 +688,91 @@ void setConfigInfoName (cinfo, name)
   cinfo->comp_name = strsave (name);
 }
 
-#if defined (__STDC__)
-void setConfigInfoCode (ConfigInfo* cinfo, char* code)
-#else
-void setConfigInfoCode (cinfo, code)
-     ConfigInfo* cinfo;
-     char* code;
-#endif
+
+
+/*sergey: new function, it fills char[3] instead of ConfigInfo, so we can use parsing in other places;
+  it does allocates memory for rols[] */
+void
+codeParser(char* rols[3], char* code)
 {
+  char c0[128], c1[128], c2[128];
+  char *p = code;
+  char *p0 = c0;
+  char *p1 = c1;
+  char* p2 = c2;
+
+  /* initialize the code pointers */
+  rols[0] = 0;
+  rols[1] = 0;
+  rols[2] = 0;
+
+  if (p != 0)
+  {
+    /* get first code */
+    while (*p != '{' && *p != '\0')
+      p++;
+    if (*p == '\0') 
+      return;
+
+    p++;
+    while (*p != '}')
+    {
+      *p0 = *p;
+      p0++; p++;
+    }
+    *p0 = '\0';
+    if (!isEmptyLine (c0))
+      rols[0] = strsave (c0);
+    
+    p++;
+    /* get second code */
+    while (*p != '{' && *p != '\0')
+      p++;
+    if (*p == '\0')
+      return;
+
+    p++;
+    while (*p != '}') {
+      *p1 = *p;
+      p1++; p++;
+    }
+    *p1 = '\0';
+    if (!isEmptyLine (c1))
+      rols[1] = strsave (c1);
+
+    p++;
+    /* get third code */
+    while (*p != '{' && *p != '\0')
+      p++;
+    if (*p == '\0')
+      return;
+
+    p++;
+    while (*p != '}') {
+      *p2 = *p;
+      p2++; p++;
+    }
+    *p2 = '\0';
+    p++;
+    if (!isEmptyLine (c2))
+      rols[2] = strsave (c2);
+  }
+
+  printf("codeParser: >%s< >%s<\n",rols[0],rols[1]);
+
+}
+
+
+void
+setConfigInfoCode (ConfigInfo* cinfo, char* code)
+{
+#if 1
+  cinfo->code[0] = 0;
+  cinfo->code[1] = 0;
+  cinfo->code[2] = 0;
+  codeParser((char *)&cinfo->code[0], code);
+#endif
+#if 0
   char c0[128], c1[128], c2[128];
   char *p = code;
   char *p0 = c0;
@@ -707,7 +784,8 @@ void setConfigInfoCode (cinfo, code)
   cinfo->code[1] = 0;
   cinfo->code[2] = 0;
 
-  if (p != 0) {
+  if (p != 0)
+  {
     /* get first code */
     while (*p != '{' && *p != '\0')
       p++;
@@ -715,7 +793,8 @@ void setConfigInfoCode (cinfo, code)
       return;
 
     p++;
-    while (*p != '}') {
+    while (*p != '}')
+    {
       *p0 = *p;
       p0++; p++;
     }
@@ -756,6 +835,8 @@ void setConfigInfoCode (cinfo, code)
     if (!isEmptyLine (c2))
       cinfo->code[2] = strsave (c2);
   }
+#endif
+
 }
 
 #if defined (__STDC__)
@@ -1014,12 +1095,12 @@ void freeRcNetComp (comp)
   comp = 0;
 }
 
-/************************************************************************
- *        void  setRcNetComp (rcNetComp* comp, char* name, int id,      *
-                              char* cmd, char* type, char* host)        *
- * Description:                                                         *
- *      setup a rcNetComp with all initial value set                    *
- ***********************************************************************/
+/*****************************************************************************
+ *        void  setRcNetComp (rcNetComp* comp, char* name, int id,           *
+                              char* cmd, char* type, char* host, char* code) *
+ * Description:                                                              *
+ *      setup a rcNetComp with all initial value set                         *
+ ****************************************************************************/
 void
 setRcNetComp (rcNetComp* comp, 
 		   char* name, 
@@ -1028,6 +1109,8 @@ setRcNetComp (rcNetComp* comp,
 		   char* comp_type, 
 		   char* host)
 {
+  int res;
+
   comp->daq.comp_name = strsave (name);
 
   if (comp->daq.type == CODA_NONE)
@@ -1086,6 +1169,23 @@ setRcNetComp (rcNetComp* comp,
   /* set initial port name */
   comp->num_ports = 1;
   comp->port_name[0] = strsave (host);
+
+
+
+
+  /*sergey: set rols here ??? from where ??? from 'defaults' or from some config (any config ? first by alphabet ? )*/
+#if 1
+  /* from 'defaults' table */
+  if( (strcasecmp(comp_type, "ROC") == 0) || (strcasecmp(comp_type, "TS") == 0))
+  {
+	printf("222\n");fflush(stdout);
+    res = getDefaultCodeFromDbase (comp_type, (char *)&comp->daq.code[0]);
+	printf("333\n");fflush(stdout);
+    /*printf("comp->daq.code >%s< >%s<\n",comp->daq.code[0],comp->daq.code[1]);*/
+  }
+#endif
+
+
 }
 
 /*******************Dynamic create/destruc a double array********/

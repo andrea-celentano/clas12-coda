@@ -88,7 +88,7 @@ static int *StartOfBank;
 static int event_number;
 
 
-#include "../../dac/dac.s/bigbuf.h" /*for protutypes, SEND_BUF_MARGIN, etc */
+#include "../../dac/dac.s/bigbuf.h" /*for prototypes, SEND_BUF_MARGIN, etc */
 
 
 #ifdef EVENT_MODE
@@ -343,6 +343,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 	/* check if big buffer is full */ \
     if(dataInBuf > (tsendBufSize - SEND_BUF_MARGIN)) \
     { \
+	  /*printf("clear_to_send 1\n");*/			\
       clear_to_send = 1; \
     } \
 	/* \
@@ -415,6 +416,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
       g_events_in_buffer++;    /* increment event counter in buffer */ \
       if(dataInBuf > (tsendBufSize - SEND_BUF_MARGIN)) \
       { \
+	    /*printf("clear_to_send 2\n");*/		\
         clear_to_send = 1; \
       } \
     } \
@@ -529,6 +531,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
   SENDBUFFER_LOCK; \
   if(clear_to_send && (rocp_primefd>=0)) \
   { \
+	/*printf("clear_to_send ===\n");*/					\
     /*logMsg("SEND_BUFFER_ROL1 (0x%08x)\n",dabufp);*/	\
     /*setHeartBeat(HB_ROL,14,5);*/ \
     /* send current output buffer */ \
@@ -550,6 +553,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     dabufp[BBIEVENTS] = g_events_in_buffer; /* the number of events */ \
     dabufp[BBIFD]     = rocp_primefd; \
     dabufp[BBIEND]    = 0; \
+	/*bb_check(dabufp);*/												\
     /*printf("==== ROL: %d %d %d %d 0x%08x\n",dabufp[0],dabufp[1],dabufp[2],dabufp[3],dabufp[4]);*/ \
 	/* main send */ \
     if(dabufp[BBIWORDS] > BBHEAD) /*check if buffer is not empty ?*/ \

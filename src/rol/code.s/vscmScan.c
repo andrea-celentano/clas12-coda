@@ -90,6 +90,9 @@ fssrGainScan(int id, char *filename, \
 
     if(filename)
     {
+      logMsg("%s\n", filename);
+      logMsg("cd %d\n", chdir(filename));
+      logMsg("%s\n", getcwd());
       char datetime[] = "YYYYMMDD_HHMM";
       strftime(datetime, sizeof(datetime), "%Y%m%d_%H%M", localtime(&now));
       struct stat sb;

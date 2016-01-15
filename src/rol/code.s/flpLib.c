@@ -594,6 +594,47 @@ flpDisableOutput(int output)
 }
 
 /**
+ *  @ingroup Status
+ *  @brief Get output enable/disable status of the specified output
+ *  @param output The choosen output to disable
+ *     FLP_OUT1: Disable the top DB9 output
+ *     FLP_OUT2: Disable the bottom DB9 output
+ *  @return 1 if enabled, 0 if disabled, otherwise ERROR.
+ */
+int
+flpGetOutputStatus(int output)
+{
+  int rval=0;
+  if(FLPp == NULL) 
+    {
+      printf("%s: ERROR: FLP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  if((output!=FLP_OUT1) && (output!=FLP_OUT2))
+    {
+      printf("%s: ERROR: Invalid output (%d)\n",
+	     __FUNCTION__,output);
+      return ERROR;
+    }
+
+  FLOCK;
+  if(output==FLP_OUT1)
+    {
+      rval = (vmeRead16(&FLPp->ctrl) & FLP_CTRL_OUT1_ENABLE)?1:0;
+    }
+  else
+    {
+      rval = (vmeRead16(&FLPp->ctrl) & FLP_CTRL_OUT2_ENABLE)?1:0;
+    }
+  FUNLOCK;
+
+  return rval;
+}
+
+
+
+/**
  *  @ingroup Config
  *  @brief Set the output voltages for the specified DB9 output
  *  @param output Output DB9 connector
@@ -1014,7 +1055,6 @@ flpDisableIntPulser(int output)
   
   return OK;
 }
-
 
 #else /* dummy version*/
 

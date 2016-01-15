@@ -33,6 +33,8 @@ DMA_MEM_ID vmeIN, vmeIN2, vmeOUT;
 #define MAX_NUM_EVENTS    400
 #define MAX_SIZE_EVENTS   1024*10      /* Size in Bytes */
 
+#define NEWFORMAT
+
 extern int fadcA32Base;
 extern int nfadc;
 char *progName;
@@ -95,6 +97,7 @@ main(int argc, char *argv[])
   
   f = fopen(filename, "wt");
 
+#ifdef NEWFORMAT  
   for(ifa=0; ifa<nfadc; ifa++)
   {
     if(f) fprintf(f, "FADC250_SLOT %d\nFADC250_ALLCH_PED", faSlot(ifa));
@@ -111,6 +114,22 @@ main(int argc, char *argv[])
     }
     if(f) fprintf(f, "\n");
   }
+#else
+  for(ifa=0; ifa<nfadc; ifa++)
+  {
+    for(ch=0; ch<16; ch++)
+    {
+      if(faMeasureChannelPedestal(faSlot(ifa), ch, &ped) != OK)
+      {
+        printf(" Unabled to measure pedestal on slot %d, ch %d...\n", faSlot(ifa), ch);
+        fclose(f);
+        goto CLOSE;
+      }
+      if(f) fprintf(f, "%3d %3d %8.3f %8.3f\n", faSlot(ifa),ch,ped.avg,ped.rms);
+    }
+  }
+#endif
+
   if(f)
     fclose(f);
   else

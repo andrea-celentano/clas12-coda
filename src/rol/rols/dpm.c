@@ -622,7 +622,8 @@ TIMERL_START;
 
 
     /* dump config to data stream */
-    if(syncEventFlag>0 && EVENT_NUMBER%50000==0 && run_type!=1 && run_type!=2 && run_type!=3 && (rol->pid==dpmWithConfigDump|| rol->pid==controlDpmRocId)) {       
+    //if(syncEventFlag>0 && EVENT_NUMBER%50000==0 && run_type!=1 && run_type!=2 && run_type!=3 && (rol->pid==dpmWithConfigDump|| rol->pid==controlDpmRocId)) {       
+    if(syncEventFlag>0 && run_type!=1 && run_type!=2 && run_type!=3 && (rol->pid==dpmWithConfigDump|| rol->pid==controlDpmRocId)) {       
        printf("open config bank\n");
        BANKOPEN(0xe10E,3,rol->pid);
        chptr =(char *)rol->dabufp;
@@ -674,7 +675,7 @@ TIMERL_START;
        }
        
        
-       if( EVENT_NUMBER%1000==0 ) {
+       if( EVENT_NUMBER%100==0 ) {
 
           // make sure the config gets written on the next event
           writeConfig = 1;

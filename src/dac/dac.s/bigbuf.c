@@ -28,10 +28,13 @@
 #include "bigbuf.h"
 
 
+#undef DEBUG
+
+
 /* returns pool id */
 
 BIGBUF *
-bb_new(int nbufs, int nbytes)
+bb_new(int id, int nbufs, int nbytes)
 {
   BIGBUF *bbp;
   int i;
@@ -80,8 +83,10 @@ bb_new(int nbufs, int nbytes)
   /* reset cleanup condition */
   bbp->cleanup = 0;
 
-  logMsg("bb_new: 'big' buffer created (addr=0x%08x, %d bufs, %d size)\n",
-    bbp,bbp->nbufs,bbp->nbytes,4,5,6);
+  bbp->id = id;
+
+  logMsg("bb_new: 'big' buffer id=%d created (addr=0x%08x, %d bufs, %d size)\n",
+		 id,bbp,bbp->nbufs,bbp->nbytes,5,6);
 
   return(bbp);
 }
@@ -152,7 +157,7 @@ bb_InitChunk(BIGBUF *bbp, int n)
 /* big buffers for ROL1 will be in the special area for VME->MEM DMA */
 
 BIGBUF *
-bb_new_rol1(int nbufs, int nbytes)
+bb_new_rol1(int id, int nbufs, int nbytes)
 {
   BIGBUF *bbp;
   int i, status;
@@ -222,8 +227,10 @@ bb_new_rol1(int nbufs, int nbytes)
   /* reset cleanup condition */
   bbp->cleanup = 0;
 
-  logMsg("bb_new_rol1: 'big' buffer created (addr=0x%08x, %d bufs, %d size)\n",
-    bbp,bbp->nbufs,bbp->nbytes,4,5,6);
+  bbp->id = id;
+
+  logMsg("bb_new_rol1: 'big' buffer id=%d created (addr=0x%08x, %d bufs, %d size)\n",
+		 id,bbp,bbp->nbufs,bbp->nbytes,5,6);
 
   return(bbp);
 }
@@ -406,6 +413,26 @@ bb_init(BIGBUF **bbh)
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+/*********************************************************************************************/
+/*********************************************************************************************/
+/********************************* start mutex-protected section *****************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+
+
+
 /* write method: gets free buffer from the 'pool' for writing */
 /* waits for available buffer and returns buffer pointer */
 
@@ -414,24 +441,25 @@ bb_write_(BIGBUF **bbh, int flag)
 {
   BIGBUF *bbp = *bbh;
   int icb;
-  /*
-printf("bb_write: bbh=0x%08x 0x%08x\n",bbh,*bbh);fflush(stdout);
-printf("bb_write(in): bbp->write=%d\n",bbp->write);fflush(stdout);
-  */
+
   if((bbh == NULL)||(*bbh == NULL))
   {
-    logMsg("bb_write ERROR 1\n",1,2,3,4,5,6); 
+    logMsg("[%d] bb_write ERROR 1\n",bbp->id,2,3,4,5,6); 
     return(NULL);
   }
 
   if(bbp->cleanup)
   {
-    logMsg("bb_write 1: return(NULL) on bbp->cleanup=%d condition\n",
-      bbp->cleanup,2,3,4,5,6); 
+    logMsg("[%d] bb_write 1: return(NULL) on bbp->cleanup=%d condition\n",
+      bbp->id,bbp->cleanup,3,4,5,6); 
     return(NULL);
   }
 
   BB_LOCK;
+
+#ifdef DEBUG
+  printf("[%d] bb_write (in):          write=%d read=%d\n",bbp->id,bbp->write,bbp->read);fflush(stdout);
+#endif
 
   /* try to take next (empty) buffer; if not available - sleep and try again */
   icb = (bbp->write + 1) % bbp->nbufs;  
@@ -440,27 +468,31 @@ printf("bb_write(in): bbp->write=%d\n",bbp->write);fflush(stdout);
   {
     if(bbp->cleanup)
     {
-      logMsg("bb_write: return(NULL) on bbp->cleanup=%d condition\n",
-        bbp->cleanup,2,3,4,5,6);
+      logMsg("[%d] bb_write: return(NULL) on bbp->cleanup=%d condition\n",
+        bbp->id,bbp->cleanup,3,4,5,6);
       BB_UNLOCK;
       return(NULL);
 	}
-    printf("bb_write[0x%08x]: waiting for buffer (read=%d write=%d) ...\n",bbp,bbp->read,bbp->write);
+
+    printf("[%d] bb_write: waiting for buffer (write=%d read=%d) unlock \n",bbp->id,bbp->write,bbp->read);
     BB_UNLOCK;
-
+	/*
     if(flag) return(NULL);
-
-	/*sleep(1);*/usleep(100000);
+	*/
+	usleep(100000);
+	
     BB_LOCK;
+    printf("[%d] bb_write: waiting for buffer (write=%d read=%d) lock\n",bbp->id,bbp->write,bbp->read);
+	
   }
 
   bbp->write = icb;
 
+#ifdef DEBUG
+  printf("[%d] bb_write (out):         write=%d read=%d\n",bbp->id,bbp->write,bbp->read);fflush(stdout);
+#endif
+
   BB_UNLOCK;
-  /*logMsg("bb_write: unlock (icb=%d)\n",icb,2,3,4,5,6);*/
-/*
-printf("bb_write(out): bbp->write=%d\n",bbp->write);fflush(stdout);
-*/
 
   return(bbp->data[icb]);
 }
@@ -486,21 +518,29 @@ bb_write_current(BIGBUF **bbh)
 {
   BIGBUF *bbp = *bbh;
   int icb;
-/*
-printf("bb_write_current: bbh=0x%08x 0x%08x\n",bbh,*bbh);fflush(stdout);
-*/
+
   if((bbh == NULL)||(*bbh == NULL)) return(NULL);
 
   BB_LOCK;
-  icb = bbp->write;
-  BB_UNLOCK;
 
-/*
-printf("bb_write_current(out): bbp->write=%d\n",bbp->write);fflush(stdout);
-*/
+#ifdef DEBUG
+  printf("[%d] bb_write_current (in):  write=%d read=%d\n",bbp->id,bbp->write,bbp->read);fflush(stdout);
+#endif
+
+  icb = bbp->write;
+
+#ifdef DEBUG
+  printf("[%d] bb_write_current (out): write=%d read=%d\n",bbp->id,bbp->write,bbp->read);fflush(stdout);
+#endif
+
+  BB_UNLOCK;
 
   return(bbp->data[icb]);
 }
+
+
+
+
 
 
 
@@ -521,12 +561,16 @@ bb_read(BIGBUF **bbh)
   if((bbh == NULL)||(*bbh == NULL)) return(NULL);
   if(bbp->cleanup)
   {
-    logMsg("bb_read 1: return(NULL) on bbp->cleanup=%d condition\n",
-      bbp->cleanup,2,3,4,5,6); 
+    logMsg("[%d] bb_read 1: return(NULL) on bbp->cleanup=%d condition\n",
+      bbp->id,bbp->cleanup,2,3,4,5,6); 
     return(NULL);
   }
 
   BB_LOCK;
+
+#ifdef DEBUG
+  printf("[%d] bb_read  (in):          write=%d read=%d\n",bbp->id,bbp->write,bbp->read);fflush(stdout);
+#endif
 
   /* try to get next (full) buffer; if not available - sleep */
   icb = (bbp->read + 1) % bbp->nbufs;
@@ -535,8 +579,8 @@ bb_read(BIGBUF **bbh)
   {
     if(bbp->cleanup)
     {
-      logMsg("bb_read: return(NULL) on bbp->cleanup=%d condition\n",
-        bbp->cleanup,2,3,4,5,6); 
+      logMsg("[%d] bb_read: return(NULL) on bbp->cleanup=%d condition\n",
+        bbp->id,bbp->cleanup,3,4,5,6); 
       BB_UNLOCK;
       return(NULL);
 	}
@@ -546,8 +590,13 @@ bb_read(BIGBUF **bbh)
     BB_LOCK;
   }
 
+
   /* set 'read' pointer to the next buffer */
   bbp->read = icb;
+
+#ifdef DEBUG
+  printf("[%d] bb_read  (out):         write=%d read=%d\n",bbp->id,bbp->write,bbp->read);fflush(stdout);
+#endif
 
   BB_UNLOCK;
 
@@ -555,11 +604,22 @@ bb_read(BIGBUF **bbh)
 }
 
 
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/********************************** end mutex-protected section ******************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+
+
+
+
+
 
 unsigned int *
 bb_check(unsigned int *data)
 {
-  int j, nev, lenev, lenbuf, iev, llenw;
+  int j, k, nev, lenev, lenbuf, iev, llenw;
   unsigned int *buf, magic;
 
   magic = data[BBIFD];
@@ -595,6 +655,12 @@ bb_check(unsigned int *data)
     iev = ( (((buf[1]>>16)&0xff)==0) ? 0 : 1 ); 
 
     printf("bb_check: nev=%d -> 0x%08x 0x%08x -> lenev=%d, iev=%d, so far lenbuf=%d\n",j,buf[0],buf[1],lenev,iev,lenbuf);
+
+    for(k=0; k<256/*lenev*/; k++)
+	{
+      printf(" [%5d]0x%08x",k,buf[k]);
+      if(((k+1)%8)==0) printf("\n");
+	}
 
     buf += lenev; 
   } 

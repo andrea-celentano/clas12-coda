@@ -480,6 +480,7 @@ int  sspHps_SetSinglesNHitsmin(int id, int n, int min);
 int  sspHps_SetSinglesEnableEmin(int id, int n, int en);
 int  sspHps_SetSinglesEnableEmax(int id, int n, int en);
 int  sspHps_SetSinglesEnableNmin(int id, int n, int en);
+int  sspHps_SetSinglePrescale(int id, int n, int region, int xmin, int xmax, int prescale);
 int  sspHps_SetCosmicTimeCoincidence(int id, int ticks);
 int  sspHps_SetCosmicCoincidencePattern(int id, int pattern);
 int  sspHps_SetPairsEnableSum(int id, int n, int en);

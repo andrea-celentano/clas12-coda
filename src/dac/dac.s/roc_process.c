@@ -466,13 +466,14 @@ printf("=== PROC2: %d %d %d %d 0x%08x\n",bigbufout[0],bigbufout[1],bigbufout[2],
 /*timing */
     end = gethrtime();
     time2 += (end-start)/MYCLOCK;
-if(nevent != 0 && icycle >= cycle)
-{
-
-printf("proc_thread: waiting=%7llu processing=%7llu microsec per event (nev=%d)\n",
-	   time1/nevent,time2/nevent,nevent/icycle);
-nevent = icycle = time1 = time2 = 0;
-}
+    if(nevent != 0 && icycle >= cycle)
+    {
+#if 1
+      printf("proc_thread: waiting=%7llu processing=%7llu microsec per event (nev=%d)\n",
+	    time1/nevent,time2/nevent,nevent/icycle);
+#endif
+      nevent = icycle = time1 = time2 = 0;
+    }
 
     if(ifend == 1)
     {

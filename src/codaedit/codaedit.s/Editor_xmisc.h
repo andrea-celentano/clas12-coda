@@ -25,7 +25,7 @@
 #ifndef _EDITOR_XMISC_H
 #define _EDITOR_XMISC_H
 
-typedef struct _attr_widget{
+typedef struct _attr_widget {
   Widget    name_widget;
   Widget    host_widget;
   Widget    id_widget;
@@ -35,34 +35,13 @@ typedef struct _attr_widget{
   Widget    cancel_widget;
   Widget    script_widget;
   drawComp  *comp;
-}AttrWidgets;
+} AttrWidgets;
 
-#if defined (__STDC__)
-extern void popup_resize_selection(XcodaEditorGraph* graph, 
-				   drawComp* comp, 
-				   Widget draw_area);
-extern void popup_ipport_attributes (ipPort* port, 
-				     Widget w, 
-				     XEvent* event);
-extern void popup_comp_attributes (drawComp* comp, 
-				   Widget base, 
-				   XEvent* event,
-				   int type);
-extern void popup_ipport_name(ipPort* from_port, 
-			      ipPort* to_port, 
-			      Widget base);
-extern void popup_ebanaName_entry (daqComp* ana, 
-				   daqComp* eb, 
-				   Arc* new_arc, 
-				   int type);
+extern void popup_resize_selection(XcodaEditorGraph* graph, drawComp* comp, Widget draw_area);
+extern void popup_ipport_attributes (ipPort* port, Widget w, XEvent* event);
+extern void popup_comp_attributes (drawComp* comp, Widget base, XEvent* event, int type);
+extern void popup_ipport_name(ipPort* from_port, ipPort* to_port, Widget base);
+extern void popup_ebanaName_entry (daqComp* ana, daqComp* eb, Arc* new_arc, int type);
 extern void pop_error_message (char* error, Widget base);
-#else
-extern void popup_resize_selection ();
-extern void popup_ipport_attributes ();
-extern void popup_comp_attributes ();
-extern void popup_ipport_name ();
-extern void popup_ebanaName_entry ();
-extern void pop_error_message ();
-#endif
 
 #endif

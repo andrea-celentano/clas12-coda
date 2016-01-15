@@ -58,6 +58,7 @@
 #include <assert.h>
 #include "Editor_graph.h"
 #include "Editor_database.h"
+#include "Editor_converter.h"
 
 #undef _CODA_DEBUG
 
@@ -65,6 +66,7 @@
 #define RUNTYPE_TABLE_NAME  "runTypes"
 #define EXPINFO_TABLE_NAME  "sessions"
 #define PROCESS_TABLE_NAME  "process"
+#define DEFAULTS_TABLE_NAME "defaults"
 
 static MYSQL* mysql = NULL;           /* connection socket to the database */
 static char   dbaseServerHost[128];   /* database server host name         */
@@ -469,7 +471,8 @@ createProcessTable (void)
   strcat  (queryString, "state char(32) not null,\n");
   strcat  (queryString, "pid int not null,\n");
   strcat  (queryString, "inuse char(32) not null,\n");
-  strcat  (queryString, "clone char(32) not null\n");
+  strcat  (queryString, "clone char(32) not null,\n");
+  strcat  (queryString, "code text not null\n");
   strcat  (queryString,")");
 
   if(mysql_query (mysql, queryString) != 0) return(-1);
@@ -1324,7 +1327,7 @@ createRcNetCompsFromDbase (rcNetComp** comp, int *num)
   while ((row = mysql_fetch_row (res)))
   {
 #ifdef _CODA_DEBUG
-    printf ("Construct comp %s %s %s %s %s \n",row[0], row[1], row[2], row[3], row[4]);
+    printf ("Construct comp %s %s %s %s %s\n",row[0], row[1], row[2], row[3], row[4]);
 #endif
     if (strcasecmp (row[3], "RCS") != 0 && strcasecmp (row[3], "USER") != 0)
     {
@@ -1449,6 +1452,111 @@ retrieveConfigInfoFromDbase (char* config, ConfigInfo** cinfo, int* num)
   
   return(0);
 }
+
+
+
+/*sergey*/
+int
+getDefaultCodeFromDbase (char* class, char *rols[3])
+{
+  int i;
+  char queryString[1024];
+  MYSQL_RES *res = 0;
+  MYSQL_ROW row;
+  int num;
+  char      errmsg[256];
+  char *r[3];
+
+  if (!databaseSelected ()) return(-1);
+  
+  sprintf (queryString, "show tables like '%s'", DEFAULTS_TABLE_NAME);
+  if (mysql_query (mysql, queryString) != 0)
+  {
+#ifdef _CODA_DEBUG
+    printf ("show tables like '%s' error: %s\n", DEFAULTS_TABLE_NAME, mysql_error(mysql));
+#endif
+    sprintf (errmsg, "show tables like %s error: %s\n", DEFAULTS_TABLE_NAME, mysql_error(mysql));
+    pop_error_message (errmsg, sw_geometry.draw_area);
+    return -1;
+  }
+
+
+
+  /* 'defaults' table is optional, so if it does not exist, just return, no error message */
+  res = mysql_store_result (mysql);
+  num = 0;
+  if(res)
+  {
+    num = mysql_num_rows(res);
+    /*printf("-------------------> num=%d\n",num);*/
+  }
+  mysql_free_result (res);
+  if(num != 1) return(-2);
+
+
+
+  sprintf (queryString, "select * from %s where class = '%s'", DEFAULTS_TABLE_NAME, class);
+  if (mysql_query (mysql, queryString) != 0)
+  {
+#ifdef _CODA_DEBUG
+    printf ("get all from %s table error: %s\n", DEFAULTS_TABLE_NAME, mysql_error(mysql));
+#endif
+    sprintf (errmsg, "Query %s table failed: %s", DEFAULTS_TABLE_NAME, mysql_error(mysql));
+    pop_error_message (errmsg, sw_geometry.draw_area);
+    return -1;
+  }
+
+  res = mysql_store_result (mysql);
+  if (!res)
+  {
+#ifdef _CODA_DEBUG
+    printf ("Query get all from %s table error: %s\n", DEFAULTS_TABLE_NAME, mysql_error(mysql));
+#endif
+    sprintf (errmsg, "Query %s table failed: %s", DEFAULTS_TABLE_NAME, mysql_error(mysql));
+    pop_error_message (errmsg, sw_geometry.draw_area);
+    return -1;
+  }
+
+  num = mysql_num_rows(res);
+  if(num != 1)
+  {
+#ifdef _CODA_DEBUG
+    printf ("Query from %s table return %d rows, must be 1\n", DEFAULTS_TABLE_NAME, num);
+#endif
+    sprintf (errmsg, "Query from %s table return %d rows, must be 1\n", DEFAULTS_TABLE_NAME, num);
+    pop_error_message (errmsg, sw_geometry.draw_area);
+    return -1;
+  }
+
+  row = mysql_fetch_row (res);
+
+#ifdef _CODA_DEBUG
+  printf ("getDefaultCodeFromDbase: class %s, code %s\n",row[0], row[1]);
+#endif
+
+
+  codeParser(r, row[1]);
+
+#if 0
+  /*
+  for(i=0; i<3; i++) {rols[i] = r[i]};
+  */
+  for(i=0; i<3; i++) rols[i] = strsave(r[i]);
+
+/*#ifdef _CODA_DEBUG*/
+  printf ("getDefaultCodeFromDbase: rols >%s< >%s< >%s<\n",rols[0], rols[1], rols[2]);
+/*#endif*/
+#endif
+
+
+  mysql_free_result (res);
+
+  printf("111\n");fflush(stdout);
+
+  return(0);
+}
+
+
 
 int
 getAllOptionInfos (char* config, char*** names, char*** values)

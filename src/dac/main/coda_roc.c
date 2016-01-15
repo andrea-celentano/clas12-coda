@@ -327,7 +327,7 @@ roc_constructor()
   /* DMA buffer */
 #if defined(NEW_ROC) && defined(Linux_vme)
 
-  gbigDMA = bb_new_rol1(NUM_SEND_BUFS,tsendBufSize);
+  gbigDMA = bb_new_rol1(1,NUM_SEND_BUFS,tsendBufSize);
   if(gbigDMA == NULL)
   {
     printf("ERROR in bb_new_rol1: Buffer allocation FAILED\n");
@@ -340,7 +340,7 @@ roc_constructor()
 
 #else
 
-  gbigDMA = bb_new(NUM_SEND_BUFS,tsendBufSize);
+  gbigDMA = bb_new(1,NUM_SEND_BUFS,tsendBufSize);
   if(gbigDMA == NULL)
   {
     printf("ERROR in bb_new: Buffer allocation FAILED\n");
@@ -354,7 +354,7 @@ roc_constructor()
 
   /***********************/
   /* intermediate buffer */
-  gbigBUF = bb_new(NUM_SEND_BUFS,tsendBufSize);
+  gbigBUF = bb_new(2,NUM_SEND_BUFS,tsendBufSize);
   if(gbigBUF == NULL)
   {
     printf("ERROR in bb_new: gbigBUF allocation FAILED\n");

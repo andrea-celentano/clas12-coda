@@ -80,6 +80,13 @@ static unsigned char sspTransferSpi(int id, unsigned char data);
 
 
 /* static variables to be set by sspConfig() */
+typedef struct
+{
+	int xmin;
+	int xmax;
+	int prescale;
+} singles_prescale;
+
 static int block_level = 1;
 static int bus_error = 1;
 static int window_width  = 100;
@@ -92,6 +99,26 @@ static int singles_nmin[2] = {0, 0};
 static int singles_emin_en[2] = {1, 1};
 static int singles_emax_en[2] = {1, 1};
 static int singles_nmin_en[2] = {1, 1};
+static singles_prescale singles_prescalers[2][7] = {
+		{						// Singles 0
+			{-31, 31, 0},	// Region 0
+			{-31, -31, 0},	// Region 1
+			{-31, -31, 0},	// Region 2
+			{-31, -31, 0},	// Region 3
+			{-31, -31, 0},	// Region 4
+			{-31, -31, 0},	// Region 5
+			{-31, -31, 0}	// Region 6
+		},
+		{						// Singles 1
+			{-31, 31, 0},	// Region 0
+			{-31, -31, 0},	// Region 1
+			{-31, -31, 0},	// Region 2
+			{-31, -31, 0},	// Region 3
+			{-31, -31, 0},	// Region 4
+			{-31, -31, 0},	// Region 5
+			{-31, -31, 0}	// Region 6
+		}
+	};
 
 static int cosmic_timecoincidence = 10;
 static int cosmic_pattern = 0xFE;
@@ -2238,6 +2265,68 @@ int sspHps_SetSinglesEnableNmin(int id, int n, int en)
   return OK; 
 }
 
+/* sspHps_SetSinglePrescale() - set singles regional prescaler
+     n        - singles trigger 0 or 1
+     region   - region number: 0 to 6
+     xmin     - region definition minimum cluster X: -31 to 31
+     xmax     - region definition maximum cluster X: -31 to 31
+     prescale - region prescale value: 0 to 65535
+                0 - no prescaling (accepts everything)
+                1 - skip 1, accept 1
+                2 - skip 2, accept 1
+                ...
+     Note: All region decisions are OR'd together.
+           All regions (xmin,xmax) should be defined mutually exclusive
+*/
+int sspHps_SetSinglePrescale(int id, int n, int region, int xmin, int xmax, int prescale)
+{
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  }
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if( (region < 0) || (region > 6) )
+  {
+    printf("%s: ERROR: region is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if( (xmin < 31) || (xmin > 31) )
+  {
+    printf("%s: ERROR: xmin is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if( (xmax < 31) || (xmax > 31) )
+  {
+    printf("%s: ERROR: xmax is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if( (prescale < 0) || (prescale > 65535) )
+  {
+    printf("%s: ERROR: xmax is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+
+  SSPLOCK;
+  vmeWrite32(&pSSP[id]->HpsSingles[n].Prescale[region],
+				 ((prescale & 0xFFFF)<<0) | ((xmin & 0x3F)<<16) | ((xmax & 0x3F)<<24)
+    );
+  SSPUNLOCK; 
+ 
+  return OK; 
+}
+
 /* sspHps_SetCosmicTimeCoincidence() - set cosmic scintillator coincidence time
      ticks - coincidence time (units: +/-4ns)
 */
@@ -2861,6 +2950,99 @@ int sspHps_GetSinglesEnableNmin(int id, int n)
   return val;
 }
 
+int sspHps_GetSinglePrescaleXmin(int id, int n, int region)
+{
+  int val;
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  }
+  
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if( (region < 0) || (region > 6) )
+  {
+    printf("%s: ERROR: region is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = vmeRead32(&pSSP[id]->HpsSingles[n].Prescale[region]);
+  SSPUNLOCK;
+  
+  val = (val>>16) & 0x3F;
+  if(val & 0x20) val |= 0xFFFFFFC;
+  
+  return val;
+}
+
+int sspHps_GetSinglePrescaleXmax(int id, int n, int region)
+{
+  int val;
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  }
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if( (region < 0) || (region > 6) )
+  {
+    printf("%s: ERROR: region is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = vmeRead32(&pSSP[id]->HpsSingles[n].Prescale[region]);
+  SSPUNLOCK;
+
+  val = (val>>24) & 0x3F;
+  if(val & 0x20) val |= 0xFFFFFFC;
+  
+  return val;
+}
+
+int sspHps_GetSinglePrescalePrescale(int id, int n, int region)
+{
+  int val;
+  if(id==0) id=sspSL[0];
+  if((id<=0) || (id>21) || (pSSP[id]==NULL)) 
+  { 
+    printf("%s: ERROR: SSP in slot %d not initialized\n",__FUNCTION__,id); 
+    return ERROR; 
+  }
+
+  if( (n < 0) || (n > 1) )
+  {
+    printf("%s: ERROR: n is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  if( (region < 0) || (region > 6) )
+  {
+    printf("%s: ERROR: region is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  SSPLOCK;
+  val = vmeRead32(&pSSP[id]->HpsSingles[n].Prescale[region]);
+  SSPUNLOCK;
+  
+  return val & 0xFFFF;
+}
+
 int sspHps_GetCosmicTimeCoincidence(int id)
 {
   int val;
@@ -3218,7 +3400,6 @@ int sspHps_GetPairsEDmin(int id, int n)
   return val;
 }
 
-
 void sspPrintHpsScalers(int id) 
 {
   double ref, rate; 
@@ -3326,9 +3507,10 @@ void sspPrintHpsScalers(int id)
 
 void sspPrintHpsConfig(int id)
 {
-  int i;
+  int i, j;
   int triggerLatency, singlesEmin[2], singlesEmax[2], singlesNmin[2],
       singlesEminEn[2], singlesEmaxEn[2], singlesNminEn[2],
+      singlesPrescaleXmin[2][7], singlesPrescaleXmax[2][7], singlesPrescalePrescale[2][7], 
       cosmicTimeCoincidence, cosmicPatternCoincidence,
       pairsSumEn[2], pairsDiffEn[2], pairsCoplanarEn[2], pairsEDEn[2],
       pairsTimeCoincidence[2], pairsSummax[2],
@@ -3349,12 +3531,19 @@ void sspPrintHpsConfig(int id)
   
   for(i = 0; i < 2; i++)
   {
-  singlesEmin[i] = sspHps_GetSinglesEmin(id, i);
-  singlesEmax[i] = sspHps_GetSinglesEmax(id, i);
-  singlesNmin[i] = sspHps_GetSinglesNHitsmin(id, i);
-  singlesEminEn[i] = sspHps_GetSinglesEnableEmin(id, i);
-  singlesEmaxEn[i] = sspHps_GetSinglesEnableEmax(id, i);
-  singlesNminEn[i] = sspHps_GetSinglesEnableNmin(id, i);
+    singlesEmin[i] = sspHps_GetSinglesEmin(id, i);
+    singlesEmax[i] = sspHps_GetSinglesEmax(id, i);
+    singlesNmin[i] = sspHps_GetSinglesNHitsmin(id, i);
+    singlesEminEn[i] = sspHps_GetSinglesEnableEmin(id, i);
+    singlesEmaxEn[i] = sspHps_GetSinglesEnableEmax(id, i);
+    singlesNminEn[i] = sspHps_GetSinglesEnableNmin(id, i);
+  
+    for(j = 0; j < 7; j++)
+    {
+      singlesPrescaleXmin[i][j] = sspHps_GetSinglePrescaleXmin(id, i, j);
+      singlesPrescaleXmax[i][j] = sspHps_GetSinglePrescaleXmax(id, i, j);
+      singlesPrescalePrescale[i][j] = sspHps_GetSinglePrescalePrescale(id, i, j);
+    }
   }
 
   cosmicTimeCoincidence = sspHps_GetCosmicTimeCoincidence(id);
@@ -3384,6 +3573,9 @@ void sspPrintHpsConfig(int id)
   printf("     Emin = %dMeV, Enabled = %d\n", singlesEmin[i], singlesEminEn[i]);
   printf("     Emax = %dMeV, Enabled = %d\n", singlesEmax[i], singlesEmaxEn[i]);
   printf("     NHitsmin = %d, Enabled = %d\n", singlesNmin[i], singlesNminEn[i]);
+  for(j = 0; j < 7; j++)
+  printf("     Prescale region %d: xmin = %d, xmax = %d, prescale = %d\n", j,
+			singlesPrescaleXmin[i][j], singlesPrescaleXmax[i][j], singlesPrescalePrescale[i][j]);  
   printf("\n");
   }
   
@@ -3763,6 +3955,19 @@ sspInitGlobals()
     singles_emin_en[ii] = 1;
     singles_emax_en[ii] = 1;
     singles_nmin_en[ii] = 1;
+
+	 // Enable Region 0 to cover whole ECAL with no prescaling
+    singles_prescalers[ii][0].xmin = -31;
+	 singles_prescalers[ii][0].xmax = 31;
+	 singles_prescalers[ii][0].prescale = 0;
+	 
+	 // Disable Regions 1-6
+	 for(jj = 1; jj < 7; jj++)
+	 {
+      singles_prescalers[ii][jj].xmin = -31;
+	   singles_prescalers[ii][jj].xmax = -31;
+	   singles_prescalers[ii][jj].prescale = 0;
+	 }
   }
 
   cosmic_timecoincidence = 10;
@@ -3829,7 +4034,7 @@ sspReadConfigFile(char *filename)
   char   str_tmp[STRLEN], keyword[ROCLEN];
   char   host[ROCLEN], ROC_name[ROCLEN];
   char   str2[2];
-  int    args, i1, i2, i3, i4, msk[NCHAN];
+  int    args, i1, i2, i3, i4, i5, msk[NCHAN];
   float  f1;
   int    slot, chan;
   unsigned int  ui1, ui2;
@@ -3997,7 +4202,40 @@ sspReadConfigFile(char *filename)
         singles_nmin[i1] = i2;
 		singles_nmin_en[i1] = i3;
       }
-
+      
+      else if(active && (strcmp(keyword, "SSP_HPS_SINGLES_PRESCALE")==0))
+      {
+		  scanf (str_tmp, "%*s %d %d %d %d %d", &i1, &i2, &i3, &i4, &i5);
+        if((i1 < 0) || (i1 > 1))
+        {
+          printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);
+          return(-4);
+        }
+        if((i2 < 0) || (i2 > 6))
+        {
+          printf("\nsspReadConfigFile: Wrong region number %d, %s\n",slot,str_tmp);
+          return(-4);
+        }
+        if((i3 < -31) || (i3 > 31))
+        {
+          printf("\nsspReadConfigFile: Wrong xmin number %d, %s\n",slot,str_tmp);
+          return(-4);
+        }
+        if((i4 < -31) || (i4 > 31))
+        {
+          printf("\nsspReadConfigFile: Wrong xmax number %d, %s\n",slot,str_tmp);
+          return(-4);
+        }
+        if((i5 < 0) || (i5 > 65535))
+        {
+          printf("\nsspReadConfigFile: Wrong prescale number %d, %s\n",slot,str_tmp);
+          return(-4);
+        }
+        singles_prescalers[i1][i2].xmin = i3;
+        singles_prescalers[i1][i2].xmax = i4;
+        singles_prescalers[i1][i2].prescale = i5;
+      }
+      
       else if(active && (strcmp(keyword,"SSP_HPS_LATENCY")==0))
       {
         sscanf (str_tmp, "%*s %d", &i1);
@@ -4262,41 +4500,17 @@ sspGetWindowOffset(int id)
   return(ret);
 }
 
-int sspDisablePrescalers(int id)
-{
-  int i;
-  if(id==0) id=sspSL[0]; 
-
-  for(i = 0; i < 7; i++)
-  {
-    vmeWrite32(&pSSP[id]->HpsSingles[0].Prescale[i], 0x1F210000);
-    vmeWrite32(&pSSP[id]->HpsSingles[1].Prescale[i], 0x1F210000);
-  }
-}
-
-
-
-
-
-
-
-
-
-
 /* CONFIG */
 
 
 int
 sspDownloadAll()
 {
-  int ii, jj;
+  int ii, jj, kk;
 
   /*for(ii=0; ii<nssp; ii++) sspReset(ii);*/
   for(ii=0; ii<nSSP; ii++)
   {
-    /* Disable hps prescalers */
-    sspDisablePrescalers(sspSL[ii]);
-
     /* the number of events per block */
     sspSetBlockLevel(sspSL[ii], block_level);
 
@@ -4330,6 +4544,15 @@ sspDownloadAll()
       sspHps_SetSinglesEnableEmax(sspSL[ii], jj, singles_emax_en[jj]);
       sspHps_SetSinglesEnableNmin(sspSL[ii], jj, singles_nmin_en[jj]);
 
+      /* setup hps singles prescalers */
+      for(kk=0; kk<7; kk++)
+      {
+        sspHps_SetSinglePrescale(sspSL[ii], jj, kk, 
+											singles_prescalers[jj][kk].xmin,
+											singles_prescalers[jj][kk].xmax,
+											singles_prescalers[jj][kk].prescale);
+      }
+		
       sspHps_SetPairsEnableSum(sspSL[ii], jj, pairs_summax_en[jj]);
       sspHps_SetPairsEnableDiff(sspSL[ii], jj, pairs_diffmax_en[jj]);
       sspHps_SetPairsEnableCoplanar(sspSL[ii], jj, pairs_coplanartolerance_en[jj]);
@@ -4441,7 +4664,7 @@ sspMon(int slot)
 int
 sspUploadAll(char *string, int length)
 {
-  int slot, i, ii, jj, kk, ifiber, len1, len2;
+  int slot, i, j, kk, ifiber, len1, len2;
   char *str, sss[1024];
   unsigned int tmp, connectedfibers;
   unsigned short sval;
@@ -4451,40 +4674,47 @@ sspUploadAll(char *string, int length)
   for(kk=0; kk<nSSP; kk++)
   {
     slot = sspSlot(kk);
-	bus_error = sspGetBusError(slot);
-	block_level = sspGetBlockLevel(slot);
-	window_width = sspGetWindowWidth(slot);
-	window_offset = sspGetWindowOffset(slot);
-	for(i=0; i<2; i++)
-	{
-	  singles_emin[i] = sspHps_GetSinglesEmin(slot,i);
-	  singles_emin_en[i] = sspHps_GetSinglesEnableEmin(slot, i);
+    bus_error = sspGetBusError(slot);
+    block_level = sspGetBlockLevel(slot);
+    window_width = sspGetWindowWidth(slot);
+    window_offset = sspGetWindowOffset(slot);
+    for(i=0; i<2; i++)
+    {
+      singles_emin[i] = sspHps_GetSinglesEmin(slot,i);
+      singles_emin_en[i] = sspHps_GetSinglesEnableEmin(slot, i);
       singles_emax[i] = sspHps_GetSinglesEmax(slot,i);
-	  singles_emax_en[i] = sspHps_GetSinglesEnableEmax(slot, i);
+      singles_emax_en[i] = sspHps_GetSinglesEnableEmax(slot, i);
       singles_nmin[i] = sspHps_GetSinglesNHitsmin(slot,i);
-	  singles_nmin_en[i] = sspHps_GetSinglesEnableNmin(slot, i);
-	}
+      singles_nmin_en[i] = sspHps_GetSinglesEnableNmin(slot, i);
+		
+		for(j=0; j<7;j++)
+		{
+		  singles_prescalers[i][j].xmin = sspHps_GetSinglePrescaleXmin(slot, i, j);
+        singles_prescalers[i][j].xmax = sspHps_GetSinglePrescaleXmax(slot, i, j);
+        singles_prescalers[i][j].prescale = sspHps_GetSinglePrescalePrescale(slot, i, j);
+		}
+    }
 
     trigger_latency =sspHps_GetLatency(slot);
-	cosmic_timecoincidence = sspHps_GetCosmicTimeCoincidence(slot);
-	cosmic_pattern = sspHps_GetCosmicCoincidencePattern(slot);
+    cosmic_timecoincidence = sspHps_GetCosmicTimeCoincidence(slot);
+    cosmic_pattern = sspHps_GetCosmicCoincidencePattern(slot);
 
-	for(i=0; i<2; i++)
-	{
-	  pairs_timecoincidence[i] = sspHps_GetPairsTimeCoincidence(slot,i);
-	  pairs_emin[i] = sspHps_GetPairsEmin(slot,i);
-	  pairs_emax[i]= sspHps_GetPairsEmax(slot,i);
-	  pairs_nmin[i] = sspHps_GetPairsNHitsmin(slot,i);
+    for(i=0; i<2; i++)
+    {
+      pairs_timecoincidence[i] = sspHps_GetPairsTimeCoincidence(slot,i);
+      pairs_emin[i] = sspHps_GetPairsEmin(slot,i);
+      pairs_emax[i]= sspHps_GetPairsEmax(slot,i);
+      pairs_nmin[i] = sspHps_GetPairsNHitsmin(slot,i);
       pairs_summax[i] = sspHps_GetPairsSummax(slot,i);
-	  pairs_summin[i] = sspHps_GetPairsSummin(slot,i);
-	  pairs_summax_en[i] = sspHps_GetPairsEnableSum(slot, i);
+      pairs_summin[i] = sspHps_GetPairsSummin(slot,i);
+      pairs_summax_en[i] = sspHps_GetPairsEnableSum(slot, i);
       pairs_diffmax[i] = sspHps_GetPairsDiffmax(slot,i);
-	  pairs_diffmax_en[i] = sspHps_GetPairsEnableDiff(slot,i);
+      pairs_diffmax_en[i] = sspHps_GetPairsEnableDiff(slot,i);
       pairs_coplanartolerance[i] = sspHps_GetPairsCoplanarTolerance(slot,i);
-	  pairs_coplanartolerance_en[i] = sspHps_GetPairsEnableCoplanar(slot,i);
+      pairs_coplanartolerance_en[i] = sspHps_GetPairsEnableCoplanar(slot,i);
       pairs_edfactor[i] = sspHps_GetPairsEDFactor(slot,i);
-	  pairs_edmin[i] = sspHps_GetPairsEDmin(slot,i);
-	  pairs_ed_en[i] = sspHps_GetPairsEnableED(slot,i);
+      pairs_edmin[i] = sspHps_GetPairsEDmin(slot,i);
+      pairs_ed_en[i] = sspHps_GetPairsEnableED(slot,i);
 	}
 
 	pulser_freq = (int)sspGetPulserFreq(slot);
@@ -4516,6 +4746,15 @@ sspUploadAll(char *string, int length)
         sprintf(sss,"SSP_HPS_SINGLES_EMIN %d %d %d\n",i,singles_emin[i],singles_emin_en[i]); ADD_TO_STRING;
         sprintf(sss,"SSP_HPS_SINGLES_EMAX %d %d %d\n",i,singles_emax[i],singles_emax_en[i]); ADD_TO_STRING;
         sprintf(sss,"SSP_HPS_SINGLES_NMIN %d %d %d\n",i,singles_nmin[i],singles_nmin_en[i]); ADD_TO_STRING;
+		  
+        for(j=0; j<7;j++)
+        {
+          sprintf(sss,"SSP_HPS_SINGLES_PRESCALE %d %d %d %d %d\n",i,j,
+						singles_prescalers[i][j].xmin,
+						singles_prescalers[i][j].xmax,
+						singles_prescalers[i][j].prescale);
+          ADD_TO_STRING;
+		  }
 	  }
 
       sprintf(sss,"SSP_HPS_LATENCY %d\n",trigger_latency); ADD_TO_STRING;
@@ -4545,8 +4784,175 @@ sspUploadAll(char *string, int length)
 
 }
 
-
-
-
-
 #endif
+
+/*
+#
+# ssp config file
+#
+# this file contains settings for SSP
+#
+# format:
+# ~~~~~~~
+# SSP_CRATE             rocbcal1   <- ROC/crate name, usually IP name
+#
+# SSP_ALLSLOTS             <- just keyword - all settings after this line will be implemented
+#                                                for all slots, till SSP_SLOTS will be met
+#
+# SSP_SLOTS     3  8  19   <- slot_numbers - in which next settings will be implemented
+#                                                till file ends or next SSP_SLOTS will be met
+#
+# SSP_BERR  1   <- DMA Nwords method readout: 1 - enable VME BUS error
+#                                             0 - disable VME BUS error
+#
+# SSP_BLOCK_LEVEL 1      <- to set block level
+#
+# SSP_W_WIDTH    N
+#    N: 0 to 1023 - Trigger Window Width, in 4ns ticks
+#
+# SSP_W_OFFSET   N
+#    N: 0 to 1023 - Trigger Window Offset, in 4ns ticks
+#
+# SSP_HPS_LATENCY  LATENCY
+#    LATENCY: 0 to 511 - sets trigger latency (in 4ns ticks)
+#
+# SSP_HPS_SINGLES:
+# ----------------
+# SSP_HPS_SINGLES_EMIN  N  EMIN   EN
+#    N:    0 or 1 - selects the hps singles trigger bit
+#    EMIN: 0 to 8191MeV - cluster energies below this threshold are cut
+#    EN:   1 - enables, 0 - disables
+#
+# SSP_HPS_SINGLES_EMAX  N  EMAX   EN
+#    N:    0 or 1 - selects the hps singles trigger bit
+#    EMAX: 0 to 8191MeV - cluster energies above this threshold are cut
+#    EN:   1 - enables, 0 - disables
+#
+# SSP_HPS_SINGLES_NMIN  N  NMIN   EN
+#    N:    0 or 1 - selects the hps singles trigger bit
+#    NMIN: 0 to 9 - cluster with #hits below this threshold are cut
+#    EN:   1 - enables, 0 - disables
+#
+# SSP_HPS_SINGLES_PRESCALE N REGION XMIN XMAX PRESCALE
+#    N:        0 or 1 - selects the hps singles trigger bit
+#    REGION:   0 to 6 - selects which region index to define
+#    XMIN:    -31 to 31  - chooses the ECAL x coordinate to start region definition (inclusive)
+#    XMAX:    -31 to 31  - chooses the ECAL x coordinate to end region definition  (inclusive)
+#    PRESCALE: 0 to 65535 - set the prescale value for the region
+#
+#    Notes:
+#         1) To disable prescaling, set a region to cover the whole ECAL (i.e. xmin = -31, max = 31) and use PRESCALE = 0
+#         2) When using prescaling, define regions to be mutually exclusive to make the actual prescaling simple to understand
+#         3) The prescalers for all regions are OR'd together to form the actual singles trigger bit
+#         4) By default (if not defining anything) Region 0 is defined as the whole ECAL with prescaling disabled
+#            and Regions 1-6 are defined outside the ECAL range (i.e. disabled)
+#
+# SSP_HPS_COSMICS:
+# ----------------
+# SSP_HPS_COSMIC_TIMECOINCIDENCE  T
+#    T:    0 to 255 - sets cosmic hit coincidence time (in 4ns ticks)
+#
+# SSP_HPS_COSMIC_PATTERNCOINCIDENCE  pattern
+#    pattern  - 3:1 LUT definition for scintillator coincidence pattern that is accepted/rejected
+#                Scintillator channels are the last 3 channels (14-16) of FADC in slot 20
+#                pattern = 254 will trigger on any hit channels
+#                pattern = 128 will trigger when all 3 channels hit
+#                pattern = 136 will trigger when channels 14&15 are hit
+#                pattern = 232 will trigger when any 2 channels hit
+#
+# SSP_HPS_PAIRS:
+# ----------------
+# SSP_HPS_PAIRS_TIMECOINCIDENCE  N   T
+#    N:    0 or 1 - selects the hps pair trigger bit
+#    T:    0 to 15 - sets cluster pair hit coincidence time (in +/-4ns ticks)
+#
+# SSP_HPS_PAIRS_EMIN  N   EMIN
+#    N:    0 or 1 - selects the hps pair trigger bit
+#    EMIN: 0 to 8191MeV - clusters energies below this threshold are cut
+#
+# SSP_HPS_PAIRS_EMAX  N   EMAX
+#    N:    0 or 1 - selects the hps pair trigger bit
+#    EMAX: 0 to 8191MeV - clusters energies above this threshold are cut
+#
+# SSP_HPS_PAIRS_NMIN  N   NMIN
+#    N:    0 or 1 - selects the hps pair trigger bit
+#    NMIN: 0 to 9 - cluster with #hits below this threshold are cut
+#
+# SSP_HPS_PAIRS_SUMMAX  N   MAX   EN
+#    N:    0 or 1 - selects the hps pair trigger bit
+#    MAX:  0 to 8191MeV - cluster pairs energy sums above this threshold are cut
+#    EN:   1 - enables, 0 - disables
+#
+# SSP_HPS_PAIRS_DIFFMAX  N  MAX   EN 
+#    N:    0 or 1 - selects the hps pair trigger bit
+#    MAX:  0 to 8191MeV - cluster pairs energy differences above this threshold are cut
+#    EN:   1 - enables, 0 - disables
+#
+# SSP_HPS_PAIRS_COPLANARITY  N   ANGLE  EN
+#    N:    0 or 1 - selects the hps pair trigger bit
+#    ANGLE: 0 to 180 - cluster pair coplanarity with photon beam must be < +/-ANGLE (in degress)
+#    EN:   1 - enables, 0 - disables
+#
+# SSP_HPS_PAIRS_ENERGYDIST  N   F  MIN  EN
+#    N:    0 or 1 - selects the hps pair trigger bit
+#    F:    0 to 8191 - conversion factor in MeV/mm to compensate cluster energy by radial distance from photon beam
+#    MIN:  0 to 8191 - minimum threshold in MeV to accept cluster pair.
+#          For each pair, the cluster with the smallest energy, Emin, is used in this cut.
+#          That cluster's minimum distance to photon beam is computed, R, and tested in the equation:
+#              MIN < Emin + F * R
+#          When the above is true the cluster pair passes this cut, otherwise it is cut.
+#    EN:   1 - enables, 0 - disables
+#
+# SSP_HPS_PULSER   F
+#    F:     Pulser frequency (0 to 125MHz)
+#
+# SSP_HPS_SET_IO_SRC   OUTPUT_PIN     SIGNAL_SEL
+#    OUTPUT_PIN selection:
+#       LVDSOUT0        0
+#       LVDSOUT1        1
+#       LVDSOUT2        2
+#       LVDSOUT3        3
+#       LVDSOUT4        4
+#       GPIO0           5
+#       GPIO1           6
+#       P2_LVDSOUT0     7
+#       P2_LVDSOUT1     8
+#       P2_LVDSOUT2     9
+#       P2_LVDSOUT3     10
+#       P2_LVDSOUT4     11
+#       P2_LVDSOUT5     12
+#       P2_LVDSOUT6     13
+#       P2_LVDSOUT7     14
+#       TRIG            15
+#       SYNC            16
+#
+#    SIGNAL_SEL selection:
+#       0          0
+#       1          1
+#       SYNC       2
+#       TRIG1      3
+#       TRIG2      4
+#       LVDSIN0    5
+#       LVDSIN1    6
+#       LVDSIN2    7
+#       LVDSIN3    8
+#       LVDSIN4    9
+#       P2LVDSIN0  10
+#       P2LVDSIN1  11
+#       P2LVDSIN2  12
+#       P2LVDSIN3  13
+#       P2LVDSIN4  14
+#       P2LVDSIN5  15
+#       P2LVDSIN6  16
+#       P2LVDSIN7  17
+#       PULSER     18
+#       BUSY       19
+#       TRIGGER0   20   (HPS SINGLES 0)
+#       TRIGGER1   21   (HPS SINGLES 1)
+#       TRIGGER2   22   (HPS PAIRS 0)
+#       TRIGGER3   23   (HPS PAIRS 1)
+#       TRIGGER4   24   (HPS LED)
+#       TRIGGER5   25   (HPS COSMIC)
+#       TRIGGER6   26
+#       TRIGGER7   27
+*/

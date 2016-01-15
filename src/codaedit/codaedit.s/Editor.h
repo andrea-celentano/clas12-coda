@@ -83,9 +83,9 @@ typedef struct _comp
   char     *comp_name;     /* component unique name           */
   char     *node_name;     /* default address                 */
   int      id_num;         /* unique id number within a class */
-  int      status;         /* component status from RC */
+  int      status;         /* component status from RC        */
   char     *boot_string;   /* boot string, how to start       */
-  char     *code[3];       /* vxWorks code                    */
+  char     *code[3];       /* readout lists code              */
 } daqComp;
 
 typedef struct _whole_comp

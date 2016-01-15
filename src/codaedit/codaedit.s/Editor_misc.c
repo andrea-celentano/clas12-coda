@@ -33,21 +33,20 @@
 
 #include "Editor.h"
 
-#if defined (__STDC__)
-char *strsave(char* s)
-#else
-char *strsave(s)
-     char *s;
-#endif
+
+char *
+strsave(char* s)
 {
   char *p;
-  if (s == NULL) {
+  if (s == NULL)
+  {
     s = "";
     fprintf(stderr,"NULL string passed to strsave\n");
   }
 
   p = (char *)malloc(strlen(s)+2);
-  if(p == NULL){
+  if(p == NULL)
+  {
     fprintf(stderr,"Cannot allocate memory in strsave.\n");
     exit(1);
   }

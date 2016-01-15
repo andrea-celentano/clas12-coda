@@ -383,6 +383,11 @@ extern int createRcNetCompsFromDbase (rcNetComp** comp, int* num);
 extern int retrieveConfigInfoFromDbase (char* config, ConfigInfo** comp,
 					int *num);
 
+
+/*sergey: get 'code' from 'defaults' table */
+int getDefaultCodeFromDbase (char* class, char *rols[3]);
+
+
 /*****************************************************************************
  *              int compInConfigTable (char* name)                           *
  * Description:                                                              *

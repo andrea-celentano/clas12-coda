@@ -481,8 +481,10 @@ printf("LINK_sized_write special event\n");fflush(stdout);
 
     if(nevent != 0 && icycle >= cycle)
     {
+#if 1
       printf("net_thread:  waiting=%7llu    sending=%7llu microsec per event (nev=%d)\n",
         time1/nevent,time2/nevent,nevent/icycle);
+#endif
       nevent = icycle = time1 = time2 = 0;
     }
 
