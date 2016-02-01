@@ -1,17 +1,56 @@
 #!/bin/csh
 # ../coda/.setup
 #
-	setenv CODA_VERSION 2.5
+    if ($?CLAS) then
+        setenv CODA $CLAS/coda
+	    setenv CODA_VERSION 2.5
+    else
+        echo "CLAS environment variable does not defined !!!"
+        exit 1
+    endif
 
-#must be defined by now
-#	setenv OSTYPE  `uname`
-#	setenv MACHINE `uname -m`
+
+
+
+#
+# setting environment variables OSTYPE, MACHINE, PLATFORM etc - used to be in main .setup
+#
+set TESTFILE = /proc/vmeinfo
+setenv OSTYPE     `uname|sed 's/-/_/'`
+
+#obtain Linux release number (works on RHEL at least ..)
+if ( $OSTYPE == "Linux") then
+  setenv OSRELEASE `cat /etc/redhat-release | cut -d "." -f 1 | cut -d " " -f 7`
+endif
+
+if ( $OSTYPE == "Darwin" ) then
+  setenv MACHINE    `uname -p`
+  setenv PLATFORM    `uname -p`
+else if ( -e $TESTFILE ) then
+  setenv MACHINE    `uname -m`_vme
+  setenv PLATFORM   `uname -m`
+else
+  setenv MACHINE    `uname -m`
+  setenv PLATFORM   `uname -m`
+endif
+
+#for 64bit RHEL6, use different naming scheme
+if ( $OSTYPE == "Linux") then
+if ( $MACHINE == "x86_64") then
+if ( $OSRELEASE == "6") then
+  setenv MACHINE x86_64_RHEL6
+endif
+endif
+endif
+
+
+
+
+
+
+
 
     setenv OSTYPE_MACHINE ${OSTYPE}_${MACHINE}
-
-	if ($?CODA != "1") then
-	    echo "CODA environment variable does not defined !!!"
-	endif
 
 	setenv CODA_BIN $CODA/$OSTYPE_MACHINE/bin
 	setenv CODA_LIB $CODA/$OSTYPE_MACHINE/lib
@@ -19,19 +58,17 @@
 
 # update LD_LIBRARY_PATH
 	if ($?LD_LIBRARY_PATH) then
-	    setenv LD_LIBRARY_PATH  ${LD_LIBRARY_PATH}:${CODA_LIB}
+        setenv LD_LIBRARY_PATH  "${LD_LIBRARY_PATH}:${CODA_LIB}"
 	else
-	    setenv LD_LIBRARY_PATH  ${CODA_LIB}
+        setenv LD_LIBRARY_PATH  ${CODA_LIB}
 	endif
 
 # update PATH
-    setenv PATH "$PATH":${CODA_BIN}
-    setenv PATH "$PATH":${CODA}/common/scripts
+#   setenv PATH "$PATH":${CODA_BIN}
+#   setenv PATH "$PATH":${CODA}/common/scripts
 
 # set coda database
-	setenv MSQL_HOME /usr/clas/msql_run/rcdb
-	setenv MSQL_TCP_HOST clon10
-	setenv MYSQL_HOST clondb1
+#	setenv MYSQL_HOST clondb1
 
 
 #skip cdev for Mac
@@ -40,31 +77,47 @@ if ($OSTYPE == "Darwin") then
 endif
 
 
-# cdev setup; must be cleaned up
-    setenv CDEVVERSION 1.7.4
-    if ($OSTYPE == "SunOS") then
-      setenv LIBDIR solaris
-    endif
-    if ($OSTYPE == "Linux") then
-      setenv LIBDIR Linux
-    endif
-    setenv CDEV              $CODA/src/CDEV
-    setenv CDEVLIB           $CDEV/lib/$LIBDIR
-    setenv CDEVSHOBJ         $CDEVLIB
-    setenv CDEVBIN           $CDEV/bin/$LIBDIR
-    setenv CDEVINCLUDE       $CDEV/include
-    setenv CDEVDDL           $CDEV/ddl/master.bdd
-    setenv CDEV_ACCOUNT_FILE $CDEV/ddl/cdevAccount.txt      
-    setenv PATH ${PATH}:${CDEVBIN}
-###
-# to use EPICS, uncomment these 2 lines and comment out next 2   
-#    setenv SHLIB_PATH ${CDEVSHOBJ}:${CDEVLIB}:${EPICSLIB}
-#    setenv LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:${CDEVSHOBJ}:${CDEVLIB}:${EPICSLIB}
-    setenv SHLIB_PATH ${CDEVSHOBJ}:${CDEVLIB}
-    setenv LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:${CDEVSHOBJ}:${CDEVLIB}
-###
-#	setenv CDEVROOT $CODA/src/CDEV
-#	setenv LD_LIBRARY_PATH  ${LD_LIBRARY_PATH}:${CDEVROOT}/lib/solaris
+
+# misc
+
+#
+# ARM
+#
+if ( ($OSTYPE == "Linux") && ($MACHINE == "i686" || $MACHINE == "i686_vme") ) then
+    setenv PATH "/apps/Xilinx/SDK/2013.2/gnu/arm/lin/bin:$PATH"
+endif
+
+
+
+
+#
+# CERNLIB
+#
+setenv CERN /apps/cernlib
+setenv CERN_LEVEL 2005
+setenv CERN_ROOT /apps/cernlib/$CERN_LEVEL
+setenv LAPACKDIR /apps/cernlib/LAPACK
+setenv CVSCOSRC $CERN_ROOT/src
+setenv PATH "${CERN_ROOT}/bin:${PATH}"
+
+
+# QT
+setenv QTDIR /apps/Trolltech/Qt
+setenv PATH "${QTDIR}/bin:${PATH}"
+setenv LD_LIBRARY_PATH "${QTDIR}/lib:${LD_LIBRARY_PATH}"
+
+# Qt creator
+setenv PATH "/apps/Trolltech/qt-creator-2.7.1-src/bin:${PATH}"
+setenv LD_LIBRARY_PATH "/apps/Trolltech/qt-creator-2.7.1-src/lib:${LD_LIBRARY_PATH}"
+
+#modelsim
+setenv PATH "${PATH}:/apps/modelsim66a/modelsim_dlx/linuxpe"
+setenv LM_LICENSE_FILE 1717@clondb1.jlab.org
+
+#quartus
+setenv PATH "${PATH}:/apps/altera/11.0/quartus/bin"
+
+
 
 
 

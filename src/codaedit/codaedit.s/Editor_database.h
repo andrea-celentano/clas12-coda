@@ -385,7 +385,7 @@ extern int retrieveConfigInfoFromDbase (char* config, ConfigInfo** comp,
 
 
 /*sergey: get 'code' from 'defaults' table */
-int getDefaultCodeFromDbase (char* class, char *rols[3]);
+extern int getDefaultCodeFromDbase (char* type, char *rols[3]);
 
 
 /*****************************************************************************
