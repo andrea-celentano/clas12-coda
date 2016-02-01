@@ -58,17 +58,17 @@ endif
 
 # update LD_LIBRARY_PATH
 	if ($?LD_LIBRARY_PATH) then
-	    setenv LD_LIBRARY_PATH  ${LD_LIBRARY_PATH}:${CODA_LIB}
+        setenv LD_LIBRARY_PATH  "${LD_LIBRARY_PATH}:${CODA_LIB}"
 	else
-	    setenv LD_LIBRARY_PATH  ${CODA_LIB}
+        setenv LD_LIBRARY_PATH  ${CODA_LIB}
 	endif
 
 # update PATH
-    setenv PATH "$PATH":${CODA_BIN}
-    setenv PATH "$PATH":${CODA}/common/scripts
+#   setenv PATH "$PATH":${CODA_BIN}
+#   setenv PATH "$PATH":${CODA}/common/scripts
 
 # set coda database
-	setenv MYSQL_HOST clondb1
+#	setenv MYSQL_HOST clondb1
 
 
 #skip cdev for Mac
@@ -84,7 +84,7 @@ endif
 # ARM
 #
 if ( ($OSTYPE == "Linux") && ($MACHINE == "i686" || $MACHINE == "i686_vme") ) then
-  setenv PATH /apps/Xilinx/SDK/2013.2/gnu/arm/lin/bin:"$PATH"
+    setenv PATH "/apps/Xilinx/SDK/2013.2/gnu/arm/lin/bin:$PATH"
 endif
 
 
@@ -98,24 +98,24 @@ setenv CERN_LEVEL 2005
 setenv CERN_ROOT /apps/cernlib/$CERN_LEVEL
 setenv LAPACKDIR /apps/cernlib/LAPACK
 setenv CVSCOSRC $CERN_ROOT/src
-setenv PATH ${CERN_ROOT}/bin:${PATH}
+setenv PATH "${CERN_ROOT}/bin:${PATH}"
 
 
 # QT
 setenv QTDIR /apps/Trolltech/Qt
-setenv PATH ${QTDIR}/bin:${PATH}
-setenv LD_LIBRARY_PATH ${QTDIR}/lib:${LD_LIBRARY_PATH}
+setenv PATH "${QTDIR}/bin:${PATH}"
+setenv LD_LIBRARY_PATH "${QTDIR}/lib:${LD_LIBRARY_PATH}"
 
 # Qt creator
-setenv PATH /apps/Trolltech/qt-creator-2.7.1-src/bin:${PATH}
-setenv LD_LIBRARY_PATH /apps/Trolltech/qt-creator-2.7.1-src/lib:${LD_LIBRARY_PATH}
+setenv PATH "/apps/Trolltech/qt-creator-2.7.1-src/bin:${PATH}"
+setenv LD_LIBRARY_PATH "/apps/Trolltech/qt-creator-2.7.1-src/lib:${LD_LIBRARY_PATH}"
 
 #modelsim
-setenv PATH ${PATH}:/apps/modelsim66a/modelsim_dlx/linuxpe
+setenv PATH "${PATH}:/apps/modelsim66a/modelsim_dlx/linuxpe"
 setenv LM_LICENSE_FILE 1717@clondb1.jlab.org
 
 #quartus
-setenv PATH ${PATH}:/apps/altera/11.0/quartus/bin
+setenv PATH "${PATH}:/apps/altera/11.0/quartus/bin"
 
 
 
