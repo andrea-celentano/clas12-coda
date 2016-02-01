@@ -757,6 +757,9 @@ listAllConfigs (char* configs[], int* num)
   if (databaseSelected ())
   {
     sprintf (queryString, "select * from %s", RUNTYPE_TABLE_NAME);
+#ifdef _CODA_DEBUG
+    printf ("listAllConfigs: QUERY: >%s<\n",queryString);
+#endif
     if (mysql_query (mysql, queryString) != 0)
     {
 #ifdef _CODA_DEBUG

@@ -24,7 +24,7 @@ coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 */
 
 
-#undef SSIPC
+#define SSIPC
 
 
 #undef DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
@@ -422,7 +422,8 @@ vmeBusUnlock();
 
   /* set wide pulse */
 vmeBusLock();
-  tiSetSyncDelayWidth(1,127,1);
+/*sergey: WAS tiSetSyncDelayWidth(1,127,1);*/
+/*worked for bit pattern latch tiSetSyncDelayWidth(0x54,127,1);*/
 vmeBusUnlock();
 
   usrVmeDmaSetConfig(2,5,1); /*A32,2eSST,267MB/s*/
@@ -845,6 +846,7 @@ vmeBusUnlock();
 
 #ifdef SSIPC
   sprintf(ssname,"%s_%s",getenv("HOST"),rcname);
+  printf("Smartsockets unique name >%s<\n",ssname);
   epics_msg_sender_init(getenv("EXPID"), ssname); /* SECOND ARG MUST BE UNIQUE !!! */
 #endif
 
@@ -1428,7 +1430,7 @@ __go()
 #ifndef TI_SLAVE
   /* set sync event interval (in blocks) */
 vmeBusLock();
- tiSetSyncEventInterval(10000/*block_level*/);
+ tiSetSyncEventInterval(100/*block_level*/);
 vmeBusUnlock();
 #endif
 

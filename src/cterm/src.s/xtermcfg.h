@@ -35,7 +35,11 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 /* #undef MOTIF */                /* --with-motif-support */
 /* #undef ALLOWLOGFILEEXEC */		/* CF_ARG_ENABLE(enable-logfile-exec) */
+
+/*sergey*/
+#define ALLOWLOGGING
 /* #undef ALLOWLOGGING */		/* CF_ARG_ENABLE(enable-logging) */
+
 #define CC_HAS_PROTOS 1		/* CF_ANSI_CC */
 /* #undef DECL_ERRNO */		/* CF_ERRNO */
 /* #undef DFT_COLORMODE */		/* AC_ARG_WITH(default-color-mode) */

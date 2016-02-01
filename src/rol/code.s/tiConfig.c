@@ -309,13 +309,15 @@ tiDownloadAll()
   tiDisableVXSSignals();
   */
 
+  printf("tiDownloadAll reached\n");
+
   /*for(ii=0; ii<nslave; ii++) tiAddSlave(slave_list[ii]); done automatically in ROL1 */
   for(ii=0; ii<6; ii++) tiSetInputPrescale(ii+1,input_prescale[ii]);
 
   for(ii=0; ii<4; ii++) tiSetTriggerHoldoff(ii+1,holdoff_rules[ii],holdoff_timescale[ii]);
-
+  
   tiSetFiberDelay(delay, offset);
-
+  
   tiSetBlockLevel(block_level);
 
   tiSetBlockBufferLevel(buffer_level);

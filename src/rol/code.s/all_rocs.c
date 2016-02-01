@@ -49,6 +49,10 @@ extern BOOT_PARAMS sysBootParams;
 
 #endif
 
+#define OK 0
+#define ERROR 1
+
+
 /*---------------------------------------------------------------*/
 /*******************************************************************************
  *
@@ -144,7 +148,8 @@ vmeWrite32(volatile unsigned int *addr, unsigned int val)
 
 /* VXS Payload Port to VME Slot map */
 #define MAX_VME_SLOTS 21    /* This is either 20 or 21 */
-unsigned short PayloadPort[MAX_VME_SLOTS+1] =
+static int maxVmeSlots=MAX_VME_SLOTS;
+static unsigned short PayloadPort21[MAX_VME_SLOTS+1] =
   {
     0,     /* Filler for mythical VME slot 0 */ 
 #if MAX_VME_SLOTS == 21
@@ -157,7 +162,37 @@ unsigned short PayloadPort[MAX_VME_SLOTS+1] =
     18     /* VME Slot Furthest to the Right - TI */ 
   };
 
+static unsigned short PayloadPort20[MAX_VME_SLOTS+1] =
+  {
+    0,     /* Filler for mythical VME slot 0 */ 
+    17, 15, 13, 11, 9, 7, 5, 3, 1,  
+    0,     /* Switch Slot A - SD */
+    0,     /* Switch Slot B - CTP/GTP */
+    2, 4, 6, 8, 10, 12, 14, 16, 
+    18,     /* VME Slot Furthest to the Right - TI */ 
+    0
+  };
 
+
+
+
+
+
+
+
+int
+vmeSetMaximumVMESlots(int slots)
+{
+  if((slots<1)||(slots>MAX_VME_SLOTS))
+    {
+      printf("%s: ERROR: Invalid slots (%d)\n",
+	     __FUNCTION__,slots);
+      return ERROR;
+    }
+  maxVmeSlots = slots;
+
+  return OK;
+}
 
 /*!
  Routine to return the VME slot, provided the VXS payload port.
@@ -169,14 +204,27 @@ vxsPayloadPort2vmeSlot(int payloadport)
 {
   int rval=0;
   int islot;
+  unsigned short *PayloadPort;
+
   if(payloadport<1 || payloadport>18)
     {
       printf("%s: ERROR: Invalid payloadport %d\n",
 	     __FUNCTION__,payloadport);
-      return -1;
+      return ERROR;
     }
 
-  for(islot=1;islot<MAX_VME_SLOTS;islot++)
+  if(maxVmeSlots==20)
+    PayloadPort = PayloadPort20;
+  else if(maxVmeSlots==21)
+    PayloadPort = PayloadPort21;
+  else
+    {
+      printf("%s: ERROR: No lookup table for maxVmeSlots = %d\n",
+	     __FUNCTION__,maxVmeSlots);
+      return ERROR;
+    }
+
+  for(islot=1;islot<MAX_VME_SLOTS+1;islot++)
     {
       if(payloadport == PayloadPort[islot])
 	{
@@ -189,7 +237,7 @@ vxsPayloadPort2vmeSlot(int payloadport)
     {
       printf("%s: ERROR: Unable to find VME Slot from Payload Port %d\n",
 	     __FUNCTION__,payloadport);
-      rval = -1;
+      rval=ERROR;
     }
 
   return rval;
@@ -224,11 +272,24 @@ int
 vmeSlot2vxsPayloadPort(int vmeslot)
 {
   int rval=0;
-  if(vmeslot<1 || vmeslot>MAX_VME_SLOTS) 
+  unsigned short *PayloadPort;
+
+  if(vmeslot<1 || vmeslot>maxVmeSlots) 
     {
       printf("%s: ERROR: Invalid VME slot %d\n",
 	     __FUNCTION__,vmeslot);
-      return -1;
+      return ERROR;
+    }
+
+  if(maxVmeSlots==20)
+    PayloadPort = PayloadPort20;
+  else if(maxVmeSlots==21)
+    PayloadPort = PayloadPort21;
+  else
+    {
+      printf("%s: ERROR: No lookup table for maxVmeSlots = %d\n",
+	     __FUNCTION__,maxVmeSlots);
+      return ERROR;
     }
 
   rval = (int)PayloadPort[vmeslot];
@@ -237,7 +298,7 @@ vmeSlot2vxsPayloadPort(int vmeslot)
     {
       printf("%s: ERROR: Unable to find Payload Port from VME Slot %d\n",
 	     __FUNCTION__,vmeslot);
-      rval = -1;
+      rval=ERROR;
     }
 
   return rval;
@@ -262,12 +323,6 @@ vmeSlotMask2vxsPayloadPortMask(unsigned int vmemask)
 
   return ppmask;
 }
-
-
-
-
-
-
 
 
 

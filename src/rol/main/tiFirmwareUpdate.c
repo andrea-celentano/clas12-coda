@@ -30,11 +30,10 @@
      tiFirmwareUpdate(0x00A80000,"fpgareload.svf")
 
   UNIX:
-     cron_exec 0
      cd $CLON_PARMS/firmwares
-     tiFirmwareUpdate 0x00A80000 mti91.svf
-     <cron_exec 2, or better roc_reboot>
-###     tiFirmwareUpdate 0x00A80000 fpgareload.svf
+     tiFirmwareUpdate 0x00A80000 tip24.svf
+
+###tiFirmwareUpdate 0x00A80000 mti91.svf
 */
 
 /*

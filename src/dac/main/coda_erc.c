@@ -37,6 +37,7 @@ coda_er()
 #include <string.h>
 #include <pthread.h>
 #include <fcntl.h>
+
 #ifdef Linux
 #include <sys/prctl.h>
 #endif
@@ -412,6 +413,10 @@ outputEvents(ERp erp, et_event **pe, int start, int stop)
 {
   int handle1, i, buflen, len, tmp, status=0;
   unsigned int *buffer, *ptr;
+  char tmpp[1000];
+  MYSQL *dbsocket;
+  MYSQL_RES *result;
+  MYSQL_ROW row;
 
   /* evio file output */
   for (i=start; i <= stop; i++)
@@ -463,9 +468,99 @@ outputEvents(ERp erp, et_event **pe, int start, int stop)
 	if(erp->split && (erp->nlongs >= (erp->split)>>2 ))
     {
 	  evClose(erp->fd);
-      erp->splitnb++;
-	  erp->nlongs  = 0;
+
+
+
+
+
+
+
+      /* put some statistic into *_option table of the database: nfile, nevent, ndata */
+
+      /* connect to database */
+      dbsocket = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+      if(dbsocket==NULL)
+      {
+        printf("WARN: cannot connect to the database to update run statistics in _option table\n");
+      }
+      else
+	  {
+        int iii, numRows;
+        char *db_field[3] = {"nfile","nevent","ndata"};
+        char db_value[3][80];
+
+        sprintf(db_value[0],"%d",erp->splitnb+1);
+	    sprintf(db_value[1],"%d",erp->nevents);
+	    sprintf(db_value[2],"%d",erp->nlongs*4);
+
+        for(iii=0; iii<3; iii++)
+		{
+          sprintf(tmpp,"SELECT name,value FROM %s_option WHERE name='%s'",configname,db_field[iii]);
+          if(mysql_query(dbsocket, tmpp) != 0)
+          {
+            printf("ERROR in mysql_query\n");
+          }
+          else
+          {
+            if( !(result = mysql_store_result(dbsocket)) )
+            {
+              printf("ERROR in mysqlStoreResult()\n");
+              return(CODA_ERROR);
+            }
+            else
+            {
+              numRows = mysql_num_rows(result);
+              printf("nrow=%d\n",numRows);
+              if(numRows == 0)
+              {
+                sprintf(tmpp,"INSERT INTO %s_option (name,value) VALUES ('%s','%s')",configname,db_field[iii],db_value[iii]);
+                printf(">%s<\n",tmpp);
+                if(mysql_query(dbsocket,tmpp) != 0)
+                {
+                  printf("ERROR in INSERT\n");
+                }
+              }
+              else if(numRows == 1)
+              {
+                sprintf(tmpp,"UPDATE %s_option SET value='%s' WHERE name='%s'\n",configname,db_value[iii],db_field[iii]);
+                printf(">%s<\n",tmpp);
+                if(mysql_query(dbsocket,tmpp) != 0)
+                {
+                  printf("ERROR in UPDATE\n");
+                }
+              }
+              else
+              {
+                printf("ERROR !!\n");
+              }
+
+              mysql_free_result(result);
+	        }
+          }
+		}
+
+        /* disconnect from database */
+        dbDisconnect(dbsocket);
+	  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      erp->splitnb ++;
       erp->nevents = 0;
+	  erp->nlongs  = 0;
 
       sprintf(erp->current_file, "%s_%06d.evio.%d", erp->filename, erp->object->runNumber, erp->splitnb);
 

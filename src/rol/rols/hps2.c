@@ -19,6 +19,14 @@
 #include <time.h>
 #endif
 
+#define SSIPC
+
+#ifdef SSIPC_HIDE
+#include <rtworks/ipc.h>
+#include "epicsutil.h"
+static char ssname[80];
+#endif
+
 #include "circbuf.h"
 
 
@@ -168,7 +176,10 @@ static char *dir = NULL;
 static char *expid = NULL;
 #endif
 
+static char rcname[5];
 
+#define NTRIGBITS 6
+static unsigned int bitscalers[NTRIGBITS];
 
 /* v1190 stuff */
 static int tdctypebyslot[NSLOTS];
@@ -190,6 +201,15 @@ static void
 __download()
 {
   rol->poll = 1;
+
+  sprintf(rcname,"RS%02d",rol->pid);
+  printf("rcname >%4.4s<\n",rcname);
+
+#ifdef SSIPC_HIDE
+  sprintf(ssname,"%s_%s",getenv("HOST"),rcname);
+  printf("Smartsockets unique name >%s<\n",ssname);
+  epics_msg_sender_init(getenv("EXPID"), ssname); /* SECOND ARG MUST BE UNIQUE !!! */
+#endif
 
   return;
 }
@@ -239,6 +259,7 @@ __prestart()
 
 #endif
 
+  for(ii=0; ii<NTRIGBITS; ii++) bitscalers[ii] = 0;
 
   printf("INFO: Prestart ROL22 executed\n");
 
@@ -304,7 +325,7 @@ rol2trig(int a, int b)
   int a_adc1, a_adc2, a_valid1, a_valid2, a_nwords, a_slot, a_slot2, a_slot3;
   int a_hfcb_id, a_chip_id, a_chan;
   unsigned int a_bco, a_bco1;
-  int a_slot_prev;
+  int a_slot_prev, sync_flag;
   int a_qualityfactor, a_pulseintegral, a_pulsetime, a_vm, a_vp;
   int a_trigtime[4];
   int a_tdc, a_edge;
@@ -312,7 +333,7 @@ rol2trig(int a, int b)
   int a_channel_old;
   int npedsamples, atleastoneslot, atleastonechannel[21];
   time_t now;
-  int error;
+  int error, status;
   int ndnv, nw;
   char errmsg[256];
   unsigned int *StartOfBank;
@@ -321,7 +342,7 @@ rol2trig(int a, int b)
   int islot, ichan, ii, jj, kk;
   int banknum = 0;
   int have_time_stamp, a_nevents2, a_event_type;
-  int a_event_number_l, a_timestamp_l, a_event_number_h, a_timestamp_h;
+  int a_event_number_l, a_timestamp_l, a_event_number_h, a_timestamp_h, a_bitpattern;
   int a_clusterN, a_clusterE, a_clusterY, a_clusterX, a_clusterT, a_type, a_data, a_time;
   long long timestamp, latency, latency_offset;
 
@@ -981,10 +1002,19 @@ lenE[jj][nB][nE[nB]] - event length in words
 
 		    if(a_nwords>2)
 		    {
-		      a_event_number_h = (datain[ii]>>16)&0xFFFF;
+		      a_event_number_h = (datain[ii]>>16)&0xF;
 		      a_timestamp_h = datain[ii]&0xFFFF;
 #ifdef DEBUG1
 		      printf("[%3d] a_event_number_h = %d a_timestamp_h = %d \n",ii,a_event_number_h,a_timestamp_h);
+#endif
+		      ii++;
+		    }
+
+		    if(a_nwords>3)
+		    {
+		      a_bitpattern = datain[ii]&0xFF;
+#ifdef DEBUG1
+		      printf("[%3d] a_bitpattern = 0x%08x\n",ii,a_bitpattern);
 #endif
 		      ii++;
 		    }
@@ -2760,7 +2790,7 @@ if(a_pulsenumber == 0)
 
 		    if(a_nwords>2)
 		    {
-		      a_event_number_h = (datain[ii]>>16)&0xFFFF;
+		      a_event_number_h = (datain[ii]>>16)&0xF;
 		      a_timestamp_h = datain[ii]&0xFFFF;
 #ifdef DEBUG1
 		      printf("[%3d] a_event_number_h = %d a_timestamp_h = %d \n",ii,a_event_number_h,a_timestamp_h);
@@ -2772,6 +2802,19 @@ if(a_pulsenumber == 0)
 		      ii++;
 		    }
 
+		    if(a_nwords>3)
+		    {
+		      a_bitpattern = datain[ii]&0xFF;
+#ifdef DEBUG1
+		      printf("[%3d] a_bitpattern = 0x%08x\n",ii,a_bitpattern);
+#endif
+              for(i=0; i<NTRIGBITS; i++) bitscalers[i] += ((a_bitpattern>>i)&0x1);
+
+              dataout[4] = datain[ii];
+              b08 += 4;
+			  
+		      ii++;
+		    }
 			
             CPCLOSE;
 
@@ -3552,8 +3595,10 @@ if(a_pulsenumber == 0)
     /* event number obtained from TI board have to be recorded into fragment header - event builder need it */
     header[1] = (header[1]&0xFFFFFF00) + (a_event_number_l&0xFF);
 
+	sync_flag =  (header[1]>>24)&0xFF;
+
     /* if NOT the last event, clear syncflag; should do it only for blocks with sync event in the end,
-    but do not bother chacking, will do it for all blocks */
+    but do not bother checking, will do it for all blocks */
     if(iev<(nnE-1))
 	{
       header[1] = header[1]&0x00FFFFFF;
@@ -3576,6 +3621,17 @@ if(a_pulsenumber == 0)
       lenout += 2;
 	}
 
+
+    /* for sync event, send scalers */
+    if(sync_flag)
+	{
+      printf("\nROL2: SYNC EVENT !!!\n");
+      for(i=0; i<NTRIGBITS; i++) printf("trigbit[%d] = %7d\n",i,bitscalers[i]);
+      printf("\n");
+#ifdef SSIPC
+      status = epics_msg_send("hallb_trig_event_bits","uint",NTRIGBITS,bitscalers);
+#endif
+	}
 
 #endif
 

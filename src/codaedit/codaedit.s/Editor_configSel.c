@@ -47,6 +47,8 @@
 #include "Editor.h"
 #include "Editor_graph.h"
 
+#undef DEBUG
+
 Widget menu;
 static editorConfigSel  iconfigSel;
 
@@ -111,6 +113,9 @@ configSelOk (Widget w, XtPointer data, XmAnyCallbackStruct* cbs)
   XtGetValues (sel->option_, arg, ac);
   ac = 0;
   
+#ifdef DEBUG
+  printf("configSelOk: sel->numConfigs_ = %d\n",sel->numConfigs_); fflush(stdout);
+#endif
   for (i = 0; i < sel->numConfigs_; i++)
   {
     if (curr == sel->pushb[i]) break;

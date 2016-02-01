@@ -145,11 +145,11 @@ ifeq ("$(OSTYPE_MACHINE)","Linux_i686_vme")
   LIBNAMES += $(CODA)/src/rol/jvme/libjvme.so
 
 ## smartsocket stuff
-#  CLON_FLAGS +=	-I$(CLON)/common/include
-#  CLON_FLAGS += -I$(RTHOME)/include
-#  LIBNAMES += $(CLON)/Linux_i686/lib/libepicsutil.a
-#  LIBNAMES += $(CLON)/Linux_i686/lib/libipc.a
-#  LIBNAMES += -L$(RTHOME)/lib/$(OSTYPE_MACHINE) -lrtipc -lrtipcl -lrtutil -lrtcxxipc50
+  CLON_FLAGS +=	-I$(CLON)/common/include
+  CLON_FLAGS += -I$(RTHOME)/include
+  LIBNAMES += $(CLON)/Linux_i686/lib/libepicsutil.a
+  LIBNAMES += $(CLON)/Linux_i686/lib/libipc.a
+  LIBNAMES += -L$(RTHOME)/lib/$(OSTYPE_MACHINE) -lrtipc -lrtipcl -lrtutil -lrtcxxipc50
 ## smartsocket stuff
 
 endif

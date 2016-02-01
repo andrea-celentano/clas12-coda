@@ -95,25 +95,34 @@ findInputFromPort(XcodaEditorGraph* graph,
   int      i;
   ipPort   *from_port;
   
-  for(p = graph->comp_list_head->next; p != graph->comp_list_tail; p = p->next){
+  for(p = graph->comp_list_head->next; p != graph->comp_list_tail; p = p->next)
+  {
     tdc = p->draw_comp;
-    if(strcmp(tdc->comp.comp_name, input->comp_name) == 0)
-      break;
-  }      
-  if(p == graph->comp_list_tail){
+    if(strcmp(tdc->comp.comp_name, input->comp_name) == 0) break;
+  }
+      
+  if(p == graph->comp_list_tail)
+  {
+    printf("findInputFromPort error 1\n");
     *error = 1;
     return (ipPort *)NULL;
   }
-  for(i=0;i<tdc->num_ports;i++){
-    if(strcmp(input->port_name, tdc->ip_port[i].ip_addr)==0)
-      break;
+
+  for(i=0; i<tdc->num_ports; i++)
+  {
+    if(strcmp(input->port_name, tdc->ip_port[i].ip_addr)==0) break;
   }
-  if(i >= tdc->num_ports){
+
+  if(i >= tdc->num_ports)
+  {
+    printf("findInputFromPort error 2 (i=%d tdc->num_ports=%d)\n",i,tdc->num_ports);
     *error = 1;
     return (ipPort *)NULL;
   }
+
   from_port = &(tdc->ip_port[i]);
   *error = 0;
+
   return from_port;
 }
 
@@ -161,17 +170,11 @@ findInputToPort(XcodaEditorGraph* graph,
  * Description:                                                                  *
  *      Create Arc Objects from configuration components                         *
  *********************************************************************************/
-#if defined (__STDC__)
-static void createArcsFromCinfos(XcodaEditorGraph* graph, 
+static void
+createArcsFromCinfos(XcodaEditorGraph* graph, 
 				 ConfigInfo** cinfo, 
 				 int num_cinfos, 
 				 int* error)
-#else
-static void createArcsFromCinfos(graph, cinfo, num_cinfos, error)
-     XcodaEditorGraph *graph;
-     ConfigInfo       **cinfo;
-     int              num_cinfos, *error;
-#endif
 {
   Arc      *arc, *ret_arc;
   ipPort   *to_port,*from_port;
@@ -180,60 +183,76 @@ static void createArcsFromCinfos(graph, cinfo, num_cinfos, error)
   int      i, j, k, m;
   IoId     *io;
 
-  
-  if(graph->comp_list_head->next == graph->comp_list_tail)
-    return;
-  for(i = 0;i < num_cinfos; i++){
-    for(p = graph->comp_list_head->next; p != graph->comp_list_tail; p = p->next){
+  if(graph->comp_list_head->next == graph->comp_list_tail) return;
+
+  for(i = 0;i < num_cinfos; i++)
+  {
+    for(p = graph->comp_list_head->next; p != graph->comp_list_tail; p = p->next)
+    {
       dc = p->draw_comp;
-      if(strcmp(dc->comp.comp_name, cinfo[i]->comp_name) == 0) 
-	break;
+      if(strcmp(dc->comp.comp_name, cinfo[i]->comp_name) == 0) break;
     }
-    if( p == graph->comp_list_tail){
+    if( p == graph->comp_list_tail)
+    {
+      printf("createArcsFromCinfos error 1\n");
       *error = 1;
       return;
     }
-    for(j = 0;j < cinfo[i]->num_inputs;j++){ /* for each inputs */
+    for(j = 0;j < cinfo[i]->num_inputs;j++) /* for each inputs */
+	{
       from_port = findInputFromPort (graph, cinfo[i]->inputs[j], error);
       if(*error != 0)
-	return;
+	  {
+        printf("createArcsFromCinfos error 2\n");
+        return;
+	  }
 
       /* find right config info corresponding to the from port */
-      for(k = 0; k < num_cinfos; k++){
-	if(strcmp(from_port->comp_ptr->comp_name,cinfo[k]->comp_name) == 0)
-	  break;
+      for(k = 0; k < num_cinfos; k++)
+      {
+	    if(strcmp(from_port->comp_ptr->comp_name,cinfo[k]->comp_name) == 0) break;
       }
-      if(k >= num_cinfos){
-	*error = 1;
-	return;
+      if(k >= num_cinfos)
+      {
+        printf("createArcsFromCinfos error 3\n");
+	    *error = 1;
+	    return;
       }
 
-      for (m = 0; m < cinfo[k]->num_outputs; m++) {
-	to_port   = findInputToPort(graph, cinfo[k]->outputs[m], error);
-	if(*error != 0)
-	  return;
-	if((ret_arc = XcodaEditorGetArcBetweenPorts(graph, to_port, from_port)) == NULL){
-	  arc = (Arc *)malloc(sizeof(Arc));
-	  if(arc == NULL){
-	    fprintf(stderr, "Cannot allocate memory for new Arc.\n");
-	    exit(1);
-	  }
-	  arc->type = IP_CONNECTION;
-	  arc->selected = 0;
-	  arc->from_row = from_port->row;
-	  arc->from_col = from_port->col;
-	  arc->to_row = to_port->row;
-	  arc->to_col = to_port->col;
-	  arc->from = from_port;
-	  arc->to = to_port;
-	  setup_arc_func(arc);
-	  update_arc_geometry(arc, from_port, to_port);
-	  insertArcToWholeArcList(graph, arc);
-	}
+      for (m = 0; m < cinfo[k]->num_outputs; m++)
+      {
+	    to_port   = findInputToPort(graph, cinfo[k]->outputs[m], error);
+	    if(*error != 0)
+		{
+          printf("createArcsFromCinfos error 4\n");
+          return;
+		}
+	    if((ret_arc = XcodaEditorGetArcBetweenPorts(graph, to_port, from_port)) == NULL)
+        {
+	      arc = (Arc *)malloc(sizeof(Arc));
+	      if(arc == NULL)
+          {
+            fprintf(stderr, "Cannot allocate memory for new Arc.\n");
+	        exit(1);
+	      }
+
+	      arc->type = IP_CONNECTION;
+	      arc->selected = 0;
+	      arc->from_row = from_port->row;
+	      arc->from_col = from_port->col;
+	      arc->to_row = to_port->row;
+	      arc->to_col = to_port->col;
+	      arc->from = from_port;
+	      arc->to = to_port;
+	      setup_arc_func(arc);
+	      update_arc_geometry(arc, from_port, to_port);
+	      insertArcToWholeArcList(graph, arc);
+	    }
       }
     }
   }
 }
+
 
 /*********************************************************************************
  *      static void findDefaultDrawCompPosition(graph, dc, row, col)             *
@@ -1174,7 +1193,7 @@ setRcNetComp (rcNetComp* comp,
 
 
   /*sergey: set rols here ??? from where ??? from 'defaults' or from some config (any config ? first by alphabet ? )*/
-#if 1
+#if 0
   /* from 'defaults' table */
   if( (strcasecmp(comp_type, "ROC") == 0) || (strcasecmp(comp_type, "TS") == 0))
   {
