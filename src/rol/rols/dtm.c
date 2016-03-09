@@ -19,6 +19,7 @@
 
 #include "circbuf.h"
 #include "dxm.h"
+#include "dxm_socket.h"
 
 
 /*****************************/
@@ -45,6 +46,8 @@ void usrtrig_done();
 
 ControlCmdMemory *smem;
 char confFileFeb[SVTDAQMAXSTRLEN];
+
+//#define WAITFORCONTROLDPM
 
 /************************/
 /************************/
@@ -130,7 +133,11 @@ __prestart()
 {
   unsigned long jj, adc_id, sl;
   char *env;
-
+  int socket;
+  char run_state[SVTDAQMAXSTRLEN];
+  char host_prestart[SVTDAQMAXSTRLEN];
+  int i_sleep;
+  
   *(rol->nevents) = 0;
 
   /* Register a sync trigger source */
@@ -150,6 +157,64 @@ __prestart()
      printf ("Timeout waiting for daq response\n");
      exit(1);
   }
+
+
+#ifdef WAITFORCONTROLDPM
+  // START Poll Control DPM state 
+  
+  // open socket
+  memset(host_prestart,'\0',SVTDAQMAXSTRLEN);
+  if(rol->pid == 50)
+    strcpy(host_prestart, "dtm0");
+  else
+    strcpy(host_prestart, "dpm7");
+  
+  printf("[ prestart() ]: host for prestart is %s\n",host_prestart);
+
+  socket = openSocket(host_prestart,8090);
+
+  if( socket <= 0) {
+    printf("Couldn't open socket to host %s\n",host_prestart);    
+    exit(1);
+  }
+  
+  // poll for state over a certain time before giving up
+  i_sleep = 0;
+  strcpy(run_state,"");
+  while(i_sleep < 60 && strcmp(run_state,"Prestart") != 0) {
+    
+    printf("Try to poll run state (%d)\n",i_sleep);
+    
+    getRunState(socket,run_state,SVTDAQMAXSTRLEN);
+    
+    printf("Got run state \"%s\" (%d)\n", run_state, i_sleep);
+    
+    if(i_sleep > 0)
+      sleep(1);    
+    
+    i_sleep++;
+
+  }
+  
+  // close the socket, should be open here
+  closeSocket( socket );
+    
+  
+  // Make sure we got the right state or exit
+  if(strcmp(run_state,"Prestart") != 0) {
+    printf("Timed out getting run state from host %s, now in (%s). Quit.\n", host_prestart, run_state);
+    exit(1);    
+  }
+  
+
+  // pause for 1 second to be sure
+  //sleep(1);
+
+  // END Poll Control DPM state 
+#else
+  printf("WARNING: Not waiting for control DPM. This may be a problem.\n");
+#endif
+
 
   // Send prestart command to daq server
   controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetRunState", "Prestart");

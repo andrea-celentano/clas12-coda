@@ -47,6 +47,9 @@ ControlCmdMemory *smem;
 char confFileFeb[SVTDAQMAXSTRLEN];
 char confFileThr[SVTDAQMAXSTRLEN];
 
+//#define DUMP_TIMER_BANK
+//#define DUMP_TRIG_COUNT
+
 /************************/
 /************************/
 /*
@@ -57,14 +60,18 @@ static char rcname[5];
 
 #define ABS(x)      ((x) < 0 ? -(x) : (x))
 
+#ifdef DUMP_TIMER_BANK 
+
 #define TIMERL_VAR \
   static hrtime_t startTim, stopTim, dTim; \
   static int nTim; \
-  static hrtime_t Tim, rmsTim, minTim=10000000, maxTim, normTim=1
+  static int whentoprint_time=20000; \
+  static hrtime_t Tim, rmsTim, minTim=10000000, maxTim, normTim=1, calc_aveTim, calc_stddevTim, calc_minTim, calc_maxTim
 
 #define TIMERL_START \
 { \
   startTim = gethrtime(); \
+  /*logMsg("timer start called: startTim %7llu\n",startTim);*/	\
 }
 
 #define TIMERL_STOP(whentoprint_macros,histid_macros) \
@@ -97,6 +104,79 @@ static char rcname[5];
   } \
 }
 
+#define TIMERL_CALC \
+{ \
+    if(nTim == whentoprint_time) \
+    { \
+      calc_aveTim = Tim/nTim/normTim; \
+      calc_stddevTim = ABS(rmsTim/nTim-Tim*Tim/nTim/nTim)/normTim/normTim; \
+      calc_minTim = minTim/normTim; \
+      calc_maxTim = maxTim/normTim; \
+    } \
+}
+
+#define TIMERL_PRINT \
+{ \
+    if(nTim == whentoprint_time) \
+    { \
+      logMsg("timer print: %7llu microsec (min=%7llu max=%7llu rms**2=%7llu)\n", \
+	     calc_aveTim,calc_minTim,calc_maxTim,calc_stddevTim); \
+    } \
+}
+
+#define TIMERL_RESET \
+{ \
+  /*logMsg("reset timer called with nTim %d\n", nTim);*/	\
+    if(nTim == whentoprint_time) \
+    { \
+      /*logMsg("reset timer\n");*/		\
+       nTim = 0; \
+       Tim = calc_aveTim = calc_stddevTim = calc_minTim = calc_maxTim = 0.0; \
+    } \
+    /*else {*/								\
+    /*  logMsg("dont reset timer %d vs %d\n", nTim, whentoprint_time);*/ \
+    /*}*/								\
+}
+
+#define TIMERL_STOP_ONLY \
+{ \
+  stopTim = gethrtime(); \
+  /*logMsg("timer stop called: startTime %7llu stopTime %7llu\n",startTim,stopTim);*/ \
+  if(stopTim >= startTim) \
+  { \
+    nTim++; \
+    dTim = stopTim - startTim; \
+    Tim += dTim; \
+    rmsTim += dTim*dTim; \
+    minTim = minTim < dTim ? minTim : dTim; \
+    maxTim = maxTim > dTim ? maxTim : dTim; \
+    /*logMsg("timer stop called: nTim %d dTim %7llu Tim %7llu\n",nTim,dTim,Tim);*/ \
+  } \
+  else {								\
+    logMsg("timer stop called: START IS AFTER STOP?? startTime %7llu stopTime %7llu\n",startTim,stopTim); \
+  } \
+}
+
+/*
+#define TIMERL_DUMP(roc_id, dabuf_ptr, lastev_ptr)		\
+{ \
+  if(nTim == whentoprint_time) \
+  { \
+    long* b = (long *) (dabuf_ptr);				    \
+    logMsg("dump roc_id %d timer to data stream b %p\n",(roc_id), b);	\
+    BANKOPEN(0xe10E,3,(roc_id));						\
+    logMsg("first word adress dabuf_ptr %p\n",b); \
+    *b = 0xdeadbeef; \
+    logMsg("value 0x%x\n",*b);	\
+    b++;					\
+    BANKCLOSE;					 \
+    lastev_ptr[0] = rol->dabufp - pLastEv - 1; 
+    logMsg("done dumping timer to data stream (dabuf_ptr %p)\n",b);	\
+  } \
+}
+*/
+
+#endif
 
 
 /* for compatibility with hps1.c */
@@ -379,6 +459,7 @@ __prestart()
   lastCount = 0;
   lastSize  = 0;
   ackTrig   = 0;
+  ackCount  = 0;
 
   sprintf(rcname,"RC%02d",rol->pid);
   printf("rcname >%4.4s<\n",rcname);
@@ -523,6 +604,7 @@ __end()
      exit(1);
   }
 
+  printf("[ end() ]: trigCount %ld ackCount %ld\n",trigCount, ackCount);
   printf("INFO: User End 1 Executed\n");
 
   return;
@@ -583,18 +665,23 @@ usrtrig(unsigned long EVTYPE, unsigned long EVSOURCE)
   int* startOfSvtBank;
   int* pLastEv;
   int usrTrigDebug = 0;
+#ifdef DUMP_TIMER_BANK 
   TIMERL_VAR;
-
+#endif
   syncEventFlag = 0; 
   rol->dabufp = (long *) 0;
-
-TIMERL_START;
 
 #ifdef MY_FRAG_HEADER
   CEOPEN(EVTYPE, BT_BANKS);
   printf("SOFTWARE: word0=%d, word1=0x%08x\n",*(rol->dabufp-2),*(rol->dabufp-1));
 #else
   CEOPEN1;
+#endif
+
+  // Timer start
+  // Note that this timer do not include CECLOSE 
+#ifdef DUMP_TIMER_BANK
+  TIMERL_START;
 #endif
 
   // Invalid buffer
@@ -614,6 +701,9 @@ TIMERL_START;
     lastSize = ret;
     nwords = ret/4;
 
+#ifdef DUMP_TRIG_COUNT
+    printf("[ usrtrig() ]: trigCount %ld ackCount %ld nwords=%d dabufp=%p after dma \n", trigCount, ackCount, nwords, rol->dabufp);
+#endif
     //if(usrTrigDebug>0)  printf("nwords=%d dabufp=%p after dma \n",nwords, rol->dabufp);
 
     /* Grab sync flag from the SVT data and find the last event in the block*/	
@@ -622,8 +712,8 @@ TIMERL_START;
 
 
     /* dump config to data stream */
-    //if(syncEventFlag>0 && EVENT_NUMBER%50000==0 && run_type!=1 && run_type!=2 && run_type!=3 && (rol->pid==dpmWithConfigDump|| rol->pid==controlDpmRocId)) {       
-    if(syncEventFlag>0 && run_type!=1 && run_type!=2 && run_type!=3 && (rol->pid==dpmWithConfigDump|| rol->pid==controlDpmRocId)) {       
+    if(syncEventFlag>0 && EVENT_NUMBER%50000==0 && run_type!=1 && run_type!=2 && run_type!=3 && (rol->pid==dpmWithConfigDump|| rol->pid==controlDpmRocId)) {       
+      //if(syncEventFlag>0 && run_type!=1 && run_type!=2 && run_type!=3 && (rol->pid==dpmWithConfigDump|| rol->pid==controlDpmRocId)) {       
        printf("open config bank\n");
        BANKOPEN(0xe10E,3,rol->pid);
        chptr =(char *)rol->dabufp;
@@ -788,14 +878,49 @@ TIMERL_START;
 
   }
 
+#ifdef DUMP_TIMER_BANK 
+
+  // === TIMER START===
+  // Stop timer 
+  TIMERL_STOP_ONLY;
+  // Calculate averate and RMS
+  TIMERL_CALC;
+  // Print to log
+  TIMERL_PRINT;
+  // Dump timer to data stream 
+  // Don't do this in a macro...
+  //TIMERL_DUMP(rol->pid,&rol->dabufp, &pLastEv);  
+  if( nTim == whentoprint_time) {
+    logMsg("call dump below (dabufp %p nwords %d %d)\n", rol->dabufp,nwords,(nwords&0xFFFFFFFF));
+    BANKOPEN(0xe11E,1,rol->pid);
+    *(rol->dabufp) = nwords & 0xFFFFFFFF;
+    rol->dabufp++;
+    *(rol->dabufp) = calc_aveTim & 0xFFFFFFFF;
+    rol->dabufp++;
+    *(rol->dabufp) = calc_stddevTim & 0xFFFFFFFF;
+    rol->dabufp++;
+    *(rol->dabufp) = calc_minTim & 0xFFFFFFFF;
+    rol->dabufp++;
+    *(rol->dabufp) = calc_maxTim & 0xFFFFFFFF;
+    rol->dabufp++;
+    BANKCLOSE;					 
+    pLastEv[0] = rol->dabufp - pLastEv - 1; 
+    logMsg("call dump done (dabufp %p)\n", rol->dabufp);
+  }
+
+  // Reset timer
+  TIMERL_RESET;
+  // === TIMER EMD ===
+#endif    
+
 #ifdef MY_FRAG_HEADER
   CECLOSE;
 #else
   CECLOSE1;
 #endif
 
+  //TIMERL_STOP(10000,1000+rol->pid);
 
-TIMERL_STOP(10000,1000+rol->pid);
 
   ackTrig = 1;
   return;
@@ -804,6 +929,10 @@ TIMERL_STOP(10000,1000+rol->pid);
 void
 usrtrig_done()
 {
+
+#ifdef DUMP_TRIG_COUNT
+  printf("[ usrtrig_done() ]: trigCount %ld ackCount %ld \n",trigCount, ackCount);
+#endif
 
   return;
 }  
@@ -814,6 +943,16 @@ __done()
   if (ackTrig) {
      axisReadAck(myfd); // Ack
      ackTrig =  0;
+     ackCount++;
+
+#ifdef DUMP_TRIG_COUNT
+     printf("[ done() ]: ackTrig=1 trigCount %ld ackCount %ld \n",trigCount, ackCount);
+#endif
+
+  } else {
+#ifdef DUMP_TRIG_COUNT
+    printf("[ done() ]: ackTrig=0 trigCount %ld ackCount %ld \n",trigCount, ackCount);
+#endif
   }
 
   /* from parser */
