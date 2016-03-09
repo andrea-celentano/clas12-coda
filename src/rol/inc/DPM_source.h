@@ -23,6 +23,7 @@ static time_t trigCount;
 static time_t lastCount;
 static unsigned int lastSize;
 static unsigned int ackTrig;
+static time_t ackCount;
 
 /*
 struct vme_ts {
