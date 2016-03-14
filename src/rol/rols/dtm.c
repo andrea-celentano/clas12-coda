@@ -218,7 +218,7 @@ __prestart()
 
   // Send prestart command to daq server
   controlCmdSetCommand ( smem, CONTROL_CMD_TYPE_EXEC_COMMAND, "SetRunState", "Prestart");
-  if ( ! controlCmdGetResultTimeout(smem,NULL,10000) ) {
+  if ( ! controlCmdGetResultTimeout(smem,NULL,30000) ) {
      printf ("Timeout waiting for daq response\n");
      exit(1);
   }
