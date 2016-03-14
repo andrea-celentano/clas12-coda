@@ -47,7 +47,7 @@ ControlCmdMemory *smem;
 char confFileFeb[SVTDAQMAXSTRLEN];
 char confFileThr[SVTDAQMAXSTRLEN];
 
-//#define DUMP_TIMER_BANK
+#define DUMP_TIMER_BANK
 //#define DUMP_TRIG_COUNT
 
 /************************/
@@ -66,7 +66,7 @@ static char rcname[5];
   static hrtime_t startTim, stopTim, dTim; \
   static int nTim; \
   static int whentoprint_time=20000; \
-  static hrtime_t Tim, rmsTim, minTim=10000000, maxTim, normTim=1, calc_aveTim, calc_stddevTim, calc_minTim, calc_maxTim
+  static hrtime_t Tim, rmsTim, minTim=10000000, maxTim, normTim=1, calc_aveTim, calc_stddevTim, calc_minTim, calc_maxTim, dataSize, calc_aveSize;
 
 #define TIMERL_START \
 { \
@@ -112,6 +112,7 @@ static char rcname[5];
       calc_stddevTim = ABS(rmsTim/nTim-Tim*Tim/nTim/nTim)/normTim/normTim; \
       calc_minTim = minTim/normTim; \
       calc_maxTim = maxTim/normTim; \
+      calc_aveSize = dataSize/nTim/normTim; \
     } \
 }
 
@@ -119,8 +120,8 @@ static char rcname[5];
 { \
     if(nTim == whentoprint_time) \
     { \
-      logMsg("timer print: %7llu microsec (min=%7llu max=%7llu rms**2=%7llu)\n", \
-	     calc_aveTim,calc_minTim,calc_maxTim,calc_stddevTim); \
+      logMsg("timer print: %7llu microsec %7llu words (min=%7llu max=%7llu rms**2=%7llu)\n", \
+	     calc_aveTim,calc_aveSize,calc_minTim,calc_maxTim,calc_stddevTim); \
     } \
 }
 
@@ -131,14 +132,14 @@ static char rcname[5];
     { \
       /*logMsg("reset timer\n");*/		\
        nTim = 0; \
-       Tim = calc_aveTim = calc_stddevTim = calc_minTim = calc_maxTim = 0.0; \
+       Tim = dataSize = calc_aveSize = calc_aveTim = calc_stddevTim = calc_minTim = calc_maxTim = 0; \
     } \
     /*else {*/								\
     /*  logMsg("dont reset timer %d vs %d\n", nTim, whentoprint_time);*/ \
     /*}*/								\
 }
 
-#define TIMERL_STOP_ONLY \
+#define TIMERL_STOP_ONLY(d) \
 { \
   stopTim = gethrtime(); \
   /*logMsg("timer stop called: startTime %7llu stopTime %7llu\n",startTim,stopTim);*/ \
@@ -150,6 +151,7 @@ static char rcname[5];
     rmsTim += dTim*dTim; \
     minTim = minTim < dTim ? minTim : dTim; \
     maxTim = maxTim > dTim ? maxTim : dTim; \
+    dataSize += (d);							\
     /*logMsg("timer stop called: nTim %d dTim %7llu Tim %7llu\n",nTim,dTim,Tim);*/ \
   } \
   else {								\
@@ -882,7 +884,7 @@ usrtrig(unsigned long EVTYPE, unsigned long EVSOURCE)
 
   // === TIMER START===
   // Stop timer 
-  TIMERL_STOP_ONLY;
+  TIMERL_STOP_ONLY(nwords);
   // Calculate averate and RMS
   TIMERL_CALC;
   // Print to log
@@ -891,7 +893,7 @@ usrtrig(unsigned long EVTYPE, unsigned long EVSOURCE)
   // Don't do this in a macro...
   //TIMERL_DUMP(rol->pid,&rol->dabufp, &pLastEv);  
   if( nTim == whentoprint_time) {
-    logMsg("call dump below (dabufp %p nwords %d %d)\n", rol->dabufp,nwords,(nwords&0xFFFFFFFF));
+    logMsg("dump timer below (dabufp %p nwords %d)\n", rol->dabufp,nwords);
     BANKOPEN(0xe11E,1,rol->pid);
     *(rol->dabufp) = nwords & 0xFFFFFFFF;
     rol->dabufp++;
