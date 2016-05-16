@@ -1,4 +1,4 @@
-#!/usr/bin/csh
+#!/bin/csh
 
 #  run_download_er.csh
 
@@ -8,7 +8,7 @@
 
 
 # Force run configuration file selection
-select_trigger -mode download
+#################################select_trigger -mode download
 
 # use select_trigger exit status
 exit($status)

@@ -30,6 +30,7 @@
 #include <time.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <dlfcn.h>
 
 
 #ifdef __cplusplus
@@ -393,7 +394,6 @@ loadwholefile(char *file, int *size)
 
 /* routine to dynamically load and unload readout list */
 
-#include <dlfcn.h>
 
 #include "rolInt.h"
 
@@ -403,9 +403,17 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
 {
   char ObjInitName[100];
   char *p0, *p1, *p2;
-  int nchar = 0;
-  int res;
+  int32_t nchar = 0;
+  int64_t res;
   char *env, rolnametmp[256], rolnameful[256], tmp[128];
+
+
+void *handle;
+double (*cosine)(double);
+char *error;
+
+
+
 
   /* if 'rolname' does not start from '/', '.' or '$', assume that it contains no path
 	 and add default one */
@@ -439,7 +447,7 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
     printf("ERROR: cannot extract ObjInitName from the rolname\n");
   }
 
-#if defined __sun||LINUX
+#ifdef Linux
 
   /* resolve environment variables in rolname; go from '/' to '/' and replace
   env names starting from '$' by actual directories */
@@ -469,11 +477,31 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
   printf("rolnameful >%s<\n",rolnameful);
 
 
+
+
+
   rolP->id = dlopen (rolnameful, RTLD_NOW | RTLD_GLOBAL);
   if(rolP->id == 0)
   {
-	printf ("ERROR: dlopen failed on rol: >%s<\n",dlerror());
+	printf ("ERROR: dlopen failed on rol: dlerror returned >%s<\n",dlerror());
+    exit(1);
   }
+
+
+
+handle = dlopen ("libm.so", RTLD_LAZY);
+if (!handle)
+{
+  printf("TEST1: %s\n", dlerror());
+  exit(1);
+}
+else
+{
+  printf("TEST1: handle=0x%016x\n",handle);
+}
+
+
+
 
 #else
 
@@ -490,22 +518,54 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
   }
   rolP->nounload = 0;
 
-  res = (int) dlsym (rolP->id, &ObjInitName[1]);
+  res = (int64_t) dlsym (rolP->id, &ObjInitName[1]);
   rolP->rol_code = (VOIDFUNCPTR) res;
   if((res != (-1)) && (res != 0))
   {
-    printf("INFO: >%s()< routine found\n",ObjInitName);
+    printf("INFO: >%s()< routine found, rolP->id=0x%016x, res=0x%016x\n",ObjInitName,rolP->id,res);
   }
   else
   {
-    printf("ERROR: dlsym returned %d\n",res);
+    printf("ERROR: dlsym returned %lld\n",res);
     printf("ERROR: >%s()< routine not found\n",ObjInitName);
     printf("ERROR: <ObjName>__init() routine not found in >%s<\n",rolnameful);
     return(CODA_ERROR);
   }
 
   strncpy(rolP->usrString, params, 30);
-  printf ("readout list >%s< loaded\n",rolnameful);
+  printf ("codaLoadROL: readout list >%s< is loaded at address 0x%016x 0x%016x\n",rolnameful,rolP->rol_code,*(rolP->rol_code));
+
+
+
+
+
+
+dlerror();    /* Clear any existing error */
+
+/*
+cosine = dlsym(handle, "cos");
+*/
+res = (int64_t) dlsym(handle, "cos");
+cosine = (VOIDFUNCPTR) res;
+
+if ((error = dlerror()) != NULL)
+{
+  printf ("TEST2: %s\n", error);
+  exit(1);
+}
+else
+{
+  printf("TEST2: cosine=0x%016x 0x%016x\n",cosine,*cosine);
+}
+
+
+printf ("TEST3: %f\n", (*cosine)(2.0));
+dlclose(handle);
+ 
+
+
+
+
 
   return(CODA_OK);
 }
@@ -514,7 +574,7 @@ codaLoadROL(ROLPARAMS *rolP, char *rolname, char *params)
 int
 codaUnloadROL(ROLPARAMS *rolP)
 {
-#if defined __sun || LINUX
+#ifdef Linux
   if(dlclose ((void *) rolP->id) != 0)
   {
     printf("ERROR: failed to unload list %s\n",rolP->tclName);
@@ -1137,9 +1197,7 @@ CODA_Execute ()
  *-------------------------------------------------------------------------*
  */
 int
-CODA_bswap(cbuf, nlongs)
-  int *cbuf;
-  int nlongs;
+CODA_bswap(int32_t *cbuf, int32_t nlongs)
 {
     int ii, jj, ix;
     int tlen, blen, dtype;
@@ -1764,7 +1822,7 @@ printf("codaUpdateStatus: dbConnect done\n");fflush(stdout);
 
   /* if we are Event Builder, update 'log_name' in 'sessions' table,
     use it to keep 'state' for external user's information */
-  if(!strcmp(localobject->className,"CDEB"))
+  if(!strcmp(localobject->className,"EB"))
   {
     sprintf(tmp,"UPDATE sessions SET log_name='%s' WHERE name='%s'",
       status,session);

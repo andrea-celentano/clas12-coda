@@ -1,0 +1,25 @@
+_option table contains following:
+
+Boot                                   $CODA/common/rcscripts/run_dispatch  boot      end  main
+Download                               $CODA/common/rcscripts/run_dispatch  download  end  main
+Prestart                               $CODA/common/rcscripts/run_dispatch  prestart  end  main   <--- run_log_begin
+Go                                     $CODA/common/rcscripts/run_dispatch  go        end  main
+End                                    $CODA/common/rcscripts/run_dispatch  end       end  main   <--- run_log_end, run_log_comment(fix)
+
+
+
+_script table contains following:
+
+ER3               download             $CODA/common/rcscripts/run_dispatch  download  er  main
+ER3               prestart             $CODA/common/rcscripts/run_dispatch  prestart  er  main   <--- run_log_comment
+
+
+not-dummy scripts:
+
+run_prestart_end.csh: 'run_log_begin -a clasrun'
+
+run_prestart_er.csh:  'run_log_comment -a clasrun'
+
+run_end_end.csh:      'run_log_end -a clasrun' 'run_log_comment -a clasrun -fix'
+
+

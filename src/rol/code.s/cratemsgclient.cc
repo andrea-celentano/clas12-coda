@@ -198,11 +198,13 @@ bool CrateMsgClient::RcvRsp(int type)
 {
   if(RecvRaw(&Msg, 8) == 8)
   {
+	/*printf("RcvRsp: len=%d\n",Msg.len);*/
 	if(swap)
 	{
 	  Msg.len = LSWAP(Msg.len);
 	  Msg.type = LSWAP(Msg.type);
 	}
+
 	if((Msg.len <= MAX_MSG_SIZE) && (Msg.len >= 0) && (Msg.type == (int)CMD_RSP(type)))
 	{
 	  if(!Msg.len) return kTRUE;
@@ -210,7 +212,9 @@ bool CrateMsgClient::RcvRsp(int type)
 	  if(RecvRaw(&Msg.msg, Msg.len) == Msg.len) return kTRUE;
 	}
   }
+
   Close();
+
   return kFALSE;
 }
 
@@ -365,24 +369,30 @@ bool CrateMsgClient::ReadScalers(int slot, unsigned int **val, int *len)
 
   Msg.type = SCALER_SERVER_READ_BOARD;
   Msg.len = 8;
-  Msg.msg.m_Cmd_ReadScalers.cnt = 70;
-  Msg.msg.m_Cmd_ReadScalers.slot = slot; 
+  Msg.msg.m_Cmd_ReadScalers.cnt = 70; /* ignored by server */
+  Msg.msg.m_Cmd_ReadScalers.slot = slot;
+
+  /*printf("CrateMsgClient::ReadScalers: befor cnt %d %d\n",Msg.msg.m_Cmd_ReadScalers.cnt,Msg.msg.m_Cmd_ReadScalers_Rsp.cnt);*/
   SendRaw(&Msg, Msg.len+8);
 
   if(RcvRsp(Msg.type))
   {
+    /*printf("CrateMsgClient::ReadScalers: after cnt %d %d\n",Msg.msg.m_Cmd_ReadScalers.cnt,Msg.msg.m_Cmd_ReadScalers_Rsp.cnt);*/
 	if(swap)
 	{
 	  Msg.msg.m_Cmd_ReadScalers_Rsp.cnt = LSWAP(Msg.msg.m_Cmd_ReadScalers_Rsp.cnt);
 	}
+
 	*val = new unsigned int[Msg.msg.m_Cmd_ReadScalers_Rsp.cnt];
 	if(!(*val))
 	{
       printf("CrateMsgClient::ReadScalers ERROR: cannot allocate memory - return\n");
       return kFALSE;
 	}
+
     *len = Msg.msg.m_Cmd_ReadScalers_Rsp.cnt;
-	if(swap)
+    /*printf("CrateMsgClient::ReadScalers: *len=%d\n",*len);*/
+    if(swap)
 	{
 	  for(int i = 0; i < Msg.msg.m_Cmd_ReadScalers_Rsp.cnt; i++)
 	  {

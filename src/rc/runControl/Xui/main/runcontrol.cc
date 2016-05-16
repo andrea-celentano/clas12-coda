@@ -749,7 +749,11 @@ main (int argc, char** argv)
 
 	  if(option->startRocs_)
 	  {
-        sprintf (temp2,"(echo \"start rocs\";sleep 3; %s/rocs -embed )&",getenv("CODA_BIN"));
+        if(option->logRocs_)
+          sprintf (temp2,"(echo \"start rocs\";sleep 3; %s/rocs -embed -log )&",getenv("CODA_BIN"));
+        else
+          sprintf (temp2,"(echo \"start rocs\";sleep 3; %s/rocs -embed )&",getenv("CODA_BIN"));
+
         system(temp2);
 	  }
 	  

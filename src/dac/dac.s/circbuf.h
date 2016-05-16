@@ -46,7 +46,12 @@
 #define MAX_EVENT_LENGTH (NWBOS*4)
 #define MAX_EVENT_POOL   400
 
+#ifdef Linux_x86_64
+#define SEND_BUF_SIZE  (4 * 1024 * 1024)
+#else
 #define SEND_BUF_SIZE  (4 * 1024 * 1024) /*sergey: use 3 for CLAS !!!!!*/
+#endif
+
 #define TOTAL_RECEIVE_BUF_SIZE  SEND_BUF_SIZE
 
 #else

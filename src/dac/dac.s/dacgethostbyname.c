@@ -12,7 +12,6 @@
 int
 dacgethostbyname(char *hostname, char *ipaddress)
 {
-  unsigned long addr;
   struct hostent *hp;
   char **p;
   int nnames;

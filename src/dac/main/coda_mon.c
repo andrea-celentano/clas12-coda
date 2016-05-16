@@ -14,6 +14,8 @@ coda_mon()
 
 /* coda_mon.c - generic program to run monitoring processess */
 
+#include <stdio.h>
+#include <stdint.h>
 #include <pthread.h>
 #include <dlfcn.h>
 

@@ -80,8 +80,8 @@ proc_tt(int *bufin, int *bufout, int pid, int *nev)
 
   /* set input/output pointers and cleanup first
   word in output (will be CODA fragment length) */
-  rolP->dabufpi = (long *) bufin;
-  rolP->dabufp = (long *) bufout;
+  rolP->dabufpi = (int32_t *) bufin;
+  rolP->dabufp = (int32_t *) bufout;
   bufout[0] = 0;
 
 #ifdef DEBUG
@@ -99,7 +99,7 @@ proc_tt(int *bufin, int *bufout, int pid, int *nev)
 
   if(len > NWBOS)
   {
-    printf("proc_tt ERROR: on output event length=%d (longwords) is too big\n",len);
+    printf("proc_tt ERROR: on output event length=%d (words) is too big\n",len);
     return(0);
   }
   else if(len < 1)
@@ -242,7 +242,7 @@ proc_thread(BIGNET *bigprocptrin)
   static int token_interval;
 
 /* timing */
-  hrtime_t start, end, time1, time2, icycle, cycle = 1;
+  hrtime_t start, end, time1, time2, icycle, cycle = 100;
   static hrtime_t sum;
 
 #ifdef Linux

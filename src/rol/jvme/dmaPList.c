@@ -20,9 +20,11 @@
  * Description:
  *     Library for a memory allocation system
  *
- * SVN: $Rev: 393 $
+ * SVN: $Rev$
  *
  *----------------------------------------------------------------------------*/
+#include <stdio.h>
+#include <string.h>
 #ifdef VXWORKS
 #include <vxWorks.h>
 #include <memLib.h>
@@ -33,8 +35,6 @@
 #include "jlabgef.h"
 #endif
 
-#include <stdio.h>
-#include <string.h>
 #include "dmaPList.h"
 
 #define DOMUTEX
@@ -54,25 +54,79 @@ pthread_mutex_t   partMutex = PTHREAD_MUTEX_INITIALIZER;
 #define maximum(a,b) (a<b ? b : a)
 
 /* global data */
+static DMALIST  dmaPList;     /* global part list */
+static int useSlaveWindow=0;  /* decision to use (1) a Slave VME window (useful for SFI) */
+extern void *a32slave_window; /* global variable from jlabgef.c */
+extern int a32slave_physmembase;
 
-static DMALIST  dmaPList; /* global part list */
-/******************************************************************************
- * 
- * dmaHdl_to_PhysAddr - Grab the physical address from the GEF DMA handle
- *
- * RETURNS: the 32bit physical address
- *
- */
+/*! Buffer node pointer */
+DMANODE *the_event;
+/*! Data pointer */
+unsigned int *dma_dabufp;
 
-GEF_UINT32
+/*!
+ Routine to obtain the physical address from a GE-VME DMA handle
+
+ @param inpDmaHdl GE-VME DMA handle
+ 
+ @return The 32bit physical address
+*/
+unsigned long
 dmaHdl_to_PhysAddr
 (
  GEF_VME_DMA_HDL inpDmaHdl
  )
 {
-  /* This returns an UINT32 because we're not using 64bit addresses.. yet */
-  return (GEF_UINT32)inpDmaHdl->phys_addr;
+  return (unsigned long)inpDmaHdl->phys_addr;
 }
+
+/*!
+  Routine to allow for using a Slave VME window (opened with vmeOpenSlaveA32)
+  for the DMA buffer.
+  This routine MUST be called before initializing DMA buffers, if the Slave
+  VME Window physical memory is to be used.
+
+  @param iFlag 
+  - 0 to use regular physical memory
+  - 1 to use physical memory already mapped to a VME Slave Window
+
+  @return OK if successful, ERROR on error
+*/
+int
+dmaPUseSlaveWindow (int iFlag)
+{
+  /* Check argument */
+  if(iFlag<0 | iFlag>1)
+    {
+      printf("%s: ERROR: Invalid iFlag (%d).  Must be 0 or 1.\n",
+	     __FUNCTION__,iFlag);
+      return ERROR;
+    }
+
+  if(iFlag==0) /* Don't use Slave Window.. */
+    {
+      useSlaveWindow=0;
+      return OK;
+    }
+  
+  if(iFlag==1) /* Use Slave Window */
+    {
+      /* Check if window was already opened and initialized */
+      if(a32slave_window==NULL)
+	{
+	  useSlaveWindow=0;
+	  printf("%s: ERROR: Slave Window has not been initialized.\n",
+		 __FUNCTION__);
+	  return ERROR;
+	}
+
+      useSlaveWindow=1;
+      return OK;
+    }
+  
+  return ERROR; /* Shouldn't get here, anyway */
+}
+
 
 void
 dmaPartInit()
@@ -80,10 +134,16 @@ dmaPartInit()
   dmalistInit(&dmaPList);
 }
 
-/*************************************************************
- * partCreate - create and initialize a memory part 
- */
+/*!
+  Create and initialize a memory partition
 
+  @param *name Name of the new partition
+  @param size  Size of a single item
+  @param c     Initial number if items
+  @param incr  Number of items to add when enlarging
+
+  @return Created memory partition
+*/
 DMA_MEM_ID 
 dmaPCreate (name, size, c, incr)
      char *name;		/* name of new partition */
@@ -97,6 +157,7 @@ dmaPCreate (name, size, c, incr)
   GEF_STATUS status;
   GEF_VME_DMA_HDL dma_hdl;
   GEF_MAP_PTR mapPtr;
+  int size_incr = 0;
   
 #ifdef VXWORKS
   pPart = (DMA_MEM_ID) cacheDmaMalloc (sizeof(DMA_MEM_PART));
@@ -120,7 +181,16 @@ dmaPCreate (name, size, c, incr)
   if (pPart != NULL)
     {
       dmalistInit (&(pPart->list));
-      pPart->size = size + sizeof(DMANODE);
+
+      /* Increase size by 2KB (0x800) to allow extra space for DMA Flush */
+      size += 0x800;
+
+      /* Check if the size needs to be increased to put the partition on 
+	 an 8 byte boundary */
+      if((size + sizeof(DMANODE))%8 != 0) 
+	size_incr = 8-(size + sizeof(DMANODE))%8;
+
+      pPart->size = size + sizeof(DMANODE) + size_incr;
       pPart->incr = 0; 
       pPart->total = 0;
 #ifndef VXWORKS
@@ -136,11 +206,13 @@ dmaPCreate (name, size, c, incr)
   return pPart;
 }
 
-/************************************************************** 
- * dmaPFindByName - returns a pointer to a memory part
- *                  with the passed Name.
- */
- 
+/*!
+  Routine to find a memory partition based on its name
+
+  @param *name Name of the partition to find
+
+  @return Pointer to found memory partition, if successful. 
+*/
 DMA_MEM_ID 
 dmaPFindByName (char *name)
 {
@@ -157,11 +229,12 @@ dmaPFindByName (char *name)
 }
 
 
-/************************************************************** 
- * dmaPFree - frees all nodes for a given memory part
- *               and removes part from global part list. 
- */
+/*!
+  Frees all nodes for a given memory part and removes part from global
+  part list.
 
+  @param pPart Memory parition
+*/
 void 
 dmaPFree(DMA_MEM_ID pPart)
 {
@@ -209,10 +282,13 @@ dmaPFree(DMA_MEM_ID pPart)
 	  printf("the_node->dmaHdl : 0x%x\n",
 		 (unsigned int)the_node->dmaHdl );
 #endif
-	  status = gefVmeFreeDmaBuf(the_node->dmaHdl );
-	  if(status != GEF_STATUS_SUCCESS) 
+	  if(!useSlaveWindow)
 	    {
-	      printf("dmaPFree: gefVmeFreeDmaBuf returned 0x%x (%d)\n",status,status&0xff);
+	      status = gefVmeFreeDmaBuf(the_node->dmaHdl );
+	      if(status != GEF_STATUS_SUCCESS) 
+		{
+		  printf("dmaPFree: gefVmeFreeDmaBuf returned 0x%x (%d)\n",status,status&0xff);
+		}
 	    }
 	}
 #endif
@@ -233,11 +309,10 @@ dmaPFree(DMA_MEM_ID pPart)
 }
 
 
-/************************************************************** 
- * dmaPFreeAll - frees all memory parts in global part list
- *               and frees all nodes for a given list. 
- */
-
+/*!  
+  Frees all memory parts in global part list and frees all nodes for a
+  given list.
+*/
 void 
 dmaPFreeAll()
 {
@@ -256,15 +331,17 @@ dmaPFreeAll()
 
 
 
-/************************************************************** 
- * partIncr - increase part size by c items (min) 
- */
+/*!
+  Routine to increase a partition size.
 
+  @param pPart Memory parition to increase
+  @param c     Minimum number of items to add.
+
+  @return Number of items added, if successful, -1, otherwise.
+*/
 int 
 dmaPIncr ( DMA_MEM_ID pPart, int c)
 {
-  /*      DMA_MEM_ID pPart      	partition to be enlarged */
-  /*      int  c		        min # of items to be added */
 
   register char *node;
   register long *block;
@@ -274,6 +351,7 @@ dmaPIncr ( DMA_MEM_ID pPart, int c)
   GEF_STATUS status;
   GEF_MAP_PTR mapPtr;
   GEF_VME_DMA_HDL dma_hdl;
+  long physMemBase=0;
 
   pPart->total += c;
 
@@ -334,6 +412,14 @@ dmaPIncr ( DMA_MEM_ID pPart, int c)
 #else
   if(LINUX_MAX_PARTSIZE <= total_bytes)
     {
+      if(useSlaveWindow)
+	{
+	  printf("%s: ERROR:  Unable to create memory partition for Slave Window.\n",
+		 __FUNCTION__);
+	  printf("  Requested partition size (%d) is larger than max allowed (%d)\n",
+		 total_bytes,LINUX_MAX_PARTSIZE);
+	  return ERROR;
+	}
       printf("%s: Creating a fragmented memory partition.\n",__FUNCTION__);
       if(LINUX_MAX_PARTSIZE < pPart->size)
 	{
@@ -375,20 +461,32 @@ dmaPIncr ( DMA_MEM_ID pPart, int c)
     }
   else /* Single memory block for data */
     {
-      status = gefVmeAllocDmaBuf (vmeHdl,total_bytes,	
-				  &dma_hdl,&mapPtr);
-      if(status != GEF_STATUS_SUCCESS) 
+      if(useSlaveWindow)
 	{
-	  printf("dmaPIncr: ERROR.  gefVmeAllocDmaBuf returned 0x%x\n",status);
-	  printf("          total_bytes requested = %d\n",total_bytes);
-	  return -1;
+	  dma_hdl=NULL;
+	  block = (long *)a32slave_window;
+	  physMemBase = a32slave_physmembase;
 	}
-      block = (long *) mapPtr;
+      else
+	{
+	  status = gefVmeAllocDmaBuf (vmeHdl,total_bytes,	
+				      &dma_hdl,&mapPtr);
+	  if(status != GEF_STATUS_SUCCESS) 
+	    {
+	      printf("dmaPIncr: ERROR.  gefVmeAllocDmaBuf returned 0x%x\n",status);
+	      printf("          total_bytes requested = %d\n",total_bytes);
+	      return -1;
+	    }
+	  block = (long *) mapPtr;
+	  physMemBase = dmaHdl_to_PhysAddr(dma_hdl);
 #ifdef DEBUG
-      printf("block = 0x%x\t dma_hdl = 0x%x\n",block,dma_hdl);
+	  printf("block = 0x%x\t dma_hdl = 0x%x\n",block,dma_hdl);
 #endif
+	}
       if (block == NULL) 
 	{
+	  printf("%s: ERROR: Memory Allocator returned NULL\n",
+		 __FUNCTION__);
 	  return (-1);
 	}
   
@@ -403,7 +501,7 @@ dmaPIncr ( DMA_MEM_ID pPart, int c)
 	  ((DMANODE *)node)->part = pPart; /* remember where we came from... */
 	  ((DMANODE *)node)->dmaHdl = dma_hdl;
 	  ((DMANODE *)node)->partBaseAdr = (pPart->part[0]);
-	  ((DMANODE *)node)->physMemBase = dmaHdl_to_PhysAddr(dma_hdl);
+	  ((DMANODE *)node)->physMemBase = physMemBase;
 	  dmalistAdd (&pPart->list,(DMANODE *)node);
 	  node += pPart->size;
 	}
@@ -426,6 +524,11 @@ dmaPIncr ( DMA_MEM_ID pPart, int c)
  *
  */
 
+/*!
+  Free a buffer(node) back to its owner partition
+
+  @param *pItem Buffer(node) to free
+*/
 void 
 dmaPFreeItem(DMANODE *pItem) 
 {
@@ -442,6 +545,11 @@ dmaPFreeItem(DMANODE *pItem)
 #ifdef VXWORKS
       cacheDmaFree(pItem); pItem = 0;
 #else
+      if(useSlaveWindow)
+	{
+	  printf("%s: I dont think I should be here... useSlaveWindow==%d",
+		 __FUNCTION__,useSlaveWindow);
+	}
       status = gefVmeFreeDmaBuf(pItem->dmaHdl);
       if(status != GEF_STATUS_SUCCESS) 
 	{
@@ -465,12 +573,48 @@ dmaPFreeItem(DMANODE *pItem)
   PARTUNLOCK;
 }
 
+/*!
+  Check if a Partition has available nodes
+
+  @param pPart Partition to check
+
+  @return 1 if empty, otherwise 0.
+*/
 int
 dmaPEmpty(DMA_MEM_ID pPart) 
 {
-  return((pPart->list.c == 0));
+  int rval;
+  PARTLOCK;
+  rval = (pPart->list.c == 0);
+  PARTUNLOCK;
+  return rval;
 }
 
+/*!
+  Return the number of available nodes in specified Partition
+
+  @param pPart Partition to check
+
+  @return Number of nodes available.
+*/
+int
+dmaPNodeCount(DMA_MEM_ID pPart) 
+{
+  int rval;
+  PARTLOCK;
+  rval = pPart->list.c;
+  PARTUNLOCK;
+  return rval;
+}
+
+
+/*!
+  Get (reserve) the first available node from a parititon
+
+  @param pPart Partition to obtain a node
+
+  @return First available node, if successful. 0, otherwise.
+*/
 DMANODE *
 dmaPGetItem(DMA_MEM_ID pPart) 
 {
@@ -495,6 +639,12 @@ dmaPGetItem(DMA_MEM_ID pPart)
   return(theNode);
 }
 
+/*!
+  Add node to a specified partition's list
+
+  @param pPart  Partition to add to
+  @param *pItem Item to add to partition's list
+*/
 void
 dmaPAddItem(DMA_MEM_ID pPart, DMANODE *pItem) 
 {
@@ -513,17 +663,20 @@ dmaPAddItem(DMA_MEM_ID pPart, DMANODE *pItem)
 
 
 
-/************************************************************** 
- * dmaPReInit - Initiialize an existing partition 
- */
+/*!
+  Initialize an existing partition 
 
+  @param pPart Parition to initialize
+
+  @return 0, if successful.  -1, otherwise.
+*/
 int 
 dmaPReInit (DMA_MEM_ID pPart)
 {
   register char *node;
   register DMANODE *theNode;
   int actual;
-  int oldPhysMemBase=0;
+  long oldPhysMemBase=0;
   unsigned long oldPartBaseAdr=0;
 #ifndef VXWORKS
   GEF_VME_DMA_HDL oldPartDMAHdl,oldNodeDMAHdl;
@@ -587,6 +740,11 @@ dmaPReInit (DMA_MEM_ID pPart)
   return 0;
 }
 
+/*!
+  Initialize all existing memory partitions
+
+  @return 0
+*/
 int 
 dmaPReInitAll()
 {
@@ -627,7 +785,7 @@ dmaPPrint (pPart)
 {
   int freen;
 
-  printf("0x%08x  ",(unsigned int)pPart);
+  printf("0x%lx  ",(unsigned long)pPart);
 
   if (pPart != NULL)
     {
@@ -645,10 +803,13 @@ dmaPPrint (pPart)
 }
 
 
-/**************************************************************** 
- * dmaPStats - print statistics on a memory part 
- */
+/*!
+  Print statistics on a memory part 
 
+  @param pPart Memory paritition
+
+  @return 0
+*/
 int 
 dmaPStats (pPart)
      DMA_MEM_ID	pPart;
@@ -660,17 +821,9 @@ dmaPStats (pPart)
 }
 
 
-/****************************************************************
- *
- * dmaPStatsAll - print statistics on all parts
- *
- * Print int for all memory parts.
- *
- * int includes the total number of items in the part, the
- * number that are in-use and free, the size of a single item,
- * and the total kilobytes of raw memory allocated.
- */
-
+/*!
+  Print statistics on all partitions
+*/
 int 
 dmaPStatsAll ()
 {
@@ -696,27 +849,31 @@ dmaPStatsAll ()
 }
 
 
-/****************************************************************
- * dmaPPrintList - prints statisics for a given list structure
- */
+/*!
+  Prints statistics for a given list structure
+
+  @param *admalist List of nodes
+
+  @return 0
+*/
 int 
 dmaPPrintList(admalist)
      DMALIST *admalist;
 {
   DMANODE *theNode;
 
-  printf("dalist->f         %x\n",(unsigned int)admalist->f);
-  printf("dalist->l         %x\n",(unsigned int)admalist->l);
-  printf("dalist->c         %d\n",(unsigned int)admalist->c);
+  printf("dalist->f         %x\n",(unsigned long)admalist->f);
+  printf("dalist->l         %x\n",(unsigned long)admalist->l);
+  printf("dalist->c         %d\n",(unsigned long)admalist->c);
 
   theNode = dmalistFirst(admalist);
   while (theNode) 
     {
       printf ("part %x prev %x self %x next %x left %d fd %d\n",
-	      (unsigned int)theNode->part,
-	      (unsigned int)theNode->p,
-	      (unsigned int)theNode,
-	      (unsigned int)theNode->n,
+	      (unsigned long)theNode->part,
+	      (unsigned long)theNode->p,
+	      (unsigned long)theNode,
+	      (unsigned long)theNode->n,
 	      (int)theNode->left,
 	      theNode->fd);
       theNode = dmalistNext(theNode);

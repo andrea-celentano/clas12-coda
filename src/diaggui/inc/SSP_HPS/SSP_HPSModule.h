@@ -206,6 +206,36 @@ public:
 					{"Emax",						REGMEM_DESC_FLAGS_UINT,		{0x081C, 0, 13, 32}},
 					{"Nmin_en",					REGMEM_DESC_FLAGS_UINT,		{0x0800, 2, 1, 32}},
 					{"Nmin",						REGMEM_DESC_FLAGS_UINT,		{0x0820, 0, 4, 32}},
+
+
+					{"Prescale0_Val",			REGMEM_DESC_FLAGS_UINT,		{0x0830, 0, 16, 32}},
+					{"Prescale0_MinX",		REGMEM_DESC_FLAGS_INT,		{0x0830, 16, 6, 32}},
+					{"Prescale0_MaxX",		REGMEM_DESC_FLAGS_INT,		{0x0830, 24, 6, 32}},
+
+					{"Prescale1_Val",			REGMEM_DESC_FLAGS_UINT,		{0x0834, 0, 16, 32}},
+					{"Prescale1_MinX",		REGMEM_DESC_FLAGS_INT,		{0x0834, 16, 6, 32}},
+					{"Prescale1_MaxX",		REGMEM_DESC_FLAGS_INT,		{0x0834, 24, 6, 32}},
+
+					{"Prescale2_Val",			REGMEM_DESC_FLAGS_UINT,		{0x0838, 0, 16, 32}},
+					{"Prescale2_MinX",		REGMEM_DESC_FLAGS_INT,		{0x0838, 16, 6, 32}},
+					{"Prescale2_MaxX",		REGMEM_DESC_FLAGS_INT,		{0x0838, 24, 6, 32}},
+
+					{"Prescale3_Val",			REGMEM_DESC_FLAGS_UINT,		{0x083C, 0, 16, 32}},
+					{"Prescale3_MinX",		REGMEM_DESC_FLAGS_INT,		{0x083C, 16, 6, 32}},
+					{"Prescale3_MaxX",		REGMEM_DESC_FLAGS_INT,		{0x083C, 24, 6, 32}},
+
+					{"Prescale4_Val",			REGMEM_DESC_FLAGS_UINT,		{0x0840, 0, 16, 32}},
+					{"Prescale4_MinX",		REGMEM_DESC_FLAGS_INT,		{0x0840, 16, 6, 32}},
+					{"Prescale4_MaxX",		REGMEM_DESC_FLAGS_INT,		{0x0840, 24, 6, 32}},
+
+					{"Prescale5_Val",			REGMEM_DESC_FLAGS_UINT,		{0x0844, 0, 16, 32}},
+					{"Prescale5_MinX",		REGMEM_DESC_FLAGS_INT,		{0x0844, 16, 6, 32}},
+					{"Prescale5_MaxX",		REGMEM_DESC_FLAGS_INT,		{0x0844, 24, 6, 32}},
+
+					{"Prescale6_Val",			REGMEM_DESC_FLAGS_UINT,		{0x0848, 0, 16, 32}},
+					{"Prescale6_MinX",		REGMEM_DESC_FLAGS_INT,		{0x0848, 16, 6, 32}},
+					{"Prescale6_MaxX",		REGMEM_DESC_FLAGS_INT,		{0x0848, 24, 6, 32}},
+
 					{"ScalerSinglePass",		REGMEM_DESC_FLAGS_UINT,		{0x0880, 0, 32, 32}},
 					{"ScalerSingleTot",		REGMEM_DESC_FLAGS_UINT,		{0x0884, 0, 32, 32}},
 				{NULL, 0},

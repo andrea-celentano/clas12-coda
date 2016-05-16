@@ -4,13 +4,13 @@
 #ifndef _ROLDEFINED
 #define _ROLDEFINED
 
+#include <stdint.h>
+
 #define EIEIO    __asm__ volatile ("eieio")
 #define SYNC     __asm__ volatile ("sync")
 
-#ifndef VXWORKS
 #define logMsg printf
 typedef struct semaphore *SEM_ID;
-#endif
 
 
 static void __download ();
@@ -21,7 +21,7 @@ static void __go ();
 static void __done ();
 static void __status ();
 
-static int theIntHandler ();
+static int32_t theIntHandler ();
 
 
 /*************************************************************************************/
@@ -32,22 +32,18 @@ static int theIntHandler ();
 
 #define maximum(a,b) (a<b ? b : a)
 
-#ifndef VXWORKS
 typedef void (*VOIDFUNCPTR) ();
-typedef int (*FUNCPTR) ();
-typedef void (*VOIDFUNCPTR1) (unsigned int);
-typedef int (*FUNCPTR1) (unsigned int, unsigned int);
-typedef int (*FUNCPTR2) (unsigned int);
-typedef int (*FUNCPTR3) ();
-typedef int (*FUNCPTR4) (unsigned int);
-#endif
+typedef int32_t (*FUNCPTR) ();
+typedef void (*VOIDFUNCPTR1) (uint32_t);
+typedef int32_t (*FUNCPTR1) (uint32_t, uint32_t);
+typedef int32_t (*FUNCPTR2) (uint32_t);
+typedef int32_t (*FUNCPTR3) ();
+typedef int32_t (*FUNCPTR4) (uint32_t);
 
-
-#ifndef VXWORKS
 #include <unistd.h>
 #include <pthread.h>
 #include <time.h>
-#endif
+
 
 
 /******************************************************************************/
@@ -62,18 +58,13 @@ typedef int (*FUNCPTR4) (unsigned int);
 extern ROLPARAMS rolP;
 static rolParam rol;
 
-#ifdef VXWORKSPPC
-extern int cacheInvalidate();
-extern int cacheFlush();
-#endif
-
-static int syncFlag;
-static int lateFail;
+static int32_t syncFlag;
+static int32_t lateFail;
 
 /* Event type source */
-static int EVENT_type;
-static int *StartOfEvent;
-static int *StartOfBank;
+static int32_t EVENT_type;
+static int32_t *StartOfEvent;
+static int32_t *StartOfBank;
 
 
 /* Macros */
@@ -98,18 +89,18 @@ static int event_number;
 #define MAXBANKS 10
 
 #define CPINIT \
-  unsigned int *dataout_save1; \
-  unsigned int *dataout_save2; \
+  uint32_t *dataout_save1; \
+  uint32_t *dataout_save2; \
   unsigned char *b08; \
   unsigned short *b16; \
-  unsigned int *b32; \
+  uint32_t *b32; \
   unsigned long long *b64; \
-  int lenin = *(rol->dabufpi) - 1;	\
-  int lenout = 2;  /* start from 3rd word, leaving first two for bank-of-banks header */ \
-  int lenev; \
-  unsigned int *datain = (unsigned int *)((rol->dabufpi)+2); \
-  unsigned int *dataout = (unsigned int *)((rol->dabufp)+2); \
-  unsigned int *header = (unsigned int *)(rol->dabufp); \
+  int32_t lenin = *(rol->dabufpi) - 1;	\
+  int32_t lenout = 2;  /* start from 3rd word, leaving first two for bank-of-banks header */ \
+  int32_t lenev; \
+  uint32_t *datain = (uint32_t *)((rol->dabufpi)+2); \
+  uint32_t *dataout = (uint32_t *)((rol->dabufp)+2); \
+  uint32_t *header = (uint32_t *)(rol->dabufp); \
 
 #define CPOPEN(btag,btyp,bnum) \
 { \
@@ -120,23 +111,28 @@ static int event_number;
 
 #define CPCLOSE \
 { \
-  unsigned int padding; \
-  /*printf("CPCLOSE: dataout before = 0x%x\n",dataout);*/		 \
-  dataout = (unsigned int *) ( ( ((unsigned int)b08+3)/4 ) * 4); \
-  padding = (unsigned int)dataout - (unsigned int)b08; \
+  uint32_t padding; \
+  /*printf("CPCLOSE: dataout before = 0x%016x, b08=0x%016x (0x%016x)\n",dataout,b08,(uint64_t)b08);*/ \
+  dataout = (uint32_t *) ( ( ((uint64_t)b08+3)/4 ) * 4); \
+  padding = (uint64_t)dataout - (uint64_t)b08; \
   dataout_save1[1] |= (padding&0x3)<<14; /*update bank header (2nd word) with padding info*/ \
-  /*printf("CPCLOSE: 0x%x %d --- 0x%x %d --> padding %d\n",dataout,dataout,b08,b08,((dataout_save1[1])>>14)&0x3); */ \
-  *dataout_save1 = (dataout-dataout_save1-1); /*write bank length*/ \
-  /*printf("CPCLOSE: *dataout_save1 = %d\n",*dataout_save1);*/		\
+  /*printf("CPCLOSE: 0x%016x(%d) --- 0x%016x(%d) --> padding %d\n",dataout,dataout,b08,b08,((dataout_save1[1])>>14)&0x3);*/ \
+  *dataout_save1 = ((uint64_t)dataout-(uint64_t)dataout_save1)/4 - 1; /*write bank length in 32bit words*/ \
+  /*printf("CPCLOSE: *dataout_save1 = 0x%016x (0x%016x 0x%016x)\n",*dataout_save1,dataout,dataout_save1);*/ \
   lenout += (*dataout_save1+1); \
   lenev += (*dataout_save1+1); \
   b08 = NULL; \
 }
 
 #define CPEXIT \
+  /*printf("CPEXIT lenout=%d\n",lenout);fflush(stdout);*/	\
   header[0] = lenout - 1; \
+  /*printf("CPEXIT 1\n");fflush(stdout);*/	\
   header[1] = rol->dabufpi[1]; \
-  rol->dabufp[lenout] = 1 /*for compatibility with new ROC2; will be redefined to the actual number events in block*/
+  /*printf("CPEXIT 2\n");fflush(stdout);*/	\
+  rol->dabufp[lenout] = 1; /*it is here just for compatibility with new ROC2; will be redefined to the actual number of events in block*/ \
+  /*printf("CPEXIT 3\n");fflush(stdout);*/
+
 
 
 
@@ -150,14 +146,14 @@ and extract info about banks found; to be used in ROL2 */ \
   unsigned int banknw[MAXBANKS]; \
   unsigned int banktyp[MAXBANKS]; \
   unsigned int bankpad[MAXBANKS]; \
-  unsigned int *bankdata[MAXBANKS]
+  uint32_t *bankdata[MAXBANKS]
 
 #define BANKSCAN \
   { \
     int nw, jj;	\
-    unsigned int *ptr, *ptrend; \
+    uint32_t *ptr, *ptrend; \
     nbanks = 0; \
-    ptr = (unsigned int *)((rol->dabufpi));	\
+    ptr = (uint32_t *)((rol->dabufpi));	\
 	ptrend = ptr + *(rol->dabufpi); \
     ptr +=2; /*skip bank-of-banks header*/ \
 	/*printf("BANKSCAN: tag=%d typ=%d num=%d\n",((*(ptr-1))>>16)&0xFF,((*(ptr-1))>>8)&0xFF,(*(ptr-1))&0xFF);*/ \
@@ -196,33 +192,21 @@ and extract info about banks found; to be used in ROL2 */ \
 extern BIGBUF *gbigDMA;
 
 extern int object_nlongs;
-extern long clear_to_send;
+extern int clear_to_send;
 extern int last_event_check;
-extern unsigned int *dabufp;
+extern uint32_t *dabufp;
 extern unsigned int dataInBuf;
-extern unsigned long g_events_in_buffer;
+extern unsigned int g_events_in_buffer;
 extern int tsendBufSize;
 extern int rocp_primefd;
 extern int rocp_recNb;
 extern int this_roc_id;
 extern int token_interval;
-#ifdef VXWORKS
-extern int timeout;
-#else
 extern /*time_t*/hrtime_t timeout;
-#endif
-#ifdef VXWORKS
-extern long vxTicks;
-#endif
-#ifdef VXWORKS
-extern SEM_ID sendbuffer_lock;
-#define SENDBUFFER_LOCK semTake(sendbuffer_lock, WAIT_FOREVER)
-#define SENDBUFFER_UNLOCK semGive(sendbuffer_lock)
-#else
+
 extern pthread_mutex_t sendbuffer_lock;
 #define SENDBUFFER_LOCK pthread_mutex_lock(&sendbuffer_lock)
 #define SENDBUFFER_UNLOCK pthread_mutex_unlock(&sendbuffer_lock)
-#endif
 
 /* - cbopen ---------------------------------------------------------- 
    crl	: open bank <bank_name> of <bank_type>
@@ -244,7 +228,7 @@ extern pthread_mutex_t sendbuffer_lock;
 #define CEOPEN(bnum, btype) \
 { \
 dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise following loop will think there is an event */ \
-  StartOfEvent = rol->dabufp = (int *)dabufp; \
+  StartOfEvent = rol->dabufp = (int32_t *)dabufp; \
   *(++(rol->dabufp)) = (syncFlag<<24) | ((bnum) << 16) | ((btype##_ty) << 8) | ( (*(rol->nevents)) & 0xff); \
   /*printf("CEOPEN: tag=%d typ=%d num=%d\n",((*(rol->dabufp))>>16)&0xFF,((*(rol->dabufp))>>8)&0xFF,(*(rol->dabufp))&0xFF);*/ \
   ((rol->dabufp))++; \
@@ -281,7 +265,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
   /* align pointer to the 64/128 bits - do we need it now ??? */ \
   if((*StartOfEvent & 1) != 0) \
   { \
-    (rol->dabufp) = ((int *)((char *) (rol->dabufp))+1); \
+    (rol->dabufp) = ((int32_t *)((char *) (rol->dabufp))+1); \
     *StartOfEvent += 1; \
   /*printf("CECLOSE: 2: dabufp[0]=%d\n",dabufp[0]);*/					\
   } \
@@ -289,7 +273,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
   { \
     *StartOfEvent = *StartOfEvent + 2; \
   /*printf("CECLOSE: 3: dabufp[0]=%d\n",dabufp[0]);*/					\
-    (rol->dabufp) = ((int *)((short *) (rol->dabufp))+1); \
+    (rol->dabufp) = ((int32_t *)((short *) (rol->dabufp))+1); \
   } \
   /*if(this_roc_id==39&&dabufp[0]!=8536) printf("CECLOSE: 4: dabufp[0]=%d\n",dabufp[0]);*/					\
   *StartOfEvent = ( (*StartOfEvent) >> 2) - 1; \
@@ -343,7 +327,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 	/* check if big buffer is full */ \
     if(dataInBuf > (tsendBufSize - SEND_BUF_MARGIN)) \
     { \
-	  /*printf("clear_to_send 1\n");*/			\
+	  /*printf("clear_to_send 1: dataInBuf=%d tsendBufSize=%d SEND_BUF_MARGIN=%d\n",dataInBuf,tsendBufSize,SEND_BUF_MARGIN);*/ \
       clear_to_send = 1; \
     } \
 	/* \
@@ -471,7 +455,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 { \
   unsigned int padding; \
   /*printf("CPCLOSE: dataout before = 0x%x\n",dataout);*/		 \
-  dataout = (unsigned int *) ( ( ((unsigned int)b08+3)/4 ) * 4); \
+  dataout = (uint32_t *) ( ( ((unsigned int)b08+3)/4 ) * 4); \
   padding = (unsigned int)dataout - (unsigned int)b08; \
   dataout_save1[1] |= (padding&0x3)<<14; /*update bank header (2nd word) with padding info*/ \
   /*printf("CPCLOSE: 0x%x %d --- 0x%x %d --> padding %d\n",dataout,dataout,b08,b08,((dataout_save1[1])>>14)&0x3); */ \
@@ -484,22 +468,6 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 
 
 
-
-#ifdef VXWORKS
-
-#define SET_TIMEOUT \
-    if(*(rol->nevents) < 10)						\
-    { \
-      /*logMsg("ROL TIMEOUT 1\n");*/ \
-      timeout = vxTicks + sysClkRateGet()/* /6 */; /*1 sec */ \
-    } \
-    else \
-    { \
-      /*logMsg("ROL TIMEOUT 2\n");*/ \
-      timeout = vxTicks + token_interval; \
-    }
-
-#else
 
 
 #define SET_TIMEOUT \
@@ -524,14 +492,13 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     }
 */
 
-#endif
 
 #define SEND_BUFFER_ \
   /*SENDING big buffer*/ \
   SENDBUFFER_LOCK; \
-  if(clear_to_send && (rocp_primefd>=0)) \
+  if((clear_to_send==1) && (rocp_primefd>=0))	\
   { \
-	/*printf("clear_to_send ===\n");*/					\
+	/*printf("ROL1: clear_to_send = %d === \n",clear_to_send);*/	\
     /*logMsg("SEND_BUFFER_ROL1 (0x%08x)\n",dabufp);*/	\
     /*setHeartBeat(HB_ROL,14,5);*/ \
     /* send current output buffer */ \
@@ -631,22 +598,12 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 static unsigned char dispatch_busy; 
 static int poolEmpty;
 
-#ifdef VXWORKS
-static int intLockKey;
-
-static FUNCPTR trigRtns;
-static FUNCPTR syncTRtns;
-static FUNCPTR doneRtns;
-static FUNCPTR ttypeRtns;
-
-#else
 
 static FUNCPTR1 trigRtns;
 static FUNCPTR2 syncTRtns;
 static FUNCPTR3 doneRtns;
 static FUNCPTR4 ttypeRtns;
 
-#endif
 
 static unsigned int Tcode;
 
@@ -665,42 +622,6 @@ static unsigned int Tcode;
 }
 
 
-#ifdef VXWORKS
-
-/* Register an async trigger source */
-
-#define CTRIGRSA(source,code,handler,done) \
-{ \
-  void handler(); \
-  void done(); \
-  trigRtns  = (FUNCPTR) (handler) ; \
-  doneRtns  = (FUNCPTR) (done) ; \
-  Tcode     = (code); /*TIR_SOURCE or TS_SOURCE*/ \
-  ttypeRtns = (FUNCPTR) source##_TTYPE ; \
-  source##_ASYNC(code); \
-  logMsg("CTRIGRSA: set handler and done, code=%d\n",code,2,3,4,5,6);	\
-  logMsg("CTRIGRSA: 0x%08x 0x%08x 0x%08x 0x%08x\n", \
-		 (int)doneRtns,(int)trigRtns,Tcode,(int)ttypeRtns,5,6); \
-}
-
-/* Register an sync trigger source */
-
-#define CTRIGRSS(source,code,handler,done) \
-{ \
-  void handler(); \
-  void done(); \
-  trigRtns  = (FUNCPTR) (handler) ; \
-  doneRtns  = (FUNCPTR) (done) ; \
-  syncTRtns = (FUNCPTR) source##_TEST ; \
-  Tcode     = (code) ; \
-  ttypeRtns = (FUNCPTR) source##_TTYPE ; \
-  source##_SYNC(code); \
-  logMsg("CTRIGRSS: set handler and done, code=%d\n",code,2,3,4,5,6);	\
-  logMsg("CTRIGRSS: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n", \
-		 (int)doneRtns,(int)trigRtns,(int)syncTRtns,Tcode,(int)ttypeRtns,6); \
-}
-
-#else
 
 #define CTRIGRSA(source,code,handler,done) \
 { \
@@ -711,7 +632,7 @@ static unsigned int Tcode;
   source##_ASYNC(code); \
   logMsg("CTRIGRSA: set handler and done, code=%d\n",code,2,3,4,5,6);	\
   logMsg("CTRIGRSA: 0x%08x 0x%08x 0x%08x 0x%08x\n", \
-		(int)doneRtns,(int)trigRtns,Tcode,(int)ttypeRtns,5,6);	   \
+		(uint64_t)doneRtns,(uint64_t)trigRtns,Tcode,(uint64_t)ttypeRtns,5,6);	   \
 }
 
 #define CTRIGRSS(source,code,handler,done) \
@@ -724,28 +645,17 @@ static unsigned int Tcode;
   source##_SYNC(code); \
   logMsg("CTRIGRSS_##source: set handler and done, code=%d\n",code,2,3,4,5,6); \
   logMsg("CTRIGRSS_##source: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n", \
-		(int)doneRtns,(int)trigRtns,(int)syncTRtns,Tcode,(int)ttypeRtns,6);			   \
+		(uint64_t)doneRtns,(uint64_t)trigRtns,(uint64_t)syncTRtns,Tcode,(uint64_t)ttypeRtns,6);			   \
 }
 
-#endif
 
 
-#ifdef VXWORKS
-#define LOCKINTS intLockKey = intLock();
-#define UNLOCKINTS intUnlock(intLockKey);
-#else
 #define LOCKINTS
 #define UNLOCKINTS
-#endif
 
 #define CDOPOLL {cdopolldispatch();}
 
-/*to do: make vxworks as unix */
-#ifdef VXWORKS
-#define CDOINIT(source) source##_INIT
-#else
 #define CDOINIT(source,code) source##_INIT(code)
-#endif
 
 #define CDOENABLE(source,code,val) source##_ENA(code,val)
 #define CDODISABLE(source,code,val) source##_DIS(code,val)
@@ -805,6 +715,18 @@ theIntHandler(int theSource)
 
 /* polling handler: if running in polling mode, called instead of interrupt
    handler */
+static unsigned int tdisp1=0;
+static unsigned int tdisp2=0;
+static unsigned int tdisp3=0;
+static unsigned int tdisp4=0;
+static unsigned int tdisp5=0;
+static unsigned int tdisp6=0;
+
+void
+tdispprint()
+{
+  printf("tdisp = %u %u %u %u %u %u\n",tdisp1,tdisp2,tdisp3,tdisp4,tdisp5,tdisp6);
+}
 
 static int
 cdopolldispatch()
@@ -818,15 +740,21 @@ cdopolldispatch()
 
 #else
 
+  tdisp1++;
   if(!poolEmpty)
   {
+  tdisp2++;
     if(syncTRtns) /*for VME_source.h it is vmettest*/
     {
+  tdisp3++;
       if(stat=(*syncTRtns)(Tcode))/*mostly returns 0; if returns 1 - call trigger routine*/
       {
+  tdisp4++;
         LOCKINTS;
+  tdisp5++;
         if(!dispatch_busy)
         {
+  tdisp6++;
           theType = (*ttypeRtns)(Tcode);  
           cdodispatch(theType);
         }
@@ -866,8 +794,9 @@ extern "C"
 /*static-error in dlsym*/ void
 INIT_NAME(rolParam rolp)
 {
-  /*printf("INIT_NAME: rolp->daproc=%d\n",rolp->daproc);*/
-
+  /*
+  printf("INIT_NAME: rolp->daproc=%d\n",rolp->daproc);fflush(stdout);
+  */
   if( (rolp->daproc != DA_DONE_PROC) && (rolp->daproc != DA_POLL_PROC) )
   {
     logMsg("INIT_NAME: INFO: rolp->daproc = %d\n",rolp->daproc,2,3,4,5,6);
@@ -882,12 +811,12 @@ INIT_NAME(rolParam rolp)
 	  rolp->inited = 1;
 	  strcpy(rol_name__, ROL_NAME__);
 	  rolp->listName = rol_name__;
-	  printf("INIT_NAME: Initializing new rol structures for %s\n",(int)rol_name__);
+	  printf("INIT_NAME: Initializing new rol structures for >%s<\n",rol_name__);fflush(stdout);
 	  printf("INIT_NAME: MAX_EVENT_LENGTH = %d bytes, MAX_EVENT_POOL = %d\n",
-			MAX_EVENT_LENGTH, MAX_EVENT_POOL);
+			MAX_EVENT_LENGTH, MAX_EVENT_POOL);fflush(stdout);
 	  strcpy(name, rolp->listName);
 	  strcat(name, ":pool");
-      printf("INIT_NAME: name >%s<\n",name);
+      printf("INIT_NAME: name >%s<\n",name);fflush(stdout);
 
 	  rolp->inited = 1;
 	  printf("Init - Done\n");
@@ -910,6 +839,12 @@ INIT_NAME(rolParam rolp)
 	  __end();
 	  break;
     case DA_GO_PROC:
+tdisp1=0;
+tdisp2=0;
+tdisp3=0;
+tdisp4=0;
+tdisp5=0;
+tdisp6=0;
 	  __go();
 	  break;
     case DA_POLL_PROC:

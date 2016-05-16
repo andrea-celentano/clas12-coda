@@ -21,13 +21,16 @@
 #define __JLABGEFDMA__
 
 int  jlabgefDmaConfig(unsigned int addrType, unsigned int dataType, unsigned int sstMode);
-int  jlabgefDmaSend(unsigned int locAdrs, unsigned int vmeAdrs, int size);
+int  jlabgefDmaSend(unsigned long locAdrs, unsigned int vmeAdrs, int size);
+int  jlabgefDmaSendPhys(unsigned long physAdrs, unsigned int vmeAdrs, int size);
 int  jlabgefDmaDone();
 int  jlabgefDmaAllocLLBuffer();
 int  jlabgefDmaFreeLLBuffer();
-void jlabgefDmaSetupLL(unsigned int locAddrBase,unsigned int *vmeAddr,
+void jlabgefDmaSetupLL(unsigned long locAddrBase,unsigned int *vmeAddr,
 		       unsigned int *dmaSize,unsigned int numt);
 void jlabgefDmaSendLL();
+unsigned int jlabgefDmaLocalToPhysAdrs(unsigned int locAdrs);
+unsigned int jlabgefDmaLocalToVmeAdrs(unsigned int locAdrs);
 void jlabgefReadDMARegs();
 
 #endif /* __JLABGEFDMA__ */

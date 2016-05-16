@@ -1,4 +1,4 @@
-#!/usr/bin/csh
+#!/bin/csh
 
 #  run_go_end.csh
 
@@ -10,10 +10,10 @@
 
 
 #  smartsockets broadcast
-rc_transition -a clasprod -d run_control -file    go  >& /dev/null &
+rc_transition -a clasrun -d run_control -file    go  >& /dev/null &
 
 # set trigger configuration file for go
-download_trig_config -mode go -nogui
+#############################download_trig_config -mode go -nogui
 
 #  done
 exit(0)

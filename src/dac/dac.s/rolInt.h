@@ -2,32 +2,34 @@
 /* Readout list parameters */
 /* default values all zero, cleaned up in roc_component.c in Download */
 
+#include <stdint.h>
+
 typedef struct rolParameters *rolParam;     
 typedef struct rolParameters
 {
   char          *name;	           /* name of parent process */
   char           tclName[20];	   /* Tcl name of this list */ 
   char          *listName;	       /* name of this list */
-  int            runType;	       /* run type */
-  int            runNumber;	       /* run number */
+  int32_t        runType;	       /* run type */
+  int32_t        runNumber;	       /* run number */
   VOIDFUNCPTR    rol_code;	       /* init procedure */
-  int            daproc;	       /* list of function pointers */
+  int32_t        daproc;	       /* list of function pointers */
   void          *id;		       /* ID of storage used during load */
-  int            nounload;	       /* if !=0 module can't be unloaded */
-  int            inited;	       /* we have been initialised */
-  int           *dabufp;	       /* output  write pointer */
-  int           *dabufpi;	       /* input   read  pointer */
+  int32_t        nounload;	       /* if !=0 module can't be unloaded */
+  int32_t        inited;	       /* we have been initialised */
+  int32_t       *dabufp;	       /* output  write pointer */
+  int32_t       *dabufpi;	       /* input   read  pointer */
 
-  unsigned int   recNb;	           /* count of output buffers processed */
-  unsigned int  *nevents;          /* number of events taken */
-  int            classid;          /* object class id (0-slave, 1-master, 2-single) */
+  uint32_t       recNb;	           /* count of output buffers processed */
+  uint32_t      *nevents;          /* number of events taken */
+  int32_t        classid;          /* object class id (0-slave, 1-master, 2-single) */
   char           confFile[256];    /* contains config file name selected by runcontrol */
   char           usrString[32];    /* string passed in download */
-  int            user_storage[2];  /* user storage */
-  int            pid;              /* ROC ID */
-  int            poll;             /* to poll or not to poll */
+  int32_t        user_storage[2];  /* user storage */
+  int32_t        pid;              /* ROC ID */
+  int32_t        poll;             /* to poll or not to poll */
 
-  int            doDone;		   /* should we call 'done' in ROL1 ? */
+  int32_t        doDone;		   /* should we call 'done' in ROL1 ? */
 } ROLPARAMS;
 
 
@@ -55,4 +57,4 @@ typedef struct rolParameters
 #define MSGWRN 1
 #define MSGERR 2
 
-int UDP_user_request(int msgclass, char *name, char *message);
+int UDP_user_request(int32_t msgclass, char *name, char *message);

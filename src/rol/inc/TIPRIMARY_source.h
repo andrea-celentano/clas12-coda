@@ -11,25 +11,16 @@
 #define __TIPRIMARY_ROL__
 
 
-/*
-#define TI_READ_CONF_FILE {tiConfig("");}
-#define DSC2_READ_CONF_FILE {dsc2Config("");}
-#define FADC_READ_CONF_FILE {fadc250Config("");}
-#define SSP_READ_CONF_FILE {sspConfig("");}
-#define TDC_READ_CONF_FILE {tdc1190Config("");}
-*/
-
-#define DAQ_READ_CONF_FILE  {daqConfig("");    if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) daqConfig(rol->confFile);}
-#define TI_READ_CONF_FILE   {tiConfig("");     if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) tiConfig(rol->confFile);}
-#define DSC2_READ_CONF_FILE {dsc2Config("");   if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) dsc2Config(rol->confFile);}
-#define VSCM_READ_CONF_FILE {vscmConfig("");   if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) vscmConfig(rol->confFile);}
-#define FADC_READ_CONF_FILE {fadc250Config("");if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) fadc250Config(rol->confFile);}
-#define SSP_READ_CONF_FILE  {sspConfig("");    if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) sspConfig(rol->confFile);}
-#define GTP_READ_CONF_FILE  {gtpConfig("");    if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) gtpConfig(rol->confFile);}
-#define TDC_READ_CONF_FILE  {tdc1190Config("");/*if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) tdc1190Config(rol->confFile);*/}
-#define MVT_READ_CONF_FILE  {mvtConfig("");    if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) mvtConfig(rol->confFile);}
-#define FTT_READ_CONF_FILE  {fttConfig("");    if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4)) fttConfig(rol->confFile);}
-
+#define DAQ_READ_CONF_FILE  {daqConfig("");    if(strncasecmp(rol->confFile,"none",4)) daqConfig(rol->confFile);}
+#define TI_READ_CONF_FILE   {tiConfig("");     if(strncasecmp(rol->confFile,"none",4)) tiConfig(rol->confFile);}
+#define DSC2_READ_CONF_FILE {dsc2Config("");   if(strncasecmp(rol->confFile,"none",4)) dsc2Config(rol->confFile);}
+#define VSCM_READ_CONF_FILE {vscmConfig("");   if(strncasecmp(rol->confFile,"none",4)) vscmConfig(rol->confFile);}
+#define FADC_READ_CONF_FILE {fadc250Config("");if(strncasecmp(rol->confFile,"none",4)) fadc250Config(rol->confFile);}
+#define SSP_READ_CONF_FILE  {sspConfig("");    if(strncasecmp(rol->confFile,"none",4)) sspConfig(rol->confFile);}
+#define GTP_READ_CONF_FILE  {gtpConfig("");    if(strncasecmp(rol->confFile,"none",4))) gtpConfig(rol->confFile);}
+#define TDC_READ_CONF_FILE  {tdc1190Config("");/*if(strncasecmp(rol->confFile,"none",4)) tdc1190Config(rol->confFile);*/}
+#define MVT_READ_CONF_FILE  {mvtConfig("");    if(strncasecmp(rol->confFile,"none",4)) mvtConfig(rol->confFile);}
+#define FTT_READ_CONF_FILE  {fttConfig("");    if(strncasecmp(rol->confFile,"none",4)) fttConfig(rol->confFile);}
 
 
 #include <stdio.h>
@@ -57,6 +48,8 @@ extern char configname[128]; /* coda_component.c (need to add it in rolInt.h/ROL
 #define TS_LEVEL 3 /*do we have it in one of the TS registers ???*/
 
 #undef DEBUG
+
+static int nackcalls;
 
 /*??????????*/
 static unsigned int *TIPRIMARYPollAddr = NULL;
@@ -135,11 +128,6 @@ tiprimarytinit(int code)
 
   /*int overall_offset=0x80;*/
 
-#ifdef VXWORKS
-#else
- /* Open the default VME windows */
-  vmeOpenDefaultWindows();
-#endif
 
   /* DMA setup */
   /*usrVmeDmaSetMemSize(0x200000);*/
@@ -502,6 +490,7 @@ tiprimarytenable(int val, unsigned int intMask)
 
   ttest_ready = 0;
   ttest_not_ready = 0;
+  nackcalls = 0;
 
 /*sergeytiIntEnable(val);*/
 
@@ -568,6 +557,10 @@ tiprimarytack(int code, unsigned int intMask)
     /*printf("TI_PRIMARY: call tiIntAck()\n");*/
 vmeBusLock();
     tiIntAck();
+	/*
+    nackcalls ++;
+    printf("TI_PRIMARY: call tiIntAck() %d times\n",nackcalls);
+	*/
 vmeBusUnlock();
   }
   /*
@@ -612,6 +605,7 @@ vmeBusUnlock();
   }
 
 }
+
 
 
 

@@ -29,6 +29,9 @@ typedef struct {
 
   unsigned int chDisMask;
   unsigned int trigMask;
+  unsigned int trigWidth;
+  unsigned int trigMinTOT;
+  unsigned int trigMinMult;
   unsigned int thr[NCHAN];
   unsigned int dac[NCHAN];
   float        ped[NCHAN];

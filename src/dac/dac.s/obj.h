@@ -138,8 +138,8 @@ static char *action_Names[] =
 typedef struct rcMsgStruct *rcMsg;
 typedef struct rcMsgStruct
 {
-  /*long*/int type;
-  int action;
+  /*long*/int32_t type;
+  int32_t action;
   char *p1;
   char *p2;
   char *p3;
@@ -150,22 +150,22 @@ typedef struct classStruct *objClass;
 /*typedef struct classStruct SERVICE;*/
 typedef struct classStruct
 {
-  int *interp_obsolete;		/* Tcl interpreter */
-  char *className;		/* name of class */
-  char *name;			/* name of this object */
-  char *state;			/* name of this object */
-  int  codaid;			/* id number of object */
-  int  nlongs;			/* number of data words processed */
-  int  nevents;			/* number of events processed */
+  int32_t *interp_obsolete;		/* Tcl interpreter */
+  char    *className;		/* name of class */
+  char    *name;			/* name of this object */
+  char    *state;			/* name of this object */
+  int32_t  codaid;			/* id number of object */
+  int32_t  nlongs;			/* number of data words processed */
+  int32_t  nevents;			/* number of events processed */
 
-  char *rolNames;
-  char *runName;
-  int runType;
-  int runNumber;
+  char    *rolNames;
+  char    *runName;
+  int32_t  runType;
+  int32_t  runNumber;
 
-  int fd;			/* who to send data to */
+  int32_t  fd;			/* who to send data to */
 
-  void *privated;
+  void    *privated;
 
 } objClassStore;
 

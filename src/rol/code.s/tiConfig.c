@@ -28,6 +28,9 @@ TI_HOLDOFF   rule   time  timescale            # rule: 1-4, time: 0-127, timesca
                                                    rule 3 timescale: 0=32ns, 1=1920ns (max time=243,840ns)
                                                    rule 4 timescale: 0=64ns, 1=3840ns (max time=487,680ns)
                                                # all rules run simultaneously
+
+TI_FIBER_IN 1                                  # fiber number to be used as input
+
 */
 
 #include <stdio.h>
@@ -59,6 +62,7 @@ static int random_enabled;
 static int random_prescale;
 static int holdoff_rules[4];
 static int holdoff_timescale[4];
+static int fiber_in;
 
 /* tiInit() have to be called before this function */
 int  
@@ -66,6 +70,8 @@ tiConfig(char *fname)
 {
   int res;
   char *string; /*dummy, will not be used*/
+
+  printf("tiConfig reached, fname >%s<\n",fname);
 
   if(strlen(fname) > 0) /* filename specified  - upload initial settings from the hardware */
   {
@@ -98,16 +104,17 @@ tiInitGlobals()
   nslave = 0;
   random_enabled = 0;
   random_prescale = 0;
-  holdoff_rules[0] = 50;
+  holdoff_rules[0] = 10;
   holdoff_rules[1] = 1;
   holdoff_rules[2] = 1;
   holdoff_rules[3] = 1;
-  holdoff_timescale[0] = 1;
-  holdoff_timescale[1] = 1;
-  holdoff_timescale[2] = 1;
-  holdoff_timescale[3] = 1;
+  holdoff_timescale[0] = 0;
+  holdoff_timescale[1] = 0;
+  holdoff_timescale[2] = 0;
+  holdoff_timescale[3] = 0;
   for(ii=0; ii<MAXSLAVES; ii++) slave_list[ii] = 0;
   for(ii=0; ii<6; ii++) input_prescale[ii] = 0;
+  fiber_in = 1;
 
   return(0);
 }
@@ -226,6 +233,7 @@ tiReadConfigFile(char *filename)
         sscanf (str_tmp, "%*s %d", &i1);
         buffer_level = i1;
       }
+
       else if(active && (strcmp(keyword,"TI_INPUT_PRESCALE")==0))
       {
         sscanf (str_tmp, "%*s %d %d", &i1, &i2);
@@ -239,6 +247,7 @@ tiReadConfigFile(char *filename)
         }
         input_prescale[i1-1] = i2;
       }
+
       else if(active && (strcmp(keyword,"TI_RANDOM_TRIGGER")==0))
       {
         sscanf (str_tmp, "%*s %d %d", &i1, &i2);
@@ -253,6 +262,7 @@ tiReadConfigFile(char *filename)
         random_enabled = i1;
         random_prescale = i2;
       }
+
       else if(active && (strcmp(keyword,"TI_HOLDOFF")==0))
       {
         sscanf (str_tmp, "%*s %d %d %d", &i1, &i2, &i3);
@@ -271,6 +281,13 @@ tiReadConfigFile(char *filename)
         holdoff_rules[i1-1] = i2;
         holdoff_timescale[i1-1] = i3;
       }
+
+      else if(active && (strcmp(keyword,"TI_FIBER_IN")==0))
+      {
+        sscanf (str_tmp, "%*s %d", &i1);
+        fiber_in = i1;
+      }
+
       else
       {
         ; /* unknown key - do nothing */
@@ -317,15 +334,21 @@ tiDownloadAll()
   for(ii=0; ii<4; ii++) tiSetTriggerHoldoff(ii+1,holdoff_rules[ii],holdoff_timescale[ii]);
   
   tiSetFiberDelay(delay, offset);
-  
-  tiSetBlockLevel(block_level);
 
+  tiSetInstantBlockLevelChange(1); /* enable immediate block level setting */
+  printf("tiDownloadAll: setting block_level = %d\n",block_level);
+  tiSetBlockLevel(block_level);
+  tiSetInstantBlockLevelChange(0); /* disable immediate block level setting */
+
+  printf("tiDownloadAll: setting buffer_level = %d\n",buffer_level);
   tiSetBlockBufferLevel(buffer_level);
 
   if(!random_enabled)
     tiDisableRandomTrigger();
   else
     tiSetRandomTrigger(1, random_prescale);
+
+  tiSetFiberIn_preInit(fiber_in);
 
   return(0);
 }
@@ -346,7 +369,7 @@ static int buffer_level;
 static int input_prescale[6];
 */
 
-/* upload setting from all found DSC2s */
+/* upload setting */
 int
 tiUploadAll(char *string, int length)
 {
@@ -357,8 +380,9 @@ tiUploadAll(char *string, int length)
   unsigned short sval;
   unsigned short bypMask;
   unsigned short channels[8];
-
-
+  /*
+  printf("\ntiUploadAll reached\n");
+  */
   nslave = 0;
   connectedfibers = tiGetConnectedFiberMask();
   if(connectedfibers>0)
@@ -373,6 +397,9 @@ tiUploadAll(char *string, int length)
   }
   block_level = tiGetCurrentBlockLevel();
   buffer_level = tiGetBlockBufferLevel();
+  /*
+  printf("tiUploadAll: block_level=%d, buffer_level=%d\n",block_level,buffer_level);
+  */
   for(ii = 0; ii < 6; ii++)
   {
     input_prescale[ii] = tiGetInputPrescale(ii+1);
@@ -380,6 +407,8 @@ tiUploadAll(char *string, int length)
 
   random_enabled = tiGetRandomTriggerEnable(1);
   random_prescale = tiGetRandomTriggerSetting(1);
+
+  fiber_in = tiGetSlavePort();
 
   if(length)
   {
@@ -396,6 +425,9 @@ tiUploadAll(char *string, int length)
     ADD_TO_STRING;
 
     sprintf(sss,"TI_BUFFER_LEVEL %d\n",buffer_level);
+    ADD_TO_STRING;
+
+    sprintf(sss,"TI_FIBER_IN %d\n",fiber_in);
     ADD_TO_STRING;
 
     for(ii=0; ii<4; ii++)

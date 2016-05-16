@@ -203,7 +203,7 @@ LINK_sized_write(int fd, unsigned int *buffer, unsigned int nbytes)
 /* timing */
 #ifndef Darwin
 hrtime_t start, end, time1, time2;
-int i, cycle = 1;
+int i;
 static int nev;
 static hrtime_t sum;
 #endif
@@ -343,7 +343,7 @@ net_thread(BIGNET *bignetptrin)
 
 /* timing */
 #ifndef Darwin
-  hrtime_t start, end, time1, time2, icycle, cycle=1;
+  hrtime_t start, end, time1, time2, icycle, cycle=100;
   static int nev;
   static hrtime_t sum;
 #endif
@@ -453,7 +453,9 @@ printf("LINK_sized_write special event\n");fflush(stdout);
 	}
     else
 	{
+#if 0
       printf("Output to 'none': dumping %d words\n",bigbuf[BBIWORDS]);
+#endif
 	}
 
 #else /* ROC does send */

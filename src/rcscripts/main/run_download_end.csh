@@ -1,4 +1,4 @@
-#!/usr/bin/csh
+#!/bin/csh
 
 #  run_download_end.csh
 
@@ -10,7 +10,7 @@
 #  do download tasks
 
 #  smartsockets broadcast
-rc_transition -a clasprod -d run_control -file    download  >& /dev/null &
+rc_transition -a clasrun -d run_control -file    download  >& /dev/null &
 
 
 exit(0)

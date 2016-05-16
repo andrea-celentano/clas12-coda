@@ -22,6 +22,14 @@ include $(CODA)/src/Makefile.include
 
 $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
 	./$(OSTYPE_MACHINE)/rol/hps1_slave.so \
+	./$(OSTYPE_MACHINE)/rol/rol1_master.so \
+	./$(OSTYPE_MACHINE)/rol/rol1_slave.so \
+	./$(OSTYPE_MACHINE)/rol/fbrol1_master.so \
+	./$(OSTYPE_MACHINE)/rol/fbrol1_slave.so \
+	./$(OSTYPE_MACHINE)/rol/srs1_master.so \
+	./$(OSTYPE_MACHINE)/rol/srs1_slave.so \
+	./$(OSTYPE_MACHINE)/rol/pgem1_master.so \
+	./$(OSTYPE_MACHINE)/rol/pgem1_slave.so \
 	./$(OSTYPE_MACHINE)/rol/hps1test_master.so \
 	./$(OSTYPE_MACHINE)/rol/hps1test_slave.so \
 	./$(OSTYPE_MACHINE)/rol/hps1mvt_master.so \
@@ -38,6 +46,38 @@ $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
 #	./$(OSTYPE_MACHINE)/rol/dcrb1_master.so \
 #	./$(OSTYPE_MACHINE)/rol/dcrb1_slave.so \
 
+
+./$(OSTYPE_MACHINE)/rol/rol1_master.o : rols/rol1.c
+	$(MKROLDIR)
+	$(CC) -DTI_MASTER $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/rol1_slave.o : rols/rol1.c
+	$(MKROLDIR)
+	$(CC) -DTI_SLAVE $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/fbrol1_master.o : rols/fbrol1.c
+	$(MKROLDIR)
+	$(CC) -DTI_MASTER $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/fbrol1_slave.o : rols/fbrol1.c
+	$(MKROLDIR)
+	$(CC) -DTI_SLAVE $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/srs1_master.o : rols/srs1.c
+	$(MKROLDIR)
+	$(CC) -DTI_MASTER $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/srs1_slave.o : rols/srs1.c
+	$(MKROLDIR)
+	$(CC) -DTI_SLAVE $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/pgem1_master.o : rols/pgem1.c
+	$(MKROLDIR)
+	$(CC) -DTI_MASTER $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/pgem1_slave.o : rols/pgem1.c
+	$(MKROLDIR)
+	$(CC) -DTI_SLAVE $(CCROLOPT)
 
 ./$(OSTYPE_MACHINE)/rol/hps1_master.o : rols/hps1.c
 	$(MKROLDIR)
@@ -116,7 +156,7 @@ LDCC = $(LDCXX)
 LDFC = $(LDCXX)
 
 ######CLON_FLAGS += -I./inc -I./code.s -I./mvt.s -I../codatt/codatt.s/ -I$(CODA)/common/include
-CLON_FLAGS += -I./inc -I./code.s -I./mvt.s -I$(CODA)/common/include
+CLON_FLAGS += -I./inc -I./code.s -I./mvt.s -I./sfi.s -I$(CODA)/common/include
 
 
 ifeq ("$(OSTYPE)","Linux")
@@ -173,6 +213,7 @@ install: install_obj install_lib install_bin install_rol
 	rm -rf tmp
 	mkdir tmp
 	cp code.s/*.h tmp
+	cp sfi.s/*.h tmp
 	chmod 664 tmp/*
 	-mkdir -p $(CODA)/common/include
 	cp tmp/* $(CODA)/common/include

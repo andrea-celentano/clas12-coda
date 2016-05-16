@@ -115,6 +115,22 @@ usrVmeDmaMemory(UINT32 *pMemBase, UINT32 *uMemBase, UINT32 *mSize)
   return;
 }
 
+/* ?????
+void
+usrVmeSlaveDmaMemory(UINT32 *pMemBase, UINT32 *uMemBase, UINT32 *mSize)
+{
+
+need
+  *uMemBase =usrDmaLocalToVmeAdrs(unsigned int locAdrs)
+instead of
+  *pMemBase = physMemBase;
+  *uMemBase = userMemBase;
+  *mSize = memSize;
+?????
+  return;
+}
+*/
+
 
 static unsigned int addrType1;
 static unsigned int dataType1;
@@ -478,6 +494,35 @@ usrVmeDmaListStart()
   return;
 }
 
+
+/* from vmeDmaLocalToVmeAdrs/jlabgefDmaLocalToVmeAdrs */
+unsigned int
+usrDmaLocalToVmeAdrs(unsigned int locAdrs)
+{
+  unsigned int rval;
+  unsigned int offset=0;
+  unsigned int vme_base = addr_A32slave.lower;
+
+  if(a32slave_window==NULL)
+  {
+    printf("%s: ERROR: Slave Window has not been initialized.\n",
+	     __FUNCTION__);
+    return ERROR;
+  }
+
+  offset = locAdrs - (unsigned int)a32slave_window;
+
+  rval = vme_base + offset;
+  /*
+  printf("usrDmaLocalToVmeAdrs: locAdrs=0x%08x (unsigned int)a32slave_window=0x%08x  -> offset=0x%08x, vme_base=0x%08x -> rval=0x%08x\n",
+		 locAdrs,(unsigned int)a32slave_window,offset,vme_base,rval);
+  */
+
+  return(rval);
+}
+
+
+
 void
 usrVmeDmaShow()
 {
@@ -517,4 +562,5 @@ usrVmeDmaShow()
 
   printf("\n");
 }
+
 

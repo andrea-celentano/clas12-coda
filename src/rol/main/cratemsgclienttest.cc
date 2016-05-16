@@ -1,9 +1,9 @@
 
 /* cratemsgclienttest.cc - testbed for cratemsgclient class
-      usage example:      ./Linux_i686_vme/bin/cratemsgclienttest hps11 6102
+      usage example:      ./Linux_i686/bin/cratemsgclienttest hps11 6102
 */
 
-#if defined(Linux_vme)
+#if 1 /*defined(Linux_vme)*/
 
 #include <stdio.h>
 #include <string.h>
@@ -61,17 +61,32 @@ main(int argc, char *argv[])
   for(ii=0; ii<len; ii++) {printf("slot %2d, boardID 0x%08x\n",ii,buf[ii]);fflush(stdout);}
 
 
-  slot = 2;
+  /*???
+  partype = SCALER_PARTYPE_THRESHOLD;
+  for(ii=0; ii<16; ii++)
+  {
+    buf[0] = 500;
+    tcp->SetChannelParams(slot, ii, partype, buf, 1);
+  }
+  */
+
+  slot = 3;
   partype = SCALER_PARTYPE_THRESHOLD;
   ret = tcp->GetBoardParams(slot, partype, &buf, &len);
+  for(ii=0; ii<len; ii++) {printf("ch[%2d] thres1=%d\n",ii,buf[ii]);fflush(stdout);}
 
   partype = SCALER_PARTYPE_THRESHOLD2;
   ret = tcp->GetBoardParams(slot, partype, &buf, &len);
+  for(ii=0; ii<len; ii++) {printf("ch[%2d] thres2=%d\n",ii,buf[ii]);fflush(stdout);}
+  
 
+  /*
   chan = 5;
   ret = tcp->GetChannelParams(slot, chan, partype, &buf, &len);
 
   ret = tcp->GetChannelParams(slot, chan, partype, &buf, &len);
+  */
+
 
   sleep(3);
 
@@ -79,13 +94,14 @@ main(int argc, char *argv[])
   printf("-------------------------\n");
   while(1)
   {
-	/*
+	
     slot=3;
     ret = tcp->ReadScalers(slot, &buf, &len);
-    printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
-    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    printf("cratemsgclienttest: ret=%d, len=%d slot=%d\n",ret,len, slot);
+    for(ii=0; ii<len; ii++) printf("  cratemsgclienttest: [%2d] %10d 0x%08x (swap 0x%08x)\n",ii,buf[ii],buf[ii],LSWAP(buf[ii]));fflush(stdout);
     delete [] buf;
 
+	/*
     slot=4;
     ret = tcp->ReadScalers(slot, &buf, &len);
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
@@ -93,6 +109,7 @@ main(int argc, char *argv[])
     delete [] buf;
 	*/
 
+	/*
     slot=13;
     ret = tcp->ReadScalers(slot, &buf, &len);
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
@@ -104,7 +121,9 @@ main(int argc, char *argv[])
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
     for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
     delete [] buf;
+	*/
 
+	/*
     slot=15;
     ret = tcp->ReadScalers(slot, &buf, &len);
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
@@ -116,7 +135,8 @@ main(int argc, char *argv[])
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
     for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
     delete [] buf;
-
+	*/
+	/*
     slot=17;
     ret = tcp->ReadScalers(slot, &buf, &len);
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
@@ -128,6 +148,7 @@ main(int argc, char *argv[])
     printf("ret=%d, len=%d slot=%d\n",ret,len, slot);
     for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
     delete [] buf;
+	*/
 	/*
     slot=10;
     ret = tcp->ReadScalers(slot, &buf, &len);

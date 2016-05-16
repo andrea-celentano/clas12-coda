@@ -1708,6 +1708,13 @@ ctermlib(int argc, char *argv[]ENVP_ARG)
     strcpy(embedded_name,"\0");
 #endif
 
+	{
+      int ii;
+          printf("ctermlib: argc=%d, argv >",argc);
+		  for(ii=0; ii<argc; ii++) printf("%s ",argv[ii]);
+          printf("<\n");
+	}
+
     ProgramName = argv[0];
 
     /* extra length in case longer tty name like /dev/ttyq255 */
@@ -2154,6 +2161,7 @@ ctermlib(int argc, char *argv[]ENVP_ARG)
 	    Syntax(*argv);
 
 	TRACE(("parsing %s\n", argv[0]));
+	printf("parsing %s\n", argv[0]);
 	switch (argv[0][1]) {
 	case 'h':		/* -help */
 	    Help();

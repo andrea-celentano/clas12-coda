@@ -154,6 +154,9 @@ fadc250InitGlobals()
     fa250[jj].npeak     = 1;
     fa250[jj].chDisMask = 0x0;
     fa250[jj].trigMask  = 0xffff;
+    fa250[jj].trigWidth = 0xff;
+    fa250[jj].trigMinTOT = 1;
+    fa250[jj].trigMinMult = 1;
     fa250[jj].thrIgnoreMask = 0;
 
     for(ii=0; ii<NCHAN; ii++)
@@ -239,7 +242,7 @@ fadc250ReadConfigFile(char *filename_in)
     {
       if ( ch == '#' || ch == ' ' || ch == '\t' )
       {
-        while (getc(fd) != '\n') {}
+        while ( getc(fd)!='\n' /*&& getc(fd)!=!= EOF*/ ) {} /*ERROR !!!*/
       }
       else if( ch == '\n' ) {}
       else
@@ -359,7 +362,21 @@ fadc250ReadConfigFile(char *filename_in)
 	      printf("\nReadConfigFile: %s = 0x%04x \n",keyword,ui1);
 #endif
         }
-
+        else if(active && (strcmp(keyword,"FADC250_TRG_WIDTH") == 0))
+        {
+          sscanf (str_tmp, "%*s %d", &i1);
+              for(slot=slot1; slot<slot2; slot++) fa250[slot].trigWidth = i1/4;
+        }
+        else if(active && (strcmp(keyword,"FADC250_TRG_MINTOT") == 0))
+        {
+          sscanf (str_tmp, "%*s %d", &i1);
+              for(slot=slot1; slot<slot2; slot++) fa250[slot].trigMinTOT = i1;
+        }
+        else if(active && (strcmp(keyword,"FADC250_TRG_MINMULT") == 0))
+        {
+          sscanf (str_tmp, "%*s %d", &i1);
+              for(slot=slot1; slot<slot2; slot++) fa250[slot].trigMinMult = i1;
+        }
         else if(active && (strcmp(keyword,"FADC250_TET_IGNORE_MASK") == 0))
         {
 	      GET_READ_MSK;
@@ -525,6 +542,14 @@ fadc250DownloadAll()
 
     faThresholdIgnore(slot, fa250[slot].thrIgnoreMask);
 
+    faSetHitbitTrigWidth(slot, fa250[slot].trigWidth);
+
+    faSetHitbitTrigMask(slot, fa250[slot].trigMask);
+
+    faSetHitbitMinTOT(slot, fa250[slot].trigMinTOT);
+
+    faSetHitbitMinMultiplicity(slot, fa250[slot].trigMinMult);
+
     for(ii=0; ii<NCHAN; ii++)
     {
 	  faSetDAC(slot, fa250[slot].dac[ii], (1<<ii));
@@ -573,6 +598,15 @@ fadc250UploadAll(char *string, int length)
 
     fa250[slot].chDisMask = faGetChanMask(slot);
     fa250[slot].thrIgnoreMask = faGetThresholdIgnoreMask(slot);
+
+    fa250[slot].trigWidth = faGetHitbitTrigWidth(slot);
+
+    fa250[slot].trigMask = faGetHitbitTrigMask(slot);
+
+    fa250[slot].trigMinTOT = faGetHitbitMinTOT(slot);
+
+    fa250[slot].trigMinMult = faGetHitbitMinMultiplicity(slot);
+
     for(i=0;i<FA_MAX_ADC_CHANNELS;i++)
     {
       fa250[slot].dac[i] = faGetChannelDAC(slot, i);
@@ -613,6 +647,14 @@ fadc250UploadAll(char *string, int length)
 	  sprintf(sss,"FADC250_NSB %d\n",       fa250[slot].nsb*FA_ADC_NS_PER_CLK);
       ADD_TO_STRING;
 	  sprintf(sss,"FADC250_NPEAK %d\n",     fa250[slot].npeak);
+      ADD_TO_STRING;
+          sprintf(sss,"FADC250_TRG_MASK %d\n",  fa250[slot].trigMask);
+      ADD_TO_STRING;
+          sprintf(sss, "FADC250_TRG_WIDTH %d\n", fa250[slot].trigWidth);
+      ADD_TO_STRING;
+          sprintf(sss, "FADC250_TRG_MINTOT %d\n", fa250[slot].trigMinTOT);
+      ADD_TO_STRING;
+          sprintf(sss, "FADC250_TRG_MINMULT %d\n", fa250[slot].trigMinMult);
       ADD_TO_STRING;
 
       adcChanEnabled = 0xFFFF^fa250[slot].chDisMask;

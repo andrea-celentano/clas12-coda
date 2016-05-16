@@ -105,7 +105,10 @@ struct fadc_struct
 
 #ifdef CLAS12
   /* 0x0198 */ volatile unsigned int adc_gain[16];
-  /* 0x0198 */ volatile unsigned int spare_adc[(0x200-0x1d8)>>2];
+  /* 0x01d8 */ volatile unsigned int hitbit_trig_mask;
+  /* 0x01dc */ volatile unsigned int hitbit_trig_width;
+  /* 0x01e0 */ volatile unsigned int hitbit_cfg;
+  /* 0x01e4 */ volatile unsigned int spare_adc[(0x200-0x1e4)>>2];
 
   /* 0x0200 */ volatile unsigned int la_ctrl[8];
   /* 0x0220 */ volatile unsigned int la_cmp_mode0[8];
@@ -724,11 +727,20 @@ int faResetMGT(int id, int reset);
 int faGetMGTChannelStatus(int id);
 int faSetChannelGain(int id, unsigned int chan, float gain);
 float faGetChannelGain(int id, unsigned int chan);
-
 int faGLoadChannelPedestals(char *fname, int updateThresholds);
-
 int faThresholdIgnore(int id, unsigned short chmask);
 unsigned int faGetThresholdIgnoreMask(int id);
+int faSetHitbitTrigMask(int id, unsigned short chmask);
+unsigned int faGetHitbitTrigMask(int id);
+int faSetHitbitTrigWidth(int id, unsigned short width);
+unsigned int faGetHitbitTrigWidth(int id);
+
+int faGSetHitbitMinTOT(unsigned short width);
+int faGSetHitbitMinMultiplicity(unsigned short mult);
+int faSetHitbitMinTOT(int id, unsigned short width);
+int faSetHitbitMinMultiplicity(int id, unsigned short mult);
+int faGetHitbitMinTOT(int id);
+int faGetHitbitMinMultiplicity(int id);
 
 typedef struct
 {

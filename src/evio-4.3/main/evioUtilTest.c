@@ -28,41 +28,6 @@ static int nwrite         = 0;
 static int skip_event     = 0;
 static int max_event      = 1000002;
 
-#define GET8(ret_val) \
-  ret_val = *b08++
-
-#define GET16(ret_val) \
-  b16 = (unsigned short *)b08; \
-  ret_val = *b16; \
-  b08+=2
-
-#define GET32(ret_val) \
-  b32 = (unsigned int *)b08; \
-  ret_val = *b32; \
-  b08+=4
-
-#define GET64(ret_val) \
-  b64 = (unsigned long long *)b08; \
-  ret_val = *b64; \
-  b08+=8
-
-#define PUT8(ret_val) \
-  *b08out++ = ret_val 
-
-#define PUT16(ret_val) \
-  b16 = (unsigned short *)b08out; \
-  *b16 = ret_val; \
-  b08out+=2
-
-#define PUT32(ret_val) \
-  b32 = (unsigned int *)b08out; \
-  *b32 = ret_val; \
-  b08out+=4
-
-#define PUT64(ret_val) \
-  b64 = (unsigned long long *)b08out; \
-  *b64 = ret_val; \
-  b08out+=8
 
 #define DC_DATA_BLOCK_HEADER      0x00
 #define DC_DATA_BLOCK_TRAILER     0x01
@@ -77,17 +42,15 @@ main(int argc, char **argv)
 {
   int status;
   int l, tag, num;
-  int ind, fragtag, fragnum, nbytes, timestamp_flag, type, *nhits;
+  int ind, fragtag, fragnum, nbytes, ind_data, timestamp_flag, type, *nhits;
   int slot, slot_old, event, chan, tdc;
   int banktag = 0xe116, banknum = 0, banktyp = 0xf;
   char *fmt = "c,i,l,N(c,s)"; /* slot,event#,timestamp,Nhits(channel,tdc) */
-  unsigned int *dabufp, word;
-  unsigned char *b08, *b08out;
-  unsigned short *b16;
-  unsigned int *b32;
-  unsigned long long *b64, timestamp, timestamp_old;
+  unsigned int ret, word;
+  unsigned long long timestamp, timestamp_old;
   unsigned char *end, *start;
   FILE *fd;
+  GET_PUT_INIT;
 
   if(argc!=3) printf("Usage: evioUtilTest <input evio file> <output evio file>\n");
   input_filename = strdup(argv[1]);
@@ -145,20 +108,20 @@ main(int argc, char **argv)
     /*printf("evLinkFrag returns %d\n",ind);*/
 	if(ind<=0) continue;
 
-    ind = evLinkBank(buf, fragtag, fragnum, tag, num, &nbytes);
+    ind = evLinkBank(buf, fragtag, fragnum, tag, num, &nbytes, &ind_data);
     /*printf("evLinkBank returns %d\n",ind);*/
 	if(ind<=0) continue;
 
-    start = (unsigned char *) &buf[ind+2];
+    start = (unsigned char *) &buf[ind_data];
     end = start + nbytes;
 	/*printf("input: nbytes=%d (%d words)\n",nbytes,nbytes>>2);*/
 
     if(ind > 0)
 	{
-      dabufp = evOpenBank(buf, fragtag, fragnum, banktag, banknum, banktyp, fmt);
-      /*printf("dabufp = 0x%08x\n",dabufp);*/
+      ret = evOpenBank(buf, fragtag, fragnum, banktag, banknum, banktyp, fmt, &ind_data);
+      printf("evOpenBank returns = %d\n",ret);
 
-      b08out = (unsigned char *)dabufp;
+      b08out = (unsigned char *)&buf[ind_data];
       /*printf("first b08out = 0x%08x\n",b08out);*/
       
 

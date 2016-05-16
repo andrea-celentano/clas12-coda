@@ -797,6 +797,9 @@ static void dump_fragment(unsigned int *buf, int fragment_type) {
   
 
     /* fragment data */
+	/*
+	printf("type=%d tag=%d num=%d len=%d\n",type,tag,num,length-fragment_offset[fragment_type]);
+	*/
     dump_data(&buf[fragment_offset[fragment_type]], type,
                length-fragment_offset[fragment_type], padding, noexpand);
 
@@ -1049,6 +1052,7 @@ static void dump_data(unsigned int *data, int type, int length, int padding, int
         case 0x1:
             if(!no_data) {
                 sprintf(format,"%%#%d%s ",w32,(xtod==0)?"x":"d");
+				/*printf("0x1: length=%d\n",length);fflush(stdout);*/
                 for(i=0; i<length; i+=n32) {
                     indent(0);
                     for(j=i; j<min((i+n32),length); j++) {

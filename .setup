@@ -1,14 +1,13 @@
 #!/bin/csh
 # ../coda/.setup
 #
-    if ($?CLAS) then
-        setenv CODA $CLAS/coda
-	    setenv CODA_VERSION 2.5
-    else
-        echo "CLAS environment variable does not defined !!!"
-        exit 1
-    endif
 
+if ($?CLAS) then
+    setenv CODA $CLAS/coda
+else
+    echo "CLAS environment variable does not defined !!!"
+    exit 1
+endif
 
 
 
@@ -64,18 +63,17 @@ endif
 	endif
 
 # update PATH
-#   setenv PATH "$PATH":${CODA_BIN}
-#   setenv PATH "$PATH":${CODA}/common/scripts
+   setenv PATH "$PATH":${CODA_BIN}
+   setenv PATH "$PATH":${CODA}/common/scripts
 
 # set coda database
-#	setenv MYSQL_HOST clondb1
+	setenv MYSQL_HOST clondb1
 
 
 #skip cdev for Mac
 if ($OSTYPE == "Darwin") then
   exit
 endif
-
 
 
 # misc
@@ -110,13 +108,15 @@ setenv LD_LIBRARY_PATH "${QTDIR}/lib:${LD_LIBRARY_PATH}"
 setenv PATH "/apps/Trolltech/qt-creator-2.7.1-src/bin:${PATH}"
 setenv LD_LIBRARY_PATH "/apps/Trolltech/qt-creator-2.7.1-src/lib:${LD_LIBRARY_PATH}"
 
+# Qtw
+setenv LD_LIBRARY_PATH "/apps/Trolltech/qwt-5.2.1/lib:${LD_LIBRARY_PATH}"
+
 #modelsim
 setenv PATH "${PATH}:/apps/modelsim66a/modelsim_dlx/linuxpe"
 setenv LM_LICENSE_FILE 1717@clondb1.jlab.org
 
 #quartus
 setenv PATH "${PATH}:/apps/altera/11.0/quartus/bin"
-
 
 
 

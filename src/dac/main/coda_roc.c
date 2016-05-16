@@ -2,6 +2,7 @@
 /* roc_component.c */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -17,10 +18,6 @@
 #endif
 
 #define MYCLOCK NANOMICRO
-
-#if defined(Linux) || defined(Darwin)
-#define ulong  unsigned long
-#endif
 
 
 static pthread_t iTaskROL;
@@ -129,8 +126,8 @@ static int socketnum = 0;
 /*static*/ int this_roc_id = 0;
 
 /* two pointers used to store ROL2 output to 'big' buffers */
-/*static*/ unsigned int *dabufp; /* non-static to be used by ROL1 */
-/*static*/ unsigned int dataInBuf = BBHEAD_BYTES;
+/*static*/ uint32_t *dabufp; /* non-static to be used by ROL1 */
+/*static*/ uint32_t dataInBuf = BBHEAD_BYTES;
 
 
 unsigned int dabufp_usermembase; /* non-static to be used by ROL1 */
@@ -304,6 +301,12 @@ roc_constructor()
   memset((char *) &bignet, 0, sizeof(BIGNET));
 
 
+#ifdef Linux_vme
+  printf("\n\n coda_roc: ======= Open the default VME windows =========\n\n");
+  vmeOpenDefaultWindows();
+  vmeOpenSlaveA32(0x18000000,0x00400000); /* Open Slave Window for SFI Initiated Block transfers */
+#endif
+
   /*************************/
   /* allocate buffer space */
 
@@ -326,7 +329,7 @@ roc_constructor()
 
   /* DMA buffer */
 #if defined(NEW_ROC) && defined(Linux_vme)
-
+bla1
   gbigDMA = bb_new_rol1(1,NUM_SEND_BUFS,tsendBufSize);
   if(gbigDMA == NULL)
   {
@@ -645,7 +648,7 @@ mytest1(char *confname)
 }
 
 int listSplit1(char *list, int flag,
-           int *argc, char argv[LISTARGV1][LISTARGV2]);
+           int32_t *argc, char argv[LISTARGV1][LISTARGV2]);
 
 /* for example: ../dac/tcpClient croctest10 download\(\"test_ts2\"\)" */
 
@@ -1022,7 +1025,7 @@ printf("codaDownload: listArgc=%d listArgv >%s< >%s<\n",listArgc,listArgv[0],lis
         else                                     rolP->classid = 2; /* standalone */
 
         /* setup pointers to global ROC information */
-        rolP->nevents = (unsigned int *) &(object->nevents);
+        rolP->nevents = (uint32_t *) &(object->nevents);
 		/* NOT IN USE !!!???
         rolP->async_roc = &(rocp->async_roc_flag);
 		*/
@@ -1035,9 +1038,16 @@ printf("codaDownload: listArgc=%d listArgv >%s< >%s<\n",listArgc,listArgv[0],lis
           return(CODA_ERROR);
 	    }
 
+		printf("coda_roc 1\n"); fflush(stdout);
+
         /* execute ROL init procedure (described in 'rol.h') */
         rolP->daproc = DA_INIT_PROC;
+		printf("coda_roc 11\n"); fflush(stdout);
+		printf("coda_roc 12: 0x%08x\n",rolP); fflush(stdout);
+		printf("coda_roc 13: 0x%016x 0x%016x\n",rolP->rol_code,*(rolP->rol_code)); fflush(stdout);
         (*(rolP->rol_code)) (rolP);
+
+		printf("coda_roc 2\n"); fflush(stdout);
 
         /* check if initialization was successful */
         if(rolP->inited != 1)
@@ -1048,9 +1058,14 @@ printf("codaDownload: listArgc=%d listArgv >%s< >%s<\n",listArgc,listArgv[0],lis
           return(CODA_ERROR);
         }
 
+		printf("coda_roc 3\n"); fflush(stdout);
+
         /* execute ROL1 download procedure */
         rolP->daproc = DA_DOWNLOAD_PROC;
         (*(rolP->rol_code)) (rolP);
+
+		printf("coda_roc 4\n"); fflush(stdout);
+
 	  }
 
       if(ix==1)
@@ -1281,11 +1296,11 @@ informEB(objClass object, unsigned int mTy, unsigned int mA, unsigned int mB)
 {
   ROLPARAMS  *rolP;
 
-  unsigned int *data, len;
+  uint32_t *data, len;
   rocParam rocp = (rocParam) object->privated;
   int res, ii;
   unsigned int id;
-  unsigned int *bigbuf;
+  uint32_t *bigbuf;
   char *chbuf;
   int len_in_words;
 
@@ -1913,7 +1928,7 @@ codaGo()
     } \
     else \
     { \
-      timeout = gethrtime() + (token_interval/60)*100000;	\
+      timeout = gethrtime() + (token_interval/60)*1000000;	/*1sec*/	\
     }
 
 /*
@@ -1976,7 +1991,7 @@ rols_loop()
 }
 
 #define SEND_BUFFER_(abc) \
-  /*SENDING big buffer*/ \
+  /*SENDING big buffer*/				 \
   if(clear_to_send && (rocp_primefd>=0)) \
   { \
     /*setHeartBeat(HB_ROL,14,5);*/ \
@@ -2142,6 +2157,7 @@ else bb_cleanup(&bignet.gbigin);
           setHeartBeat(HB_ROL,21,5);
 #ifdef Linux_vme
 #ifdef NEW_ROC
+bla2
           dabufp_usermembase = bb_get_usermembase(&gbigDMA);
           dabufp_physmembase = bb_get_physmembase(&gbigDMA);
 #endif
@@ -2191,10 +2207,10 @@ TRANSITION_UNLOCK;
       /* on timeout condition we are sending ONLY if buffer is not empty - this is what we want ? */
       if(/*time(0)*/gethrtime() > timeout)
       {
-		/*printf("timeout..\n");*/
+		/*printf("coda_roc: timeout.. timeout=%d\n",timeout);*/
         if(dataInBuf > BBHEAD_BYTES)
         {
-		  /*printf("..sent !\n");*/
+		  /*printf("coda_roc: ..sent ! dataInBuf=%d BBHEAD_BYTES=%d\n",dataInBuf,BBHEAD_BYTES);*/
           clear_to_send  = 1;
       SENDBUFFER_LOCK;
           SEND_BUFFER_(4);
@@ -2384,8 +2400,12 @@ TRANSITION_UNLOCK;
 #ifdef Linux_vme
 __attribute__((destructor)) void end (void)
 {
-   printf("coda_roc is exiting, clear dma memory\n");
-   bb_dma_free();
+  printf("coda_roc is exiting, clear dma memory\n");
+  bb_dma_free();
+
+  printf("\n\n coda_roc: ======= Close the default VME windows =========\n\n");
+  vmeCloseA32Slave();
+  vmeCloseDefaultWindows();
 }
 #endif
 

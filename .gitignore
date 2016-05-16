@@ -20,3 +20,16 @@ src/rc/sace3.1_new
 src/bosio/*.his*
 src/bosio/last.*
 src/bosio/paw.*
+*~
+src/PRad_Fastbus/
+src/PRad_Trigger/
+src/SRS/
+src/TIpcie/
+src/dac_after_hps/
+src/gem/
+src/gem_old/
+src/rol/jvme_new/
+src/rol/jvme_old/
+src/rol/rols/FB_PRAD
+src/rol/rols/VME_PRAD
+src/rol_after_hps/

@@ -428,7 +428,8 @@ next_port:
           strncmp(address,"129.57.160.",11) &&
           strncmp(address,"129.57.68.",10)  &&
           strncmp(address,"129.57.69.",10)  &&
-          strncmp(address,"129.57.86.",10) )
+          strncmp(address,"129.57.86.",10) &&
+          strncmp(address,"129.57.29.",10) )
 	  {
         printf("CrateMsgServer: ignore request from %s\n",address);fflush(stdout);
         close(lsock);

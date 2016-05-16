@@ -102,6 +102,10 @@ extern "C" {
 static int pids_[200]; // store process ID
 */
 
+/*global*/
+int logging;
+/*global*/
+
 extern "C" int ctermlib(int argc, char *argv[]);
 
 /* 'daqComp' described in codaedit.s/Editor.h, and MAX_NUM_COMPS defined there */
@@ -1183,10 +1187,22 @@ rcRocMenuWindow::RocsSelectConfig(char *currconfig)
           /* second param is process name as it will be in 'ps -ef' !!! */
           myargc = 0;
           myargv[myargc++] = strdup( "cterm" );
+
 		  /*
           myargv[myargc++] = strdup( "-geometry" );
           myargv[myargc++] = strdup( "80x11" );
 		  */
+
+		  
+          if(logging)
+		  {
+            myargv[myargc++] = strdup( "-l" );
+            myargv[myargc++] = strdup( "-lf" );
+            sprintf(temp,"/data/log/%s.log",comp[kk].comp_name);
+            printf("log filename >%s<\n",temp);
+            myargv[myargc++] = strdup( temp );
+		  }
+		  
           myargv[myargc++] = strdup( "-bg" );
           myargv[myargc++] = strdup( bg_name[kk] );
 
@@ -1205,17 +1221,18 @@ rcRocMenuWindow::RocsSelectConfig(char *currconfig)
           sprintf(temp,"%s -s %s -o \"%s %s\":%s %s",comp[kk].boot_string,session,comp[kk].comp_name,type_name[kk],comp[kk].comp_name,type_name[kk]);
           myargv[myargc++] = strdup( temp );
 
-          sprintf(temp2,"%s/cterm",getenv("CODA_BIN"));
-          printf("command >%s<\n",temp2);
 
-          printf("myargc=%d\n",myargc);
-		  for(ii=0; ii<myargc; ii++) printf("myargv[%d] >%s<\n",ii,myargv[ii]);
+          printf("myargc=%d, myargv >",myargc);
+		  for(ii=0; ii<myargc; ii++) printf("%s ",myargv[ii]);
+          printf("<\n");
 
 		  /* use following while-sleep if execl commented out, otherwise nested forking will occur !
 		  while(1) sleep(1);
 		  */
 
 		  /*
+          sprintf(temp2,"%s/cterm",getenv("CODA_BIN"));
+          printf("command >%s<\n",temp2);
           execl(temp2,
                 myargv[0], myargv[1], myargv[2], myargv[3], myargv[4],
                 myargv[5], myargv[6], myargv[7], myargv[8], myargv[9], myargv[10],

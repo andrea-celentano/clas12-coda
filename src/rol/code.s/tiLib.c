@@ -21,6 +21,7 @@
  *
  * </pre>
  *----------------------------------------------------------------------------*/
+#if defined(VXWORKS) || defined(Linux_vme)
 
 #define _GNU_SOURCE
 
@@ -42,8 +43,10 @@
 #include <unistd.h>
 #include "jvme.h"
 #endif
+
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include <pthread.h>
 #include "tiLib.h"
 
@@ -92,7 +95,8 @@ static int          tiSlaveFiberIn=1;        /* Which Fiber port to use when in 
 static int          tiNoVXS=0;               /* 1 if not in VXS crate */
 static int          tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;  /* Set default SyncReset Type to Fixed 4 us */
 
-static unsigned int tiTrigPatternData[16]=   /* Default Trigger Table to be loaded */
+
+ unsigned int tiTrigPatternData[16]=   /* Default Trigger Table to be loaded */
   { /* TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
        No Trigger2 (playback trigger),
        No SyncEvent;
@@ -216,8 +220,9 @@ tiSetCrateID_preInit(int cid)
 int
 tiSetFiberIn_preInit(int port)
 {
-  if((port!=1) || (port!=5))
-    {
+  /* sergey: was '||' */
+  if((port!=1) && (port!=5))
+  {
       printf("%s: ERROR: Invalid Slave Fiber In Port (%d)\n",
 	     __FUNCTION__,port);
       return ERROR;
@@ -263,6 +268,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   int stat;
   int noBoardInit=0, noFirmwareCheck=0;
   
+  printf("tiInit: tiSlaveFiberIn=%d\n",tiSlaveFiberIn);
 
   /* Check VME address */
   if(tAddr<0 || tAddr>0xffffff)
@@ -286,8 +292,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     {
       /* User enter slot number, shift it to VME A24 address */
       printf("%s: Initializing using slot number %d (VME address 0x%x)\n",
-	     __FUNCTION__,
-	     tAddr, tAddr<<19);
+	     __FUNCTION__, tAddr, tAddr<<19);
       tAddr = tAddr<<19;
     }
 
@@ -569,7 +574,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 
       /* Setup a default Sync Delay and Pulse width */
 	  /*sergey: new place*/
-      tiSetSyncDelayWidth(0x54, 0x2f, 0);
+      tiSetSyncDelayWidth(0x52, 0x2f, 0); /* changed delay from 0x54->0x52 to align sync/trig1 properly */
 
       // TI IODELAY reset
       vmeWrite32(&TIp->reset,TI_RESET_IODELAY);
@@ -607,7 +612,8 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   tiSetCrateID(tiCrateID);
 
   /* Set Event format for CODA 3.0 */
-  tiSetEventFormat(4); /*sergey: 3 without bitpattern, 4 - with it */
+  if(tiMaster==1) tiSetEventFormat(4); /*sergey: 3 without bitpattern, 4 - with it */
+  else            tiSetEventFormat(3);
 
   /* Set Default Trig1 and Trig2 delay=16ns (0+1)*16ns, width=64ns (15+1)*4ns */
   tiSetTriggerPulse(1,0,15,0);
@@ -806,6 +812,12 @@ tiStatus(int pflag)
   unsigned long TIBase;
   unsigned long long int l1a_count=0;
 
+  /*sergey*/
+  unsigned int ii;
+  unsigned int trigger_rule_times[4];
+  /*sergey*/
+
+
   if(TIp==NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -835,6 +847,9 @@ tiStatus(int pflag)
   /*sergey*/
   ro.dataFormat   = vmeRead32(&TIp->dataFormat);
   ro.syncDelay    = vmeRead32(&TIp->syncDelay);
+  ro.triggerRule  = vmeRead32(&TIp->triggerRule);
+  ro.triggerRuleMin  = vmeRead32(&TIp->triggerRuleMin);
+  ro.adr24        = vmeRead32(&TIp->adr24);
 
   ro.tsInput      = vmeRead32(&TIp->tsInput);
 
@@ -909,7 +924,8 @@ tiStatus(int pflag)
       printf("  trigDelay      (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->trigDelay) - TIBase, ro.trigDelay);
       printf("  adr32          (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->adr32) - TIBase, ro.adr32);
       printf("  blocklevel     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->blocklevel) - TIBase, ro.blocklevel);
-      printf("  vmeControl     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->vmeControl) - TIBase, ro.vmeControl);
+      printf("  vmeControl     (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->vmeControl) - TIBase, ro.vmeControl);
+      printf("  adr24          (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->adr24) - TIBase, ro.adr24);
       printf("  trigger        (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->trigsrc) - TIBase, ro.trigsrc);
       printf("  sync           (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->sync) - TIBase, ro.sync);
       printf("  busy           (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->busy) - TIBase, ro.busy);
@@ -932,6 +948,9 @@ tiStatus(int pflag)
 
       /*sergey*/
       printf("  dataFormat     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->dataFormat) - TIBase, ro.dataFormat);
+      printf("  triggerRule    (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->triggerRule) - TIBase, ro.triggerRule);
+      printf("  triggerRuleMin (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->triggerRuleMin) - TIBase, ro.triggerRuleMin);
+
 
     }
   printf("\n");
@@ -1169,6 +1188,27 @@ tiStatus(int pflag)
       nblocksNeedAck = (blockStatus[4] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK1)>>24;
       printf("  Loopback :  Blocks ready / need acknowledge: %d / %d\n",
 	     nblocksReady, nblocksNeedAck);
+
+
+  /*sergey*/
+    /* TI master trigger rules */
+    if(ro.triggerRule & 0x00000080) trigger_rule_times[0] = ((ro.triggerRule>>0) & 0x7F) * 480;
+    else                            trigger_rule_times[0] = ((ro.triggerRule>>0) & 0x7F) * 16;
+
+    if(ro.triggerRule & 0x00008000) trigger_rule_times[1] = ((ro.triggerRule>>8) & 0x7F) * 960;
+    else                            trigger_rule_times[1] = ((ro.triggerRule>>8) & 0x7F) * 16;
+
+    if(ro.triggerRule & 0x00800000) trigger_rule_times[2] = ((ro.triggerRule>>16) & 0x7F) * 1920;
+    else                            trigger_rule_times[2] = ((ro.triggerRule>>16) & 0x7F) * 32;
+
+    if(ro.triggerRule & 0x80000000) trigger_rule_times[3] = ((ro.triggerRule>>24) & 0x7F) * 3840;
+    else                            trigger_rule_times[3] = ((ro.triggerRule>>24) & 0x7F) * 64;
+
+    for(ii=0;ii<4;ii++)
+      printf("  Trigger rule %d: no more than %d trigger in %dns\n", ii+1, ii+1, trigger_rule_times[ii]);
+  /*sergey*/
+
+
 
     }
   printf(" Input counter %d\n",ro.inputCounter);
@@ -1872,6 +1912,7 @@ tiGetCurrentBlockLevel()
   TIUNLOCK;
 
   /* Change Bus Error block termination, based on blocklevel */
+  /*sergey: comment out ...
   if(tiBlockLevel>2)
     {
       tiEnableBusError();
@@ -1880,8 +1921,12 @@ tiGetCurrentBlockLevel()
     {
       tiDisableBusError();
     }
+*/
+  /*
+  printf(">>> tiGetCurrentBlockLevel: reg_bl=0x%08x, bl=0x%08x\n",reg_bl,bl);
+  */
 
-  return bl;
+  return(bl);
 }
 
 /**
@@ -4076,6 +4121,8 @@ tiGetBlockLimitStatus()
  * @return Number of blocks available for readout if successful, otherwise ERROR
  *
  */
+
+
 unsigned int
 tiBReady()
 {
@@ -7226,6 +7273,9 @@ tiGetBusyCounter(int busysrc)
 int
 tiPrintBusyCounters()
 {
+  uint32_t livetime, busytime, totaltime; /*sergey*/
+  static uint64_t livetime_old,busytime_old,totaltime_old; /*sergey*/
+  uint64_t livetime_new,busytime_new,totaltime_new; /*sergey*/
   unsigned int counter[16];
   const char *scounter[16] =
     {
@@ -7254,7 +7304,14 @@ tiPrintBusyCounters()
       return ERROR;
     }
 
+/*sergey*/
+  /* latch live and busytime scalers */
+  tiLatchTimers();
+/*sergey*/
+
   TILOCK;
+  livetime_new     = vmeRead32(&TIp->livetime); /*sergey*/
+  busytime_new     = vmeRead32(&TIp->busytime); /*sergey*/
   for(icnt=0; icnt<16; icnt++)
     {
       if(icnt<7)
@@ -7264,18 +7321,36 @@ tiPrintBusyCounters()
     }
   TIUNLOCK;
 
+  /*sergey*/
+  livetime = livetime_new - livetime_old;
+  busytime = busytime_new - busytime_old;
+  livetime_old = livetime_new;
+  busytime_old = busytime_new;
+
+  /* sergey: add total busy and print normalized to livetime */
+  totaltime = livetime+busytime;
+
   printf("\n\n");
+  printf(" Livetime           0x%08x (%10d) [livetime %3d percent]\n",livetime,livetime,(livetime*100)/totaltime);
+  printf(" Total busy counter 0x%08x (%10d) [deadtime %3d percent]\n",busytime,busytime,(busytime*100)/totaltime);
+  printf("-------------------------------------------------------------------\n");
   printf(" Busy Counters \n");
-  printf("--------------------------------------------------------------------------------\n");
   for(icnt=0; icnt<16; icnt++)
-    {
-      printf("%s   0x%08x (%10d)\n",
-	     scounter[icnt], counter[icnt], counter[icnt]);
-    }
-  printf("--------------------------------------------------------------------------------\n");
+  {
+    printf("%s             0x%08x (%10d) [deadtime %3d percent]\n",
+			 scounter[icnt], counter[icnt], counter[icnt], (counter[icnt]*100)/totaltime);
+  }
+  printf("-------------------------------------------------------------------\n");
   printf("\n\n");
 
   return OK;
+}
+
+/*sergey: easy to remember, used as often as tiStatus */
+int
+tiBusy()
+{
+  if(tiMaster) tiPrintBusyCounters();
 }
 
 /**
@@ -7434,3 +7509,24 @@ tiRemoveRocSWA()
   TIUNLOCK;
 }
 
+/*sergey*/
+int
+tiGetNumberOfBlocksInBuffer()
+{
+  int blockBuffer;
+  int nblocks;
+  blockBuffer  = vmeRead32(&TIp->blockBuffer);
+  nblocks = (blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8;
+  return(nblocks);
+}
+
+
+#else /* dummy version*/
+
+void
+tiLib_dummy()
+{
+  return;
+}
+
+#endif

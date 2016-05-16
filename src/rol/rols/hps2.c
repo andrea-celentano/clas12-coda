@@ -180,6 +180,7 @@ static char rcname[5];
 
 #define NTRIGBITS 6
 static unsigned int bitscalers[NTRIGBITS];
+static int havebits = 0;
 
 /* v1190 stuff */
 static int tdctypebyslot[NSLOTS];
@@ -211,13 +212,15 @@ __download()
   epics_msg_sender_init(getenv("EXPID"), ssname); /* SECOND ARG MUST BE UNIQUE !!! */
 #endif
 
+  havebits = 0;
+
   return;
 }
 
 static void
 __prestart()
 {
-  int ii, ntdcs;
+  int ii, ntdcs, status;
 
   printf("INFO: Entering Prestart ROL2\n");
 
@@ -260,6 +263,11 @@ __prestart()
 #endif
 
   for(ii=0; ii<NTRIGBITS; ii++) bitscalers[ii] = 0;
+#ifdef SSIPC
+  printf("\nROL2: sending message (prestart)\n");
+  status = epics_msg_send("hallb_trig_event_bits","uint",NTRIGBITS,bitscalers);
+  printf("\nROL2: message send (prestart)\n");
+#endif
 
   printf("INFO: Prestart ROL22 executed\n");
 
@@ -951,6 +959,7 @@ lenE[jj][nB][nE[nB]] - event length in words
 		  {
             /* event header */
             a_event_type = ((datain[ii]>>24)&0xFF);
+			if(a_event_type==0) printf("ERROR in TI event header word: event type = %d\n",a_event_type);
             if(((datain[ii]>>16)&0xFF)!=0x01) printf("ERROR in TI event header word (0x%02x)\n",((datain[ii]>>16)&0xFF));
             a_nwords = datain[ii]&0xFF;
 #ifdef DEBUG1
@@ -2751,6 +2760,7 @@ if(a_pulsenumber == 0)
 			
             /* event header */
             a_event_type = ((datain[ii]>>24)&0xFF);
+			if(a_event_type==0) printf("ERROR in TI event header word: event type = %d\n",a_event_type);
             if(((datain[ii]>>16)&0xFF)!=0x01) printf("ERROR in TI event header word (0x%02x)\n",((datain[ii]>>16)&0xFF));
             a_nwords = datain[ii]&0xFF;
 #ifdef DEBUG1
@@ -2809,6 +2819,7 @@ if(a_pulsenumber == 0)
 		      printf("[%3d] a_bitpattern = 0x%08x\n",ii,a_bitpattern);
 #endif
               for(i=0; i<NTRIGBITS; i++) bitscalers[i] += ((a_bitpattern>>i)&0x1);
+              havebits = 1;
 
               dataout[4] = datain[ii];
               b08 += 4;
@@ -3620,17 +3631,20 @@ if(a_pulsenumber == 0)
       dataout += 2;
       lenout += 2;
 	}
-
-
-    /* for sync event, send scalers */
-    if(sync_flag)
+    else /* for last event in block */
 	{
-      printf("\nROL2: SYNC EVENT !!!\n");
-      for(i=0; i<NTRIGBITS; i++) printf("trigbit[%d] = %7d\n",i,bitscalers[i]);
-      printf("\n");
+      /* for sync event, send scalers */
+      if(sync_flag && havebits)
+	  {
+        printf("\nROL2: SYNC EVENT !!!\n");
+        for(i=0; i<NTRIGBITS; i++) printf("trigbit[%d] = %7d\n",i,bitscalers[i]);
+        printf("\n");
 #ifdef SSIPC
-      status = epics_msg_send("hallb_trig_event_bits","uint",NTRIGBITS,bitscalers);
+        printf("\nROL2: sending message\n");
+        status = epics_msg_send("hallb_trig_event_bits","uint",NTRIGBITS,bitscalers);
+        printf("\nROL2: message send\n");
 #endif
+      }
 	}
 
 #endif

@@ -173,12 +173,12 @@ fprintf( stdout, "%s: **** Standalone APPLICATION ****\n", __FUNCTION__ );
 		}
 
 
-		if( (ret=tiSetTriggerPulse(1, 10, 10)) != OK )
+		if( (ret=tiSetTriggerPulse(1, 10, 10, 0)) != OK )
 		{
 			fprintf( stderr, "%s: tiSetTriggerPulse failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
 			return ret;
 		}
-		if( (ret=tiSetTriggerPulse(2, 10, 10)) != OK )
+		if( (ret=tiSetTriggerPulse(2, 10, 10, 0)) != OK )
 		{
 			fprintf( stderr, "%s: tiSetTriggerPulse failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
 			return ret;

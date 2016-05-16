@@ -1,4 +1,4 @@
-#!/usr/bin/csh -f
+#!/bin/csh -f
 
 #  run_dispatch
 
@@ -18,6 +18,7 @@
 #  csh code
 #  --------
 
+echo "run_dispatch 1"
 
 #  get which set of scripts to run...default is prod
 if( ${#argv} < 3 ) then
@@ -34,6 +35,7 @@ else
     set script_option=$argv[4]
 endif
 
+echo "run_dispatch 2"
 
 	
 #  main log file
@@ -43,9 +45,13 @@ if( ${#argv} < 2 ) then
    echo "run_dispatch failed - wrong number of arguments on `date`" >>& $mainlogfile
    exit(0)
 endif
+
+echo "run_dispatch 3"
+
 #  run script, exit using script exit status
 set script  = "$dirpath/run_$argv[1]_$argv[2].csh"
 if(-e $script) then
+echo "run_dispatch 4"
    set scriptlogfile = $CLON_LOG/run_log/run_$argv[1]_$argv[2].log 
    echo "run_dispatch starting $dirpath/run_$argv[1]_$argv[2].csh on `date`" >>& $mainlogfile
    echo "" >>& $scriptlogfile 
@@ -58,6 +64,7 @@ if(-e $script) then
    echo "run_dispatch ended    $dirpath/run_$argv[1]_$argv[2].csh on `date`" >>& $mainlogfile
    exit($script_status) 
 else
+echo "run_dispatch 5"
    echo "run_dispatch unable to find $dirpath/run_$argv[1]_$argv[2].csh on `date`" >>& $mainlogfile
    exit(0)
 endif

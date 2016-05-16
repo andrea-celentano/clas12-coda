@@ -31,27 +31,30 @@
 
   UNIX:
      cd $CLON_PARMS/firmwares
-     tiFirmwareUpdate 0x00A80000 tip24.svf
+     tiFirmwareUpdate 0x00A80000 tip32.svf
+     tiFirmwareUpdate 0x00A80000 tip43.svf
+     PRAD: tiFirmwareUpdate 0x00100000 tip43.svf
 
-###tiFirmwareUpdate 0x00A80000 mti91.svf
-*/
-
-/*
-
-262   300
-317   310
-335   282
-
-@reboot  /bin/csh -c "(source /home/clasioc/.cshrc; diagguiserver_init_cron 1) > ~/.crontab_diagguiserver_init "
-0-59/1 * * * *  /bin/csh -c "(source /home/clasioc/.cshrc; diagguiserver_cron 1) > ~/.crontab_diagguiserver "
-
- */
+  serial number upgrade
+     tiFirmwareUpdate 0x00A80000 tip32.svf 203
 
 
 
+serial numbers:
 
-/* serial number upgradeL
-     tiFirmwareUpdate 0x00A80000 mti91.svf 203
+pgem  - tiGetSerialNumber: TI Serial Number is  (0x7100a155)
+ Board Serial Number from PROM usercode is: 0x7100a155 (TIM-10  TI-341) 
+
+prad1 - tiGetSerialNumber: TI Serial Number is  (0x710000cc)
+ Board Serial Number from PROM usercode is: 0x710000cc (204) 
+
+prad2 - tiGetSerialNumber: TI Serial Number is  (0x710000d2)
+ Board Serial Number from PROM usercode is: 0x710000d2 (210) 
+
+prad3 - tiGetSerialNumber: TI Serial Number is  (0x710000cf)
+ Board Serial Number from PROM usercode is: 0x710000cf (207) 
+
+
 */
 
 #include <stdio.h>

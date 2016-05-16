@@ -1,4 +1,4 @@
-#!/usr/bin/csh
+#!/bin/csh
 
 #  run_config_end.csh
 
@@ -10,7 +10,7 @@
 #  do config tasks
 
 #  smartsockets broadcast
-rc_transition -a clasprod -d run_control -file    config  >& /dev/null &
+rc_transition -a clasrun -d run_control -file    config  >& /dev/null &
 
 #  done
 exit(0)

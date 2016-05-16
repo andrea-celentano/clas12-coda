@@ -23,6 +23,7 @@
 
 #include "dsc2Lib.h"
 #include "fadcLib.h"
+#include "vscmLib.h"
 
 
 /****************************************************************************
@@ -123,7 +124,7 @@ What have to be done:
 #define DIST_ADDR  0xEA00	  /*  base address of FADC signal distribution board  (A16)  */
 
 #define MAXBOARDS  21   /* max number od boards per crate */
-#define MAXWORDS  256   /* max number of scaler words per board */
+#define MAXWORDS  /*256*/4096   /* max number of scaler words per board */
 
 #define MIN(a,b) ( (a) < (b) ? (a) : (b) )
 
@@ -135,14 +136,15 @@ static pthread_mutex_t vmescalers_lock;
 #endif
 
 
-static int ndsc2_tcp, rflag, rmode;
-static int nfadc;
+static int nfadc, ndsc2_tcp, nvscm, rflag, rmode;
 static unsigned int  vmescalersmap[MAXBOARDS+1];  /* crate map */
 static unsigned int  vmescalerslen[MAXBOARDS];  /*scalers space (the number of words) */
 static unsigned int *vmescalers[MAXBOARDS];     /*scalers memory space address*/
 static unsigned int i2_from_rol1;
 
 static unsigned int *tdcbuf;
+static unsigned int adcbuf[400];
+static unsigned int vscmbuf[MAXWORDS];
 
 static int init_boards;
 
@@ -178,29 +180,42 @@ vmeScalersRead()
   for(itype=0; itype<SCALER_TYPE_MAX; itype++)
   {
 
-    /* read dsc2 scalers */
-    if(itype == SCALER_TYPE_DSC2)
+    if(itype == SCALER_TYPE_DSC2)    /* dsc2 scalers */
 	{
       for(id=0; id<ndsc2_tcp; id++)
       {
         slot = dsc2Slot_tcp(id);
 vmeBusLock();
         nw = dsc2ReadScalers(slot, tdcbuf, MAXWORDS, rflag, 1/*rmode*/);
-vmeBusUnlock();
+/*vmeBusUnlock(); move below trying to debug problem 'in FADC data: trailer #words 58 != actual #words 54'*/
         vmescalerslen[slot] = nw;
         for(ii=0; ii<nw; ii++) vmescalers[slot][ii] = tdcbuf[ii];
+vmeBusUnlock();
       }
 	}
-    else if(itype == SCALER_TYPE_FADC250)
+    else if(itype == SCALER_TYPE_FADC250)    /* fadc250 scalers */
 	{
       for(id=0; id<nfadc; id++)
       {
         slot = faSlot(id);
 vmeBusLock();
-        nw = faReadScalers(slot, tdcbuf, chmask, 0x3/*rflag*/);
+        nw = faReadScalers(slot, adcbuf, chmask, 0x3/*rflag*/);
 vmeBusUnlock();
         vmescalerslen[slot] = nw;
-        for(ii=0; ii<nw; ii++) vmescalers[slot][ii] = tdcbuf[ii];
+        for(ii=0; ii<nw; ii++) vmescalers[slot][ii] = adcbuf[ii];
+      }
+    }
+    else if(itype == SCALER_TYPE_VSCM)    /* vscm scalers */
+	{
+      for(id=0; id<nvscm; id++)
+      {
+        slot = vscmSlot(id);
+vmeBusLock();
+        nw = vscmReadScalers(slot, vscmbuf, MAXWORDS, 0xff/*rflag*/, 0);
+vmeBusUnlock();
+        vmescalerslen[slot] = nw;
+        for(ii=0; ii<nw; ii++) vmescalers[slot][ii] = vscmbuf[ii];
+		/*printf("vmeScalersRead: nw=%d, vmescalers[slot][nw-2]=%d, vmescalers[slot][nw-1]=%d\n",nw,vmescalers[slot][nw-2],vmescalers[slot][nw-1]);*/
       }
     }
   }
@@ -224,11 +239,11 @@ vmeGetCrateMap(int *buf, int *len)
 
   *len = MAXBOARDS + 1;
   for(slot=0; slot<(*len); slot++) buf[slot] = vmescalersmap[slot];
-
+  /*
   printf("\nvmeGetCrateMap: *len=%d\n",*len);fflush(stdout);
   for(ii=0; ii<(*len); ii++) printf("  slot %2d, boardID 0x%08x\n",ii,buf[ii]);
   printf("\n");
-
+  */
   return(0);
 }
 
@@ -322,9 +337,9 @@ vmeBusLock();
 vmeBusUnlock();
 	}
   }
-
+  /*
   printf("--> vmeGetChannelParams: len=%d buf[0]=%d\n",*len,buf[0]);
-
+  */
   if(*len == 0) return(-1);
   return(0);
 }
@@ -492,6 +507,11 @@ vmeReadTask()
 
   tdcbuf = (unsigned int *)i2_from_rol1;
 
+
+
+  /*************/
+  /* DCS2 INIT */
+
   iFlag = 0;
   if(init_boards==0)
   {
@@ -508,6 +528,12 @@ fadcA32Address = maxA32Address + FA_MAX_A32_MEM;
 
   /* fill map array with DSC2's found */
   for(ii=0; ii<ndsc2_tcp; ii++) if( (slot=dsc2Slot_tcp(ii)) > 0) vmescalersmap[slot] = SCALER_TYPE_DSC2;
+
+
+
+
+  /*************/
+  /* FADC INIT */
 
   rflag = 0xFF; /* latch and read everything */
   rmode = 0; /* not-dma readout */
@@ -529,11 +555,27 @@ faSetA32BaseAddress(fadcA32Address);
   faInit((unsigned int)(3<<19),(1<<19),18,iFlag);
   nfadc = faGetNfadc();
 
-  /* always clean up init blag ! */
-  init_boards = 0;
-
   /* fill map array with FADC's found */
   for(ii=0; ii<nfadc; ii++) if( (slot=faSlot(ii)) > 0) vmescalersmap[slot] = SCALER_TYPE_FADC250;
+
+
+
+  /*************/
+  /* VSCM INIT */
+
+  nvscm = vscmInit(0x100000,0x80000,20,0);
+  vscmConfig ("");
+
+  /* fill map array with FADC's found */
+  for(ii=0; ii<nvscm; ii++) if( (slot=vscmSlot(ii)) > 0) vmescalersmap[slot] = SCALER_TYPE_VSCM;
+
+
+
+
+  /* always clean up init flag ! */
+  init_boards = 0;
+
+
 
   while(1)
   {
@@ -687,24 +729,27 @@ int
 Vme_ReadScalers(Cmd_ReadScalers *pCmd_ReadScalers, Cmd_ReadScalers_Rsp *pCmd_ReadScalers_Rsp)
 {
   int *pWr = pCmd_ReadScalers_Rsp->vals;
-  int c = pCmd_ReadScalers->cnt;
-  int size = 4+4*c;
+  int c = pCmd_ReadScalers->cnt; /* count from input message - not used */
+  int size/* = 4+4*c*/;
   int nw, slot, ii;
 
   /*printf("Vme_ReadScalers reached\n");fflush(stdout);*/
   nw = pCmd_ReadScalers->cnt;
   slot = pCmd_ReadScalers->slot;
-  /*printf("input: cnt=%d slot=%d\n",nw,slot);*/
+  /*printf("Vme_ReadScalers: input: cnt=%d slot=%d\n",nw,slot);*/
 
   SCALER_LOCK;
 
   pCmd_ReadScalers_Rsp->cnt = vmescalerslen[slot];
 
   for(ii=0; ii<pCmd_ReadScalers_Rsp->cnt; ii++) pWr[ii] = vmescalers[slot][ii];
+  /*printf("Vme_ReadScalers: respond: cnt=%d (size=%d) 100=%d 120=%d\n",pCmd_ReadScalers_Rsp->cnt,size,pWr[100],pWr[120]);*/
+
+  size = pCmd_ReadScalers_Rsp->cnt*4 + 4; /* +4 because have to count 'cnt' in outgoing message */
 
   SCALER_UNLOCK;
 
-  return(size);
+  return(size); /* size of outgoing message in bytes ! */
 }
 
 
@@ -715,15 +760,15 @@ Vme_GetCrateMap(Cmd_GetCrateMap *pCmd, Cmd_GetCrateMap_Rsp *pCmd_Rsp)
   int c = pCmd->cnt; /* count from input message - not used */
   int size/* = 4+4*c*/;
   int nw, slot, ii;
-
-  printf("Vme_GetCrateMap reached, size=%d\n",size);fflush(stdout);
-
+  
+  printf("Vme_GetCrateMap reached\n");fflush(stdout);
+  
   vmeGetCrateMap(pWr, &pCmd_Rsp->nslots);
   pCmd_Rsp->cnt = pCmd_Rsp->nslots;
-
+  
   for(ii=0; ii<pCmd_Rsp->nslots; ii++) printf("Vme_GetCrateMap: [%2d] 0x%08x\n",ii,pWr[ii]);
-
-  size = pCmd_Rsp->nslots*4 + 8; /* 8 because have to count 'cnt' and 'nslots' in outgoing message */
+  
+  size = pCmd_Rsp->nslots*4 + 8; /* +8 because have to count 'cnt' and 'nslots' in outgoing message */
 
   return(size); /* output message size in bytes */
 }
@@ -737,9 +782,9 @@ Vme_GetBoardParams(Cmd_GetBoardParams *pCmd, Cmd_GetBoardParams_Rsp *pCmd_Rsp)
   int slot = pCmd->slot;
   int partype = pCmd->partype;
   int len;
-
+  /*
   printf("Vme_GetBoardParams reached, slot=%d, partype=%d\n",slot,partype);fflush(stdout);
-
+  */
   vmeGetBoardParams(slot, partype, pWr, &len);
 
   pCmd_Rsp->cnt = len;
@@ -758,8 +803,9 @@ Vme_GetChannelParams(Cmd_GetChannelParams *pCmd, Cmd_GetChannelParams_Rsp *pCmd_
   int channel = pCmd->channel;
   int partype = pCmd->partype;
   int len;
-
+  /*
   printf("Vme_GetChannelParams reached, slot=%d, channel=%d, partype=%d\n",slot,channel,partype);fflush(stdout);
+  */
   vmeGetChannelParams(slot, channel, partype, pWr, &len);
 
   pCmd_Rsp->cnt = len;
@@ -778,10 +824,11 @@ Vme_SetChannelParams(Cmd_SetChannelParams *pCmd)
   int channel = pCmd->channel;
   int partype = pCmd->partype;
   int len = pCmd->cnt;
-
+  /*
   printf("Vme_SetChannelParams reached, slot=%d, channel=%d, partype=%d, len=%d, buf[0]=%d\n",
     slot,channel,partype,len,*pRd);
   fflush(stdout);
+  */
   vmeSetChannelParams(slot, channel, partype, pRd, len);
 
   return(0); /* output message size in bytes */

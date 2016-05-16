@@ -485,6 +485,10 @@ resize (Widget w, XEvent *event, String args[], Cardinal *num_args)
 
 
 
+/*global*/
+extern int logging;
+/*global*/
+
 static int embedded;
 
 int
@@ -502,8 +506,17 @@ main(int argc, char** argv)
   
   for(ii=0; ii<argc; ii++) printf("argv[%d] >%s<\n",ii,argv[ii]);
   embedded = 0;
-  if(argc==2) if(!strncmp(argv[1],"-embed",6)) embedded = 1;
-  
+  logging = 0;
+  if(argc==2)
+  {
+    if(!strncmp(argv[1],"-embed",6)) embedded = 1;
+  }
+  else if(argc==3)
+  {
+    if(!strncmp(argv[1],"-embed",6)) embedded = 1;
+    if(!strncmp(argv[2],"-log",4)) logging = 1;
+  }
+
 
   if (getenv("CODA") == NULL)
   {

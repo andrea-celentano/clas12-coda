@@ -3469,6 +3469,173 @@ faGetChannelPedestal(int id, unsigned int chan)
 #ifdef CLAS12
 
 int
+faSetHitbitTrigMask(int id, unsigned short chmask)
+{
+  if(id==0) id=fadcID[0];
+
+  if((id<=0) || (id>21) || (FAp[id] == NULL))
+    {
+      logMsg("faSetHitbitTrigMask: ERROR : ADC in slot %d is not initialized \n",id,0,0,0,0,0);
+      return;
+    }
+
+  FALOCK;
+  vmeWrite32(&(FAp[id]->hitbit_trig_mask), chmask);
+  FAUNLOCK;
+  return(OK);
+}
+
+unsigned int
+faGetHitbitTrigMask(int id)
+{
+  unsigned int rvalue = 0;
+
+  if(id==0) id=fadcID[0];
+
+  if((id<=0) || (id>21) || (FAp[id] == NULL))
+    {
+      logMsg("faGetHitbitTrigMask: ERROR : ADC in slot %d is not initialized \n",id,0,0,0,0,0);
+      return;
+    }
+
+  FALOCK;
+  rvalue = vmeRead32(&(FAp[id]->hitbit_trig_mask)) & 0xFFFF;
+  FAUNLOCK;
+  return(rvalue);
+}
+
+int
+faGSetHitbitMinTOT(unsigned short width)
+{
+  int ii;
+
+  for(ii=0;ii<nfadc;ii++)
+    faSetHitbitMinTOT(fadcID[ii], width);
+}
+
+
+int
+faGSetHitbitMinMultiplicity(unsigned short mult)
+{
+  int ii;
+
+  for(ii=0;ii<nfadc;ii++)
+    faSetHitbitMinMultiplicity(fadcID[ii], mult);
+}
+
+int
+faGetHitbitMinTOT(int id)
+{
+  unsigned int val;
+  if(id==0) id=fadcID[0];
+
+  if((id<=0) || (id>21) || (FAp[id] == NULL))
+    {
+      logMsg("faGetHitbitTrigWidth: ERROR : ADC in slot %d is not initialized \n",id,0,0,0,0,0);
+      return;
+    }
+
+  FALOCK;
+  val = vmeRead32(&(FAp[id]->hitbit_cfg));
+  FAUNLOCK;
+  return (val & 0xFF);
+}
+
+int
+faSetHitbitMinTOT(int id, unsigned short width)
+{
+  unsigned int val;
+  if(id==0) id=fadcID[0];
+
+  if((id<=0) || (id>21) || (FAp[id] == NULL))
+    {
+      logMsg("faSetHitbitTrigWidth: ERROR : ADC in slot %d is not initialized \n",id,0,0,0,0,0);
+      return;
+    }
+
+  FALOCK;
+  val = vmeRead32(&(FAp[id]->hitbit_cfg));
+  val = (val & 0xFFFFFF00) | (width & 0xFF);
+  vmeWrite32(&(FAp[id]->hitbit_cfg), val);
+  FAUNLOCK;
+  return(OK);
+}
+
+int
+faGetHitbitMinMultiplicity(int id)
+{
+  unsigned int val;
+  if(id==0) id=fadcID[0];
+
+  if((id<=0) || (id>21) || (FAp[id] == NULL))
+    {
+      logMsg("faGetHitbitTrigWidth: ERROR : ADC in slot %d is not initialized \n",id,0,0,0,0,0);
+      return;
+    }
+
+  FALOCK;
+  val = vmeRead32(&(FAp[id]->hitbit_cfg));
+  FAUNLOCK;
+  return(val>>8)&0x1F;
+}
+
+int
+faSetHitbitMinMultiplicity(int id, unsigned short mult)
+{
+  unsigned int val;
+  if(id==0) id=fadcID[0];
+
+  if((id<=0) || (id>21) || (FAp[id] == NULL))
+    {
+      logMsg("faSetHitbitTrigWidth: ERROR : ADC in slot %d is not initialized \n",id,0,0,0,0,0);
+      return;
+    }
+
+  FALOCK;
+  val = vmeRead32(&(FAp[id]->hitbit_cfg));
+  val = (val & 0xFFFFE0FF) | ((mult & 0x1F)<<8);
+  vmeWrite32(&(FAp[id]->hitbit_cfg), val);
+  FAUNLOCK;
+  return(OK);
+}
+
+int
+faSetHitbitTrigWidth(int id, unsigned short width)
+{
+  if(id==0) id=fadcID[0];
+
+  if((id<=0) || (id>21) || (FAp[id] == NULL))
+    {
+      logMsg("faSetHitbitTrigWidth: ERROR : ADC in slot %d is not initialized \n",id,0,0,0,0,0);
+      return;
+    }
+
+  FALOCK;
+  vmeWrite32(&(FAp[id]->hitbit_trig_width), width);
+  FAUNLOCK;
+  return(OK);
+}
+
+unsigned int
+faGetHitbitTrigWidth(int id)
+{
+  unsigned int rvalue = 0;
+
+  if(id==0) id=fadcID[0];
+
+  if((id<=0) || (id>21) || (FAp[id] == NULL))
+    {
+      logMsg("faGetHitbitTrigWidth: ERROR : ADC in slot %d is not initialized \n",id,0,0,0,0,0);
+      return;
+    }
+
+  FALOCK;
+  rvalue = vmeRead32(&(FAp[id]->hitbit_trig_width)) & 0xFFFF;
+  FAUNLOCK;
+  return(rvalue);
+}
+
+int
 faThresholdIgnore(int id, unsigned short chmask)
 {
   int ii, doWrite=0;

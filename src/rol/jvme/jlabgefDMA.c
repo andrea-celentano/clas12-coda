@@ -25,21 +25,61 @@
 #include "tsi148.h"
 #include "dmaPList.h"
 
-/* Timers for DMA latency measurements */
+/*! Turn on timers for DMA latency measurements */
 #define TIMERS
 #ifdef TIMERS
+/*! Timers for DMA latency measurements */
 unsigned long long int dma_timer[10];
 #endif /* TIMERS */
 
 /* Some DMA Global Variables */
-GEF_VME_DMA_HDL dmaLL_hdl;  /* GEF HDL for DMA Linked List buffer */
+/*! GEF HDL for DMA Linked List buffer */
+static GEF_VME_DMA_HDL dmaLL_hdl;  
+/*! Maximum allowed entries in DMA Linked List */
 #define TSI148_DMA_MAX_LL 21
-volatile tsi148DmaDescriptor_t dmaDescSample; /* Sample descriptor - contains preset attributes */
-volatile tsi148DmaDescriptor_t *dmaDescList;  /* Pointer to Linked-List descriptors */
-GEF_UINT32 dmaLL_totalwords = 0;
+/*! Sample descriptor - contains preset attributes */
+volatile tsi148DmaDescriptor_t dmaDescSample; 
+/*! Pointer to Linked-List descriptors */
+volatile tsi148DmaDescriptor_t *dmaDescList;  
+/*! Total number of requested words in the DMA Linked List */
+static GEF_UINT32 dmaLL_totalwords=0;
 
 extern pthread_mutex_t tsi_mutex;
 
+extern GEF_VME_ADDR addr_A32slave;
+extern void *a32slave_window;
+
+int vmeBerrStatus=0;
+
+/*! Buffer node pointer */
+extern DMANODE *the_event;
+/*! Data pointer */
+extern unsigned int *dma_dabufp;
+
+/*!
+  Routine to initialize the Tempe DMA Interface
+ 
+  @param addrType
+  Address Type of the data source
+  - 0: A16
+  - 1: A24
+  - 2: A32
+  @param dataType
+  Data type of the data source
+  - 0: D16
+  - 1: D32
+  - 2: BLT
+  - 3: MBLT
+  - 4: 2eVME
+  - 5: 2eSST
+  @param sstMode
+  2eSST transfer rate.  If 2eSST is set for dataType (otherwise, ignored):
+  - 0: 160 MB/s
+  - 1: 267 MB/s
+  - 2: 320 MB/s
+ 
+  @return 0, if successful. -1, otherwise.
+*/
 int
 jlabgefDmaConfig
 (
@@ -118,17 +158,27 @@ jlabgefDmaConfig
     }
 
   return OK;
+
 }
 
+/*!
+  Routine to initiate a DMA
+ 
+  @param locAdrs Destination Userspace address
+  @param vmeAdrs VME Bus source address
+  @param size    Maximum size of the DMA in bytes
+ 
+  @return 0, if successful. -1, otherwise.
+*/
 int
 jlabgefDmaSend
 (
- unsigned int locAdrs,   /* Userspace Local Address (NOT Pci Bus) */
+ unsigned long locAdrs,   /* Userspace Local Address (NOT Pci Bus) */
  unsigned int vmeAdrs,   /* VME Bus local Address */
  int size       /* Size of the DMA Transfer in bytes*/
  )
 {
-  int offset;
+  long offset;
   int tmp_dctl=0;
   int channel=0; /* hard-coded for now */
   int nbytes=0;
@@ -139,13 +189,14 @@ jlabgefDmaSend
 
   if(!the_event) 
     {
-      printf("jlabgefDmaSend: ERROR:  the_event pointer is invalid!\n");
+      printf("%s: ERROR:  the_event pointer is invalid!\n",__FUNCTION__);
       return ERROR;
     }
 
   if(!the_event->physMemBase)
     {
-      printf("jlabgefDmaSend: ERROR: DMA Physical Memory has an invalid base address (0x%08x)",
+      printf("%s: ERROR: DMA Physical Memory has an invalid base address (0x%08x)",
+	     __FUNCTION__,
 	     (unsigned int)the_event->physMemBase);
       return ERROR;
     }
@@ -155,43 +206,51 @@ jlabgefDmaSend
 
   /* Local addresses (in Userspace) need to be translated to the physical memory */
   /* Here's the offset between current buffer position and the event head */
-  offset = (int)locAdrs - (int)the_event->partBaseAdr;
-  dmaDescSample.ddal = (int)the_event->physMemBase + offset;
+  offset = locAdrs - the_event->partBaseAdr;
+  dmaDescSample.ddal = (the_event->physMemBase + offset) & 0xFFFFFFFF;
 
+#ifdef ARCH_x86_64
+  dmaDescSample.ddau = (the_event->physMemBase + offset)>>32;
+#else
+  dmaDescSample.ddau = 0;
+#endif
+
+/* #define DEBUG */
 #ifdef DEBUG
-  printf("locAdrs     = 0x%08x   partBaseAdr = 0x%08x\n",
+  printf("locAdrs     = 0x%lx   partBaseAdr = 0x%lx\n",
 	 locAdrs, the_event->partBaseAdr);
-  printf("physMemBase = 0x%08x   offset      = 0x%08x\n\n",
+  printf("physMemBase = 0x%lx   offset      = 0x%lx\n\n",
 	 the_event->physMemBase,offset);
 #endif
 
   /* Source (VME) address */
   dmaDescSample.dsal = vmeAdrs;
 
-  /* Calculate the bytes left in this buffer */
+  /* Calculate the bytes left in this buffer, leaving space for 2KB (0x800) flush */
   nbytes = the_event->part->size - sizeof(DMANODE);
-  nbytes = nbytes - (((int)dma_dabufp - (int)&(the_event->length))<<2);
+  nbytes = (nbytes - ((long)dma_dabufp - (long)&(the_event->length))) - 0x800;
 
   /* Make sure nbytes is realistic */
   if(nbytes<0)
-  {
-    printf("%s: ERROR: Space left in buffer is less than zero (%d). Quitting\n",
+    {
+      printf("%s: ERROR: Space left in buffer is less than zero (%d). Quitting\n",
 	     __FUNCTION__,nbytes);
-    return ERROR;
-  }
+      return ERROR;
+    }
 
   /* Check the specified "size" vs. size left in buffer */
   /* ... if size==0, just use the space left in the buffer */
   if(size>nbytes) 
-  {
-    printf("jlabgefDmaSend: WARN: Specified number of DMA bytes (%d) is greater than \n",
+    {
+      printf("%s: WARN: Specified number of DMA bytes (%d) is greater than \n",
+	     __FUNCTION__,
 	     size);
-    printf("\tthe space left in the buffer (%d).  Using %d\n",nbytes,nbytes);
-  }
+      printf("\tthe space left in the buffer (%d).  Using %d\n",nbytes,nbytes);
+    }
   else if( (size !=0) && (size<=nbytes) )
-  {
-    nbytes = size;
-  }
+    {
+      nbytes = size;
+    }
 
   dmaDescSample.dcnt = nbytes;
 
@@ -210,7 +269,8 @@ jlabgefDmaSend
   pTempe->lcsr.dma[channel].dsal = LSWAP(dmaDescSample.dsal);
   /*   pTempe->lcsr.dma[channel].dsau = 0x0; */
   pTempe->lcsr.dma[channel].ddal = LSWAP(dmaDescSample.ddal);
-  /*   pTempe->lcsr.dma[channel].ddau = 0x0; */
+  if(dmaDescSample.ddal>0)
+    pTempe->lcsr.dma[channel].ddau = LSWAP(dmaDescSample.ddau);
   pTempe->lcsr.dma[channel].dsat = LSWAP(dmaDescSample.dsat);
   /*   pTempe->lcsr.dma[channel].ddat = 0x0; */
   pTempe->lcsr.dma[channel].dcnt = LSWAP(dmaDescSample.dcnt);
@@ -224,6 +284,10 @@ jlabgefDmaSend
 
   UNLOCK_TSI;
 
+#ifdef DEBUG
+  jlabgefReadDMARegs();
+#endif
+
 #ifdef TIMERS
   dma_timer[2] = rdtsc();
 #endif /* TIMERS */
@@ -231,26 +295,123 @@ jlabgefDmaSend
   return OK;
 }
 
-/******************************************************************************
- * 
- * jlabgefDmaDone - Wait until a DMA finishes or times-out
- *
- * RETURNS: if successful, number of bytes transferred
- *          otherwise ERROR
- *
- */
+/*!
+  Routine to initiate a DMA using physical memory address (instead of userspace address)
+ 
+  @param physAdrs Destination Physical Memory Address
+  @param vmeAdrs VME Bus source address
+  @param size    Maximum size of the DMA in bytes
+ 
+  @return 0, if successful. -1, otherwise.
+*/
+int
+jlabgefDmaSendPhys
+(
+ unsigned long physAdrs,   /* Physical Memory Address */
+ unsigned int vmeAdrs,   /* VME Bus local Address */
+ int size       /* Size of the DMA Transfer in bytes*/
+ )
+{
+  long offset;
+  int tmp_dctl=0;
+  int channel=0; /* hard-coded for now */
+  int nbytes=0;
 
+#ifdef TIMERS
+  dma_timer[0] = rdtsc();
+#endif /* TIMERS */
+
+  if(!physAdrs)
+    {
+      printf("%s: ERROR: DMA Physical Memory has an invalid base address (0x%lx)",
+	     __FUNCTION__,
+	     (unsigned long)physAdrs);
+      return ERROR;
+    }
+
+  /* Clear any previous exception */
+  jlabgefClearException(1);
+
+#ifdef ARCH_x86_64
+  dmaDescSample.ddau = (physAdrs)>>32;
+#else
+  dmaDescSample.ddau = 0;
+#endif
+
+  /* Source (VME) address */
+  dmaDescSample.dsal = vmeAdrs;
+
+  nbytes = size;
+
+  /* Make sure nbytes is realistic */
+  if(nbytes<0)
+    {
+      printf("%s: ERROR: Number of bytes (size) is less than zero (%d). Quitting\n",
+	     __FUNCTION__,nbytes);
+      return ERROR;
+    }
+
+  dmaDescSample.dcnt = nbytes;
+
+  /* Some defaults hardcoded for the DMA Control Register */
+  tmp_dctl  = 0x00830000; /* Set Direct mode, VFAR and PFAR by default */
+  tmp_dctl |= (TSI148_LCSR_DCTL_VBKS_2048 |
+			 TSI148_LCSR_DCTL_PBKS_2048); /* 2048 VME/PCI Block Size */
+  tmp_dctl |= (TSI148_LCSR_DCTL_VBOT_0 |
+			 TSI148_LCSR_DCTL_PBOT_0); /* 0us VME/PCI Back-off */
+  
+#ifdef TIMERS
+  dma_timer[1] = rdtsc();
+#endif /* TIMERS */
+
+  LOCK_TSI;
+  pTempe->lcsr.dma[channel].dsal = LSWAP(dmaDescSample.dsal);
+  /*   pTempe->lcsr.dma[channel].dsau = 0x0; */
+  pTempe->lcsr.dma[channel].ddal = LSWAP(dmaDescSample.ddal);
+  if(dmaDescSample.ddal>0)
+    pTempe->lcsr.dma[channel].ddau = LSWAP(dmaDescSample.ddau);
+  pTempe->lcsr.dma[channel].dsat = LSWAP(dmaDescSample.dsat);
+  /*   pTempe->lcsr.dma[channel].ddat = 0x0; */
+  pTempe->lcsr.dma[channel].dcnt = LSWAP(dmaDescSample.dcnt);
+  /*   pTempe->lcsr.dma[channel].ddbs = 0x0; */
+  
+  pTempe->lcsr.dma[channel].dctl = LSWAP(tmp_dctl);
+
+  /* GO! */
+  tmp_dctl |=  TSI148_LCSR_DCTL_DGO;
+  pTempe->lcsr.dma[channel].dctl = LSWAP(tmp_dctl);
+
+  UNLOCK_TSI;
+
+#ifdef DEBUG
+  jlabgefReadDMARegs();
+#endif
+
+#ifdef TIMERS
+  dma_timer[2] = rdtsc();
+#endif /* TIMERS */
+
+  return OK;
+}
+
+/*!
+  Routine to poll for a DMA Completion or timeout.
+ 
+  @return Number of bytes transferred, if successful, -1, otherwise.
+*/
 int
 jlabgefDmaDone
 ()
 {
   unsigned int val=0,ii=0;
   int channel=0; 
-  unsigned int timeout=100;
+  unsigned int timeout=10000000;
   unsigned int vmeExceptionAttribute=0;
   unsigned int veal;
   unsigned int dcnt;
   int status=OK;
+
+  vmeBerrStatus=0;
 
 #ifdef TIMERS
   dma_timer[3] = rdtsc();
@@ -258,22 +419,24 @@ jlabgefDmaDone
 
   LOCK_TSI;
 
-  /* Sergey: 0x1e000000 means we are waiting for VMEbus error, Abort, Pause or Done */
-  val = jlabgefReadRegister(TEMPE_DSTA(channel));
+  val = pTempe->lcsr.dma[channel].dsta;
+  val = LSWAP(val);
   while( ((val&0x1e000000)==0) && (ii<timeout) )
-  {
-    val = jlabgefReadRegister(TEMPE_DSTA(channel));
-    ii++;
-  }
+    {
+      val = pTempe->lcsr.dma[channel].dsta;
+      val = LSWAP(val);
+      ii++;
+    }
 
   if(ii>=timeout) 
-  {
-    printf("jlabgefDmaDone: DMA timed-out. DMA Status Register = 0x%08x\n",val);
-    UNLOCK_TSI;
-    jlabgefReadDMARegs();
-    LOCK_TSI;
-    status = ERROR;
-  }
+    {
+      printf("%s: DMA timed-out. DMA Status Register = 0x%08x\n",
+	     __FUNCTION__,val);
+      UNLOCK_TSI;
+      jlabgefReadDMARegs();
+      LOCK_TSI;
+      status = ERROR;
+    }
 
 #ifdef TIMERS
   dma_timer[4] = rdtsc();
@@ -281,50 +444,56 @@ jlabgefDmaDone
 
   /* check the VME Exception Attribute... 
      clear it if the DMA ended on BERR or 2eST (2e Slave Termination) */
-  vmeExceptionAttribute = jlabgefReadRegister(TEMPE_VEAT);
+  vmeExceptionAttribute = pTempe->lcsr.veat;
+  vmeExceptionAttribute = LSWAP(vmeExceptionAttribute);
   if( (vmeExceptionAttribute & TEMPE_VEAT_VES) && 
       ( (vmeExceptionAttribute & TEMPE_VEAT_BERR) ||
         (vmeExceptionAttribute & TEMPE_VEAT_2eST) )
       )
-  {
-    pTempe->lcsr.veat = LSWAP(TEMPE_VEAT_VESCL);
+    {
+      vmeBerrStatus=1;
+      pTempe->lcsr.veat = LSWAP(TEMPE_VEAT_VESCL);
 
-    if(status != ERROR)
+      if(status != ERROR)
 	{
 	  /* Read where the BERR occurred */
-	  veal = jlabgefReadRegister(TEMPE_VEAL);
+	  veal = pTempe->lcsr.veal;
+	  veal = LSWAP(veal);
 	  /* Return value is the difference between VEAL and the Starting Address */
 	  status = veal - dmaDescSample.dsal;
 	  if(status<0)
-	  {
-	    printf("jlabgefDmaDone: ERROR: VME Exception Address < DMA Source Address (0x%08x < 0x%08x)\n",
-	       veal,dmaDescSample.dsal);
-	    status = ERROR;
-	  }
+	    {
+	      printf("%s: ERROR: VME Exception Address < DMA Source Address (0x%08x < 0x%08x)\n",
+		     __FUNCTION__,
+		     veal,dmaDescSample.dsal);
+	      status = ERROR;
+	    }
 	}
-  }
+    }
   else
-  {
-    /* DMA ended on DMA Count (No BERR), return original byte count */
-    if(status != ERROR)
     {
+      vmeBerrStatus=0;
+      /* DMA ended on DMA Count (No BERR), return original byte count */
+      if(status != ERROR)
+	{
 	  status = dmaDescSample.dcnt;
 	  /* check and make sure 0 bytes are left in the DMA Count register */
-      dcnt = jlabgefReadRegister(TEMPE_DCNT(channel));
-      if(dcnt != 0)
-      {
-	    printf("%s: ERROR: DMA terminated on master byte count,",__FUNCTION__);
-	    printf("    however DCNT (%d) != 0 \n", dcnt);
-	  }
+	  dcnt = pTempe->lcsr.dma[channel].dcnt;
+	  dcnt = LSWAP(dcnt);
+	  if(dcnt != 0)
+	    {
+	      printf("%s: ERROR: DMA terminated on master byte count,",__FUNCTION__);
+	      printf("    however DCNT (%d) != 0 \n", dcnt);
+	    }
+	}
     }
-  }
 
   /* If we started a linked-list transaction, dmaLL_totalwords should be non-zero */
   if(dmaLL_totalwords>0)
-  {
-    status = dmaLL_totalwords<<2;
-    dmaLL_totalwords=0;
-  }
+    {
+      status = dmaLL_totalwords<<2;
+      dmaLL_totalwords=0;
+    }
 
   UNLOCK_TSI;
 #ifdef TIMERS
@@ -335,17 +504,11 @@ jlabgefDmaDone
   
 }
 
-/******************************************************************************
- * 
- * jlabgefSetupDMALLBuf - Set up the system buffer (mapped to userspace)
- *                        necesary for DMA Linked-List Mode.
- *                        DMA registers for each DMA transaction will
- *                        be stored in this buffer.
- *
- * RETURNS: Status from gefVmeAllocDmaBuf
- *
- */
-
+/*!
+  Routine to allocate memory for a linked list buffer.
+ 
+  @return 0 if successful, otherwise.. an API dependent error code
+*/
 int
 jlabgefDmaAllocLLBuffer
 ()
@@ -358,7 +521,7 @@ jlabgefDmaAllocLLBuffer
   status = gefVmeAllocDmaBuf (vmeHdl, listsize, &dmaLL_hdl, (GEF_MAP_PTR *) &mapPtr);
   if (status != GEF_SUCCESS)
     {
-      printf("jlabgefSetupDMALLBuf: ERROR: gefVmeAllocDmaBuf returned %x\n",status);
+      printf("%s: ERROR: gefVmeAllocDmaBuf returned %x\n",__FUNCTION__,status);
       return ERROR;
     }
   
@@ -368,16 +531,11 @@ jlabgefDmaAllocLLBuffer
   return OK;
 }
 
-/******************************************************************************
- * 
- * jlabgefDmaFreeLLBuf - Free up the system buffer allocated by 
- *                       jlabgefSetupDMALLBuf
- *
- * RETURNS: OK if Buffer was successfully freed,
- *          ERROR otherwise.
- *
- */
-
+/*!
+  Routine to free the memory allocated with vmeDmaAllocLLBuffer()
+ 
+  @return 0 if successful, otherwise.. an API dependent error code
+*/
 int
 jlabgefDmaFreeLLBuffer
 ()
@@ -388,30 +546,27 @@ jlabgefDmaFreeLLBuffer
   status = gefVmeFreeDmaBuf(dmaLL_hdl);
   if (status != GEF_SUCCESS)
     {
-      printf("jlabgefFreeDMALLBuf: ERROR: gefVmeFreeDmaBuf returned %x\n",status);
+      printf("%s: ERROR: gefVmeFreeDmaBuf returned %x\n",__FUNCTION__,status);
       retval = ERROR;
     }
   
   return OK;
 }
 
-/**********************************************************************
- *
- * jlabgefDmaSetupLL - Setup the DMA Linked List
- *
- *  INPUTS:
- *    locAddrBase    - Userspace Local Address Base to send DMA
- *    vmeAddr        - Array of VME addresses
- *    dmaSize        - Array of sizes of each DMA, in bytes
- *    numt           - Number of DMA (size of arrays).
- *
- *  RETURNS: 0 if successful, -1 otherwise
- */
-
+/*!
+  Routine to setup a DMA Linked List
+ 
+  @param locAddrBase Userspace Destination address
+  @param *vmeAddr    Array of VME Source addresses
+  @param *dmaSize    Array of sizes of each DMA, in bytes
+  @param numt        Nuumber of DMA (also size of the arrays)
+ 
+  @return 0, if successful.  -1, otherwise.
+*/
 void
 jlabgefDmaSetupLL
 (
- unsigned int locAddrBase,
+ unsigned long locAddrBase,
  unsigned int *vmeAddr,
  unsigned int *dmaSize,
  unsigned int numt
@@ -427,7 +582,7 @@ jlabgefDmaSetupLL
   /* check to see if the linked list structure array has been init'd */
   if (dmaDescList == NULL) 
     {
-      printf("jlabgefDMAListSet: ERROR: dmaDescList not initialized\n");
+      printf("%s: ERROR: dmaDescList not initialized\n",__FUNCTION__);
       return;
     }
 
@@ -501,14 +656,9 @@ jlabgefDmaSetupLL
 
 }
 
-/******************************************************************************
- * 
- * jlabgefDmaSendLL - Start a DMA Linked List mode transfer
- *
- * RETURNS: N/A
- *
- */
-
+/*!
+  Routine to initiate a linked list DMA that was setup with vmeDmaSetupLL()
+*/
 void
 jlabgefDmaSendLL
 ()
@@ -539,56 +689,136 @@ jlabgefDmaSendLL
 
 }
 
-/******************************************************************************
- * 
- * jlabgefReadDMARegs - Print out a bunch of dma registers from the tempe chip
- *
- * RETURNS: N/A
- *
- */
+/*!
+  Routine to convert the current data buffer pointer position in userspace
+  to Physical Memory space
 
+  @param locAdrs
+  Pointer to current position in data buffer in userspace.
+
+  @return Physical Memory address of the current position in the data buffer.
+*/
+unsigned int
+jlabgefDmaLocalToPhysAdrs(unsigned int locAdrs)
+{
+  unsigned int offset=0;
+  int rval=0;
+
+  if(!the_event) 
+    {
+      printf("%s: ERROR:  the_event pointer is invalid!\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!the_event->physMemBase)
+    {
+      printf("%s: ERROR: DMA Physical Memory has an invalid base address (0x%08x)",
+	     __FUNCTION__,
+	     (unsigned int)the_event->physMemBase);
+      return ERROR;
+    }
+
+
+  offset = (int)locAdrs - (int)the_event->partBaseAdr;
+  rval = (int)the_event->physMemBase + offset;
+
+  return rval;
+}  
+
+/*!
+  Routine to convert the current data buffer pointer position in userspace
+  to a VME Address.
+
+  The VME Slave window must be initialized, prior to a call to this routine.
+
+  @param locAdrs
+  Pointer to current position in data buffer in userspace.
+
+  @return VME Slave address of the current position in the data buffer.
+*/
+unsigned int
+jlabgefDmaLocalToVmeAdrs(unsigned int locAdrs)
+{
+  unsigned int offset=0;
+  int rval;
+  unsigned int vme_base=addr_A32slave.lower;
+
+  if(a32slave_window==NULL)
+    {
+      printf("%s: ERROR: Slave Window has not been initialized.\n",
+	     __FUNCTION__);
+      return ERROR;
+    }
+  if(!the_event) 
+    {
+      printf("%s: ERROR:  the_event pointer is invalid!\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!the_event->physMemBase)
+    {
+      printf("%s: ERROR: DMA Physical Memory has an invalid base address (0x%08x)",
+	     __FUNCTION__,
+	     (unsigned int)the_event->physMemBase);
+      return ERROR;
+    }
+
+
+  offset = (int)locAdrs - (int)the_event->partBaseAdr;
+/*   rval = (int)the_event->physMemBase + offset; */
+  rval = (int)vme_base + offset;
+
+  return rval;
+}
+
+/*!
+  Routine to print the Tempe DMA Registers
+*/
 void
 jlabgefReadDMARegs
 ()
 {
   int channel=0; 
+  unsigned int dsal, dsau, ddal, ddau;
+  unsigned int dsat, ddat, dcnt, ddbs;
+  unsigned int dnlal, dnlau;
+  unsigned int dctl;
 
-  printf("\n");
+  printf("\n%s:\n",__FUNCTION__);
 
   LOCK_TSI;
+  dsal = pTempe->lcsr.dma[channel].dsal;
+  dsau = pTempe->lcsr.dma[channel].dsau;
+  ddal = pTempe->lcsr.dma[channel].ddal;
+  ddau = pTempe->lcsr.dma[channel].ddau;
+  dsat = pTempe->lcsr.dma[channel].dsat;
+  ddat = pTempe->lcsr.dma[channel].ddat;
+  dcnt = pTempe->lcsr.dma[channel].dcnt;
+  ddbs = pTempe->lcsr.dma[channel].ddbs;
 
-  printf("control                       [dctl]  = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dctl));
-  printf("status                        [dsta]  = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dsta));
+  dnlal = pTempe->lcsr.dma[channel].dnlal;
+  dnlau = pTempe->lcsr.dma[channel].dnlau;
 
-  printf("Current source address (high) [dcsau] = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dcsau));
-  printf("Current source address (low)  [dcsal] = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dcsal));
-
-  printf("Current dest address (high)   [dcdau] = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dcdau));
-  printf("Current dest address (low)    [dcdal] = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dcdal));
-
-  printf("Current link address (high)   [dclau] = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dclau));
-  printf("Current link address (low)    [dclal] = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dclal));
-
-  printf("source address (high)         [dsau]  = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dsau));
-  printf("source address (low)          [dsal]  = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dsal));
-
-  printf("dest address (high)           [ddau]  = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].ddau));
-  printf("dest address (low)            [ddal]  = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].ddal));
-
-  printf("source attributes             [dsat]  = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dsat));
-  printf("destination attributes        [ddat]  = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].ddat));
-
-  printf("next link address (high)      [dnlau] = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dnlau));
-  printf("next link address (low)       [dnlal] = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dnlal));
-
-  printf("count (byte)                  [dcnt]  = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].dcnt));
-  printf("2eSST broadcast select        [ddbs]  = 0x%08x\n",LSWAP(pTempe->lcsr.dma[channel].ddbs));
-
-
+  dctl = pTempe->lcsr.dma[channel].dctl;
   UNLOCK_TSI;
+
+  printf(" dsal = 0x%08x\n",LSWAP(dsal));
+  printf(" dsau = 0x%08x\n",LSWAP(dsau));
+  printf(" ddal = 0x%08x\n",LSWAP(ddal));
+  printf(" ddau = 0x%08x\n",LSWAP(ddau));
+  printf(" dsat = 0x%08x\n",LSWAP(dsat));
+  printf(" ddat = 0x%08x\n",LSWAP(ddat));
+  printf(" dcnt = 0x%08x\n",LSWAP(dcnt));
+  printf(" ddbs = 0x%08x\n",LSWAP(ddbs));
+
+  printf("dnlal = 0x%08x\n",LSWAP(dnlal));
+  printf("dnlau = 0x%08x\n",LSWAP(dnlau));
+
+
+  printf(" dctl = 0x%08x\n",LSWAP(dctl));
 
   printf("\n");
 }
 
-
-#include "usrvme.c"
+/* sergey */
+#include "usrvme.c"                                                                                                 

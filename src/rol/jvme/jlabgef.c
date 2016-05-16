@@ -15,7 +15,7 @@
  * Description:
  *     JLab extra routines to compliment the GEFanuc API
  *
- * SVN: $Rev: 393 $
+ * SVN: $Rev$
  *
  *----------------------------------------------------------------------------*/
 
@@ -31,34 +31,58 @@
 #include "gef/gefcmn_osa.h"
 #include "gef/gefcmn_vme_framework.h"
 
-#define A32_MAX_WINDOW_SIZE   0xf000000
+/**
+   Maximum window size for A32 addressing
+*/
+#define A32_MAX_WINDOW_MAP_SIZE   0x0f000000
 
-/* Global pointers to the Userspace windows, available to other
-   libraries (define as extern) */
+/** \name Userspace window pointers
+    Global pointers to the Userspace windows
+    \{ */
 void *a16_window=NULL;
 void *a24_window=NULL;
 void *a32_window=NULL;
 void *a32blt_window=NULL;
 void *a32slave_window=NULL;
+void *crcsr_window=NULL;
+/*  \} */
+/** \name Physical Memory Base of the Slave Window 
+     Physical Memory Base of the Slave Window 
+     \{ */
+int a32slave_physmembase=0;
+/*  \} */
 
-/* VME address handles for GEF library */
+/** \name VME address handles for GEF library 
+    \{ */
 static GEF_VME_MASTER_HDL a16_hdl, a24_hdl, a32_hdl, a32blt_hdl;
+static GEF_VME_MASTER_HDL crcsr_hdl;
 static GEF_VME_SLAVE_HDL a32slave_hdl;
-static GEF_MAP_HDL a16map_hdl, a24map_hdl, a32map_hdl, a32bltmap_hdl, a32slavemap_hdl;
+static GEF_MAP_HDL a16map_hdl, a24map_hdl, map_hdl, a32map_hdl, a32bltmap_hdl, a32slavemap_hdl;
+static GEF_MAP_HDL crcsrmap_hdl;
+/* \} */
 
-unsigned int a32_window_width    = 0x03000000/*48MB*//*0x00010000*//*64KB*/;
-unsigned int a32blt_window_width = 0x0a000000; /*160MB*/
-unsigned int a24_window_width    = 0x01000000; /*16MB*/
-unsigned int a16_window_width    = 0x00010000;
+/** \name Default VME window widths
+    \{ */
+unsigned int a32_window_width        = 0x00010000; /*64KB*/ /*0x03000000 - 48MB*/
+unsigned int a32blt_window_width     = 0x0a000000; /*160MB*/
+unsigned int a24_window_width        = 0x01000000; /*16MB*/
+unsigned int a16_window_width        = 0x00010000;
+unsigned int crcsr_window_width        = 0x01000000;
+/*  \} */
 
-/* Some additional global pointers */
-struct _GEF_VME_MAP_MASTER *mapHdl;
+/** Handler for Tempe Register mmap */
+static struct _GEF_VME_MAP_MASTER *mapHdl;
 
+/** Flag for turning off or on driver verbosity 
+    \see vmeSetQuietFlag()
+*/
 extern unsigned int vmeQuietFlag;
 
+/** Mutex for locking/unlocking Tempe driver access */
 pthread_mutex_t tsi_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-/* Some default settings */
+/** \name Default VME window settings (GE-VME API structures)
+    \{ */
 GEF_VME_ADDR addr_A16 =
   {
     .upper = 0x00000000,
@@ -70,7 +94,6 @@ GEF_VME_ADDR addr_A16 =
     .vme_2esst_rate = GEF_VME_2ESST_RATE_160,
     .broadcast_id = 0,
     .flags = 0
-    /*     .flags = GEF_VME_WND_EXCLUSIVE */
   };
 
 GEF_VME_ADDR addr_A24 =
@@ -84,7 +107,6 @@ GEF_VME_ADDR addr_A24 =
     .vme_2esst_rate = GEF_VME_2ESST_RATE_160,
     .broadcast_id = 0,
     .flags = 0
-    /*     .flags = GEF_VME_WND_EXCLUSIVE */
   };
 
 GEF_VME_ADDR addr_A32 =
@@ -98,7 +120,6 @@ GEF_VME_ADDR addr_A32 =
     .vme_2esst_rate = GEF_VME_2ESST_RATE_160,
     .broadcast_id = 0,
     .flags = 0
-    /*     .flags = GEF_VME_WND_EXCLUSIVE */
   };
 
 GEF_VME_ADDR addr_A32blt =
@@ -112,7 +133,6 @@ GEF_VME_ADDR addr_A32blt =
     .vme_2esst_rate = GEF_VME_2ESST_RATE_160,
     .broadcast_id = 0,
     .flags = 0
-    /*     .flags = GEF_VME_WND_EXCLUSIVE */
   };
 
 GEF_VME_ADDR addr_A32slave =
@@ -126,11 +146,25 @@ GEF_VME_ADDR addr_A32slave =
     .vme_2esst_rate = GEF_VME_2ESST_RATE_320,
     .broadcast_id = 0,
     .flags = 0
-    /*     .flags = GEF_VME_WND_EXCLUSIVE */
   };
 
+GEF_VME_ADDR addr_CRCSR =
+  {
+    .upper = 0x00000000,
+    .lower = 0x00000000,
+    .addr_space = GEF_VME_ADDR_SPACE_CRCSR,
+    .addr_mode = GEF_VME_ADDR_MODE_USER | GEF_VME_ADDR_MODE_DATA,
+    .transfer_mode = GEF_VME_TRANSFER_MODE_MBLT,
+    .transfer_max_dwidth = GEF_VME_TRANSFER_MAX_DWIDTH_32,
+    .vme_2esst_rate = GEF_VME_2ESST_RATE_160,
+    .broadcast_id = 0,
+    .flags = 0
+  };
+
+/*  \} */
+
 /* didOpen=0(1) when the default windows have not (have been) opened */
-int didOpen=0;
+static int didOpen=0;
 
 /* Prototypes of routines not included in the gefaunc headers */
 GEF_STATUS GEF_STD_CALL 
@@ -145,23 +179,14 @@ gefVmeWriteReg (GEF_VME_BUS_HDL  bus_hdl,
 		GEF_VME_DWIDTH   width,
 		void            *buffer);
 
-/******************************************************************************
- *
- * jlabgefOpenA16
- * jlabgefOpenA24
- * jlabgefOpenA32
- * jlabgefOpenA32Blt  - Open the specified VME addressing window
- *
- *  These routines create a VME master window to the specified
- *  address space.  This space is then mapped to the pointer
- *  provide as an argument.
- *
- *  For the A32/A32Blt, the VME Base and Size must also be provided.
- *
- *  RETURNS: N/A
- *
- */
+/*!
+  Open a VME window for the A16 address space, and mmap it into userspace
 
+  \see jlabgefCloseA16()
+  
+  @param *a16p Where to return base address of userspace map
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS 
 jlabgefOpenA16(void *a16p) 
 {
@@ -194,6 +219,14 @@ jlabgefOpenA16(void *a16p)
   return 0;
 }
 
+/*!
+  Open a VME window for the A24 address space, and mmap it into userspace
+  
+  \see jlabgefCloseA24()
+  
+  @param *a24p Where to return base address of userspace map
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS 
 jlabgefOpenA24(void *a24p) 
 {
@@ -224,16 +257,21 @@ jlabgefOpenA24(void *a24p)
   return 0;
 }
 
+/*!
+  Open a VME window for the A32 address space, and mmap it into userspace
+  
+  \see jlabgefCloseA32()
+  
+  @param base  VME Base address of the VME window
+  @param size  Size of the VME window
+  @param *a32p Where to return base address of userspace map
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS 
 jlabgefOpenA32(unsigned int base, unsigned int size, void *a32p) 
 {
 
   GEF_STATUS status;
-
-  if((size == 0)||(size>A32_MAX_WINDOW_SIZE)) {
-    printf("ERROR: jlabgefOpenA32 : Invalid Window size specified = 0x%x\n",size);
-    return -1;
-  }
 
   addr_A32.lower = base;
 
@@ -245,6 +283,15 @@ jlabgefOpenA32(unsigned int base, unsigned int size, void *a32p)
     UNLOCK_TSI;
     return -1;
   } 
+
+  if((size == 0)||(size>A32_MAX_WINDOW_MAP_SIZE)) 
+    {
+      printf("%s: WARN: Invalid Window map size specified = 0x%x. Not Mapped.\n",
+	     __FUNCTION__,size);
+      a32p = NULL;
+      UNLOCK_TSI;
+      return 0;
+    }
 
   /* Now map the VME A32 Window into a local address */
   status = gefVmeMapMasterWindow(a32_hdl, 0, size, &a32map_hdl, a32p);
@@ -261,16 +308,34 @@ jlabgefOpenA32(unsigned int base, unsigned int size, void *a32p)
   return 0;
 }
 
+int
+jlabgefSetA32BltWindowWidth(unsigned int size)
+{
+  a32blt_window_width = size;
+  if(size>A32_MAX_WINDOW_MAP_SIZE)
+    {
+      printf("%s: WARN: size (0x%x) larger than Max Map size.\n",
+	     __FUNCTION__,size);
+    }
+  return OK;
+}
+
+/*!
+  Open a VME window for the A32 address space, and mmap it into userspace
+  This window is meant to be used to setup block transfers.
+  
+  \see jlabgefCloseA32Blt()
+  
+  @param base  VME Base address of the VME window
+  @param size  Size of the VME window
+  @param *a32p Where to return base address of userspace map
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS 
 jlabgefOpenA32Blt(unsigned int base, unsigned int size, void *a32p) 
 {
 
   GEF_STATUS status;
-
-  if((size == 0)||(size>A32_MAX_WINDOW_SIZE)) {
-    printf("ERROR: jlabgefOpenA32 : Invalid Window size specified = 0x%x\n",size);
-    return -1;
-  }
 
   addr_A32blt.lower = base;
 
@@ -282,6 +347,13 @@ jlabgefOpenA32Blt(unsigned int base, unsigned int size, void *a32p)
     UNLOCK_TSI;
     return -1;
   } 
+
+  if((size == 0)||(size>A32_MAX_WINDOW_MAP_SIZE)) 
+    {
+      printf("%s: WARN: Invalid Window map size specified = 0x%x. Set to Max (0x%x)\n",
+	     __FUNCTION__,size,A32_MAX_WINDOW_MAP_SIZE);
+      size = A32_MAX_WINDOW_MAP_SIZE;
+    }
 
   /* Now map the VME A32 Window into a local address */
   status = gefVmeMapMasterWindow(a32blt_hdl, 0, size, &a32bltmap_hdl, a32p);
@@ -298,6 +370,58 @@ jlabgefOpenA32Blt(unsigned int base, unsigned int size, void *a32p)
   return 0;
 }
 
+/*!
+  Open a VME window for the CRCSR address space, and mmap it into userspace
+  
+  \see jlabgefCloseCRCSR()
+  
+  @param *acrcsrp Where to return base address of userspace map
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
+GEF_STATUS 
+jlabgefOpenCRCSR(void *crcsrp) 
+{
+
+  GEF_STATUS status;
+
+  LOCK_TSI;
+
+  status = gefVmeCreateMasterWindow(vmeHdl, &addr_CRCSR, crcsr_window_width, &crcsr_hdl);
+  if (status != GEF_STATUS_SUCCESS) {
+    printf("ERROR: gefVmeCreateMasterWindow CRCSR failed: code 0x%08x\n",status);
+    UNLOCK_TSI;
+    return -1;
+  } 
+
+  /* Now map the VME CRCSR Window into a local address */
+  status = gefVmeMapMasterWindow(crcsr_hdl, 0, crcsr_window_width, &crcsrmap_hdl, crcsrp);
+  if(status != GEF_STATUS_SUCCESS) {
+    printf("\ngefVmeMapMasterWindow (A24) failed: code 0x%08x\n",status);
+    gefVmeReleaseMasterWindow(crcsr_hdl);
+    crcsrp = NULL;
+    UNLOCK_TSI;
+    return -1;
+  }
+
+  UNLOCK_TSI;
+
+  return 0;
+}
+
+
+
+
+#define DEBUGSLAVE
+
+/*!
+  Open a Slave VME window for the A32 address space.
+  
+  \see jlabgefCloseA32Slave()
+
+  @param base  VME Base address of the VME window
+  @param size  Size of the VME window
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS
 jlabgefOpenSlaveA32(unsigned int base, unsigned int size)
 {
@@ -326,10 +450,42 @@ jlabgefOpenSlaveA32(unsigned int base, unsigned int size)
     return -1;
   }
 
+  struct _GEF_VME_MAP_SLAVE *tryHdl = (struct _GEF_VME_MAP_SLAVE *)&a32slavemap_hdl;
+
+#ifdef DEBUGSLAVE
+  printf("%s: phys_addr = 0x%08x, a32slave_window = 0x%08x\n",
+		 __FUNCTION__,(tryHdl->phys_addr),(unsigned int)a32slave_window);
+#endif
+
   /* Set bits in ITAT0, to turn all all types of block transfers.
      Assume that window 0 was the one setup, for the moment */
 
+  UINT32 itsal, itofl, iteal, phys_addr;
+#ifdef OLDREAD
+  itsal = jlabgefReadRegister(TEMPE_ITSAL(0));
+  itofl = jlabgefReadRegister(TEMPE_ITOFL(0));
+  iteal = jlabgefReadRegister(TEMPE_ITEAL(0));
+#else
+  itsal = pTempe->lcsr.inboundTranslation[0].itsal; itsal = LSWAP(itsal);
+  itofl = pTempe->lcsr.inboundTranslation[0].itofl; itofl = LSWAP(itofl);
+  iteal = pTempe->lcsr.inboundTranslation[0].iteal; iteal = LSWAP(iteal);
+#endif
+  
+  phys_addr = itsal+itofl;
+  a32slave_physmembase = phys_addr;
+
+#ifdef DEBUGSLAVE
+  printf("%s:\n  ITSAL = 0x%08x\n  ITOFL = 0x%08x\n  ITEAL = 0x%08x\n",
+	 __FUNCTION__,itsal,itofl,iteal);
+
+  printf("  phys_addr = 0x%08x\n",phys_addr);
+#endif
+
+#ifdef OLDREAD
   itat = jlabgefReadRegister(TEMPE_ITAT(0));
+#else
+  itat = pTempe->lcsr.inboundTranslation[0].itat; itat = LSWAP(itat);
+#endif
   if(itat & TSI148_LCSR_ITAT_EN)
     {
       itat |= (TSI148_LCSR_ITAT_2eSSTB | TSI148_LCSR_ITAT_2eSST | TSI148_LCSR_ITAT_2eVME | 
@@ -345,25 +501,14 @@ jlabgefOpenSlaveA32(unsigned int base, unsigned int size)
     }
 
   UNLOCK_TSI;
-
-
+  return status;
 }
 
-/******************************************************************************
- *
- * jlabgefCloseA16
- * jlabgefCloseA24
- * jlabgefCloseA32
- * jlabgefCloseA32Blt  - Close the specified VME addressing window
- *
- *  These routines will close the vme address window that was
- *  opened with their jlabgefOpen counterpart.
- *
- *  RETURNS: GEF_STATUS_SUCCESS if successful,
- *           otherwise, error status from GEF_STATUS_ENUM
- *
- */
-
+/*!
+  Routine to unmmap and close the VME window opened with jlabgefOpenA16()
+  
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS 
 jlabgefCloseA16()
 {
@@ -400,6 +545,11 @@ jlabgefCloseA16()
   return 0;
 }
 
+/*!
+  Routine to unmmap and close the VME window opened with jlabgefOpenA24()
+  
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS 
 jlabgefCloseA24()
 {
@@ -417,7 +567,6 @@ jlabgefCloseA24()
       UNLOCK_TSI;
       return -1;
     }
-
 
   /* Release the A24 Master window */
   status = gefVmeReleaseMasterWindow(a24_hdl);
@@ -437,6 +586,11 @@ jlabgefCloseA24()
   return 0;
 }
 
+/*!
+  Routine to unmmap and close the VME window opened with jlabgefOpenA32()
+  
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS 
 jlabgefCloseA32()
 {
@@ -454,25 +608,31 @@ jlabgefCloseA32()
       return -1;
     }
 
-
-  /* Release the A32 Master window */
-  status = gefVmeReleaseMasterWindow(a32_hdl);
-  if (status != GEF_STATUS_SUCCESS)
+  if(a32_window!=NULL)
     {
-      printf("ERROR: gefVmeReleaseMasterWindow (A32) failed: code 0x%08x\n",
-	     status);
-      UNLOCK_TSI;
-      return -1;
+      /* Release the A32 Master window */
+      status = gefVmeReleaseMasterWindow(a32_hdl);
+      if (status != GEF_STATUS_SUCCESS)
+	{
+	  printf("ERROR: gefVmeReleaseMasterWindow (A32) failed: code 0x%08x\n",
+		 status);
+	  UNLOCK_TSI;
+	  return -1;
+	}
+      
+      a32_window=NULL;
     }
-        
-
-  a32_window=NULL;
 
   UNLOCK_TSI;
 
   return 0;
 }
 
+/*!
+  Routine to unmmap and close the VME window opened with jlabgefOpenA32Blt()
+  
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS 
 jlabgefCloseA32Blt()
 {
@@ -491,30 +651,80 @@ jlabgefCloseA32Blt()
       return -1;
     }
 
-
-  /* Release the A32 Master window */
-  status = gefVmeReleaseMasterWindow(a32blt_hdl);
-  if (status != GEF_STATUS_SUCCESS)
+  if(a32blt_window!=NULL)
     {
-      printf("ERROR: gefVmeReleaseMasterWindow (A32-BLT) failed: code 0x%08x\n",
-	     status);
-      UNLOCK_TSI;
-      return -1;
-    }
-        
+      /* Release the A32 Master window */
+      status = gefVmeReleaseMasterWindow(a32blt_hdl);
+      if (status != GEF_STATUS_SUCCESS)
+	{
+	  printf("ERROR: gefVmeReleaseMasterWindow (A32-BLT) failed: code 0x%08x\n",
+		 status);
+	  UNLOCK_TSI;
+	  return -1;
+	}
 
-  a32blt_window=NULL;
+      a32blt_window=NULL;
+    }
 
   UNLOCK_TSI;
 
   return 0;
 }
 
+/*!
+  Routine to unmmap and close the VME window opened with jlabgefOpenCRCSR()
+  
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
+GEF_STATUS 
+jlabgefCloseCRCSR()
+{
+
+  GEF_STATUS status;
+
+  LOCK_TSI;
+
+  /* Unmap CRCSR address space */
+  status = gefVmeUnmapMasterWindow(crcsrmap_hdl);
+  if(status != GEF_STATUS_SUCCESS)
+    {
+      printf("\ngefVmeUnmapMasterWindow (CRCSR) failed: code 0x%08x\n",
+	     status);
+      UNLOCK_TSI;
+      return -1;
+    }
+
+
+  /* Release the A24 Master window */
+  status = gefVmeReleaseMasterWindow(crcsr_hdl);
+  if (status != GEF_STATUS_SUCCESS)
+    {
+      printf("ERROR: gefVmeReleaseMasterWindow (CRCSR) failed: code 0x%08x\n",
+	     status);
+      UNLOCK_TSI;
+      return -1;
+    }
+        
+
+  crcsr_window=NULL;
+
+  UNLOCK_TSI;
+
+  return 0;
+}
+
+/*!
+  Routine to close the slate VME window opened with jlabgefOpenSlaveA32()
+  
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS 
 jlabgefCloseA32Slave()
 {
 
   GEF_STATUS status;
+
+  printf("jlabgefCloseA32Slave reached\n");
 
   LOCK_TSI;
 
@@ -528,7 +738,7 @@ jlabgefCloseA32Slave()
       return -1;
     }
 
-
+  
   /* Release the A32 Master window */
   status = gefVmeRemoveSlaveWindow(a32slave_hdl);
   if (status != GEF_STATUS_SUCCESS)
@@ -547,20 +757,18 @@ jlabgefCloseA32Slave()
   return 0;
 }
 
-/******************************************************************************
- *
- * jlabgefOpenDefaultWindows  - Open all default VME addressing windows
- *
- *  This routines will open all VME addressing windows that are standard
- *  to JLab used VME controllers.  
- *
- *  A memory map of the TSI148 (VME bridge chip) is also made available.
- *
- *  RETURNS: GEF_STATUS_SUCCESS if successful,
- *           otherwise, error status from GEF_STATUS_ENUM
- *
- */
+/*!
+  Routine to initialize the GE-VME API
+  - opens default VME Windows and maps them into Userspace
+  - maps VME Bridge Registers into Userspace
+  - disables interrupts on VME Bus Errors
+  - creates a shared mutex for interrupt/trigger locking 
+  - calls vmeBusCreateLockShm()
 
+  \see jlabgefCloseDefaultWindows();
+ 
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS
 jlabgefOpenDefaultWindows() 
 {
@@ -584,18 +792,38 @@ jlabgefOpenDefaultWindows()
 
   UNLOCK_TSI;
 
-  /* Open A32 windows */
-  if(a32_window==NULL) 
+  /* Open CRCSR window */
+  if(crcsr_window==NULL) 
     {
       if(!vmeQuietFlag)
-		printf("Opening A32 Window (size=%d MB) ",a32_window_width/1024/1024);
-          status = jlabgefOpenA32(0xfb000000,a32_window_width,&a32_window);
+	printf("Opening CRCSR Window ");
+      status = jlabgefOpenCRCSR(&crcsr_window);
     }
   if(status==GEF_STATUS_SUCCESS) 
     {
       if(!vmeQuietFlag)
-	printf("(opened at [0x%x,0x%x])\n",
-	       (unsigned int)a32_window,(unsigned int)(a32_window+a32_window_width));
+	printf("(opened at [0x%lx,0x%lx])\n",
+	       (unsigned long)crcsr_window,
+	       (unsigned long)(crcsr_window+crcsr_window_width));
+    } 
+  else 
+    {
+      if(!vmeQuietFlag)
+	printf("... Open Failed!\n");
+    }
+
+  /* Open A32 windows */
+  if(a32_window==NULL) 
+    {
+      if(!vmeQuietFlag)
+	printf("Opening A32 Window ");
+      status = jlabgefOpenA32(0xfb000000,a32_window_width,&a32_window);
+    }
+  if(status==GEF_STATUS_SUCCESS) 
+    {
+      if(!vmeQuietFlag)
+	printf("(opened at [0x%lx,0x%lx])\n",
+	       (unsigned long)a32_window,(unsigned long)(a32_window+a32_window_width));
     } 
   else 
     {
@@ -606,15 +834,15 @@ jlabgefOpenDefaultWindows()
   if(a32blt_window==NULL) 
     {
       if(!vmeQuietFlag)
-		printf("Opening A32Blt Window (size=%d MB) ",a32blt_window_width/1024/1024);
+	printf("Opening A32Blt Window ");
       status = jlabgefOpenA32Blt(0x08000000,a32blt_window_width,&a32blt_window);
     }
   if(status==GEF_STATUS_SUCCESS) 
     {
       if(!vmeQuietFlag)
-	printf("(opened at [0x%x,0x%x])\n",
-	       (unsigned int)a32blt_window,
-	       (unsigned int)(a32blt_window+a32blt_window_width));
+	printf("(opened at [0x%lx,0x%lx])\n",
+	       (unsigned long)a32blt_window,
+	       (unsigned long)(a32blt_window+a32blt_window_width));
     } 
   else 
     {
@@ -626,15 +854,15 @@ jlabgefOpenDefaultWindows()
   if(a24_window==NULL) 
     {
       if(!vmeQuietFlag)
-		printf("Opening A24 Window (size=%d MB) ",a24_window_width/1024/1024);
+	printf("Opening A24 Window ");
       status = jlabgefOpenA24(&a24_window);
     }
   if(status==GEF_STATUS_SUCCESS) 
     {
       if(!vmeQuietFlag)
-	printf("(opened at [0x%x,0x%x])\n",
-	       (unsigned int)a24_window,
-	       (unsigned int)(a24_window+a24_window_width));
+	printf("(opened at [0x%lx,0x%lx])\n",
+	       (unsigned long)a24_window,
+	       (unsigned long)(a24_window+a24_window_width));
     } 
   else 
     {
@@ -646,15 +874,15 @@ jlabgefOpenDefaultWindows()
   if(a16_window==NULL) 
     {
       if(!vmeQuietFlag)
-		printf("Opening A16 Window (size=%d MB) ",a16_window_width/1024/1024);
+	printf("Opening A16 Window ");
       status = jlabgefOpenA16(&a16_window);
     }
   if(status==GEF_STATUS_SUCCESS) 
     {
       if(!vmeQuietFlag)
-	printf("(opened at [0x%x,0x%x])\n",
-	       (unsigned int)a16_window,
-	       (unsigned int)(a16_window+a16_window_width));
+	printf("(opened at [0x%lx,0x%lx])\n",
+	       (unsigned long)a16_window,
+	       (unsigned long)(a16_window+a16_window_width));
     } 
   else 
     {
@@ -679,24 +907,18 @@ jlabgefOpenDefaultWindows()
   return status;
 }
 
-/******************************************************************************
- *
- * jlabgefCloseDefaultWindows  - Close all default VME addressing windows
- *
- *  This routines will close all VME addressing windows that are standard
- *  to JLab used VME controllers.
- *
- *  A memory map of the TSI148 (VME bridge chip) is un-mapped here.
- *
- *  RETURNS: GEF_STATUS_SUCCESS if successful,
- *           otherwise, error status from GEF_STATUS_ENUM
- *
- */
-
+/*!
+  Routine to cleanup what was initialized by jlabgefOpenDefaultWindows()
+  
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS
 jlabgefCloseDefaultWindows() 
 {
   GEF_STATUS status;
+
+  printf("jlabgefCloseDefaultWindows reached\n");
+
   if(didOpen==0) return 1;
 
   /* Kill Shared Mutex - Here we just unmap it (don't remove the shm file) */
@@ -713,7 +935,7 @@ jlabgefCloseDefaultWindows()
     {
       if(!vmeQuietFlag)
 	printf("failed: code 0x%08x\n",status);
-      return -1;
+/*       return -1; */
     }
 
   /* Close A24 window */
@@ -724,7 +946,7 @@ jlabgefCloseDefaultWindows()
     {
       if(!vmeQuietFlag)
 	printf("failed: code 0x%08x\n",status);
-      return -1;
+/*       return -1; */
     }
   
   /* Close A32 windows */
@@ -735,7 +957,7 @@ jlabgefCloseDefaultWindows()
     {
       if(!vmeQuietFlag)
 	printf("failed: code 0x%08x\n",status);
-      return -1;
+/*       return -1; */
     }
   if(!vmeQuietFlag)
     printf("Closing A32 Window\n");
@@ -744,7 +966,18 @@ jlabgefCloseDefaultWindows()
     {
       if(!vmeQuietFlag)
 	printf("failed: code 0x%08x\n",status);
-      return -1;
+/*       return -1; */
+    }
+
+  /* Close CRCSR window */
+  if(!vmeQuietFlag)
+    printf("Closing CRCSR Window\n");
+  status = jlabgefCloseCRCSR();
+  if (status != GEF_SUCCESS)
+    {
+      if(!vmeQuietFlag)
+	printf("failed: code 0x%08x\n",status);
+/*       return -1; */
     }
 
   /* Close the VME Device file */
@@ -757,7 +990,7 @@ jlabgefCloseDefaultWindows()
       if(!vmeQuietFlag)
 	printf("gefVmeClose failed: code 0x%08x\n",status);
       UNLOCK_TSI;
-      return -1;
+/*       return -1; */
     }
   UNLOCK_TSI;
 
@@ -766,18 +999,19 @@ jlabgefCloseDefaultWindows()
   return status;
 }
 
-/******************************************************************************
- *
- * jlabgefReadRegister - Read a 32bit register from the tempe memory map.
- *                     "offset" is the offset from the tempe base address.
- *                     A list of macros defining offsets from register names 
- *                     is found in the header file: gefvme_vme_tempe.h
- *
- * RETURNS: if successful, returns 32bit value at the requested register
- *          otherwise, -1.
- *
- */
+/*!
+  Read a 32bit word from a Tempe Chip register.
 
+  \see gefvme_vme_tempe.h
+  
+  @param offset Register offset from Tempe Base Address.  A list of
+  defines for offsets from register names is found in the header file:
+  gefvme_vme_tempe.h
+
+  @return 32bit value at the requested register, if successful.  -1,
+  otherwise.
+ 
+*/
 GEF_UINT32
 jlabgefReadRegister(GEF_UINT32 offset)
 {
@@ -794,19 +1028,33 @@ jlabgefReadRegister(GEF_UINT32 offset)
   
 }
 
+GEF_UINT32
+jlabgefReadRegister2(GEF_UINT32 offset)
+{
+  GEF_STATUS status;
+  GEF_UINT32 temp;
+  unsigned int *reg;
 
-/******************************************************************************
- *
- * jlabgefWriteRegister - Write a 32bit word ("buffer") to a 32bit register in the
- *                     tempe memory map.  "offset" is the offset from
- *                     the tempe base address.  A list of macros
- *                     defining offsets from register names is found
- *                     in the header file: * gefvme_vme_tempe.h
- *
- * RETURNS: if successful, returns 32bit value at the requested register
- *          otherwise, -1.
- *
- */
+/*   LOCK_TSI; */
+  reg = (unsigned int *)(pTempe);
+  temp = reg[offset/4];
+/*   UNLOCK_TSI; */
+
+  return LSWAP(temp);
+}
+
+/*!
+  Write a 32bit word to a Tempe Chip register.
+
+  \see gefvme_vme_tempe.h
+  
+  @param offset Register offset from Tempe Base Address.  A list of
+  defines for offsets from register names is found in the header file:
+  gefvme_vme_tempe.h
+  @param buffer 32bit word to be written to offset
+
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS
 jlabgefWriteRegister(GEF_UINT32 offset, GEF_UINT32 buffer)
 {
@@ -822,13 +1070,10 @@ jlabgefWriteRegister(GEF_UINT32 offset, GEF_UINT32 buffer)
   
 }
 
-/******************************************************************************
- *
- * jlabgefSysReset - Assert SYSRESET on the VMEbus.
- *
- * RETURNS: if successful, returns GEF_STATUS_SUCCESS
- *          otherwise, error from GEF_STATUS_ENUM.
- *
+/*!
+  Assert SYSRESET on the VMEbus.
+
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
  */
 GEF_STATUS
 jlabgefSysReset()
@@ -836,7 +1081,13 @@ jlabgefSysReset()
   GEF_STATUS status;
   UINT32 read;
 
+  LOCK_TSI;
+#ifdef OLDREAD
   read = jlabgefReadRegister(TEMPE_VCTRL);
+#else
+  read = pTempe->lcsr.vctrl; read = LSWAP(read);
+#endif
+
   printf("VCTRL = 0x%08x SRESET = 0x%x\n",
 	 read,
 	 read & TEMPE_VCTRL_SRESET);
@@ -848,32 +1099,33 @@ jlabgefSysReset()
 	     __FUNCTION__,status);
     }
 
-  read = jlabgefReadRegister(TEMPE_VCTRL);
-
   /* Wait 200us... SYSRESET should clear by then */
   usleep(200);
+#ifdef OLDREAD
   read = jlabgefReadRegister(TEMPE_VCTRL);
+#else
+  read = pTempe->lcsr.vctrl; read = LSWAP(read);
+#endif
 
   if(read & TEMPE_VCTRL_SRESET)
     {
       /* Not cleared... clear it */
+#ifdef OLDREAD
       jlabgefWriteRegister(TEMPE_VCTRL, read & ~TEMPE_VCTRL_SRESET);
+#else
+      pTempe->lcsr.vctrl = LSWAP(read & ~TEMPE_VCTRL_SRESET);
+#endif
     }
+  UNLOCK_TSI;
 
   return status;
 }
 
-/******************************************************************************
- *
- * jlabgefBERRIrqStatus() - Get the status of interrupts from the tempe chip upon
- *                         a VME Bus Error.  
- *
- *  RETURNS: 1 - IRQ is enabled on BERR
- *           0 - IRQ is disabled
- *          -1 - Error in reading from the INTEN/INTEO register
- *
- */
-
+/*!
+  Routine to query the status of interrupts on VME Bus Error
+  
+  @return 1 if enabled, 0 if disabled, -1 if error.
+*/
 int
 jlabgefBERRIrqStatus()
 {
@@ -881,7 +1133,11 @@ jlabgefBERRIrqStatus()
   unsigned int inten_enabled=0, inteo_enabled=0;
 
   LOCK_TSI;
+#ifdef OLDREAD
   tmpCtl = jlabgefReadRegister(TEMPE_INTEN);
+#else
+  tmpCtl = pTempe->lcsr.inten; tmpCtl = LSWAP(tmpCtl);
+#endif
   UNLOCK_TSI;
   if(tmpCtl == -1) 
     {
@@ -896,7 +1152,11 @@ jlabgefBERRIrqStatus()
     inten_enabled=0;
 
   LOCK_TSI;
+#ifdef OLDREAD
   tmpCtl = jlabgefReadRegister(TEMPE_INTEO);
+#else
+  tmpCtl = pTempe->lcsr.inteo; tmpCtl = LSWAP(tmpCtl);
+#endif
   UNLOCK_TSI;
   if(tmpCtl == -1) 
     {
@@ -923,19 +1183,11 @@ jlabgefBERRIrqStatus()
 
 }
 
-/******************************************************************************
- *
- * jlabgefDisableBERRIrq() - Disable CPU interrupts from the tempe chip upon
- *                         a VME Bus Error.  
- *
- * You'd typically want to disable VME Bus Error interrupts if you were
- * expecting them... and it's not a real error.
- *
- *  RETURNS: GEF_STATUS_SUCCESS if successful,
- *           otherwise, error status from GEF_STATUS_ENUM
- *
- */
-
+/*!
+  Routine to disable interrupts on VME Bus Error
+  
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS
 jlabgefDisableBERRIrq(int pflag)
 {
@@ -943,7 +1195,11 @@ jlabgefDisableBERRIrq(int pflag)
   GEF_STATUS status;
 
   LOCK_TSI;
+#ifdef OLDREAD
   tmpCtl = jlabgefReadRegister(TEMPE_INTEN);
+#else
+  tmpCtl = pTempe->lcsr.inten; tmpCtl = LSWAP(tmpCtl);
+#endif
   UNLOCK_TSI;
   if(tmpCtl == -1) 
     {
@@ -953,6 +1209,7 @@ jlabgefDisableBERRIrq(int pflag)
   tmpCtl &= ~BIT_INT_VME_ERR;
 
   LOCK_TSI;
+#ifdef OLDREAD
   status = jlabgefWriteRegister(TEMPE_INTEN,tmpCtl);
   UNLOCK_TSI;
   if(status != GEF_STATUS_SUCCESS) 
@@ -961,8 +1218,13 @@ jlabgefDisableBERRIrq(int pflag)
 	     status);
       return status;
     }
+#else
+  pTempe->lcsr.inten = LSWAP(tmpCtl);
+  UNLOCK_TSI;
+#endif
 
   LOCK_TSI;
+#ifdef OLDREAD
   status = jlabgefWriteRegister(TEMPE_INTEO,tmpCtl);
   UNLOCK_TSI;
   if(status != GEF_STATUS_SUCCESS) 
@@ -971,6 +1233,10 @@ jlabgefDisableBERRIrq(int pflag)
 	     status);
       return status;
     }
+#else
+  pTempe->lcsr.inteo = LSWAP(tmpCtl);
+  UNLOCK_TSI;
+#endif
 
   if(!vmeQuietFlag)
     if(pflag==1)
@@ -979,16 +1245,11 @@ jlabgefDisableBERRIrq(int pflag)
   return GEF_STATUS_SUCCESS;
 }
 
-/******************************************************************************
- *
- * jlabgefEnableBERRIrq() - Enable CPU interrupts from the tempe chip upon
- *                         a VME Bus Error.  
- *
- *  RETURNS: GEF_STATUS_SUCCESS if successful,
- *           otherwise, error status from GEF_STATUS_ENUM
- *
- */
-
+/*!
+  Routine to enable interrupts on VME Bus Error
+  
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS
 jlabgefEnableBERRIrq(int pflag)
 {
@@ -996,35 +1257,49 @@ jlabgefEnableBERRIrq(int pflag)
   GEF_STATUS status;
 
   LOCK_TSI;
+#ifdef OLDREAD
   tmpCtl = jlabgefReadRegister(TEMPE_INTEN);
+#else
+  tmpCtl = pTempe->lcsr.inten; tmpCtl = LSWAP(tmpCtl);
+#endif
   UNLOCK_TSI;
   if(tmpCtl == -1) 
     {
-      printf("jlabgefEnableBERRIrq (TEMPE_INTEN) read failed.");
+      printf("%s: (TEMPE_INTEN) read failed.", __FUNCTION__);
       return -1;
     }
 
   tmpCtl  |= BIT_INT_VME_ERR;
 
   LOCK_TSI;
+#ifdef OLDREAD
   status = jlabgefWriteRegister(TEMPE_INTEN,tmpCtl);
   UNLOCK_TSI;
   if(status != GEF_STATUS_SUCCESS) 
     {
-      printf("jlabgefEnableBERRIrq (TEMPE_INTEN) failed with error status 0x%x\n",
-	     status);
+      printf("%s: (TEMPE_INTEN) failed with error status 0x%x\n",
+	     __FUNCTION__,status);
       return status;
     }
+#else
+  pTempe->lcsr.inten = LSWAP(tmpCtl);
+  UNLOCK_TSI;
+#endif
 
   LOCK_TSI;
+#ifdef OLDREAD
   status = jlabgefWriteRegister(TEMPE_INTEO,tmpCtl);
   UNLOCK_TSI;
   if(status != GEF_STATUS_SUCCESS) 
     {
-      printf("jlabgefEnableBERRIrq (TEMPE_INTEO) failed with error status 0x%x\n",
-	     status);
+      printf("%s: (TEMPE_INTEO) failed with error status 0x%x\n",
+	     __FUNCTION__,status);
       return status;
     }
+#else
+  pTempe->lcsr.inteo = LSWAP(tmpCtl);
+  UNLOCK_TSI;
+#endif
   
   if(!vmeQuietFlag)
     if(pflag==1)
@@ -1033,17 +1308,13 @@ jlabgefEnableBERRIrq(int pflag)
   return GEF_STATUS_SUCCESS;
 }
 
-/******************************************************************************
- * 
- * jlabgefMapTsi - map the tempe register space to user space.
- *          
- * This map is made available through the pTempe pointer.
- *
- *  RETURNS: GEF_STATUS_SUCCESS if successful,
- *           otherwise, error status from GEF_STATUS_ENUM
- *
- */
+/*! 
+  Mmap the Tempe register space to userspace.
 
+  \see jlabgefUnmapTsi()
+  
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS
 jlabgefMapTsi()
 {
@@ -1051,6 +1322,7 @@ jlabgefMapTsi()
   GEF_UINT32 offset=0x0;
   unsigned int pci_base = 0x0;
   unsigned int driver_deviveni = 0x0;
+  unsigned short devi=0, veni=0; 
   unsigned int map_deviveni = 0x0;
 
   char *virtual_addr;
@@ -1087,7 +1359,9 @@ jlabgefMapTsi()
   /* Quick check of the map, compared to a read through the kernel driver */
   LOCK_TSI;
   driver_deviveni = jlabgefReadRegister(TEMPE_DEVI_VENI);
-  map_deviveni = (SSWAP(pTempe->gcsr.veni)) + ((SSWAP(pTempe->gcsr.devi))<<16);
+  veni = pTempe->gcsr.veni;
+  devi = pTempe->gcsr.devi;
+  map_deviveni = SSWAP(veni) | (SSWAP(devi))<<16;
   UNLOCK_TSI;
   
   if(driver_deviveni != map_deviveni) 
@@ -1105,19 +1379,17 @@ jlabgefMapTsi()
   return status;
 }
 
-/******************************************************************************
- * 
- * jlabgefUnmapTsi - unmap the tempe register space from user space.
- *          
- *  RETURNS: GEF_STATUS_SUCCESS if successful,
- *           otherwise, error status from GEF_STATUS_ENUM
- *
- */
+/*! 
+  Free up the mmap of the Tempe register space to userspace.
 
+  @return GEF_STATUS_SUCCESS, if successful.  Error status from GEF_STATUS_ENUM, otherwise.
+*/
 GEF_STATUS
 jlabgefUnmapTsi()
 {
   GEF_STATUS status;
+
+  LOCK_TSI;
   status = gefOsaUnMap(mapHdl->osa_map_hdl);
   if(status != GEF_STATUS_SUCCESS) 
     {
@@ -1125,33 +1397,38 @@ jlabgefUnmapTsi()
     } 
   
   free(mapHdl);
+  UNLOCK_TSI;
+
   return status;
 }
 
-/******************************************************************************
- * 
- * jlabgefClearException - Clear any VME Exceptions if they exist
- *
- * INPUT: pflag = 0 for printf output turned off
- *                1 for printf output turned on
- * RETURNS: N/A
- *
- */
-
+/*!
+  Routine to clear any VME Exception that is currently flagged on the VME Bridge Chip
+  
+  @param pflag 
+  - 1 to turn on verbosity
+  - 0 to disable verbosity.
+*/
 void
 jlabgefClearException(int pflag)
 {
   /* check the VME Exception Attribute... clear it, and put out a warning */
   volatile unsigned int vmeExceptionAttribute=0;
+  unsigned int veal=0;
   LOCK_TSI;
-  vmeExceptionAttribute = jlabgefReadRegister(TEMPE_VEAT);
-  /*   vmeExceptionAttribute = LSWAP(pTempe->lcsr.veat); */
+#ifdef OLDREAD
+  vmeExceptionAttribute = jlabgefReadRegister2(TEMPE_VEAT);
+#else
+  vmeExceptionAttribute = pTempe->lcsr.veat; 
+  vmeExceptionAttribute = LSWAP(vmeExceptionAttribute);
+#endif
   if(vmeExceptionAttribute & TEMPE_VEAT_VES) 
     {
       if(pflag==1)
 	{
+	  veal = pTempe->lcsr.veal; veal = LSWAP(veal);
 	  printf("jlabgefClearException: Clearing VME Exception (0x%x) at VME address 0x%x\n",
-		 vmeExceptionAttribute,LSWAP(pTempe->lcsr.veal));
+		 vmeExceptionAttribute,veal);
 	}
       pTempe->lcsr.veat = LSWAP(TEMPE_VEAT_VESCL);
     }      
@@ -1159,53 +1436,53 @@ jlabgefClearException(int pflag)
 
 }
 
-/******************************************************************************
- * 
- * jlabgefClearBERR - Clear any VME Bus Errors, if they exist
- *
- * RETURNS: N/A
- *
- */
-
+/*! 
+  Clear any Bus Error exceptions, if they exist
+*/
 void
 jlabgefClearBERR()
 {
   volatile unsigned int vmeExceptionAttribute=0;
+  unsigned int veal;
 
   /* check the VME Exception Attribute... clear it, and put out a warning */
   LOCK_TSI;
+#ifdef OLDREAD
   vmeExceptionAttribute = jlabgefReadRegister(TEMPE_VEAT);
-/*   vmeExceptionAttribute = LSWAP(pTempe->lcsr.veat); */
+#else
+  vmeExceptionAttribute = pTempe->lcsr.veat;
+  vmeExceptionAttribute = LSWAP(vmeExceptionAttribute);
+#endif
   if( (vmeExceptionAttribute & TEMPE_VEAT_VES) && 
       ((vmeExceptionAttribute & TEMPE_VEAT_BERR) ||
        (vmeExceptionAttribute & TEMPE_VEAT_2eST)) )
     {
+      veal = pTempe->lcsr.veal; veal = LSWAP(veal);
       printf("jlabgefClearBERR: Clearing VME BERR/2eST (0x%x) at VME address 0x%x\n",
 	     vmeExceptionAttribute,
-	     jlabgefReadRegister(TEMPE_VEAL));
+	     veal);
       pTempe->lcsr.veat = LSWAP(TEMPE_VEAT_VESCL);
     }      
   UNLOCK_TSI;
 
 }
 
-/******************************************************************************
- * 
- * jlabgefMemProbe - Probe the specified USERSPACE address (addr) and check 
- *                   for a bus error.  Value read from that address is stored
- *                   in rval.  size is in bytes.
- *
- * RETURNS: 0 if successful,
- *         -1 otherwise
- *
- */
-
+/*!
+  Routine to probe a VME Address for a VME Bus Error
+ 
+  @param *addr address to be probed
+  @param size  size (1, 2, or 4) of address to read (in bytes)
+  @param *retVal where to return value
+ 
+  @return 0, if successful. -1, otherwise.
+*/
 int
 jlabgefMemProbe(char* addr, int size, char *retVal)
 {
   volatile unsigned int vmeExceptionAttribute=0;
   unsigned int lval; unsigned short sval; char cval;
   int irqOnBerr=0;
+  unsigned int veal;
 
   /* If IRQ on BERR is enabled, disable it... enable it again at the end */
   irqOnBerr = jlabgefBERRIrqStatus();
@@ -1241,15 +1518,23 @@ jlabgefMemProbe(char* addr, int size, char *retVal)
   
   /* Check the Exception register for a VME Bus Error */
   LOCK_TSI;
+#ifdef OLDREAD
   vmeExceptionAttribute = jlabgefReadRegister(TEMPE_VEAT);
+#else
+  vmeExceptionAttribute = pTempe->lcsr.veat;
+  vmeExceptionAttribute = LSWAP(vmeExceptionAttribute);
+#endif
   if( (vmeExceptionAttribute & TEMPE_VEAT_VES) && 
       (vmeExceptionAttribute & TEMPE_VEAT_BERR) )
     {
       /* Clear the exception register */
-      printf("%s: Clearing VME BERR/2eST (0x%x) at VME address 0x%x\n",
-	     __FUNCTION__,
-	     vmeExceptionAttribute,
-	     jlabgefReadRegister(TEMPE_VEAL));
+      if(!vmeQuietFlag)
+	{
+	  veal = pTempe->lcsr.veal; veal = LSWAP(veal);
+	  printf("%s: Clearing VME BERR/2eST (0x%x) at VME address 0x%x\n",
+		 __FUNCTION__,
+		 vmeExceptionAttribute,veal);
+	}
       pTempe->lcsr.veat = LSWAP(TEMPE_VEAT_VESCL);
       UNLOCK_TSI;
       return ERROR;
@@ -1265,72 +1550,10 @@ jlabgefMemProbe(char* addr, int size, char *retVal)
 
 }
 
-
-/******************************************************************************
- *
- *  THIS ROUTINE IS DEPRECATED.  USE jlabgefMemProbe.
- * 
- * jlabgefCheckAddress - Check an address to see if it corresponds to 
- *                       a physical module.
- *
- *  addr = VME address + address_offset (a16_window,a24_window,etc..)
- *
- * RETURNS: 0 if successful,
- *         -1 otherwise
- *
- */
-
-int
-jlabgefCheckAddress(char* addr)
-{
-  volatile unsigned int testread;
-  volatile unsigned int vmeExceptionAttribute=0;
-  int irqOnBerr=0;
-
-
-  /* If IRQ on BERR is enabled, disable it... enable it again at the end */
-  irqOnBerr = jlabgefBERRIrqStatus();
-  if(irqOnBerr==1)
-    {
-      jlabgefDisableBERRIrq(0);
-    }
-
-  /* Clear the Exception register, before trying to read */
-  jlabgefClearException(0);
-
-  /* Perform a test read */
-  testread = *addr;
-
-  /* Check the Exception register for a VME Bus Error */
-  LOCK_TSI;
-  vmeExceptionAttribute = jlabgefReadRegister(TEMPE_VEAT);
-/*   vmeExceptionAttribute = LSWAP(pTempe->lcsr.veat); */
-  if( (vmeExceptionAttribute & TEMPE_VEAT_VES) && 
-      (vmeExceptionAttribute & TEMPE_VEAT_BERR) )
-    {
-      /* Clear the exception register */
-      printf("%s: Clearing VME BERR/2eST (0x%x) at VME address 0x%x\n",
-	     __FUNCTION__,
-	     vmeExceptionAttribute,
-	     jlabgefReadRegister(TEMPE_VEAL));
-      pTempe->lcsr.veat = LSWAP(TEMPE_VEAT_VESCL);
-      UNLOCK_TSI;
-      return ERROR;
-    }      
-  UNLOCK_TSI;
-
-  if(irqOnBerr==1)
-    {
-      jlabgefEnableBERRIrq(0);
-    }
-
-  return OK;
-
-}
-
-/* Stored array of GEF callback handles. Array size is the number of available int levels */
+/*! Maximum allowed GE-VME callback handles */
 #define MAX_CB_HDL 25
-GEF_CALLBACK_HDL gefCB_hdl[MAX_CB_HDL] = {
+/*! Array of GE-VME callback handles linked to their associated interrupt level */
+static GEF_CALLBACK_HDL gefCB_hdl[MAX_CB_HDL] = {
   0,0,0,0,0,
   0,0,0,0,0,
   0,0,0,0,0,
@@ -1338,6 +1561,16 @@ GEF_CALLBACK_HDL gefCB_hdl[MAX_CB_HDL] = {
   0,0,0,0,0
 };
 
+/*!
+  Routine to connect a routine to a VME Bus Interrupt
+ 
+  @param vector  interrupt vector to attach to
+  @param level   VME Bus interrupt level
+  @param routine routine to be called
+  @param arg     argument to be passed to the routine
+ 
+  @return 0, if successful. -1, otherwise.
+*/
 int
 jlabgefIntConnect(unsigned int vector,
 		  unsigned int level,
@@ -1370,6 +1603,13 @@ jlabgefIntConnect(unsigned int vector,
   return OK;
 }
 
+/*!
+  Routine to release the routine attached with vmeIntConnect()
+ 
+  @param level  VME Bus Interrupt level
+ 
+  @return 0, if successful. -1, otherwise.
+*/
 int
 jlabgefIntDisconnect(unsigned int level)
 {
@@ -1399,6 +1639,15 @@ jlabgefIntDisconnect(unsigned int level)
   return OK;
 }
 
+/*!
+  Routine to convert a a VME Bus address to a Userspace Address
+ 
+  @param vmeAdrsSpace Bus address space in whihc vmeBusAdrs resides
+  @param *vmeBusAdrs  Bus address to convert
+  @param **pPciAdrs   Where to return Userspace address
+ 
+  @return 0, if successful. -1, otherwise.
+*/
 int
 jlabgefVmeBusToLocalAdrs(int vmeAdrsSpace,
 			 char *vmeBusAdrs,
@@ -1425,7 +1674,7 @@ jlabgefVmeBusToLocalAdrs(int vmeAdrsSpace,
       if (a32_window!=NULL || a32blt_window!=NULL)
 	{
 	  vmeSpaceMask = 0xffffffff;
-	  vmeAdrToConvert = (unsigned int)vmeBusAdrs;
+	  vmeAdrToConvert = (unsigned long)vmeBusAdrs;
 	  base = addr_A32.lower;
 	  limit = a32_window_width + addr_A32.lower;
 	  trans = 0;
@@ -1434,7 +1683,7 @@ jlabgefVmeBusToLocalAdrs(int vmeAdrsSpace,
 	       ((limit + trans) >= vmeAdrToConvert) ) 
 	    {
 	      busAdrs = vmeAdrToConvert - base;
-	      pciBusAdrs = (char *)((unsigned int)busAdrs + (unsigned int)a32_window);
+	      pciBusAdrs = (char *)((unsigned long)busAdrs + (unsigned long)a32_window);
 	      adrConverted = 1;
 	      break;
 	    }
@@ -1447,7 +1696,7 @@ jlabgefVmeBusToLocalAdrs(int vmeAdrsSpace,
 		   ((limit + trans) >= vmeAdrToConvert) ) 
 		{
 		  busAdrs = vmeAdrToConvert - base;
-		  pciBusAdrs = (char *)((unsigned int)busAdrs + (unsigned int)a32blt_window);
+		  pciBusAdrs = (char *)((unsigned long)busAdrs + (unsigned long)a32blt_window);
 		  adrConverted = 1;
 		  break;
 		}
@@ -1467,7 +1716,7 @@ jlabgefVmeBusToLocalAdrs(int vmeAdrsSpace,
       if (a24_window!=NULL)
 	{
 	  vmeSpaceMask = 0x00ffffff;
-	  vmeAdrToConvert = (unsigned int)vmeBusAdrs & vmeSpaceMask;
+	  vmeAdrToConvert = (unsigned long)vmeBusAdrs & vmeSpaceMask;
 	  base = addr_A24.lower;
 	  limit = a24_window_width + addr_A24.lower;
 	  trans = 0;
@@ -1475,7 +1724,7 @@ jlabgefVmeBusToLocalAdrs(int vmeAdrsSpace,
 	       ((limit + trans) >= vmeAdrToConvert) ) 
 	    {
 	      busAdrs = vmeAdrToConvert - base;
-	      pciBusAdrs = (char *)((unsigned int)busAdrs + (unsigned int)a24_window);
+	      pciBusAdrs = (char *)((unsigned long)busAdrs + (unsigned long)a24_window);
 	      adrConverted = 1;
 	      break;
 	    }
@@ -1491,7 +1740,7 @@ jlabgefVmeBusToLocalAdrs(int vmeAdrsSpace,
       if (a16_window!=NULL)
 	{
 	  vmeSpaceMask = 0x0000ffff;
-	  vmeAdrToConvert = (unsigned int)vmeBusAdrs & vmeSpaceMask;
+	  vmeAdrToConvert = (unsigned long)vmeBusAdrs & vmeSpaceMask;
 	  base = addr_A16.lower;
 	  limit = a16_window_width + addr_A16.lower;
 	  trans = 0;
@@ -1499,11 +1748,34 @@ jlabgefVmeBusToLocalAdrs(int vmeAdrsSpace,
 	       ((limit + trans) >= vmeAdrToConvert) ) 
 	    {
 	      busAdrs = vmeAdrToConvert - base;
-	      pciBusAdrs = (char *)((unsigned int)busAdrs + (unsigned int)a16_window);
+	      pciBusAdrs = (char *)((unsigned long)busAdrs + (unsigned long)a16_window);
 	      adrConverted = 1;
 	      break;
 	    }
 
+	  break;
+	}
+
+    case GEF_VME_ADDR_MOD_CR_CSR:
+
+      /* See if the window is CRCSR enabled */
+
+      if (crcsr_window!=NULL)
+	{
+	  vmeSpaceMask = 0x00ffffff;
+	  vmeAdrToConvert = (unsigned long)vmeBusAdrs & vmeSpaceMask;
+	  base = addr_CRCSR.lower;
+	  limit = crcsr_window_width + addr_CRCSR.lower;
+	  trans = 0;
+	  if ( ((base + trans) <= vmeAdrToConvert) &&
+	       ((limit + trans) >= vmeAdrToConvert) ) 
+	    {
+	      busAdrs = vmeAdrToConvert - base;
+	      pciBusAdrs = (char *)((unsigned long)busAdrs + (unsigned long)crcsr_window);
+	      adrConverted = 1;
+	      break;
+	    }
+	  
 	  break;
 	}
 
@@ -1520,6 +1792,66 @@ jlabgefVmeBusToLocalAdrs(int vmeAdrsSpace,
     
 }
 
+/*!
+  Routine to convert a Userspace Address to a VME Bus address
+ 
+  @param localAdrs  Local (userspace) address to convert
+  @param *vmeAdrs   Where to return VME address
+  @param *amCode    Where to return address modifier
+ 
+  @return 0, if successful. -1, otherwise.
+*/
+int
+jlabgefLocalToVmeAdrs(unsigned long localAdrs, unsigned int *vmeAdrs, unsigned short *amCode)
+{
+  /* Go through each window to see where the localAdrs falls */
+  if((localAdrs>=(unsigned long)a32_window) && 
+     (localAdrs<((unsigned long)(a32_window+a32_window_width))))
+    {
+      *vmeAdrs = localAdrs - (unsigned long)a32_window + addr_A32.lower;
+      *amCode = 0x09;
+      return OK;
+    }
+
+  if((localAdrs>=(unsigned long)a32blt_window) && 
+     (localAdrs<((unsigned long)(a32blt_window+a32blt_window_width))))
+    {
+      *vmeAdrs = localAdrs - (unsigned long)a32blt_window + addr_A32blt.lower;
+      *amCode = 0x09;
+      return OK;
+    }
+
+  if((localAdrs>=(unsigned long)a24_window) && 
+     (localAdrs<((unsigned long)(a24_window+a24_window_width))))
+    {
+      *vmeAdrs = localAdrs - (unsigned long)a24_window + addr_A24.lower;
+      *amCode = 0x39;
+      return OK;
+    }
+
+  if((localAdrs>=(unsigned long)a16_window) && 
+     (localAdrs<((unsigned long)(a16_window+a16_window_width))))
+    {
+      *vmeAdrs = localAdrs - (unsigned long)a16_window + addr_A16.lower;
+      *amCode = 0x29;
+      return OK;
+    }
+
+  if((localAdrs>=(unsigned long)crcsr_window) && 
+     (localAdrs<((unsigned long)(crcsr_window+crcsr_window_width))))
+    {
+      *vmeAdrs = localAdrs - (unsigned long)crcsr_window + addr_CRCSR.lower;
+      *amCode = 0x2F;
+      return OK;
+    }
+
+  printf("%s: ERROR: VME address not found from 0x%lx\n",
+	 __FUNCTION__,localAdrs);
+
+  *amCode=0xFFFF;
+  *vmeAdrs=0xFFFFFFFF;
+  return ERROR;
+}
 
 /*!
   Routine to change the address modifier of the A24 Outbound VME Window.
@@ -1567,8 +1899,12 @@ jlabgefSetA24AM(int addr_mod)
   /* Loop through the windows and find the one we want (A24) */
   for(iwin=0; iwin<8; iwin++)
     {
+#ifdef OLDREAD
       otat = jlabgefReadRegister(TEMPE_OTAT(iwin));
-      /*       otat = pTempe->lcsr.outboundTranslation[iwin].otat; */
+#else
+      otat = pTempe->lcsr.outboundTranslation[iwin].otat;
+      otat = LSWAP(otat);
+#endif
       enabled = otat & TSI148_LCSR_OTAT_EN;
       AM_OTAT = otat & TSI148_LCSR_OTAT_AMODE_M;
       
@@ -1599,9 +1935,13 @@ jlabgefSetA24AM(int addr_mod)
   return 0;
 }
 
-
-
-
+/*!
+  Routine to enable/disable debug flags set in the VME Bridge Kernel Driver
+  
+  @param flags GE-VME API dependent flags to toggle specific debug levels and messages
+  
+  @return 0, if successful. -1, otherwise.
+*/
 int
 jlabgefSetDebugFlags(int flags)
 {
@@ -1616,4 +1956,279 @@ jlabgefSetDebugFlags(int flags)
     }
   
   return OK;
+}
+
+static GEF_VME_MASTER_HDL tempHdl;
+
+static int
+jlabgefOpenTmpVmeHdl(int amcode, unsigned int addr)
+{
+  int rval=OK;
+  unsigned int base=0, limit=0;
+  GEF_STATUS status;
+  GEF_VME_ADDR addr_struct =
+    {
+      .upper = 0x00000000,
+      .lower = addr,
+      .addr_space = GEF_VME_ADDR_SPACE_A32,
+      .addr_mode = GEF_VME_ADDR_MODE_USER | GEF_VME_ADDR_MODE_DATA,
+      .transfer_mode = GEF_VME_TRANSFER_MODE_SCT,
+      .transfer_max_dwidth = GEF_VME_TRANSFER_MAX_DWIDTH_32,
+      .vme_2esst_rate = 0,
+      .broadcast_id = 0,
+      .flags = 0
+    };
+
+  switch(amcode)
+    {
+    case GEF_VME_ADDR_MOD_A32SP:
+    case GEF_VME_ADDR_MOD_A32SD:
+    case GEF_VME_ADDR_MOD_A32UP:
+    case GEF_VME_ADDR_MOD_A32UD:
+      {
+	addr_struct.addr_space = GEF_VME_ADDR_SPACE_A32;
+	break;
+      }
+    case GEF_VME_ADDR_MOD_A24SP:
+    case GEF_VME_ADDR_MOD_A24SD:
+    case GEF_VME_ADDR_MOD_A24UP:
+    case GEF_VME_ADDR_MOD_A24UD:
+      {
+	addr_struct.addr_space = GEF_VME_ADDR_SPACE_A24;
+	break;
+      }
+
+    case GEF_VME_ADDR_MOD_A16S:
+    case GEF_VME_ADDR_MOD_A16U:
+      {
+	addr_struct.addr_space = GEF_VME_ADDR_SPACE_A16;
+	break;
+      }
+
+    case GEF_VME_ADDR_MOD_CR_CSR:
+      {
+	addr_struct.addr_space = GEF_VME_ADDR_SPACE_CRCSR;
+	break;
+      }
+
+    default:
+      {
+	rval = ERROR;
+      }
+    }
+
+  status = gefVmeCreateMasterWindow(vmeHdl, &addr_struct, 0x1000, &tempHdl);
+  if(status!=GEF_STATUS_SUCCESS)
+    {
+      printf("%s: ERROR: gefVmeCreateMasterWindow returned 0x%x\n",
+	     __FUNCTION__,status);
+      rval = ERROR;
+    }
+
+  return rval;
+}
+
+static int
+jlabgefCloseTmpVmeHdl()
+{
+  GEF_STATUS status;
+
+  status = gefVmeReleaseMasterWindow(tempHdl);
+  if (status != GEF_STATUS_SUCCESS)
+    {
+      printf("%s: ERROR: gefVmeReleaseMasterWindow failed: code 0x%08x\n",
+	     __FUNCTION__,status);
+      return ERROR;
+    }
+
+  return OK;
+}
+
+unsigned int
+jlabgefVmeRead32(int amcode, unsigned int addr)
+{
+  unsigned int rval=0, offset=0;
+  GEF_STATUS stat=0;
+
+  LOCK_TSI;
+
+  if(jlabgefOpenTmpVmeHdl(amcode, addr)!=OK)
+    {
+      printf("%s: ERROR: Undefined AM code (0x%x\n",
+	     __FUNCTION__,amcode);
+      UNLOCK_TSI;
+      return ERROR;
+    }
+
+
+  stat = gefVmeRead32(tempHdl, offset, 1, &rval);
+  if(stat!=GEF_SUCCESS)
+    {
+      printf("%s: ERROR: gefVmeRead32 failed 0x%x\n",
+	     __FUNCTION__,stat);
+      jlabgefCloseTmpVmeHdl();
+      UNLOCK_TSI;
+      return ERROR;
+    }
+
+  jlabgefCloseTmpVmeHdl();
+  UNLOCK_TSI;
+
+  return LSWAP(rval);
+}
+
+unsigned short
+jlabgefVmeRead16(int amcode, unsigned int addr)
+{
+  unsigned short rval=0;
+  unsigned int offset=0;
+  GEF_STATUS stat=0;
+
+  LOCK_TSI;
+
+  if(jlabgefOpenTmpVmeHdl(amcode, addr)!=OK)
+    {
+      printf("%s: ERROR: Undefined AM code (0x%x\n",
+	     __FUNCTION__,amcode);
+      UNLOCK_TSI;
+      return ERROR;
+    }
+
+
+  stat = gefVmeRead16(tempHdl, offset, 1, &rval);
+  if(stat!=GEF_SUCCESS)
+    {
+      printf("%s: ERROR: gefVmeRead32 failed 0x%x\n",
+	     __FUNCTION__,stat);
+      UNLOCK_TSI;
+      return ERROR;
+    }
+
+  jlabgefCloseTmpVmeHdl();
+  UNLOCK_TSI;
+
+  return SSWAP(rval);
+}
+
+unsigned char
+jlabgefVmeRead8(int amcode, unsigned int addr)
+{
+  unsigned char rval=0;
+  unsigned int offset=0;
+  GEF_STATUS stat=0;
+
+  LOCK_TSI;
+
+  if(jlabgefOpenTmpVmeHdl(amcode, addr)!=OK)
+    {
+      printf("%s: ERROR: Undefined AM code (0x%x\n",
+	     __FUNCTION__,amcode);
+      UNLOCK_TSI;
+      return ERROR;
+    }
+
+
+  stat = gefVmeRead8(tempHdl, offset, 1, &rval);
+  if(stat!=GEF_SUCCESS)
+    {
+      printf("%s: ERROR: gefVmeRead32 failed 0x%x\n",
+	     __FUNCTION__,stat);
+      UNLOCK_TSI;
+      return ERROR;
+    }
+
+  jlabgefCloseTmpVmeHdl();
+  UNLOCK_TSI;
+
+  return rval;
+}
+
+void
+jlabgefVmeWrite32(int amcode, unsigned int addr, unsigned int wval)
+{
+  unsigned int offset=0;
+  GEF_STATUS stat=0;
+
+  LOCK_TSI;
+
+  if(jlabgefOpenTmpVmeHdl(amcode, addr)!=OK)
+    {
+      printf("%s: ERROR: Undefined AM code (0x%x\n",
+	     __FUNCTION__,amcode);
+      UNLOCK_TSI;
+      return;
+    }
+
+
+  stat = gefVmeWrite32(tempHdl, offset, 1, &wval);
+  if(stat!=GEF_SUCCESS)
+    {
+      printf("%s: ERROR: gefVmeWrite32 failed 0x%x\n",
+	     __FUNCTION__,stat);
+      UNLOCK_TSI;
+      return;
+    }
+
+  jlabgefCloseTmpVmeHdl();
+  UNLOCK_TSI;
+}
+
+void
+jlabgefVmeWrite16(int amcode, unsigned int addr, unsigned short wval)
+{
+  unsigned int offset=0;
+  GEF_STATUS stat=0;
+
+  LOCK_TSI;
+
+  if(jlabgefOpenTmpVmeHdl(amcode, addr)!=OK)
+    {
+      printf("%s: ERROR: Undefined AM code (0x%x\n",
+	     __FUNCTION__,amcode);
+      UNLOCK_TSI;
+      return;
+    }
+
+
+  stat = gefVmeWrite16(tempHdl, offset, 1, &wval);
+  if(stat!=GEF_SUCCESS)
+    {
+      printf("%s: ERROR: gefVmeWrite32 failed 0x%x\n",
+	     __FUNCTION__,stat);
+      UNLOCK_TSI;
+      return;
+    }
+
+  jlabgefCloseTmpVmeHdl();
+  UNLOCK_TSI;
+}
+
+void
+jlabgefVmeWrite8(int amcode, unsigned int addr, unsigned char wval)
+{
+  unsigned int offset=0;
+  GEF_STATUS stat=0;
+
+  LOCK_TSI;
+
+  if(jlabgefOpenTmpVmeHdl(amcode, addr)!=OK)
+    {
+      printf("%s: ERROR: Undefined AM code (0x%x\n",
+	     __FUNCTION__,amcode);
+      UNLOCK_TSI;
+      return;
+    }
+
+
+  stat = gefVmeWrite8(tempHdl, offset, 1, &wval);
+  if(stat!=GEF_SUCCESS)
+    {
+      printf("%s: ERROR: gefVmeWrite32 failed 0x%x\n",
+	     __FUNCTION__,stat);
+      UNLOCK_TSI;
+      return;
+    }
+
+  jlabgefCloseTmpVmeHdl();
+  UNLOCK_TSI;
 }

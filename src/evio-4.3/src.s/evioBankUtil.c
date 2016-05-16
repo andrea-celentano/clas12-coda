@@ -10,61 +10,23 @@
 
 #undef DEBUG
 
-
 /*
   in following functions 'buf' is the buffer filled by evRead, for example:
        status = evRead(handler, buf, MAXBUF);
  */
 
 
-
-
-#define IEV_LEN 0 /* index of the event length */ 
-
-
-
-
-int
-evOpenFrag(unsigned int *buf, int fragtag, int fragnum)
-{
-  int ii, ind, lev;
-  int fragtyp = 0xe;
-  int nw = 0; /*fragment created with length=0*/
-
-  /* if fragment exist, cannot create it */
-  if(evLinkFrag(buf, fragtag, fragnum) > 0)
-  {
-    printf("evOpenFrag ERROR: fragment tag=%d num=%d exist already\n",fragtag,fragnum);
-    return(0);
-  }
-
-  lev = buf[0] + 1; /*event length*/
-
-  ind = lev; /* first word after event */
-
-  /* create fragment header only */
-  buf[ind]   = 1;
-  buf[ind+1] = (fragtag&0xffff)<<16;
-  buf[ind+1] = (fragtyp&0x3f)<<8;
-  buf[ind+1] = fragnum&0xff;
-
-  buf[0] += 2; /* increase event length */
-
-  return(ind);
-}
-
-
-
-
 /* returns pointer to the first data word */
-unsigned int *
-evOpenBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, int banktyp, char *fmt)
+int
+evOpenBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, int banktyp, char *fmt, int *ind_data)
 {
   int lev, len1, n1;
   char *ch;
-  int nbytes;
+  int nbytes, ind_data1;
   int ind, ind1, lfrag, nw;
   unsigned int *bank_start, *ptr;
+
+  *ind_data = 0;
 
   if( (ind = evLinkFrag(buf, fragtag, fragnum)) <= 0)
   {
@@ -72,7 +34,7 @@ evOpenBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum
     return(0);
   }
 
-  if(evLinkBank(buf, fragtag, fragnum, banktag, banknum, &nbytes) > 0)
+  if(evLinkBank(buf, fragtag, fragnum, banktag, banknum, &nbytes, &ind_data1) > 0)
   {
     printf("evOpenBank ERROR: bank tag=%d num=%d exist already\n",banktag,banknum);
     return(0);
@@ -121,10 +83,12 @@ evOpenBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum
 #endif
 
 #ifdef DEBUG
-  printf("evOpenBank returns 0x%08x, nw=%d\n",ptr,nw);
+  printf("evOpenBank returns 0x%08x, nw=%d, *ind_data=%d\n",ptr,nw,*ind_data);
 #endif
 
-  return(ptr); /* returns index of the first data word */
+  *ind_data = ind1 + (ptr-bank_start);
+
+  return(ind1); /* returns index of the bank */
 }
 
 
@@ -133,7 +97,7 @@ evCloseBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknu
 {
   int lev, len1, len2, n1, nw;
   char *ch;
-  int nbytes;
+  int nbytes, ind_data;
   int lfrag, ind, ind2, ind3, ind_frag;
   unsigned int *bank_start, *ptr, *dataout;
   unsigned int padding;
@@ -152,7 +116,7 @@ evCloseBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknu
 #endif
 
 
-  if( (ind = evLinkBank(buf, fragtag, fragnum, banktag, banknum, &nbytes)) <= 0)
+  if( (ind = evLinkBank(buf, fragtag, fragnum, banktag, banknum, &nbytes, &ind_data)) <= 0)
   {
     printf("evCloseBank ERROR: evLinkBank(buf,%d,%d,%d,%d) returns %d, cannot close it\n",fragtag,fragnum,banktag,banknum,ind);
     return(0);
@@ -190,49 +154,14 @@ evCloseBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknu
   return(ind);
 }
 
-
-
-
-/* return index of the fragment header; if fragnum<0, search by fragtag only */
-int
-evLinkFrag(unsigned int *buf, int fragtag, int fragnum)
-{
-  int ind, len, nw, tag1, pad1, typ1, num1;
-
-  len = buf[0]+1; /* event length */
-  ind = 2;         /* skip event header */
-  while(ind<len)
-  {
-    nw = buf[ind] + 1;
-    tag1 = (buf[ind+1]>>16)&0xffff;
-    pad1 = (buf[ind+1]>>14)&0x3;
-    typ1 = (buf[ind+1]>>8)&0x3f;
-    num1 =  buf[ind+1]&0xff;
-
-    /*check if it is right fragment*/
-    if(typ1==0xe || typ1==0x10)
-	{
-	  if(tag1==fragtag && (num1==fragnum || fragnum<0))
-      {
-#ifdef DEBUG
-        printf("right frag\n");
-#endif
-        return(ind);
-      }
-	}
-
-    ind += nw; /* jump to the next fragment */
-  }
-
-  return(0);
-}
-
-
 /* return index of the bank header */
 int
-evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, int *nbytes)
+evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, int *nbytes, int *ind_data)
 {
-  int len, nw, tag1, pad1, typ1, num1, len2, pad3, ind, ind2, ind3;
+  int len, nw, tag1, pad1, typ1, num1, len2, pad3, ind_save, ind, ind2, ind3;
+
+  *nbytes = 0;
+  *ind_data = 0;
 
   if( (ind = evLinkFrag(buf, fragtag, fragnum)) <= 0)
   {
@@ -243,13 +172,20 @@ evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum
   }
 
   len = buf[ind]+1; /* fragment length */
+  if(len<=2)
+  {
+    printf("evLinkBank: fragment len=%d - return\n",len);
+    return(0);
+  }
+
   ind += 2;         /* skip fragment header */
+  ind_save = ind;
 
 #ifdef DEBUG
   printf("evLinkBank: starting while() loop, fragment len=%d, ind=%d\n",len,ind);
 #endif
 
-  while(ind<(len+1)) /*sergey: +1 ??? */
+  while((ind-ind_save)<(len+1)) /*sergey: +1 ??? */
   {
     nw = buf[ind] + 1;
     tag1 = (buf[ind+1]>>16)&0xffff;
@@ -272,6 +208,7 @@ evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum
         printf("evLinkBank: >>> found base type bank: header index %d\n",ind);
 #endif
         *nbytes = (nw-2)<<2;
+        *ind_data = ind+2;
         return(ind);
 	  }
       else
@@ -285,6 +222,7 @@ evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum
         printf("evLinkBank: return composite bank data index %d\n",ind3+2);
 #endif
         *nbytes = ((nw-(2+len2+2))<<2)-pad3; /* bank_length - bank_header_length(2) - tagsegment_length(len2) - internal_bank_header_length(2) */
+        *ind_data = ind+2+len2+2;
 #ifdef DEBUG
 	    printf("evLinkBank: >>> nbytes=%d\n",*nbytes);
 #endif
@@ -306,13 +244,99 @@ evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum
 
 
 int
+evDropBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum)
+{
+  return(0);
+}
+
+
+
+
+
+
+
+int
+evOpenFrag(unsigned int *buf, int fragtag, int fragnum)
+{
+  int ii, ind, lev;
+  int fragtyp = 0xe;
+  int nw = 0; /*fragment created with length=0*/
+
+  /* if fragment exist, cannot create it */
+  if(evLinkFrag(buf, fragtag, fragnum) > 0)
+  {
+    printf("evOpenFrag ERROR: fragment tag=%d num=%d exist already\n",fragtag,fragnum);
+    return(0);
+  }
+
+  lev = buf[0] + 1; /*event length*/
+
+  ind = lev; /* first word after event */
+
+  /* create fragment header only */
+  buf[ind]   = 1;
+  buf[ind+1] = (fragtag&0xffff)<<16;
+  buf[ind+1] |= (fragtyp&0x3f)<<8;
+  buf[ind+1] |= fragnum&0xff;
+
+  buf[0] += 2; /* increase event length */
+#ifdef DEBUG
+  printf("evOpenFrag: ind=%d buf[ind]=%d buf[ind+1]=0x%08x buf[0]=%d\n",ind,buf[ind],buf[ind+1],buf[0]);
+#endif
+  return(ind);
+}
+
+
+
+/* return index of the fragment header; if fragnum<0, search by fragtag only */
+int
+evLinkFrag(unsigned int *buf, int fragtag, int fragnum)
+{
+  int ind, len, nw, tag1, pad1, typ1, num1;
+
+  len = buf[0]+1; /* event length */
+  ind = 2;         /* skip event header */
+  while(ind<len)
+  {
+#ifdef DEBUG
+    printf("evLinkFrag: ind=%d len=%d\n",ind,len);
+#endif
+    nw = buf[ind] + 1;
+    tag1 = (buf[ind+1]>>16)&0xffff;
+    pad1 = (buf[ind+1]>>14)&0x3;
+    typ1 = (buf[ind+1]>>8)&0x3f;
+    num1 =  buf[ind+1]&0xff;
+#ifdef DEBUG
+    printf("evLinkFrag: tag1=%d typ1=%d\n",tag1,typ1);
+#endif
+
+    /*check if it is right fragment*/
+    if(typ1==0xe || typ1==0x10)
+	{
+	  if(tag1==fragtag && (num1==fragnum || fragnum<0))
+      {
+#ifdef DEBUG
+        printf("evLinkFrag: right frag\n");
+#endif
+        return(ind);
+      }
+	}
+
+    /* jump to the next fragment */
+    if(typ1==0xe || typ1==0x10) ind += 2; /* if fragment, jump to the next header, can be another fragment */
+    else                        ind += nw;
+  }
+
+  return(0);
+}
+
+
+
+
+
+int
 evDropFrag(unsigned int *buf, int fragtag, int fragnum)
 {
   return(0);
 }
 
-int
-evDropBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum)
-{
-  return(0);
-}

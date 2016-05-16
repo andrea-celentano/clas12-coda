@@ -746,7 +746,7 @@ gtpReadConfigFile(char *filename)
     else
     {
       ungetc(ch,fd);
-      fgets(str_tmp, STRLEN, fd);
+      fgets(str_tmp, /*80*/STRLEN, fd); /* sergey: NIOS cannot handle long lines ??? */
       sscanf (str_tmp, "%s %s", keyword, ROC_name);
 
 

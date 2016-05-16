@@ -530,7 +530,6 @@ sspInit(unsigned int addr, unsigned int addr_inc, int nfind, int iFlag)
 	}	 
   } 
 
-
   printf("sspInit: found %d SSPs\n",nSSP);
 
   return(nSSP);
@@ -2299,13 +2298,13 @@ int sspHps_SetSinglePrescale(int id, int n, int region, int xmin, int xmax, int 
     return ERROR;
   }
 
-  if( (xmin < 31) || (xmin > 31) )
+  if( (xmin < -31) || (xmin > 31) )
   {
     printf("%s: ERROR: xmin is outside acceptable range.\n",__FUNCTION__);
     return ERROR;
   }
 
-  if( (xmax < 31) || (xmax > 31) )
+  if( (xmax < -31) || (xmax > 31) )
   {
     printf("%s: ERROR: xmax is outside acceptable range.\n",__FUNCTION__);
     return ERROR;
@@ -2977,7 +2976,7 @@ int sspHps_GetSinglePrescaleXmin(int id, int n, int region)
   SSPUNLOCK;
   
   val = (val>>16) & 0x3F;
-  if(val & 0x20) val |= 0xFFFFFFC;
+  if(val & 0x20) val |= 0xFFFFFFC0;
   
   return val;
 }
@@ -3009,7 +3008,7 @@ int sspHps_GetSinglePrescaleXmax(int id, int n, int region)
   SSPUNLOCK;
 
   val = (val>>24) & 0x3F;
-  if(val & 0x20) val |= 0xFFFFFFC;
+  if(val & 0x20) val |= 0xFFFFFFC0;
   
   return val;
 }
@@ -4070,8 +4069,10 @@ sspReadConfigFile(char *filename)
       sprintf(fname, "%s/ssp/%s.cnf", clonparms, expid);
       if((fd=fopen(fname,"r")) == NULL)
       {
-        printf("\nsspReadConfigFile: Can't open config file >%s<\n",fname);
-        return(-2);
+        //printf("\nsspReadConfigFile: Can't open config file >%s<\n",fname);
+        //return(-2);
+		  printf("\nsspReadConfigFile: No config file exists - driver defaults will be used\n");
+		  return gr;
 	  }
 	}
 
@@ -4205,7 +4206,7 @@ sspReadConfigFile(char *filename)
       
       else if(active && (strcmp(keyword, "SSP_HPS_SINGLES_PRESCALE")==0))
       {
-		  scanf (str_tmp, "%*s %d %d %d %d %d", &i1, &i2, &i3, &i4, &i5);
+		  sscanf (str_tmp, "%*s %d %d %d %d %d", &i1, &i2, &i3, &i4, &i5);
         if((i1 < 0) || (i1 > 1))
         {
           printf("\nsspReadConfigFile: Wrong index number %d, %s\n",slot,str_tmp);

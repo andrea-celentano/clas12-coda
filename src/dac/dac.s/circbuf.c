@@ -336,7 +336,7 @@ get_cb_count(CIRCBUF **cbh)
 
 
 /* fills array of pointers to events */ 
-#define FILL_EVENT_PTR_ARRAY(nev1, nev2) \
+#define FILL_EVENT_PTR_ARRAY(nev1, nev2, flag)	\
   for(j=nev1; j<nev2; j++) \
   { \
     evptr[j] = buf; \
@@ -344,7 +344,14 @@ get_cb_count(CIRCBUF **cbh)
     lenbuf += lenev; /* returned buffer length in words */ \
     if( ((buf[1]>>16)&0xff)==0 ) \
 	{ \
-      printf("[%1d] ERROR: bank tag is zero (header: %d 0x%08x)\n",id,buf[0],buf[1]); \
+      int jj; \
+      unsigned int *bbb; \
+      printf("[%1d] ERROR(%d): roc %d, nev1=%d nev2=%d j=%d bank tag is zero (header: %d 0x%08x)\n",id,flag,i,nev1,nev2,j,buf[0],buf[1]); \
+      /*for(jj=0; jj<j+1; jj++)											\
+	  { \
+        bbb = evptr[jj]; \
+        printf("[%1d] INFO(%d): roc %d, jj=%d: nw = %d, sync=%d tag=0x%02x typ=0x%02x num=%d\n",id,flag,i,jj,bbb[0],(bbb[1]>>24)&0xff,(bbb[1]>>16)&0xff,(bbb[1]>>8)&0xff,(bbb[1])&0xff); \
+		}*/																\
 	} \
 	else \
 	{ \
@@ -593,7 +600,7 @@ cbp->nevents[icb_next]); fflush(stdout);
 #endif
 
         lenbuf = 0; 
-        FILL_EVENT_PTR_ARRAY(0, nev);
+        FILL_EVENT_PTR_ARRAY(0, nev, 1);
         cbp->evptr1[icb] = buf; /* new first valid event */ 
 
         /* if buffer is empty now switch to the next one */ 
@@ -630,7 +637,7 @@ cbp->nevents[icb_next]); fflush(stdout);
 #endif
 
         lenbuf = 0; 
-        FILL_EVENT_PTR_ARRAY(0, nev1);
+        FILL_EVENT_PTR_ARRAY(0, nev1, 2);
 
         /* switch to the next buffer */ 
         READ_LOCK;
@@ -659,7 +666,7 @@ printf("SHOULD NEVER COME HERE !!!\n"); fflush(stdout);
 exit(0); 
 } 
 
-        FILL_EVENT_PTR_ARRAY(nev1, nev);
+ FILL_EVENT_PTR_ARRAY(nev1, nev, 3);
         cbp->evptr1[icb] = buf; /* new first valid event */ 
         /* if buffer is empty now switch to the next one */ 
         if(cbp->nevents[icb]==0) 

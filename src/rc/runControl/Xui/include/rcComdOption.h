@@ -73,6 +73,7 @@ public:
   int   startCedit_;
   int   startDbedit_;
   int   startRocs_;
+  int   logRocs_; /*sergey*/
   int   autostart_;
   int   startWide_;
   int   noEdit_;

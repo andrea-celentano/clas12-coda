@@ -1,4 +1,4 @@
-#!/usr/bin/csh
+#!/bin/csh
 
 #  run_download_eb.csh
 #  Coda script to perform download tasks
@@ -7,7 +7,7 @@
 
 
 # Force run configuration file selection
-select_trigger -mode download
+##################################select_trigger -mode download
 
 # use select_trigger exit status
 exit($status)

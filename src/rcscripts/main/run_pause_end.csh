@@ -1,4 +1,4 @@
-#!/usr/bin/csh
+#!/bin/csh
 
 #  run_pause_end.csh
 
@@ -10,7 +10,7 @@
 #  do pause tasks
 
 #  smartsockets broadcast
-rc_transition -a clasprod -d run_control -file    pause  >& /dev/null &
+rc_transition -a clasrun -d run_control -file    pause  >& /dev/null &
 
 #  done
 exit(0)

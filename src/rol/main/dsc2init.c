@@ -50,7 +50,7 @@ main(int argc, char *argv[])
 
   /* update firmware */
   
-  dsc2Init(0x100000,0x80000,20,0);
+  dsc2Init(0x100000,0x80000,20,/*0*/1<<19);
   dsc2Config ("");
 
   exit(0);

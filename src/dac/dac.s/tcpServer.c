@@ -26,6 +26,8 @@
 #include "libtcp.h" 
 #include "libdb.h" 
 
+#undef DEBUG
+
 /* readiness flag */
 static int request_in_progress;
 
@@ -85,7 +87,8 @@ tcpClient tage "test4(0x55,66.3366666,'sss',44)"
 static int
 my_execute(char *string)
 {
-  int ii, len, res;
+  int ii, len;
+  int64_t res;
   char *saveptr;
   char *command, *arguments;
   char *args[NARGS], nargs;
@@ -98,12 +101,15 @@ my_execute(char *string)
 
   /* parsing*/
   strncpy(str,string,255); /*strtok will modify input string, let it be local and non-constant one*/
-  /*printf("str >%s<\n",str);*/
-
+#ifdef DEBUG
+  printf("my_execute: str >%s<\n",str);
+#endif
   command = strtok_r(str,"(",&saveptr);
   if(command!=NULL)
   {
-    /*printf("command >%s<\n",command)*/;
+#ifdef DEBUG
+    printf("command >%s<\n",command);
+#endif
   }
   else
   {
@@ -114,7 +120,9 @@ my_execute(char *string)
   arguments = strtok_r(NULL,")",&saveptr);
   if(arguments!=NULL)
   {
-    /*printf("arguments >%s<\n",arguments);*/
+#ifdef DEBUG
+    printf("arguments >%s<\n",arguments);
+#endif
     args[0] = strtok_r(arguments,",",&saveptr);
     nargs = 1;
 
@@ -129,27 +137,36 @@ my_execute(char *string)
         len = strlen(sargs[ii]);
         while(sargs[ii][len-1]==' ') len--; /*remove trailing spaces*/
         sargs[ii][len] = '\0';
-        /*printf("111: sargs[%2d] >%s<\n",ii,sargs[ii]);*/
-
+#ifdef DEBUG
+        printf("111: sargs[%2d] >%s<\n",ii,sargs[ii]);
+#endif
         sargs[ii] ++; /* remove leading quote */
         len = strlen(sargs[ii]);
         sargs[ii][len-1] = '\0'; /* remove trailing quote */
-        /*printf("222: sargs[%2d] >%s<\n",ii,sargs[ii]);*/
+#ifdef DEBUG
+        printf("222: sargs[%2d] >%s<\n",ii,sargs[ii]);
+#endif
 	  }
       else if(strchr(args[ii],'.')!=NULL) /*float*/
       {
         sscanf(args[ii],"%f",&fargs[ii]);
-        /*printf("flo: args[%2d] >%s< %f\n",ii,args[ii],fargs[ii]);*/
+#ifdef DEBUG
+        printf("flo: args[%2d] >%s< %f\n",ii,args[ii],fargs[ii]);
+#endif
 	  }
       else if(strchr(args[ii],'x')!=NULL) /*hex*/
       {
         sscanf(args[ii],"%x",&iargs[ii]);
-        /*printf("hex: args[%2d] >%s< %d (0x%x)\n",ii,args[ii],iargs[ii],iargs[ii]);*/
+#ifdef DEBUG
+        printf("hex: args[%2d] >%s< %d (0x%x)\n",ii,args[ii],iargs[ii],iargs[ii]);
+#endif
 	  }
 	  else /*decimal*/
 	  {
         sscanf(args[ii],"%i",&iargs[ii]);
-        /*printf("dec: args[%2d] >%s< %d\n",ii,args[ii],iargs[ii]);*/
+#ifdef DEBUG
+        printf("dec: args[%2d] >%s< %d\n",ii,args[ii],iargs[ii]);
+#endif
 	  }
     }
   }
@@ -164,7 +181,9 @@ my_execute(char *string)
 
   /* find symbol */
   command = strtok_r(command," ",&saveptr); /*remove leading and trailing spaces if any*/
-  /*printf("command1 >%s<\n",command);*/
+#ifdef DEBUG
+  printf("command1 >%s<\n",command);
+#endif
   if(command==NULL)
   {
     printf("no command found in >%s<\n",command);    
@@ -173,7 +192,9 @@ my_execute(char *string)
   res = dlsym(handler, command);
   if((res != (-1)) && (res != 0))
   {
-    /*printf("INFO: >%s()< routine found\n",command)*/;
+#ifdef DEBUG
+    printf("INFO: >%s()< routine found\n",command);
+#endif
   }
   else
   {
@@ -183,13 +204,18 @@ my_execute(char *string)
   }
   command_ptr = (VOIDFPTR) res;
 
-  /*
+#ifdef DEBUG
   printf("ints-> %d(0x%x) %d(0x%x) %d(0x%x) %d(0x%x)\n",
     iargs[0],iargs[0],iargs[1],iargs[1],iargs[2],iargs[2],iargs[3],iargs[3]);
   printf("floats-> %f %f %f %f\n",fargs[0],fargs[1],fargs[2],fargs[3]);
-  */
-  /*printf("my_execute: Executing >%s<\n",command);*/
+  printf("my_execute: Executing >%s<\n",command);fflush(stdout);
+#endif
+
   FUNCALL(i,i,i,i,i,i,i,i);
+
+#ifdef DEBUG
+  printf("my_execute: executed\n");fflush(stdout);
+#endif
 
   /* close symbol table */
   if(dlclose((void *)handler) != 0)

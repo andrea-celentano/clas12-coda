@@ -1,4 +1,4 @@
-#!/usr/bin/csh
+#!/bin/csh
 
 #  run_prestart_eb.csh
 
@@ -8,9 +8,9 @@
 
 
 #  sync begin run events
-echo " "; echo starting: `date`; echo run number: `run_number`; echo " "; 
-sync_begin_run_event
-echo ending: `date`; echo " "
+#############################echo " "; echo starting: `date`; echo run number: `run_number`; echo " "; 
+#############################sync_begin_run_event
+#############################echo ending: `date`; echo " "
 
 
 #  done

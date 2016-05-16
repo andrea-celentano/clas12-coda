@@ -27,7 +27,7 @@ ifdef DEBUG
 CFLAGS			+= -Wall -g
 endif
 
-SRC			= jvme.c jlabgef.c jlabgefDMA.c dmaPList.c 
+SRC			= jvme.c jlabgef.c jlabgefDMA.c dmaPList.c
 
 OBJS			= $(SRC:%.c=%.o)
 

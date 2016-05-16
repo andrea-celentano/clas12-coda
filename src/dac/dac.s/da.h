@@ -92,13 +92,13 @@
 #define EV_BANK_HDR  0x00000100
 #define EV_BAD       0x10000000
 
-#define PHYS_BANK_HDR(t,e) (unsigned int)((((t)&0xf)<<16) | ((e)&0xff) | EV_BANK_HDR)
+#define PHYS_BANK_HDR(t,e) (uint32_t)((((t)&0xf)<<16) | ((e)&0xff) | EV_BANK_HDR)
 
-#define CTL_BANK_HDR(t) (unsigned int)((((t)&0xffff)<<16) | 0x000001CC)
+#define CTL_BANK_HDR(t) (uint32_t)((((t)&0xffff)<<16) | 0x000001CC)
 
-#define CHAR_BANK_HDR(t) (unsigned int)((((t)&0xffff)<<16) | 0x00000300)
+#define CHAR_BANK_HDR(t) (uint32_t)((((t)&0xffff)<<16) | 0x00000300)
 
-#define IS_BANK(b) (((unsigned int) (b) && EV_BANK_HDR)==EV_BANK_HDR)
+#define IS_BANK(b) (((uint32_t) (b) && EV_BANK_HDR)==EV_BANK_HDR)
 
 #define DECODE_BANK_HEADER(b,t,e) { t = (b[1]>>16)&0xffff; e = b[1]&0xff;}
 
@@ -136,7 +136,7 @@
      10    'l'   unsigned long long (64-bit int)
      11    'I'   int
 */
-static int dtswap[] = {
+static int32_t dtswap[] = {
   0,2,2,0,1,1,0,0, 3,2,3,0,0,0,5,4, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
   0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
   0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
@@ -148,23 +148,15 @@ static int dtswap[] = {
 
 
 extern jmp_buf global_env[8][32];
-extern int use_recover;
+extern int32_t use_recover;
 
-extern int global_env_depth[32];
+extern int32_t global_env_depth[32];
 extern char *global_routine[8][32];
 
 #define SIGVECTOR sigvec
 
 #define recoverContext(name,res) \
 { \
-  /*if(use_recover) \
-  { \
-	int thr = ((unsigned int) pthread_self()) & 31; \
-	global_routine[global_env_depth[thr]][thr] = name; \
-	res = setjmp(global_env[global_env_depth[thr]][thr]); \
-	global_env_depth[thr]++; \
-  } \
-  else*/ \
   { \
 	res = 0; \
   } \
@@ -221,9 +213,9 @@ void Copy128(WORD128 *hws, WORD128 *hwd);
 void AND128(WORD128 *hwa, WORD128 *hwb, WORD128 *hwc);
 void OR128(WORD128 *hwa, WORD128 *hwb, WORD128 *hwc);
 void XOR128(WORD128 *hwa, WORD128 *hwb, WORD128 *hwc);
-int CheckBit128(WORD128 *hw, int n);
-void SetBit128(WORD128 *hw, int n);
-int EQ128(WORD128 *hwa, WORD128 *hwb);
+int32_t CheckBit128(WORD128 *hw, int32_t n);
+void SetBit128(WORD128 *hw, int32_t n);
+int32_t EQ128(WORD128 *hwa, WORD128 *hwb);
 void Clear128(WORD128 *hw);
 void Negate128(WORD128 *hw);
 

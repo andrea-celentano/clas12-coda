@@ -20,6 +20,7 @@ coda_eb()
 /* INCLUDES */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <pthread.h>
 #include <time.h>
 #include <dlfcn.h>

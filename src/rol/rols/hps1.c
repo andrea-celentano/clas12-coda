@@ -26,6 +26,8 @@ coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 
 #define SSIPC
 
+static int nusertrig, ndone;
+
 
 #undef DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
 
@@ -613,6 +615,8 @@ vmeBusUnlock();
       /*trigger-related*/
 vmeBusLock();
       faResetMGT(FA_SLOT,1);
+      /* Enable FADC "live" trigger to go to P0 (to SD) and front panel */
+      faSetTrigOut(FA_SLOT, 7);
 vmeBusUnlock();
 #endif
 
@@ -623,7 +627,9 @@ vmeBusUnlock();
 
     /* 1) Load FADC pedestals from file for trigger path.
        2) Offset FADC threshold for each channel based on pedestal for both readout and trigger */
-	if(rol->pid>36 && rol->pid!=46 && rol->pid!=37 && rol->pid!=39 && rol->pid!=58)
+	if(rol->pid>36 && rol->pid!=46 && rol->pid!=37 && rol->pid!=39 && rol->pid!=58 &&
+           rol->pid!=70 && rol->pid!=71 && rol->pid!=72 /*adcft1, adcft2, adcft3 */
+          )
     {
 vmeBusLock();
       faGLoadChannelPedestals(getFadcPedsFilename(rol->pid), 1);
@@ -687,6 +693,7 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
 vmeBusLock();
   sdInit(1);   /* Initialize the SD library */
   sdSetActiveVmeSlots(fadcSlotMask); /* Use the fadcSlotMask to configure the SD */
+  sdSetTrigoutLogic(0, 1); /* SD Trigout when VSCM multiplicity >= 1. Need to move this to TI (or SD) config file */
   sdStatus();
 vmeBusUnlock();
 
@@ -894,7 +901,7 @@ __prestart()
 
 #ifndef TI_SLAVE
 vmeBusLock();
-  tiSetBusySource(TI_BUSY_LOOPBACK,0);
+tiSetBusySource(TI_BUSY_LOOPBACK,0);
   /*tiSetBusySource(TI_BUSY_FP,0);*/
 vmeBusUnlock();
 #endif
@@ -1430,7 +1437,7 @@ __go()
 #ifndef TI_SLAVE
   /* set sync event interval (in blocks) */
 vmeBusLock();
- tiSetSyncEventInterval(100/*block_level*/);
+ tiSetSyncEventInterval(10000/*block_level*/);
 vmeBusUnlock();
 #endif
 
@@ -1558,11 +1565,30 @@ vmeBusUnlock();
   /* always clear exceptions */
   jlabgefClearException(1);
 
+  nusertrig = 0;
+  ndone = 0;
+
 
   CDOENABLE(TIPRIMARY,TIR_SOURCE,0); /* bryan has (,1,1) ... */
 
+
+
   logMsg("INFO: Go 1 Executed\n",1,2,3,4,5,6);
 }
+
+
+#define	COPY_FROM_DMA_TO_URS_BUFFER \
+   if(dCnt<=0) \
+   { \
+	 printf("FADCs: No data or error.  dCnt = %d (slots from %d)\n",dCnt,FA_SLOT); \
+     dCnt=0; \
+   } \
+   else \
+   { \
+	 /*#ifndef DMA_TO_BIGBUF*/							   \
+     for(jj=0; jj<dCnt; jj++) *rol->dabufp++ = tdcbuf[jj]; \
+	 /*#endif*/											   \
+   }
 
 
 
@@ -1870,17 +1896,34 @@ vmeBusUnlock();
  	      /*printf("restored: 0x%08x 0x%08x 0x%08x\n",pMemBase,uMemBase,mSize);*/
 #else
 
+
+
+
+
+
+
+
+
 #ifdef DEBUG
           printf("fadc1: Starting DMA\n");fflush(stdout);
 #endif
 
+
 vmeBusLock();
 	      dCnt = faReadBlock(FA_SLOT,tdcbuf,500000/*MAXFADCWORDS*/,FADC_ROFLAG);
+		  COPY_FROM_DMA_TO_URS_BUFFER;
 vmeBusUnlock();
+
 
 #ifdef DEBUG
           printf("fadc1: Finished DMA, dCnt=%d\n",dCnt);fflush(stdout);
 #endif
+
+
+
+
+
+
 
 #endif
 
@@ -1926,6 +1969,7 @@ vmeBusUnlock();
 #endif
 		  }
 
+		  COPY_FROM_DMA_TO_URS_BUFFER;
 
 
 
@@ -1933,20 +1977,15 @@ vmeBusUnlock();
 
 
 
+		/*old place
+		COPY_FROM_DMA_TO_URS_BUFFER;
+		*/
 
 
-	    if(dCnt<=0)
-	    {
-	      printf("FADCs: No data or error.  dCnt = %d (slots from %d)\n",dCnt,FA_SLOT);
-          dCnt=0;
-	    }
-	    else
-	    {
-#ifndef DMA_TO_BIGBUF
 
-          for(jj=0; jj<dCnt; jj++) *rol->dabufp++ = tdcbuf[jj];
-#endif
-        }
+
+
+
 
         BANKCLOSE;
 
@@ -2657,7 +2696,7 @@ vmeBusUnlock();
       if(nfadc>0)
       {
 vmeBusLock();
-        len = fadc250UploadAll(chptr, 10000);
+        len = fadc250UploadAll(chptr, 12000);
 vmeBusUnlock();
         /*printf("\nFADC len=%d\n",len);
         printf("%s\n",chptr);*/
@@ -2833,6 +2872,22 @@ vmeBusUnlock();
 #endif
 
 
+    /* for physics sync event, make sure all board buffers are empty */
+    if(syncFlag==1)
+    {
+      int nblocks;
+      nblocks = tiGetNumberOfBlocksInBuffer();
+      /*printf(" Blocks ready for readout: %d\n\n",nblocks);*/
+
+      if(nblocks)
+	  {
+        printf("SYNC ERROR: TI nblocks = %d\n",nblocks);fflush(stdout);
+        sleep(10);
+	  }
+	}
+
+
+
 
 #if 0
     /* for physics sync event, make sure all board buffers are empty */
@@ -2856,7 +2911,10 @@ vmeBusUnlock();
   /* close event */
   CECLOSE;
 
-
+  /*
+  nusertrig ++;
+  printf("usrtrig called %d times\n",nusertrig);fflush(stdout);
+  */
   return;
 }
 
@@ -2869,6 +2927,10 @@ usrtrig_done()
 void
 __done()
 {
+  /*
+  ndone ++;
+  printf("_done called %d times\n",ndone);fflush(stdout);
+  */
   /* from parser */
   poolEmpty = 0; /* global Done, Buffers have been freed */
 

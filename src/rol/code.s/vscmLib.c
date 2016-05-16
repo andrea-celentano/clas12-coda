@@ -1546,7 +1546,102 @@ vscmReadStripScalers(int id, int chip, uint32_t *arr)
   return 0;
 }
 
+/*******************************************************************
+ *   Function : vscmReadScalers
+ *                      
+ *   Function : Reads & latches values from scalers.
+ *                                                    
+ *   Parameters :  UINT32 id    - Module slot number
+ *                 UINT32 *data - local memory address to place data
+ *                 UINT32 nwrds - Max number of words to transfer
+ *                 UINT32 rflag - Readout flag
+ *                                 bit 0 - FSSR Chip 0 scalers
+ *                                 bit 1 - FSSR Chip 1 scalers
+ *                                 bit 2 - FSSR Chip 2 scalers
+ *                                 bit 3 - FSSR Chip 3 scalers
+ *                                 bit 4 - FSSR Chip 4 scalers
+ *                                 bit 5 - FSSR Chip 5 scalers
+ *                                 bit 6 - FSSR Chip 6 scalers
+ *                                 bit 7 - FSSR Chip 7 scalers
+ *                 UINT32 rmode - Readout mode
+ *                                 0 - programmed I/O
+ *
+ *   * 32bit words in *data will be written as they are received from
+ *     the OS, with no attention paid to "endian-ness".  
+ *     E.g. in vxWorks (PPC) - big endian
+ *          in Linux (Intel) - little endian
+ * 
+ *   Data format:
+ *      First word contains readout flag
+ * 
+ *      Followed by N scaler chunks [135 words each], where N is the number of bits set in the rflag
+ *        0:     Reference (scaler integration time in 8ns ticks for strips)
+ *        1-128: FSSR strips
+ *        129:   Reference (scaler integration time in 8ns ticks for others)
+ *        130:   Mark Error
+ *        131:   Encoding Error
+ *        132:   Chip ID Error
+ *        133:   Got Hit
+ *        134:   Core Talking
+ *                                                    
+ *   Returns -1 if Error, Number of words transferred if OK.
+ *                                                    
+ *******************************************************************/
+int
+vscmReadScalers(int id, volatile unsigned int *data, int nwrds, int rflag, int rmode)
+{
+  int chip, i, dCnt = 0;
+  unsigned int val;
 
+  if (vscmIsNotInit(&id, __func__))
+    return(0);
+
+  if(!data) 
+  {
+    logMsg("%s: ERROR: Invalid Destination address\n",__FUNCTION__,0,0,0,0,0);
+    return(0);
+  }
+
+  if(rmode==0)
+  { /* Programmed I/O */
+
+    /* Hold scalers */
+    vmeWrite32(&VSCMpr[id]->ScalerLatch, 0x00);
+
+    if(dCnt < nwrds) data[dCnt++] = rflag;
+                                              
+    for(chip = 0; chip < 8; chip++)
+    {
+      if(!(rflag & (1<<chip))) continue;
+
+      if(dCnt < nwrds) data[dCnt++] = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerStripRef);
+      for(i = 0; i < 128; i++)
+      {
+        val = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerStrip);
+        /*printf("id=%2d chip=%3d chan=%3d count=%7d\n",id,chip,i,val);*/
+        if(dCnt < nwrds) data[dCnt++] = val;
+      }
+      
+      if(dCnt < nwrds) data[dCnt++] = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerRef);
+      if(dCnt < nwrds) data[dCnt++] = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerMarkErr);
+      if(dCnt < nwrds) data[dCnt++] = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerEncErr);
+      if(dCnt < nwrds) data[dCnt++] = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerChipIdErr);
+      if(dCnt < nwrds) data[dCnt++] = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerGotHit);
+      if(dCnt < nwrds) data[dCnt++] = vmeRead32(&VSCMpr[id]->Fssr[chip].ScalerCoreTalking);
+    }
+
+    /* Release/reset scalers */
+    vmeWrite32(&VSCMpr[id]->ScalerLatch, 0xFF);
+
+    return(dCnt);
+  }
+  else
+  {
+    logMsg("%s: ERROR: Unsupported mode (%d)\n",__FUNCTION__,rmode,3,4,5,6);
+    return(0);
+  }
+
+}
 
 int
 vscmPrintStripScalers(int id, int chip)
@@ -2265,6 +2360,10 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
 
       /* the number of events per block */
       vmeWrite32(&VSCMpr[boardID]->BlockCfg, 1);
+		
+	  /* maximum number of unprocessed triggers in buffer before busy is asserted */
+		vmeWrite32(&VSCMpr[boardID]->TrigBusyThr, 100);
+
 
       /* delay for trigger processing in a board - must be more then 4us for 70MHz readout clock;
       if clock changed, it must be changes as well; ex. 35MHz -> 1024 etc */

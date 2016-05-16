@@ -15,7 +15,7 @@
  * Description:
  *     Header for JLab extra routines to compliment the GEFanuc API
  *
- * SVN: $Rev: 393 $
+ * SVN: $Rev$
  *
  *----------------------------------------------------------------------------*/
 
@@ -28,28 +28,41 @@
 #include "gef/gefcmn_vme.h"
 
 
-/* tempe chip mutex */
+/*! \name Mutex Defines
+  Definitions for mutex locking/unlocking access to Tempe driver
+  \{ */
+/*! Lock the mutex for access to the Tempe driver
+   \hideinitializer
+ */
 #define LOCK_TSI {				\
     if(pthread_mutex_lock(&tsi_mutex)<0)	\
       perror("pthread_mutex_lock");		\
   }
+/*! Unlock the mutex for access to the Tempe driver
+   \hideinitializer
+ */
 #define UNLOCK_TSI {				\
     if(pthread_mutex_unlock(&tsi_mutex)<0)	\
       perror("pthread_mutex_unlock");		\
   }
+/* \} */
 
-volatile tsi148_t *pTempe;
-GEF_VME_BUS_HDL vmeHdl;
+/*! Userspace base address of Tempe registers */
+volatile tsi148_t *pTempe; 
+/*! GE-VME Driver handle */
+GEF_VME_BUS_HDL vmeHdl;    
 
 GEF_STATUS jlabgefOpenA16(void *a16p);
 GEF_STATUS jlabgefOpenA24(void *a24p);
 GEF_STATUS jlabgefOpenA32(unsigned int base, unsigned int size, void *a32p);
 GEF_STATUS jlabgefOpenA32Blt(unsigned int base, unsigned int size, void *a32p);
+GEF_STATUS jlabgefOpenCRCSR(void *crcsrp);
 GEF_STATUS jlabgefOpenSlaveA32(unsigned int base, unsigned int size);
 GEF_STATUS jlabgefCloseA16();
 GEF_STATUS jlabgefCloseA24();
 GEF_STATUS jlabgefCloseA32();
 GEF_STATUS jlabgefCloseA32Blt();
+GEF_STATUS jlabgefCloseCRCSR();
 GEF_STATUS jlabgefCloseA32Slave();
 GEF_STATUS jlabgefOpenDefaultWindows();
 GEF_STATUS jlabgefCloseDefaultWindows();
@@ -69,7 +82,15 @@ int jlabgefCheckAddress(char *addr);
 int jlabgefIntConnect(unsigned int vector, unsigned int level, VOIDFUNCPTR routine, unsigned int arg);
 int jlabgefIntDisconnect(unsigned int level);
 int jlabgefVmeBusToLocalAdrs(int vmeAdrsSpace, char *vmeBusAdrs, char **pPciAdrs);
+int jlabgefLocalToVmeAdrs(unsigned long localAdrs, unsigned int *vmeAdrs, unsigned short *amCode);
+int jlabgefSetA24AM(int addr_mod);
 int jlabgefSetDebugFlags(int flags);
 
+unsigned int jlabgefVmeRead32(int amcode, unsigned int addr);
+unsigned short jlabgefVmeRead16(int amcode, unsigned int addr);
+unsigned char jlabgefVmeRead8(int amcode, unsigned int addr);
+void jlabgefVmeWrite32(int amcode, unsigned int addr, unsigned int wval);
+void jlabgefVmeWrite16(int amcode, unsigned int addr, unsigned short wval);
+void jlabgefVmeWrite8(int amcode, unsigned int addr, unsigned char wval);
 
 #endif /* __JLABGEF__ */

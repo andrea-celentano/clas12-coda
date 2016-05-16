@@ -99,27 +99,51 @@ void
 rol2trig(int a, int b)
 {
   CPINIT;
-  int ii;
+  BANKINIT;
+  int nASIS, iASIS[MAXBANKS];
+  int ii, jj, kk;
   
   mynev ++; /* needed by ttfa.c */
 
-  CPOPEN(rol->pid,1,0);
-  for(ii=0; ii<lenin; ii++)
-  {
-    dataout[ii] = datain[ii];
-    b08 += 4;
-  }
-  CPCLOSE;
+  /*printf("befor bankscan\n");fflush(stdout);*/
+  BANKSCAN;
+  /*printf("after bankscan\n");fflush(stdout);*/
 
-  /*
-  CPOPEN(rol->pid,1,1);
-  for(ii=0; ii<lenin; ii++)
+/*
+  printf("\n\n\n\n\n nbanks=%d\n",nbanks);
+  for(jj=0; jj<nbanks; jj++) printf("bankscan[%d]: tag 0x%08x typ=%d nr=%d nw=%d dataptr=0x%08x\n",
+									jj,banktag[jj],banktyp[jj],banknr[jj],banknw[jj],bankdata[jj]);fflush(stdout);
+*/
+  nASIS = 0;
+  for(jj=0; jj<nbanks; jj++)
   {
-    dataout[ii] = datain[ii]+0x100;
-    b08 += 4;
+    datain = bankdata[jj];
+    lenin = banknw[jj];
+#ifndef VXWORKS
+#ifndef NIOS
+    /* swap input buffer (assume that data from VME is big-endian, and we are on little-endian Intel) */
+    if(banktyp[jj] != 3) for(ii=0; ii<lenin; ii++) datain[ii] = LSWAP(datain[ii]);
+#endif
+#endif
+    iASIS[nASIS++] = jj; /* remember bank number as it reported by BANKSCAN */
   }
-  CPCLOSE;
-  */
+
+
+  for(ii=0; ii<nASIS; ii++)
+  {
+    jj = iASIS[ii]; /* bank number as it reported by BANKSCAN */
+    datain = bankdata[jj];
+    lenin = banknw[jj];
+    /*printf("mynev=%d: coping bank number %d (header %d 0x%08x))\n",mynev,jj,*(datain-2),*(datain-1));*/
+	    
+    CPOPEN(banktag[jj],banktyp[jj],banknr[jj]);
+    for(kk=0; kk<lenin; kk++)
+    {
+      dataout[kk] = datain[kk];
+      b08 += 4;
+    }        
+    CPCLOSE;
+  }
 
 
   rol->user_storage[0] = lenout;

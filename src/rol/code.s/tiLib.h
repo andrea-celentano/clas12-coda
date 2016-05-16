@@ -113,7 +113,7 @@ struct TI_A24RegStruct
   /** 0x00140 */ volatile unsigned int trigTable[(0x180-0x140)/4];
   /** 0x00180 */ volatile unsigned int ts_scaler[6];
   /** 0x00198 */          unsigned int blank9;
-  /** 0x0019C */ volatile unsigned int busy_scaler2[9];
+  /** 0x0019C */ volatile unsigned int busy_scaler2[9]; /*sergey: loopback, fiber1, ,,. fiber8 */
   /** 0x001C0 */          unsigned int blank10[(0x1D0-0x1C0)/4];
   /** 0x001D0 */ volatile unsigned int hfbr_tiID[8];
   /** 0x001F0 */ volatile unsigned int master_tiID;

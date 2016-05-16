@@ -15,7 +15,7 @@ include $(CODA)/src/Makefile.include
 #-----------------------
 # customize definitions
 #-----------------------
-CLON_FLAGS += -I./src.s 
+CLON_FLAGS += -I./src.s -I$(CLON)/src/trigger/ec.s
 
 LIBNAMES += -lpthread -lexpat -lz
 
@@ -27,6 +27,7 @@ install: install_lib
 	rm -rf tmp
 	mkdir tmp
 	cp src.s/evio.h tmp/
+	cp src.s/evioBankUtil.h tmp/
 	chmod 664 tmp/*
 	-mkdir -p $(CODA)/common/include
 	cp tmp/* $(CODA)/common/include

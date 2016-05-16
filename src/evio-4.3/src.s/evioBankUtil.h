@@ -4,8 +4,58 @@
 #ifndef __EVIOBANKUTIL_h__
 #define __EVIOBANKUTIL_h__
 
+#define GET_PUT_INIT \
+  unsigned char *b08, *b08out, *b08save; \
+  unsigned short *b16, *b16out; \
+  unsigned int *b32, *b32out; \
+  unsigned long long *b64, *b64out
 
+#define GET8(ret_val) \
+  ret_val = *b08++
 
+#define GET16(ret_val) \
+  b16 = (unsigned short *)b08; \
+  ret_val = *b16; \
+  b08+=2
+
+#define GET32(ret_val) \
+  b32 = (unsigned int *)b08; \
+  ret_val = *b32; \
+  b08+=4
+
+#define GET64(ret_val) \
+  b64 = (unsigned long long *)b08; \
+  ret_val = *b64; \
+  b08+=8
+
+#define PUT8(ret_val) \
+  *b08out++ = ret_val 
+
+#define PUT16(ret_val) \
+  b16 = (unsigned short *)b08out; \
+  *b16 = ret_val; \
+  b08out+=2
+
+#define PUT32(ret_val) \
+  b32 = (unsigned int *)b08out; \
+  *b32 = ret_val; \
+  b08out+=4
+
+#define PUT64(ret_val) \
+  b64 = (unsigned long long *)b08out; \
+  *b64 = ret_val; \
+  b08out+=8
+
+#define PRINT_BUFFER(start_ptr_val, end_ptr_val) \
+  b08save = b08; /*save just in case since we'll change it here*/ \
+  b08 = (unsigned char *)(start_ptr_val); \
+  while(b08<(unsigned char *)(end_ptr_val))	\
+  { \
+    unsigned int tmp; \
+    GET32(tmp); \
+    printf("== 0x%08x\n",tmp); \
+  } \
+  b08 = b08save
 
 
 
@@ -16,11 +66,11 @@ extern "C" {
 #endif
 
 int evopenFrag(unsigned int *buf, int fragtag, int fragnum);
-unsigned int *evOpenBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, int banktype, char *fmt);
+int evOpenBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, int banktype, char *fmt, int *ind_data);
 int evCloseBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, unsigned char *b08);
 
 int evLinkFrag(unsigned int *buf, int fragtag, int fragnum);
-int evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, int *nbytes);
+int evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, int *nbytes, int *ind_data);
 
 int evDropFrag(unsigned int *buf, int fragtag, int fragnum);
 int evDropBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum);

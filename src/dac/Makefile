@@ -33,8 +33,10 @@ bin: $(BIN_FILES_PROG) ./$(OSTYPE_MACHINE)/bin/coda_roc_gef
 
   ./$(OSTYPE_MACHINE)/bin/coda_roc_gef : main/coda_roc.c $(LIBNAMES)
 	$(MKBINDIR)
-	$(CC) -DNEW_ROC $(CCBINOPT)
+	$(CC) $(CCBINOPT)
 	$(CCLINKBIN)
+
+###	$(CC) -DNEW_ROC $(CCBINOPT)
 
 endif
 
