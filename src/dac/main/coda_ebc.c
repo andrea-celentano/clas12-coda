@@ -51,9 +51,13 @@ static int chunk = 100; /* 100; MUST BE LESS THEN NCHUNKMAX !!! */
   if(typ==254) typ=0x42; \
   /*printf("after: typ=%d\n",typ)*/
 
-
+/*allocate it dynamically in according to ET event size
 #define MAXBUF 100000
 static unsigned int hpsbuf[MAXBUF];
+*/
+
+static unsigned int MAXBUF;
+static unsigned int *hpsbuf;
 
 
 #define EVIO_RECORD_HEADER(myptr, mylen) \
@@ -113,6 +117,7 @@ static unsigned int hpsbuf[MAXBUF];
 
 
 /*static*/ extern objClass localobject;
+extern char    *expid; /* coda_component.c */
 extern char    *session; /* coda_component.c */
 
 static int ended_loop_exit = 0;
@@ -172,6 +177,7 @@ extern CIRCBUF *roc_queues[MAX_ROCS]; /* see LINK_support.c */
 extern int roc_queue_ix; /* cleaned up here, increment in LINK_support.c */
 extern unsigned int *bufpool[MAX_ROCS][QSIZE];  /* see LINK_support.c */
 
+static unsigned int *evptr[MAX_ROCS][NCHUNKMAX];
 
 extern char configname[128]; /* coda_component.c */
 
@@ -451,7 +457,6 @@ handle_build(trArg arg)
   int ii, len, id, in_error = 0, res = 0, i, j, k, ix, node_ix, cc, roc, lenbuf, rocid;
   DATA_DESC *desc1, desc2;
   int types[MAX_ROCS];
-  unsigned int *evptr[MAX_ROCS][NCHUNKMAX];
 
   WORD128 fragment_mask;
   WORD128 sync_mask;
@@ -471,13 +476,15 @@ handle_build(trArg arg)
   hrtime_t start1, end1, start2, end2, time1=NULL, time2=NULL, time3=NULL;
   hrtime_t nevtime1=NULL, nevtime2=NULL, nevchun=NULL;
 
-  unsigned int total_length; /* full event length in bytes */
-
   int status;
   et_event *cevent = NULL;
   et_att_id	et_attach;
   et_event **etevents = NULL;
   int *ethandles = NULL;
+
+  unsigned int total_length; /* full event length in bytes */
+
+
 
   object = arg->object;
   id = arg->id;
@@ -517,6 +524,28 @@ handle_build(trArg arg)
     printf("[%1d] deb ET init: no mem left for ethandles\n",id);
     exit(0);
   }
+
+
+
+  /* sergey: allocate memory for event chunks; will be filled by cb_events_get(), see macro FILL_EVENT_PTR_ARRAY 
+  for(i=0; i<MAX_ROCS; i++)
+  {
+    for(j=0; j<NCHUNKMAX; j++)
+	{
+      evptr[i][j] = malloc(et_eventsize+512);
+      if(evptr[i][j]==NULL)
+	  {
+        printf("ERROR: cannot allocate memory for evptr[%2d][%3d] - exit\n",i,j); fflush(stdout);
+        exit(0);
+	  }
+      else
+	  {
+        printf("Allocated %d bytes for evptr[%2d][%3d]\n",et_eventsize+512,i,j);
+	  }
+	}
+  }
+*/
+
 
   /* some initialization */
   for(i=0; i<MAX_ROCS; i++) types[i] = -1;
@@ -853,17 +882,26 @@ data_unlock(ebp);
     for(roc=0; roc<ebp->nrocs; roc++)
     {
       desc1 = &descriptors[roc];
+		/*
+printf("!!!coda_ebc: desc1=0x%08x\n",desc1);
+		*/
 
       /* Decode the event; returns with 'temp' pointing to the first data
       word AFTER the header, note also that if there is no data from this ROC
       EVENT_DECODE_FRAG should still behave itself and return a descriptor */
       temp = data = desc1->soe;
+		/*
+printf("!!!coda_ebc: data=0x%08x\n",data);
+		*/
       typ = (data[1] >> 16) & 0xff;       /* Temp storage of type info */
       SOFT_TRIG_FIX_EB;
       issync = (data[1] >> 24) & 0x01;    /* Temp storage of sync info */
       if( (typ < EV_SYNC) || (typ >= (EV_SYNC+16)) ) /* physics event */
       {
         CODA_decode_frag(&temp,desc1);
+		/*
+printf("!!!coda_ebc: roc=%d desc1->evnb=%d\n",roc,desc1->evnb);
+		*/
       }
       else if( (typ >= EV_SYNC) && (typ < (EV_SYNC+16)) ) /* special event */
       {
@@ -1492,6 +1530,18 @@ if(++nevtime2 == NPROF2)
 
   }
 
+
+  /* sergey: free memory for event chunks 
+  for(i=0; i<MAX_ROCS; i++)
+  {
+    for(j=0; j<NCHUNKMAX; j++)
+	{
+      free(evptr[i][j]);
+	}
+  }
+*/
+
+
   printf("[%1d] ============= Build threads cleaned\n",arg->id);
   printf("[%1d] ============= Build threads cleaned\n",arg->id);
   printf("[%1d] ============= Build threads cleaned\n",arg->id);
@@ -1829,7 +1879,7 @@ codaDownload(char *confname)
   getConfFile(configname, confFile, 255);
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
   if(dbsock==NULL)
   {
     printf("cannot connect to the database 1 - exit\n");
@@ -1923,7 +1973,7 @@ roc_queue_ix = 0;
 
 
 
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
   if(dbsock==NULL)
   {
     printf("cannot connect to the database 2 - exit\n");
@@ -2107,7 +2157,7 @@ printf("=c=============================================\n");fflush(stdout);
 printf("=c=============================================\n");fflush(stdout);
 printf("=c=============================================\n");fflush(stdout);
 
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
   if(dbsock==NULL)
   {
     printf("cannot connect to the database 3 - exit\n");
@@ -2147,7 +2197,7 @@ codaPrestart()
   objClass object = localobject;
 
   EBp ebp = (void *) object->privated;
-  int i, ix, id, async, numRows;
+  int i, j, ix, id, async, numRows;
   int waitforET = 2*(ET_MON_SEC + 1);
 static char temp[100];
 static trArg args[NTHREADMAX];
@@ -2222,6 +2272,24 @@ static trArg args[NTHREADMAX];
     printf("INFO: deb prestart: ET is alive - EB attached\n");
   }
 
+
+  /* ERROR: MUST BE SEPARATE FOR EVERY BUILDING THREAD !!! allocate memory for HPS_HACK */
+  id = 0;
+  MAXBUF = (et_eventsize/4) + 128;
+  if((hpsbuf = (int *) calloc(MAXBUF, sizeof(int))) == NULL)
+  {
+    printf("[%1d] deb ET init: cannot allocate buffer for HPS_HACK - exit\n",id);
+    exit(0);
+  }
+  else
+  {
+    printf("[%1d] deb ET init: allocated buffer for HPS_HACK, size=%d words\n",id,MAXBUF);
+  }
+
+
+
+
+
   /* init events ordering queues */
   id_in_index = NULL;
   id_out_index = NULL;
@@ -2242,7 +2310,7 @@ static trArg args[NTHREADMAX];
   for(ix=0; ix<MAX_ROCS; ix++) roc_queues[ix]->deleting = 0;
 
   /* connect to database */
-  dbsocket = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsocket = dbConnect(getenv("MYSQL_HOST"), expid);
   if(dbsocket==NULL)
   {
     printf("cannot connect to the database 4 - exit\n");
@@ -2463,7 +2531,7 @@ printf("codaEnd 1\n");fflush(stdout);
 /*kuku: always downloaded*/
   /* get current state */
 printf("codaEnd 2\n");fflush(stdout);
-  dbsocket = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsocket = dbConnect(getenv("MYSQL_HOST"), expid);
   if(dbsocket==NULL)
   {
     printf("cannot connect to the database 5 - exit\n");

@@ -1117,9 +1117,10 @@ insertValToConfigTable (char* config, char* name, char* code,
 			char* inputs, char* outputs, char* next, int first)
 {
   char queryString[1024];
-  char valString[512];  
+  char valString[4096];  
 
-  printf("Editor_database: insertValToConfigTable(%s,%s,%s,%s,%s,%s,%d)\n",config,name,code,inputs,outputs,next,first);
+  /*printf("Editor_database: insertValToConfigTable(%s,%s,%s,%s,%s,%s,%d)\n",config,name,code,inputs,outputs,next,first);*/
+  printf("Editor_database: insertValToConfigTable(%s,%s, >%s<, %s,%s,%s,%d)\n",config,name,code,inputs,outputs,next,first);
 
   if (databaseSelected ())
   {
@@ -1357,7 +1358,8 @@ retrieveConfigInfoFromDbase (char* config, ConfigInfo** cinfo, int* num)
   if (!databaseSelected ()) return(-1);
   
   sprintf (queryString, "select * from %s", config);
-  if (mysql_query (mysql, queryString) != 0) {
+  if (mysql_query (mysql, queryString) != 0)
+  {
 #ifdef _CODA_DEBUG
     printf ("get all from %s table error: %s\n", mysql_error(mysql));
 #endif
@@ -1366,7 +1368,8 @@ retrieveConfigInfoFromDbase (char* config, ConfigInfo** cinfo, int* num)
     return -1;
   }
   res = mysql_store_result (mysql);
-  if (!res) {
+  if (!res)
+  {
 #ifdef _CODA_DEBUG
     printf ("Query get all from %s table error: %s\n", mysql_error(mysql));
 #endif
@@ -1415,9 +1418,10 @@ retrieveConfigInfoFromDbase (char* config, ConfigInfo** cinfo, int* num)
   j = *num;
   while ((row = mysql_fetch_row (res)))
   {
-    for (i = 0; i < *num; i++) {
+    for (i = 0; i < *num; i++)
+    {
       if (matchConfigInfo (cinfo[i], row[0]))
-	setConfigInfoPosition (cinfo[i], atoi (row[1]), atoi (row[2]));
+	    setConfigInfoPosition (cinfo[i], atoi (row[1]), atoi (row[2]));
     }
   }
   mysql_free_result (res);
@@ -1458,6 +1462,7 @@ retrieveConfigInfoFromDbase (char* config, ConfigInfo** cinfo, int* num)
 
 
 
+
 /*sergey*/
 int
 getDefaultCodeFromDbase (char* class, char *rols[3])
@@ -1494,8 +1499,11 @@ getDefaultCodeFromDbase (char* class, char *rols[3])
     /*printf("-------------------> num=%d\n",num);*/
   }
   mysql_free_result (res);
-  if(num != 1) return(-2);
-
+  if(num != 1)
+  {
+    printf("Cannot find >%s< table, will not use default values to fill 'code' fields\n",DEFAULTS_TABLE_NAME);
+    return(-2);
+  }
 
 
   sprintf (queryString, "select * from %s where class = '%s'", DEFAULTS_TABLE_NAME, class);
@@ -1540,7 +1548,7 @@ getDefaultCodeFromDbase (char* class, char *rols[3])
 
   codeParser(r, row[1]);
 
-#if 0
+#if 1
   /*
   for(i=0; i<3; i++) {rols[i] = r[i]};
   */

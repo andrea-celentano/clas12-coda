@@ -107,7 +107,9 @@ rccAcceptor::sendToAllClients (int command, daqNetData& data, long id)
   codaSlistIterator ite (rcClientList_);
   rccIO* cio = 0;
 
+int ii=0;
   for (ite.init (); !ite; ++ite) {
+printf("ii=%d\n",ii++);fflush(stdout);
     cio = (rccIO *) ite ();
     cio->sendResult (command, data, id);
   }

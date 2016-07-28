@@ -18,6 +18,7 @@
 #include <evioBankUtil.h>
 
 #include "ectrans.h"
+#include "pctrans.h"
 
 static unsigned int buf[MAXEVIOBUF];
 static char *input_filename;
@@ -29,17 +30,43 @@ static int output_handle;
 static int inBuf[7][NHITS];
 
 
+
+typedef struct ecdata
+{
+  int sector;
+  int io;
+  int view;
+  int strip;
+  int adc;
+  int tdc;
+}
+ECData;
+
+static ECData aBuf[NHITS];
+
 static int nevent         = 0;
 static int nwrite         = 0;
 static int skip_event     = 0;
-static int max_event      = 15;
+static int max_event      = 10000;
+
+
+
+/* returns 1 - do sort */
+static int
+ecdata_compare(ECData *i, ECData *j)
+{
+  if(i->io > j->io) return(1);
+  else if(i->io == j->io && i->view > j->view) return(1);
+  else if(i->io == j->io && i->view == j->view && i->strip > j->strip) return(1);
+  else return (0);
+}
 
 
 int
 main(int argc, char **argv)
 {
-  int i, status, trig, layer, strip;
-  int l, tag, num, nchan[22], nn, mm, npulses;
+  int i, nw, status, trig, layer, strip;
+  int l, tag, num, nchan[22], *nchanptr, nn, mm, npulses;
   int pulse_integral, pulse_time, pulse_min, pulse_max;
   int ind, fragtag, fragnum, nbytes, ind_data, timestamp_flag, type, *nhits;
   int slot, slot_old, event, chan, tdc;
@@ -85,7 +112,6 @@ main(int argc, char **argv)
   }
 
 
-
   nevent=0;
   nwrite=0;
   trig = 0;
@@ -100,13 +126,29 @@ main(int argc, char **argv)
     if(skip_event>=nevent) continue;
     /*if(user_event_select(buf)==0) continue;*/
 
+
+
+
+
+
+
+
+
     /**********************/
 	/* evioBankUtil stuff */
+
+
+#if 0
+
+    /********/
+    /* ECAL */
+    /********/
 
 	fragtag = 1602;
     fragnum = 0;
     tag = 1602;
 
+    printf("\n");
     for(num=1; num<=6; num++) /* 1-sector, 2-io, 3-view, 4-strip, 5-adc, 6-tdc */
 	{
       ind = evLinkBank(buf, fragtag, fragnum, tag, num, &nbytes, &ind_data);
@@ -116,18 +158,92 @@ main(int argc, char **argv)
 		PRINT_BUFFER(&buf[ind_data], &buf[ind_data]+(nbytes/4));
 		*/
 
+        if(num==1)      printf("SECTOR: ");
+        else if(num==2) printf("    IO: ");
+        else if(num==3) printf("  VIEW: ");
+        else if(num==4) printf(" STRIP: ");
+        else if(num==5) printf("   ADC: ");
+        else if(num==6) printf("   TDC: ");
+
         for(i=0; i<nbytes/4; i++)
 		{
           inBuf[num][i] = buf[ind_data+i];
-          /*printf("IN[%2d][%2d] = %d\n",num,i,inBuf[num][i]);*/
+          printf("%6d",inBuf[num][i]);
 		}
+        printf("\n");
 	  }
 	}
+    printf("\n");
 
-#if 1
+
+
+    /* clean up */
+    nw = 0;
+	printf("Process %d hit candidates\n",nbytes/4);
+    for(i=0; i<nbytes/4; i++)
+	{
+      if(inBuf[1][i] != 5) continue; /* skip wrong sectors */
+      if(inBuf[5][i] <= 0) continue; /* skip zero energy */
+
+      aBuf[nw].sector = inBuf[1][i];
+      aBuf[nw].io     = inBuf[2][i];
+      aBuf[nw].view   = inBuf[3][i];
+      aBuf[nw].strip  = inBuf[4][i];
+      aBuf[nw].adc    = inBuf[5][i];
+      aBuf[nw].tdc    = inBuf[6][i];
+	  nw++;
+	}
+
+	printf("Found %d good hits\n",nw);
+    for(num=1; num<=6; num++)
+	{
+      if(num==1)      printf("SECTOR: ");
+      else if(num==2) printf("    IO: ");
+      else if(num==3) printf("  VIEW: ");
+      else if(num==4) printf(" STRIP: ");
+      else if(num==5) printf("   ADC: ");
+      else if(num==6) printf("   TDC: ");
+      for(i=0; i<nw; i++)
+	  {
+        if(num==1)      printf("%6d",aBuf[i].sector);
+        else if(num==2) printf("%6d",aBuf[i].io);
+        else if(num==3) printf("%6d",aBuf[i].view);
+        else if(num==4) printf("%6d",aBuf[i].strip);
+        else if(num==5) printf("%6d",aBuf[i].adc);
+        else if(num==6) printf("%6d",aBuf[i].tdc);
+	  }
+	  printf("\n");
+	}
+	printf("\n");
+
+    /* sort */
+    qsort((void *)aBuf, nw, sizeof(ECData), (int (*) (const void *, const void *))ecdata_compare);
+
+	printf("Sorted %d hits\n",nw);
+    for(num=1; num<=6; num++)
+	{
+      if(num==1)      printf("SECTOR: ");
+      else if(num==2) printf("    IO: ");
+      else if(num==3) printf("  VIEW: ");
+      else if(num==4) printf(" STRIP: ");
+      else if(num==5) printf("   ADC: ");
+      else if(num==6) printf("   TDC: ");
+      for(i=0; i<nw; i++)
+	  {
+        if(num==1)      printf("%6d",aBuf[i].sector);
+        else if(num==2) printf("%6d",aBuf[i].io);
+        else if(num==3) printf("%6d",aBuf[i].view);
+        else if(num==4) printf("%6d",aBuf[i].strip);
+        else if(num==5) printf("%6d",aBuf[i].adc);
+        else if(num==6) printf("%6d",aBuf[i].tdc);
+	  }
+	  printf("\n");
+	}
+
     if(ind > 0)
 	{
       trig ++;
+      slot_old = 0;
 	  
       i = evOpenFrag(buf, 7, 1);
       printf("evOpenFrag returned %d\n",i);
@@ -140,33 +256,45 @@ main(int argc, char **argv)
 
 	  for(i=0; i<22; i++) nchan[i] = 0;
 
-      for(i=0; i<nbytes/4; i++)
+      for(i=0; i<nw; i++)
       {
         printf("begin while: b08=0x%08x\n",b08);
-		layer = (inBuf[2][i]-1)*3+inBuf[3][i]-1;
-		printf("+++++++++++++ %d %d -> %d\n",inBuf[2][i],inBuf[3][i],layer);
-        strip = inBuf[4][i]-1;
+
+		layer = (aBuf[i].io-1)*3+aBuf[i].view-1;
+		printf("+++++++++++++ %d %d -> %d\n",aBuf[i].io,aBuf[i].view,layer);
+        strip = aBuf[i].strip-1;
         slot = adcslotecal [layer] [strip];
 		chan = adcchanecal [layer] [strip];
-        printf("### layer=%d strip=%d -> slot=%d chan=%d\n",layer,strip,slot,chan);
-	    nchan[slot] ++;
+        printf("### layer=%d strip=%d -> slot=%d chan=%d (nchan(so far)=%d)\n",layer,strip,slot,chan,nchan[slot]);
 
-        PUT8(slot);
-        PUT32(trig);
-        PUT64(timestamp);
-        PUT32(nchan[slot]);
-        printf("slot=%d, trig=%d, timestamp=%lld nchan[%d]=%d\n",slot,trig,timestamp,slot,nchan[slot]);
+        if(slot != slot_old)
+		{
+          slot_old = slot;
 
-        for(nn=0; nn<nchan[slot]; nn++)
+          PUT8(slot);
+          PUT32(trig);
+          PUT64(timestamp);
+
+          nchan[slot]=0;
+          nchanptr = (unsigned int *)b08out;
+          PUT32(nchan[slot]); /* reserve space for channel counter */
+
+          printf("slot=%d, trig=%d, timestamp=%lld nchan[%d]=%d\n",slot,trig,timestamp,slot,nchan[slot]);
+		}
+
+        /*for(nn=0; nn<nchan[slot]; nn++)*/
 	    {
+	      nchan[slot] ++;
+          *nchanptr = nchan[slot];
+
           PUT8(chan);
           PUT32(npulses);
           printf("  chan=%d, npulses=%d\n",chan,npulses);
 
           for(mm=0; mm<npulses; mm++)
 	      {
-            pulse_integral = inBuf[5][i];
-            pulse_time = inBuf[6][i]-25000; /* sergey: arbitrary !!! */
+            pulse_integral = aBuf[i].adc;
+            pulse_time = aBuf[i].tdc-25000; /* sergey: arbitrary !!! */
             PUT16(pulse_time);
             PUT32(pulse_integral);
             PUT16(pulse_min);
@@ -181,10 +309,192 @@ main(int argc, char **argv)
 	  /*printf("last b08out = 0x%08x\n",b08out);*/
       evCloseBank(buf, 7/*fragtag*/, 1/*fragnum*/, banktag, banknum, b08out);
 	}
+
 #endif
+
+
+
+
+#if 1
+
+    /********/
+    /* PCAL */
+    /********/
+
+	fragtag = 1502;
+    fragnum = 0;
+    tag = 1502;
+
+    printf("\n");
+    for(num=1; num<=6; num++) /* 1-sector, 2-io, 3-view, 4-strip, 5-adc, 6-tdc */
+	{
+      ind = evLinkBank(buf, fragtag, fragnum, tag, num, &nbytes, &ind_data);
+      if(ind > 0)
+	  {
+		/*
+		PRINT_BUFFER(&buf[ind_data], &buf[ind_data]+(nbytes/4));
+		*/
+
+        if(num==1)      printf("SECTOR: ");
+        else if(num==2) printf("    IO: ");
+        else if(num==3) printf("  VIEW: ");
+        else if(num==4) printf(" STRIP: ");
+        else if(num==5) printf("   ADC: ");
+        else if(num==6) printf("   TDC: ");
+
+        for(i=0; i<nbytes/4; i++)
+		{
+          inBuf[num][i] = buf[ind_data+i];
+          printf("%6d",inBuf[num][i]);
+		}
+        printf("\n");
+	  }
+	}
+    printf("\n");
+
+
+
+    /* clean up */
+    nw = 0;
+	printf("Process %d hit candidates\n",nbytes/4);
+    for(i=0; i<nbytes/4; i++)
+	{
+      if(inBuf[1][i] != 5) continue; /* skip wrong sectors */
+      if(inBuf[5][i] <= 0) continue; /* skip zero energy */
+
+      aBuf[nw].sector = inBuf[1][i];
+      aBuf[nw].io     = inBuf[2][i];
+      aBuf[nw].view   = inBuf[3][i];
+      aBuf[nw].strip  = inBuf[4][i];
+      aBuf[nw].adc    = inBuf[5][i];
+      aBuf[nw].tdc    = inBuf[6][i];
+	  nw++;
+	}
+
+	printf("Found %d good hits\n",nw);
+    for(num=1; num<=6; num++)
+	{
+      if(num==1)      printf("SECTOR: ");
+      else if(num==2) printf("    IO: ");
+      else if(num==3) printf("  VIEW: ");
+      else if(num==4) printf(" STRIP: ");
+      else if(num==5) printf("   ADC: ");
+      else if(num==6) printf("   TDC: ");
+      for(i=0; i<nw; i++)
+	  {
+        if(num==1)      printf("%6d",aBuf[i].sector);
+        else if(num==2) printf("%6d",aBuf[i].io);
+        else if(num==3) printf("%6d",aBuf[i].view);
+        else if(num==4) printf("%6d",aBuf[i].strip);
+        else if(num==5) printf("%6d",aBuf[i].adc);
+        else if(num==6) printf("%6d",aBuf[i].tdc);
+	  }
+	  printf("\n");
+	}
+	printf("\n");
+
+    /* sort */
+    qsort((void *)aBuf, nw, sizeof(ECData), (int (*) (const void *, const void *))ecdata_compare);
+
+	printf("Sorted %d hits\n",nw);
+    for(num=1; num<=6; num++)
+	{
+      if(num==1)      printf("SECTOR: ");
+      else if(num==2) printf("    IO: ");
+      else if(num==3) printf("  VIEW: ");
+      else if(num==4) printf(" STRIP: ");
+      else if(num==5) printf("   ADC: ");
+      else if(num==6) printf("   TDC: ");
+      for(i=0; i<nw; i++)
+	  {
+        if(num==1)      printf("%6d",aBuf[i].sector);
+        else if(num==2) printf("%6d",aBuf[i].io);
+        else if(num==3) printf("%6d",aBuf[i].view);
+        else if(num==4) printf("%6d",aBuf[i].strip);
+        else if(num==5) printf("%6d",aBuf[i].adc);
+        else if(num==6) printf("%6d",aBuf[i].tdc);
+	  }
+	  printf("\n");
+	}
+
+    if(ind > 0)
+	{
+      trig ++;
+      slot_old = 0;
+	  
+      i = evOpenFrag(buf, 8, 1);
+      printf("evOpenFrag returned %d\n",i);
+	  
+      ret = evOpenBank(buf, 8/*fragtag*/, 1/*fragnum*/, banktag, banknum, banktyp, fmt, &ind_data);
+      printf("evOpenBank returns = %d\n",ret);
+
+      b08out = (unsigned char *)&buf[ind_data];
+      printf("first b08out = 0x%08x\n",b08out);
+
+	  for(i=0; i<22; i++) nchan[i] = 0;
+
+      for(i=0; i<nw; i++)
+      {
+        printf("begin while: b08=0x%08x\n",b08);
+
+		layer = (aBuf[i].io-1)*3+aBuf[i].view-1;
+		printf("+++++++++++++ %d %d -> %d\n",aBuf[i].io,aBuf[i].view,layer);
+        strip = aBuf[i].strip-1;
+        slot = adcslotpcal [layer] [strip];
+		chan = adcchanpcal [layer] [strip];
+        printf("### layer=%d strip=%d -> slot=%d chan=%d (nchan(so far)=%d)\n",layer,strip,slot,chan,nchan[slot]);
+
+        if(slot != slot_old)
+		{
+          slot_old = slot;
+
+          PUT8(slot);
+          PUT32(trig);
+          PUT64(timestamp);
+
+          nchan[slot]=0;
+          nchanptr = (unsigned int *)b08out;
+          PUT32(nchan[slot]); /* reserve space for channel counter */
+
+          printf("slot=%d, trig=%d, timestamp=%lld nchan[%d]=%d\n",slot,trig,timestamp,slot,nchan[slot]);
+		}
+
+        /*for(nn=0; nn<nchan[slot]; nn++)*/
+	    {
+	      nchan[slot] ++;
+          *nchanptr = nchan[slot];
+
+          PUT8(chan);
+          PUT32(npulses);
+          printf("  chan=%d, npulses=%d\n",chan,npulses);
+
+          for(mm=0; mm<npulses; mm++)
+	      {
+            pulse_integral = aBuf[i].adc;
+            pulse_time = aBuf[i].tdc-25000; /* sergey: arbitrary !!! */
+            PUT16(pulse_time);
+            PUT32(pulse_integral);
+            PUT16(pulse_min);
+            PUT16(pulse_max);
+            printf("  pulse_time=%d pulse_integral=%d\n",pulse_time,pulse_integral);
+        /*printf(">>> layer %d, strip %d -> adc %d\n",adclayerecal[slot][chan],adcstripecal[slot][chan],pulse_integral);*/
+	      }
+
+          printf("last b08out=0x%08x\n",b08out);
+        }
+      }
+	  /*printf("last b08out = 0x%08x\n",b08out);*/
+      evCloseBank(buf, 8/*fragtag*/, 1/*fragnum*/, banktag, banknum, b08out);
+	}
+#endif
+
+
 
 	/* evioBankUtil stuff */
     /**********************/
+
+
+
 
 
     nwrite++;

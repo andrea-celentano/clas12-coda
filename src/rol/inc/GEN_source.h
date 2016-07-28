@@ -61,37 +61,21 @@ gentinit(int code)
 
   tipDisableTSInput(TIP_TSINPUT_ALL);
 
+  tipSetBusySource(TIP_BUSY_FP ,1);
 #else
 
   tipLoadTriggerTable(0);
-  /* Trigger Holdoff:
-   *                   rule
-   *    timestep    1      2      3      4
-   *    -------   -----  ----- ------ ------
-   *       0       16ns   16ns   16ns   16ns 
-   *       1      160ns  500ns  500ns  500ns 
-   *       2     5120ns
-   */
-  /*tipSetTriggerHoldoff(1,1,2);*/ /* Set to ~10usec for busy feedback */
-  /*tipSetTriggerHoldoff(1,2,2);* /*was good for test setup*/
-  tipSetTriggerHoldoff(1,3,2);
-
-  tipSetTriggerHoldoff(2,0,2);
-  tipSetTriggerHoldoff(3,0,2);
-  tipSetTriggerHoldoff(4,0,2);
 
   tipSetPrescale(0);
 
-  if(PULSER_TRIGGER)
+#ifdef PULSER_TRIGGER
     tipSetTriggerSource(TIP_TRIGGER_PULSER);
-  else
-    {
+#else
       tipSetTriggerSource(TIP_TRIGGER_TSINPUTS);
 
       /* Enable input 1 and 2 */
       tipEnableTSInput(TIP_TSINPUT_ALL);
-  }
-
+#endif
   /* Enable self and front panel busy input */
 
   tipSetBusySource(TIP_BUSY_LOOPBACK  | TIP_BUSY_FP ,1);
@@ -101,10 +85,10 @@ gentinit(int code)
 
 
 
-  tipSetBlockLevel(BLOCKLEVEL);
+//  tipSetBlockLevel(BLOCKLEVEL);
 
   /* Number of blocks allowed in the system at any given time */
-  tipSetBlockBufferLevel(BUFFERLEVEL);
+//  tipSetBlockBufferLevel(BUFFERLEVEL);
 
   /* Sync Event interval
    *  0 : off
@@ -147,14 +131,17 @@ static void
 gentriglink(int code, VOIDFUNCPTR isr)
 {
   int stat=0;
-
+  printf("TIpcie: Setting Crate ID to %d\n",rol->pid);
   tipSetCrateID(rol->pid); /* set TI boardID equal to rocID, will be used to identify slaves */
 
   tipIntConnect(0,isr,0);
 
   tipTrigLinkReset();
+  /* Fix from Bryan 17may16 */
+#ifndef TI_SLAVE
   usleep(10000);
   tipSyncReset(1);
+#endif	
 }
 
 static void 
@@ -176,9 +163,10 @@ gentenable(int code, int card)
   }
   
   tipIntEnable(1); 
-
-  if(PULSER_TRIGGER==1)
-  {
+  
+  /* Fix from Bryan 17may16 */
+#ifndef TI_SLAVE
+#ifdef PULSER_TRIGGER
     /* Enable TI pulser */
     if(PULSER_TYPE==0)
 	{
@@ -188,15 +176,17 @@ gentenable(int code, int card)
 	{
 	  tipSetRandomTrigger(1,PULSER_RANDOM_FREQ);
 	}
-  }
+#endif
+#endif
 
 }
 
 static void 
 gentdisable(int code, int card)
 {
-  if(PULSER_TRIGGER==1)
-  {
+  /* Fix from Bryan 17may16 */
+#ifndef TI_SLAVE
+#ifdef PULSER_TRIGGER
     /* Disable TI pulser */
     if(PULSER_TYPE==0)
 	{
@@ -206,7 +196,8 @@ gentdisable(int code, int card)
 	{
 	  tipDisableRandomTrigger();
 	}
-  }
+#endif
+#endif
 
   if(GEN_isAsync==0)
   {
@@ -248,7 +239,7 @@ genttest(int code)
   }
   if(ret)
   {
-	/*syncFlag = tiGetSyncEventFlag();*/
+    syncFlag = tipGetSyncEventFlag();
     tipIntCount++;
   }
   

@@ -103,6 +103,7 @@ static int force_exit = 0;
 static int PrestartCount = 0;
 /*static*/extern objClass localobject;
 extern char configname[128]; /* coda_component.c */
+extern char *expid; /* coda_component.c */
 extern char *session; /* coda_component.c */
 #define ER_ERROR 1
 #define ER_OK 0
@@ -478,7 +479,7 @@ outputEvents(ERp erp, et_event **pe, int start, int stop)
       /* put some statistic into *_option table of the database: nfile, nevent, ndata */
 
       /* connect to database */
-      dbsocket = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+      dbsocket = dbConnect(getenv("MYSQL_HOST"), expid);
       if(dbsocket==NULL)
       {
         printf("WARN: cannot connect to the database to update run statistics in _option table\n");
@@ -792,7 +793,7 @@ codaDownload(char *conf)
   if(codaUpdateStatus("downloading") != ER_OK) return(ER_ERROR);
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
 
   sprintf(tmp,"SELECT value FROM %s_option WHERE name='SPLITMB'",
     configname);
@@ -1075,7 +1076,7 @@ codaPrestart()
   erp->nend = 1;
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
 
   /* Get the run number */
   sprintf(tmpp,"SELECT runNumber FROM sessions WHERE name='%s'",session);

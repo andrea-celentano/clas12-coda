@@ -25,8 +25,12 @@
 #define INT32  int
 #define UINT32 unsigned int
 #define STATUS int
+#ifndef TRUE
 #define TRUE  1
+#endif
+#ifndef FALSE
 #define FALSE 0
+#endif
 #define OK    0
 #define ERROR -1
 #define LOCAL 
@@ -333,7 +337,7 @@ struct TIPCIE_RegStruct
 /* 0x34 blockBuffer bits and masks */
 #define TIP_BLOCKBUFFER_BUFFERLEVEL_MASK      0x000000FF
 #define TIP_BLOCKBUFFER_BLOCKS_READY_MASK     0x0000FF00
-#define TIP_BLOCKBUFFER_TRIGGERS_IN_BLOCK     0x00FF0000
+#define TIP_BLOCKBUFFER_TRIGGERS_NEEDED_IN_BLOCK 0x00FF0000
 #define TIP_BLOCKBUFFER_RO_NEVENTS_MASK       0x07000000
 #define TIP_BLOCKBUFFER_BLOCKS_NEEDACK_MASK   0x7F000000
 #define TIP_BLOCKBUFFER_BREADY_INT_MASK       0x0F000000

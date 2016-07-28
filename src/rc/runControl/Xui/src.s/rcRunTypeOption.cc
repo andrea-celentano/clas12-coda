@@ -52,6 +52,9 @@
 #endif
 #include "rcRunTypeOption.h"
 
+/* sergey: probably in 'XcodaSimpleOptionMenu' should set 4th parameter
+   to max number of elements, default is 100, see XcodaSimpleOptionMenu.h */
+
 rcRunTypeOption::rcRunTypeOption (Widget parent,
 				  char* name,
 				  char* title,

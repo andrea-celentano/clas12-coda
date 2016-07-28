@@ -1586,6 +1586,7 @@ updateCompAuxInfo(ConfigInfo** cinfo,
     printf("updateCompAuxInfo[%d] 1>%s<\n",i,daq->comp_name);fflush(stdout);
     printf("updateCompAuxInfo[%d] 2>%s<\n",i,cinfo[i]->comp_name);fflush(stdout);
 #endif
+
     if(strcmp(daq->comp_name, cinfo[i]->comp_name)==0)
     {
       if(daq->code[0] != NULL)
@@ -1645,7 +1646,9 @@ updateCompAuxInfo(ConfigInfo** cinfo,
       }
     }
   }
+
 }    
+
 
 /************************************************************************
  *           int constructRcnetComps(rcNetComp** comp, int* num)        *
@@ -1654,13 +1657,8 @@ updateCompAuxInfo(ConfigInfo** cinfo,
  *     Callers have full control of comp[i] if return success           *
  *     return 0: success. return -1: error                              *
  ***********************************************************************/
-#if defined (__STDC__)
-int constructRcnetComps(rcNetComp** comps, int* num)
-#else
-int constructRcnetComps(comps, num)
-     rcNetComp** comps;
-     int*        num;
-#endif
+int
+constructRcnetComps(rcNetComp** comps, int* num)
 {
   char* configs[EDITOR_MAX_CONFIGS];
   int  numConfigFiles = 0;
@@ -1709,6 +1707,7 @@ constructRcnetCompsWithConfig (char* config,
 {
   int  i, j;
 
+  /* sergey: get component information from 'process' table */
   if (createRcNetCompsFromDbase (comps, num) < 0)
   {
 #ifdef DEBUG
@@ -1719,13 +1718,63 @@ constructRcnetCompsWithConfig (char* config,
 
   if (getConfigurationInfo(config, cinfos, num_cinfo) == -1)
   {
-    for(j = 0;j < *num; j++) free(comps[j]);
+    for(j = 0; j < *num; j++) free(comps[j]);
     comps = (rcNetComp **)NULL;
     *num = 0;
     cinfos = (ConfigInfo **)NULL;
     *num_cinfo = 0;
     return(-1);
   }
+
+
+
+
+  /*sergey: IMPORTANT CHANGE:
+            will replace TS info obtained in 'createRcNetCompsFromDbase' from 'process' table,
+            by the info from 'config' considering first 'ROC' as 'TS' !!!; for all other
+            components with change 'TS' to 'ROC' */
+  /* TO DO: make sure that 'constructRcnetComps' calls which does not have that correction
+	 do not create any problems; clicking 'Save' updates 'process' table with new settings .. */
+  printf("----- config table: first name >%s<\n",cinfos[0]->comp_name);
+
+  /* first component from 'config' table */
+  for(j = 0; j < *num; j++)
+  {
+    daqComp *daq = &(comps[j]->daq);
+
+    if(!strcmp(daq->comp_name,cinfos[0]->comp_name))
+	{
+      printf("+++++ process table: name >%s<, type >%d<\n",daq->comp_name,daq->type);
+      if(daq->type==CODA_ROC)
+	  {
+        daq->type = CODA_TRIG;
+        printf("+++++ change >%s< type from CODA_ROC to CODA_TRIG !!!\n",daq->comp_name);
+		/* sergey: UPDATE PROCESS TABLE HERE ???!!! */
+	  }
+	}
+  }
+
+  for(i = 1; i < *num_cinfo; i++) /* all other components from 'config' table */
+  {
+    for(j = 0; j < *num; j++)
+    { 
+      daqComp *daq = &(comps[j]->daq);
+
+      if(!strcmp(daq->comp_name,cinfos[i]->comp_name))
+	  {
+        printf("+++++ process table: name >%s<, type >%d<\n",daq->comp_name,daq->type);
+        if(daq->type==CODA_TRIG)
+	    {
+          daq->type = CODA_ROC;
+          printf("+++++ change >%s< type from CODA_TRIG to CODA_ROC !!!\n",daq->comp_name);
+		  /* sergey: UPDATE PROCESS TABLE HERE ???!!! */
+	    }
+	  }
+    }
+  }
+
+
+
   for(j = 0; j< *num; j++) updateCompAuxInfo(cinfos, *num_cinfo, comps[j]);
 
   return(0);

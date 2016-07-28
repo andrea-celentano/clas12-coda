@@ -15,7 +15,7 @@ include $(CODA)/src/Makefile.include
 #-----------------------
 # customize definitions
 #-----------------------
-CLON_FLAGS += -I./src.s -I$(CLON)/src/trigger/ec.s
+CLON_FLAGS += -I./src.s -I$(CLON)/src/trigger/ec.s -I$(CLON)/src/trigger/pc_int.s
 
 LIBNAMES += -lpthread -lexpat -lz
 
@@ -23,6 +23,7 @@ install: install_lib
 	-mkdir -p $(globalbin)
 	cp $(localbin)/evio2xml $(globalbin)
 	cp $(localbin)/evio2xml4.0 $(globalbin)
+	cp $(localbin)/evioUtilGEMC $(globalbin)
 #
 	rm -rf tmp
 	mkdir tmp

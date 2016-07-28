@@ -102,6 +102,7 @@ static ET_priv ETP;
 
 /*static*/extern objClass localobject;
 extern char configname[128]; /* coda_component.c */
+extern char *expid; /* coda_component.c */
 extern char *session; /* coda_component.c */
 #define ET_ERROR 1
 #define ET_OK 0
@@ -248,7 +249,7 @@ ettStart()
   /* extract all necessary information from database */
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
 
 
   /* get 'from' info */
@@ -735,7 +736,7 @@ codaPrestart()
   printf("INFO: Prestarting\n");
 
   /*
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
 
   sprintf(tmpp,"SELECT runNumber FROM sessions WHERE name='%s'",session);
   if(dbGetInt(dbsock,tmpp,&(object->runNumber))==ET_ERROR) return(ET_ERROR);

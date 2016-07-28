@@ -129,6 +129,13 @@ tiprimarytinit(int code)
   /*int overall_offset=0x80;*/
 
 
+
+
+/* TEMPORARY!!! this will kill mutex so DiagGuiServer must be restarted after that !!!!!!!!!!!!!!!!!!!!! */
+vmeCheckMutexHealth(1);
+
+
+
   /* DMA setup */
   /*usrVmeDmaSetMemSize(0x200000);*/
   usrVmeDmaInit();
@@ -285,6 +292,8 @@ vmeBusUnlock();
 
 }
 
+
+
 /* called at prestart (CTRIGRSA) */
 static void
 tiprimarytriglink(int code, VOIDFUNCPTR isr)
@@ -419,7 +428,7 @@ vmeBusUnlock();
 		      {
                 printf("TIPRIMARY: added slave connected to fiber %d, rocid=%d\n",port,roc_id_db);
 vmeBusLock();
-                tiAddSlave(port);
+   tiAddSlave(port);
 vmeBusUnlock();
 		      }
               break;
@@ -434,8 +443,6 @@ vmeBusUnlock();
 
   /* disconnect from database */
   dbDisconnect(dbsocket);
-
-
 
   switch(code)
   {

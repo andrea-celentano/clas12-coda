@@ -31,10 +31,12 @@
 //
 
 // maximum number of run types
-#define MAX_NUM_RUNTYPES 50
+#define MAX_NUM_RUNTYPES 100 /* sergey: was 50; actually max number of configurations ? */
+
 // maximum number of components
 #define MAX_NUM_COMPONENTS 300 /*sergey: was 100; it is used as process table limit as well !!!!!*/
+
 // maximum number of dynamic varaibles
-#define MAX_NUM_DYN_VARS 200
+#define MAX_NUM_DYN_VARS (MAX_NUM_COMPONENTS*NUM_ATTR_DYN) /* sergey: was 200; every component has NUM_ATTR_DYN attributes */
 
 #endif

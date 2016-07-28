@@ -133,15 +133,17 @@ cb_delete(int roc)
  * If the queue is full, it waits until there is room.
  *******************************************************/
 
+
+/* 'fd' is used for printing purposes only */
 int
-put_cb_data(CIRCBUF **cbh, void *data)
+put_cb_data(int fd, CIRCBUF **cbh, void *data)
 {
   int icb, i;
   CIRCBUF *cbp = *cbh;
   unsigned int *buf;
 
 #ifdef DEBUG
-  printf("put_cb_data(reached): cbp=0x%08x\n",cbp);
+  printf("[%2d] put_cb_data(reached): cbp=0x%08x\n",fd,cbp);
   fflush(stdout);
 #endif
   if((cbh == NULL)||(*cbh == NULL)) return(-1);
@@ -149,26 +151,26 @@ put_cb_data(CIRCBUF **cbh, void *data)
 /*sergey: temporary until resolved*/
 if(cbp <100000)
 {
-  printf("put_cb_data: ERROR return on chb<100000\n");fflush(stdout);
+  printf("[%2d] PUT: ERROR return on chb<100000\n",fd);fflush(stdout);
   return(-11);
 }
 
 #ifdef DEBUG
-  printf("put_cb_data() 2\n");
+  printf("[%2d] PUT: 2\n",fd);
   fflush(stdout);
-  printf("put_cb_data() 2 cbp=0x%08x\n",cbp);
+  printf("[%2d] PUT: 2 cbp=0x%08x\n",fd,cbp);
   fflush(stdout);
 #endif
 
   if(cbp->deleting)
   {
-    printf("PUT: fifo is being emptied !\n");
+    printf("[%2d] PUT: fifo is being emptied !\n",fd);
     fflush(stdout);
     return(-1);
   }
 
 #ifdef DEBUG
-  printf("put_cb_data() 21\n");
+  printf("[%2d] PUT: 21\n",fd);
   fflush(stdout);
 #endif
 
@@ -177,22 +179,22 @@ if(cbp <100000)
   /* get current buffer index */
   icb = cbp->write;
 #ifdef DEBUG
-  printf("put_cb_data() 22\n");
+  printf("[%2d] PUT: 22\n",fd);
   fflush(stdout);
-  printf("put_cb_data(): icb etc  -> %d %d %d\n",
+  printf("[%2d] PUT:: icb etc  -> %d %d %d\n",fd,
       icb,cbp->read,cbp->write);
   fflush(stdout);
 #endif
 
   /* print some F's if '-1' (?) */
-  if(cbp->data[icb] == (void *)-1) {printf("FFFFFFFFFFFFFFFFFF\n"); fflush(stdout);}
+  if(cbp->data[icb] == (void *)-1) {printf("[%2d] PUT: FFFFFFFFFFFFFFFFFF\n",fd); fflush(stdout);}
 
 #ifndef NOALLOC
   /* release previously used buffer */
   if((cbp->data[icb] != NULL) && (cbp->data[icb] != (void *)-1))
   {
 #ifdef DEBUG
-    printf("put_cb_data(): release [%1d] 0x%08x\n",icb,cbp->data[icb]);
+    printf("[%2d] PUT: release [%1d] 0x%08x\n",fd,icb,cbp->data[icb]);
     fflush(stdout);
 #endif
     cfree(cbp->data[icb]);
@@ -203,13 +205,14 @@ if(cbp <100000)
   /* assign pointer to the data recieved as input parameter */
   cbp->data[icb] = data;
 #ifdef DEBUG
-  printf("put_cb_data(): got icb=%2d at 0x%08x\n",icb,cbp->data[icb]);
+  printf("[%2d] PUT: got icb=%2d at data=0x%08x (int=%d uint=%d)\n",
+    fd,icb,cbp->data[icb],(int)cbp->data[icb],(unsigned int)cbp->data[icb]);
   fflush(stdout);
 #endif
 
   /*****************************************************************/
   /* if data pointer is valid, get some info and set write pointer */
-  if((int)data > 0 || (int)data < -120000000 /*> 0x7FFFFFFF*/) /* can be -1 which means no buffer !!! */
+  if((int)cbp->data[icb] != -1/*(int)data > 0 || (int)data < -120000000*/) /* can be -1 which means no buffer !!! */
   {
     int lll;
     buf = (unsigned int *)data;
@@ -221,17 +224,19 @@ if(cbp <100000)
     cbp->evptr1[icb] = buf; /* pointer to the first event in buffer */
 
 #ifdef DEBUG
-    printf("PUT[%2d]: nevents=%d, buf=0x%08x, 1st 0x%08x, len=0x%08x (end=0x%08x)\n",
+    printf("[%2d] PUT[%2d]: nevents=%d, buf=0x%08x, 1st 0x%08x, len=0x%08x (end=0x%08x)\n",fd,
     icb,cbp->nevents[icb],data,cbp->evptr1[icb],lll,(int)buf+lll);
+	
     {
       int i;
       unsigned int *buff = (unsigned int *)data;
       for(i=0; i<32; i+=8)
-        printf("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+        printf("[%2d] PUT: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",fd,
           buff[i],buff[i+1],buff[i+2],buff[i+3],buff[i+4],buff[i+5],buff[i+6],buff[i+7]);
     }
     fflush(stdout);
-    printf("put_cb_data(): icb=%2d contains %d events\n",icb,cbp->nevents[icb]);
+	
+    printf("[%2d] PUT: icb=%2d contains %d events\n",fd,icb,cbp->nevents[icb]);
     fflush(stdout);
 #endif
 
@@ -241,19 +246,21 @@ if(cbp <100000)
     icb = (icb + 1) % QSIZE;
     while(icb == cbp->read)
     {
-      printf("PUT: wait while icb=%d == cbp->read=%d -------\n",icb,cbp->read);
+/*prints all the time
+      printf("[%2d] PUT: wait while icb=%d == cbp->read=%d -------\n",fd,icb,cbp->read);
+*/
       READ_WAIT;
     }
     READ_UNLOCK;
 #ifdef DEBUG
-    printf("PUT: locking .. (icb=%d)\n",icb);fflush(stdout);
+    printf("[%2d] PUT: locking .. (icb=%d)\n",fd,icb);fflush(stdout);
 #endif
 
     /***************************************************************************/
     /* now we know that next buffer was read out, so set 'write' pointer to it */
     WRITE_LOCK;
 #ifdef DEBUG
-    printf("PUT: locked (icb=%d)\n",icb);fflush(stdout);
+    printf("[%2d] PUT: locked (icb=%d)\n",fd,icb);fflush(stdout);
 #endif
 	cbp->write = icb;
 
@@ -262,13 +269,13 @@ if(cbp <100000)
     WRITE_SIGNAL;
     WRITE_UNLOCK;
 #ifdef DEBUG
-    printf("PUT: unlock (icb=%d)\n",icb);fflush(stdout);
+    printf("[%2d] PUT: unlock (icb=%d)\n",fd,icb);fflush(stdout);
 #endif
   }
   else
   {
 #ifdef DEBUG
-    printf("put_cb_data(): %s data=%d -> set cbp->nevents[%d]=-1\n",
+    printf("[%2d] PUT: BLYA: ROC >%s< data=%d -> set cbp->nevents[%d]=-1\n",fd,
                 cbp->name,(int)data,icb,cbp->nevents[icb]);
     fflush(stdout);
 #endif
@@ -276,7 +283,7 @@ if(cbp <100000)
   }
 
 #ifdef DEBUG
-  printf("put_cb_data(done): cbp=0x%08x\n",cbp);
+  printf("[%2d] PUT: done: cbp=0x%08x\n",fd,cbp);
   fflush(stdout);
 #endif
 
@@ -335,23 +342,25 @@ get_cb_count(CIRCBUF **cbh)
 #define NPROF1 100
 
 
-/* fills array of pointers to events */ 
-#define FILL_EVENT_PTR_ARRAY(nev1, nev2, flag)	\
+/* fills array of events */ 
+#define FILL_EVENT_ARRAY(nev1, nev2, flag)	\
   for(j=nev1; j<nev2; j++) \
   { \
-    evptr[j] = buf; \
+    /*printf("[%1d] INFO(%d): roc %d, j=%d: nw = %d, sync=%d tag=0x%02x typ=0x%02x num=%d\n",id,flag,i,j,buf[0],(buf[1]>>24)&0xff,(buf[1]>>16)&0xff,(buf[1]>>8)&0xff,(buf[1])&0xff);*/ \
     lenev = buf[0]+1; \
+    /*memcpy(evptr[j],buf,lenev<<2);*/	evptr[j] = buf; /*sergey: if do actual copy, allocate space in coda_ebc.c !!! */ \
+    /*printf("[%1d] INFO(%d): copied %d bytes\n",id,flag,lenev<<2);*/	\
     lenbuf += lenev; /* returned buffer length in words */ \
-    if( ((buf[1]>>16)&0xff)==0 ) \
+    if( ((buf[1]>>16)&0xff)==0 )					\
 	{ \
       int jj; \
       unsigned int *bbb; \
       printf("[%1d] ERROR(%d): roc %d, nev1=%d nev2=%d j=%d bank tag is zero (header: %d 0x%08x)\n",id,flag,i,nev1,nev2,j,buf[0],buf[1]); \
-      /*for(jj=0; jj<j+1; jj++)											\
+      /*for(jj=0; jj<j+1; jj++) \											
 	  { \
         bbb = evptr[jj]; \
         printf("[%1d] INFO(%d): roc %d, jj=%d: nw = %d, sync=%d tag=0x%02x typ=0x%02x num=%d\n",id,flag,i,jj,bbb[0],(bbb[1]>>24)&0xff,(bbb[1]>>16)&0xff,(bbb[1]>>8)&0xff,(bbb[1])&0xff); \
-		}*/																\
+		}*/ \																
 	} \
 	else \
 	{ \
@@ -374,13 +383,13 @@ cb_events_get(CIRCBUF *cba[MAX_ROCS], int id, int nrocs, int chunk,
   unsigned int **evptr;
 
 #ifdef DEBUG
-  printf("[%1d]cb_events_get reached, nrocs=%d, chunk=%d\n",id,nrocs,chunk);
+  printf("[%1d] cb_events_get reached, nrocs=%d, chunk=%d\n",id,nrocs,chunk);
   fflush(stdout);
 #endif
 
   if(nrocs<=0)
   {
-    printf("[%1d]cb_events_get: ERROR: nrocs=%d, return no events\n",id,nrocs);
+    printf("[%1d] cb_events_get: ERROR: nrocs=%d, return no events\n",id,nrocs);
     fflush(stdout);
     return(0);
   }
@@ -407,15 +416,15 @@ cb_events_get(CIRCBUF *cba[MAX_ROCS], int id, int nrocs, int chunk,
     while(icb == cbp->write)
     {
 #ifdef DEBUG
-      printf("[%1d] GET: wait (cbp->write=%d) ..............\n",id,cbp->write);
+      printf("[%1d] GET1: wait (cbp->write=%d) ..............\n",id,cbp->write);
 #endif
       WRITE_WAIT;
 #ifdef DEBUG
-      printf("[%1d] GET: proceed ..\n",id);
+      printf("[%1d] GET1: proceed ..\n",id);
 #endif  
       if(cbp->deleting)
       {
-        printf("[%1d] deleting 1 .. %8.8s\n",id,cbp->name);fflush(stdout);
+        printf("[%1d] GET1: deleting 1 .. %8.8s\n",id,cbp->name);fflush(stdout);
         WRITE_UNLOCK;
         return(-1);
       }
@@ -446,33 +455,33 @@ cb_events_get(CIRCBUF *cba[MAX_ROCS], int id, int nrocs, int chunk,
     /* wait while there's nothing in the buffer (SHOULD NEVER BE HERE ???!!!) */
     while(cbp->nevents[icb] == 0)
     {
-      printf("[%1d] >%8.8s< NEVER COME HERE - 1 (nevents=0)\n",id,cbp->name);fflush(stdout);
+      printf("[%1d] GET1: >%8.8s< NEVER COME HERE - 1 (nevents=0)\n",id,cbp->name);fflush(stdout);
       if(cbp->deleting && (NFBUF(cbp->read,cbp->write) == 0))
       {
-        printf("[%1d] deleting 2 .. %8.8s\n",id,cbp->name);fflush(stdout);
+        printf("[%1d] GET1: deleting 2 .. %8.8s\n",id,cbp->name);fflush(stdout);
         return(-1);
       }
 
 #ifdef DEBUG
-      printf("cb_events_get[%1d] empty, wait for %s (rocid=%d) (adr=0x%08x) %d\n",
+      printf("[%1d] GET1: empty, wait for %s (rocid=%d) (adr=0x%08x) %d\n",
                    id,cbp->name,cbp->rocid,cbp,cbp->nevents[icb]);fflush(stdout);
-      printf("cb_events_get[%1d] #roc=%d\n",id,cbp->rocid);
+      printf("[%1d] GET1: #roc=%d\n",id,cbp->rocid);
       fflush(stdout);
 #endif
       sleep(1);
 #ifdef DEBUG
-      printf("cb_events_get[%1d] itmp=%d\n",id,itmp);fflush(stdout);
+      printf("[%1d] GET1: itmp=%d\n",id,itmp);fflush(stdout);
 #endif
     }
 
 
-    if((int)cbp->data[icb] > 0 || (int)cbp->data[icb] < -120000000 )
+    if((int)cbp->data[icb] != -1 /*(int)cbp->data[icb] > 0 || (int)cbp->data[icb] < -120000000*/ )
     {
       if(icb_next_available)
       {
         if(cbp->nevents[icb_next]<=0)
         {
-          printf("cb_events_get[%1d] ERROR <<<%d>>>\n",
+          printf("[%1d] GET1: ERROR <<<%d>>>\n",
             id,cbp->nevents[icb_next]);
           fflush(stdout);
         }
@@ -485,7 +494,7 @@ cb_events_get(CIRCBUF *cba[MAX_ROCS], int id, int nrocs, int chunk,
     }
     else
 	{
-      printf("ERROR: cbp->data[icb]=%d (0x%08x)\n",cbp->data[icb],cbp->data[icb]);
+      printf("[%1d] GET1: ERROR: cbp->data[icb]=%d (0x%08x)\n",id,cbp->data[icb],cbp->data[icb]);
 	}
     nev = MIN(nev,nevtot);
 
@@ -493,7 +502,7 @@ cb_events_get(CIRCBUF *cba[MAX_ROCS], int id, int nrocs, int chunk,
     /* will NEVER happens - we have 'wait' above !!! */
     if(nev == 0)
     {
-      printf("NEVER COME HERE 2\n");fflush(stdout);
+      printf("[%1d] GET1: NEVER COME HERE 2\n",id);fflush(stdout);
       return(0);
 	}
   }
@@ -502,7 +511,7 @@ cb_events_get(CIRCBUF *cba[MAX_ROCS], int id, int nrocs, int chunk,
 
 
 #ifdef DEBUG
-  printf("cb_events_get[%1d] nev=%d\n",id,nev);fflush(stdout);
+  printf("\n[%1d] GET1: =================> obtained nev=%d <====================\n\n",id,nev);fflush(stdout);
 #endif
 
 
@@ -513,19 +522,19 @@ cb_events_get(CIRCBUF *cba[MAX_ROCS], int id, int nrocs, int chunk,
   for(i=0; i<nrocs; i++)
   {
     cbp = cba[i]; /* set pointer to the next roc's fifo */
-    /*if(cbp != NULL) printf("[%2d] 2 %8.8s\n",i,cbp->name);*/
+    /*if(cbp != NULL) printf("[%2d] GET2: %8.8s\n",i,cbp->name);*/
 
 
     /* release buffers kept by 'id' if any */
     for(j=0; j<cbp->nbuf[id]; j++)
     {
       icb = (cbp->buf1[id]+j) % QSIZE;
-      /*printf("      GET1: release icb[%1d]=%d\n",j,icb);*/
+      /*printf("      GET2: release icb[%1d]=%d\n",j,icb);*/
       cbp->nattach[icb] --;
       if(cbp->nattach[icb] < 0)
       {
-        printf("cb_events_get[%1d] ERROR: cbp->nattach[%d]=%d\n",
-                      id,icb,cbp->nattach[icb]); fflush(stdout);
+        printf("[%1d][%2d] GET2: ERROR: cbp->nattach[%d]=%d\n",
+			   id,i,icb,cbp->nattach[icb]); fflush(stdout);
       }
 
 #ifdef NOALLOC
@@ -536,7 +545,7 @@ cb_events_get(CIRCBUF *cba[MAX_ROCS], int id, int nrocs, int chunk,
         {
           buf = (unsigned int *)cbp->data[icb];
 #ifdef DEBUG
-          printf("cb_events_get[%1d]: free buffer %d (0x%08x)\n",id,icb,buf);
+          printf("[%1d][%2d] GET2: free buffer %d (0x%08x)\n",id,i,icb,buf);
           fflush(stdout);
 #endif
           buf[0] = 0; /* mark buffer as free */
@@ -566,7 +575,7 @@ cb_events_get(CIRCBUF *cba[MAX_ROCS], int id, int nrocs, int chunk,
 
     /* if buffer pointer is greater then zero then process the buffer */ 
     /* -1 means no buffer !!! */ 
-    if((int)cbp->data[icb] > 0 || (int)cbp->data[icb] < -120000000 ) 
+    if((int)cbp->data[icb] != -1 /*(int)cbp->data[icb] > 0 || (int)cbp->data[icb] < -120000000*/ ) 
     {
       nevbuf = nev; 
 
@@ -578,14 +587,14 @@ cbp->nevents[icb_next]); fflush(stdout);
 } 
 
 #ifdef DEBUG
-      printf("[%1d] cb_events_get():nev=%d (chunk=%d nevents[%1d]=%d\n", 
-        id,nev,chunk,icb,cbp->nevents[icb]); fflush(stdout);
+      printf("[%1d][%2d] GET2: nev=%d (chunk=%d nevents[%1d]=%d\n", 
+			 id,i,nev,chunk,icb,cbp->nevents[icb]); fflush(stdout);
 #endif
       if(cbp->nevents[icb] >= nev) /* use first buffer only - enough events */ 
       {
 #ifdef DEBUG
-        printf("[%1d] cb_events_get(): 1: buf %d has %d events (chunk=%d)\n", 
-          id,icb,cbp->nevents[icb],nev); fflush(stdout);
+        printf("[%1d][%2d] GET2: 1: buf %d has %d events (chunk=%d)\n", 
+			   id,i,icb,cbp->nevents[icb],nev); fflush(stdout);
 #endif
         /* attach buffer */ 
         cbp->nattach[icb] ++; 
@@ -595,15 +604,15 @@ cbp->nevents[icb_next]); fflush(stdout);
         /* get the pointer to the first valid event in the buffer */ 
         buf =  cbp->evptr1[icb]; 
 #ifdef DEBUG
-        printf("[%1d] GET: first event 0x%08x from icb=%d (0x%08x)\n", 
-          id,cbp->evptr1[icb],icb,cbp); fflush(stdout);
+        printf("[%1d][%2d] GET2: 1: first event 0x%08x from icb=%d (0x%08x)\n", 
+			   id,i,cbp->evptr1[icb],icb,cbp); fflush(stdout);
 #endif
 
         lenbuf = 0; 
-        FILL_EVENT_PTR_ARRAY(0, nev, 1);
+        FILL_EVENT_ARRAY(0, nev, 1);
         cbp->evptr1[icb] = buf; /* new first valid event */ 
 
-        /* if buffer is empty now switch to the next one */ 
+        /* if buffer is empty now switch to the next one (??? BUILDING THREAD DID NOT PROCESS IT YET !!!???) */ 
         if(cbp->nevents[icb]==0)
         {
           READ_LOCK; 
@@ -616,8 +625,8 @@ cbp->nevents[icb_next]); fflush(stdout);
       {
 #ifdef DEBUG
         printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"); 
-        printf("[%1d] cb_events_get(): 2: buf %d has %d events (chunk=%d)\n", 
-          id,icb,cbp->nevents[icb],nev); fflush(stdout);
+        printf("[%1d][%2d] GET2: 21: buf %d has %d events (chunk=%d)\n", 
+			   id,i,icb,cbp->nevents[icb],nev); fflush(stdout);
 #endif
         /* attach first buffer */ 
         cbp->nattach[icb] ++; 
@@ -627,17 +636,17 @@ cbp->nevents[icb_next]); fflush(stdout);
         /* get the pointer to the first valid event in the buffer */ 
         buf =  cbp->evptr1[icb]; 
 #ifdef DEBUG
-        printf("[%1d] GET: first event 0x%08x from icb=%d (0x%08x)\n", 
-          id,cbp->evptr1[icb],icb,cbp); fflush(stdout);
+        printf("[%1d][%2d] GET2: 21: first event 0x%08x from icb=%d (0x%08x)\n", 
+			   id,i,cbp->evptr1[icb],icb,cbp); fflush(stdout);
 #endif
         /* get the number of events in the buffer */ 
         nev1 = cbp->nevents[icb]; 
 #ifdef DEBUG
-        printf("[%1d] nev1=%d icb=%d (0x%08x)\n",id,nev1,icb,cbp); fflush(stdout);
+        printf("[%1d][%2d] GET2: 21: nev1=%d icb=%d (0x%08x)\n",id,i,nev1,icb,cbp); fflush(stdout);
 #endif
 
         lenbuf = 0; 
-        FILL_EVENT_PTR_ARRAY(0, nev1, 2);
+        FILL_EVENT_ARRAY(0, nev1, 2);
 
         /* switch to the next buffer */ 
         READ_LOCK;
@@ -646,31 +655,46 @@ cbp->nevents[icb_next]); fflush(stdout);
         READ_UNLOCK; 
       
         icb = (icb + 1) % QSIZE; 
-        if(cbp->read == cbp->write) printf("  GET41: NEVER COME HERE !!!\n"); 
+        if(cbp->read == cbp->write) printf("[%1d][%2d] GET2: NEVER COME HERE !!!\n",id,i); 
 
+#ifdef DEBUG
+        printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"); 
+        printf("[%1d][%2d] GET2: 22: buf %d has %d events (chunk=%d)\n", 
+			   id,i,icb,cbp->nevents[icb],nev); fflush(stdout);
+#endif
         /* attach second buffer */ 
         cbp->nattach[icb] ++; 
         cbp->nbuf[id] ++; 
 
         /* get the pointer to the first valid event in the buffer */ 
         buf =  cbp->evptr1[icb];
+#ifdef DEBUG
+        printf("[%1d][%2d] GET2: 22: first event 0x%08x from icb=%d (0x%08x)\n", 
+			   id,i,cbp->evptr1[icb],icb,cbp); fflush(stdout);
+#endif
  
         /* get the number of events in the buffer */ 
         nev2 = nev - nev1; 
+#ifdef DEBUG
+        printf("[%1d][%2d] GET2: 22: nev2=%d (%d-%d) icb=%d (0x%08x)\n",id,i,nev2,nev,nev1,icb,cbp); fflush(stdout);
+#endif
 
 if(cbp->nevents[icb] < nev2) 
 { 
 printf("%s cbp->nevents[%d]=%d < nev2=%d\n",cbp->name,cbp->nevents[icb],nev2); 
  fflush(stdout); 
-printf("SHOULD NEVER COME HERE !!!\n"); fflush(stdout); 
+printf("GET2: SHOULD NEVER COME HERE !!!\n"); fflush(stdout); 
 exit(0); 
 } 
 
- FILL_EVENT_PTR_ARRAY(nev1, nev, 3);
+        FILL_EVENT_ARRAY(nev1, nev, 3);
         cbp->evptr1[icb] = buf; /* new first valid event */ 
         /* if buffer is empty now switch to the next one */ 
         if(cbp->nevents[icb]==0) 
         {
+#ifdef DEBUG
+		  printf("[%1d][%2d] GET2: 2: buffer is empty, switch to the next one\n",id,i); fflush(stdout); 
+#endif
           READ_LOCK;
           cbp->read = (icb + 1) % QSIZE;
           READ_SIGNAL; /* let a waiting writer know there's room */ 
@@ -686,13 +710,15 @@ exit(0);
       cbp->read = (cbp->read + 1) % QSIZE; 
       READ_SIGNAL; /* let a waiting writer know there's room */ 
       READ_UNLOCK; 
-      printf("GET6: set cbp->read=%d (WHY WE ARE HERE ???\n",cbp->read); 
-
-      printf("cb_events_get(): return -1 ?? (cbp=0x%08x)\n",cbp); fflush(stdout); 
+      printf("[%1d][%2d] GET2: set cbp->read=%d (WHY WE ARE HERE ???\n",id,i,cbp->read); 
+      printf("[%1d][%2d] GET2: return -1 ?? (cbp=0x%08x)\n",id,i,cbp); fflush(stdout); 
     }
 
   } /* for() over rocs */
 
+#ifdef DEBUG
+  printf("\n[%1d] GET2: =========================================================================\n\n",id);  fflush(stdout); 
+#endif
 
   *nphys = nevphys / nrocs; /* we are summing 'nevphys' for every roc */
 

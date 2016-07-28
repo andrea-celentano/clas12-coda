@@ -14,10 +14,6 @@
 
 #include "da.h"
 #include "circbuf.h"
-/*
-#include "bosio.h"
-#include "etbosio.h"
-*/
 #include "libdb.h"
 
 
@@ -80,7 +76,7 @@ bufferSwap(unsigned int *cbuf, int nlongs)
 
 
 #ifdef DEBUG
-  printf("\nbuffer header: length=%d words, buffer#=%d, rocid=%d, #events=%d, fd/magic=0x%08x, end=%d\n",
+  printf("\nbufferSwap: buffer header: length=%d words, buffer#=%d, rocid=%d, #events=%d, fd/magic=0x%08x, end=%d\n",
 		 cbuf[BBIWORDS],cbuf[BBIBUFNUM],cbuf[BBIROCID],cbuf[BBIEVENTS],cbuf[BBIFD],cbuf[BBIEND]);
 #endif
 
@@ -170,7 +166,7 @@ bufferSwap(unsigned int *cbuf, int nlongs)
 	t1=lwd;
 	
 #ifdef DEBUG
-	printf("CODA fragment: length = %d, current ii=%d, ",blen+1,ii);
+	printf("bufferSwap: length = %d, current ii=%d, ",blen+1,ii);
 #endif
 	
     lwd = LSWAP(*lp);    /* Swap the CODA fragment header */
@@ -181,7 +177,7 @@ bufferSwap(unsigned int *cbuf, int nlongs)
 	t2=lwd;
 	
 #ifdef DEBUG
-	printf("2nd word(0x%08x): tag=%d, dtype=%d, num=%d\n",lwd,typ,dtype,num);
+	printf("bufferSwap: 2nd word(0x%08x): tag=%d, dtype=%d, num=%d\n",lwd,typ,dtype,num);
 #endif
 	
     ii += 2;
@@ -194,7 +190,7 @@ bufferSwap(unsigned int *cbuf, int nlongs)
       {
         case 0:
 #ifdef DEBUG
-		  printf("case 0: no swap\n");
+		  printf("bufferSwap: case 0: no swap\n");
 #endif
 	/*
 		  printf("ii=%d nlongs=%d 0x%08x 0x%08x)\n",
@@ -214,7 +210,7 @@ bufferSwap(unsigned int *cbuf, int nlongs)
 
         case 1:
 #ifdef DEBUG
-		  printf("case 1: short swap\n");
+		  printf("bufferSwap: case 1: short swap\n");
 #endif
 	      /* short swap */
 	      sp = (short *)&cbuf[ii];
@@ -228,7 +224,7 @@ bufferSwap(unsigned int *cbuf, int nlongs)
 
         case 2:
 #ifdef DEBUG
-		  printf("case 2: int swap, deflt=%d\n",deflt);
+		  printf("bufferSwap: case 2: int swap, deflt=%d\n",deflt);
 #endif
           /* int swap */
           lp = (unsigned int *)&cbuf[ii];
@@ -242,7 +238,7 @@ bufferSwap(unsigned int *cbuf, int nlongs)
 
         case 3:
 #ifdef DEBUG
-		  printf("case 3: double swap\n");
+		  printf("bufferSwap: case 3: double swap\n");
 #endif
 	      /* double swap */
 	      lp = (unsigned int *)&cbuf[ii];
@@ -256,7 +252,7 @@ bufferSwap(unsigned int *cbuf, int nlongs)
 
         case 4:
 #ifdef DEBUG
-		  printf("case 4: composite swap, blen=%d\n",blen);fflush(stdout);
+		  printf("bufferSwap: case 4: composite swap, blen=%d\n",blen);fflush(stdout);
 #endif
 
 		  /*
@@ -277,19 +273,19 @@ printf("after: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x
 
         case 5:
 #ifdef DEBUG
-		  printf("case 5: bank of banks swap - do nothing (header swapped already)\n");
+		  printf("bufferSwap: case 5: bank of banks swap - do nothing (header swapped already)\n");
 #endif
 		  break;
 
         default:
-		  printf("default: no swap\n");
+		  printf("bufferSwap: default: no swap\n");
 	      /* No swap */
 	      ii += blen;
       }
     }
     else
     {
-      printf("DT_BANK: dtype=0x%08x\n",dtype);
+      printf("bufferSwap: DT_BANK: dtype=0x%08x\n",dtype);
     }
   }
 
@@ -305,6 +301,8 @@ printf("after: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x
 
 /* called from 'handle_link'; reads one 'big' buffer from 'fd' */
 /* returns number of bytes read or -1 if error (i.e. EOF) */
+
+#undef DEBUG
 
 int
 LINK_sized_read(int fd, char **buf, hrtime_t tprof[NPROFMAX])
@@ -327,9 +325,9 @@ hrtime_t start1, end1, start2, end2, start3, end3;
 
 
 #ifdef DEBUG
- printf("LINK_sized_read reached\n");fflush(stdout);
- printf("LINK_sized_read reached\n");fflush(stdout);
- printf("LINK_sized_read reached\n");fflush(stdout);
+ printf("[%2d] LINK_sized_read reached\n",fd);fflush(stdout);
+ printf("[%2d] LINK_sized_read reached\n",fd);fflush(stdout);
+ printf("[%2d] LINK_sized_read reached\n",fd);fflush(stdout);
 #endif
 
 
@@ -343,7 +341,7 @@ hrtime_t start1, end1, start2, end2, start3, end3;
   bufferp = (char *) &netlong;
 
 #ifdef DEBUG
-  printf("LINK_sized_read: at the beginning rembytes=%d\n",rembytes);fflush(stdout);
+  printf("[%2d] LINK_sized_read: at the beginning rembytes=%d\n",fd,rembytes);fflush(stdout);
 #endif
 
 start1 = start3 = gethrtime();
@@ -365,21 +363,21 @@ goto skiipp;
       getsockopt(fd, SOL_SOCKET, SO_RCVBUF, 
                  (int *) &nbytes, &lbytes); 
 	  /*
-      printf("socket buffer size is %d(0x%08x) bytes\n",nbytes,nbytes);
+      printf("[%2d] socket buffer size is %d(0x%08x) bytes\n",fd,nbytes,nbytes);
 	  */
     }
 skiipp:
 
 #ifdef DEBUG
-    printf("RECV1: fd=%d, bufferp=0x%08x, rembytes=0x%08x, recv_flags=%d\n",
+    printf("[%2d] RECV1: bufferp=0x%08x, rembytes=0x%08x, recv_flags=%d\n",
       fd, bufferp, rembytes, recv_flags);fflush(stdout);
-    printf("0: rembytes=%d [%d]\n",rembytes,fd);
-    printf("processing 1 >%d<\n",fd);
+    printf("[%2d] 0: rembytes=%d\n",fd,rembytes);
+    printf("[%2d] processing 1\n",fd);
 #endif
     cc = recv(fd, bufferp, rembytes, /*MSG_DONTWAIT*/recv_flags);
 #ifdef DEBUG
-    printf("processing 2 >%d<\n",fd);
-    printf("1: %d %d [%d]\n",rembytes,cc,fd);
+    printf("[%2d] processing 2\n",fd);
+    printf("[%2d] 1: %d %d\n",fd,rembytes,cc);
 #endif
     if(cc == -1)
     {
@@ -389,11 +387,11 @@ skiipp:
         if(ending_for_recv)
         {
           n_ending ++;
-          printf("fd=%d ending_for_recv=%d n_ending=%d - wait for ROC\n",
+          printf("[%2d] ending_for_recv=%d n_ending=%d - wait for ROC\n",
             fd,ending_for_recv,n_ending);
           if(n_ending >= 10)
 		  {
-            printf("fd=%d - ROC is not reporting -> force ending\n",fd);
+            printf("[%2d] ROC is not reporting -> force ending\n",fd);
             return(0);
 		  }
         }
@@ -403,13 +401,13 @@ skiipp:
         /* we do not know if ROC still alive and will send more data later,
         or ROC is dead ... */
 		
-        printf("LINK_sized_read(): recv would block, retrying ...");
+        printf("[%2d] LINK_sized_read(): recv would block, retrying ...",fd);
         fflush(stdout);
 		
       }
       else
       {
-        printf("LINK_sized_read() ERROR1\n");
+        printf("[%2d] LINK_sized_read() ERROR1\n",fd);
         fflush(stdout);
         if(errno != ECONNRESET)
         {
@@ -427,9 +425,9 @@ skiipp:
         {
           /* read() returned more bytes than requested!?!?!?! */
           /* this can't happen, but appears to anyway */
-          printf("ERROR: LINK_sized_read(,,%d) = read(,,%d) = %d!?!?!\n",
-                  size,rembytes,cc);
-          printf("ERROR: recv() returned more chars than requested - exit.\n");
+          printf("[%2d] ERROR: LINK_sized_read(,,%d) = read(,,%d) = %d!?!?!\n",
+				 fd,size,rembytes,cc);
+          printf("[%2d] ERROR: recv() returned more chars than requested - exit.\n",fd);
           fflush(stdout);
           exit(0);
         }
@@ -440,7 +438,7 @@ skiipp:
           crashed and cannot send buffer with 'End' transition */
           ending_for_recv = 1;
 
-          printf("LINK_sized_read(): fd=%d closed\n",fd);
+          printf("[%2d] LINK_sized_read(): closed\n",fd);
           fflush(stdout);
           return(0);
 
@@ -448,7 +446,7 @@ skiipp:
         }
       }
 #ifdef DEBUG
-      printf("LINK_sized_read(): recv(,,%d) returned %d\n",rembytes,cc);
+      printf("[%2d] LINK_sized_read(): recv(,,%d) returned %d\n",fd,rembytes,cc);
       fflush(stdout);
 #endif
       /* Always adjust these to get out of the while. */
@@ -469,13 +467,13 @@ end1 = gethrtime();
   {
   	/* GHGHGH */
   	unsigned int *p;
-  	printf("LINK_sized_read(): WARNING: zero length block from ROC\n");
+  	printf("[%2d] LINK_sized_read(): WARNING: zero length block from ROC\n",fd);
     fflush(stdout);
 #ifndef NOALLOC
   	*buf = (char *) calloc(24,1);
     if((*buf) == NULL)
     {
-      printf("LINK_sized_read(): ERROR1: calloc(%d) returns zero !!!\n",size+6);
+      printf("[%2d] LINK_sized_read(): ERROR1: calloc(%d) returns zero !!!\n",fd,size+6);
       fflush(stdout);
     }
 #endif
@@ -493,28 +491,28 @@ end1 = gethrtime();
 #ifdef NOALLOC
   if(size > TOTAL_RECEIVE_BUF_SIZE)
   {
-    printf("LINK_sized_read(): ERROR2: buffer size=%d too big - exit.\n",size+6);
+    printf("[%2d] LINK_sized_read(): ERROR2: buffer size=%d too big - exit.\n",fd,size+6);
     fflush(stdout);
     exit(0);
   }
 #else
-  /*printf("size=0x%08x\n",size);*/
+  /*printf("[%2d] size=0x%08x\n",fd,size);*/
   *buf = (char *) calloc(size+6,1); /* two bytes extra for null term strings */
   if((*buf) == NULL)
   {
-    printf("LINK_sized_read(): ERROR2: calloc(%d) returns zero !!!\n",size+6);
+    printf("[%2d] LINK_sized_read(): ERROR2: calloc(%d) returns zero !!!\n",fd,size+6);
     fflush(stdout);
   }
 #endif
 
 #ifdef DEBUG
-  printf("LINK_sized_read(): have %d bytes buffer at 0x%08x\n",size+6,(int)(*buf));
+  printf("[%2d] LINK_sized_read(): have %d bytes buffer at 0x%08x\n",fd,size+6,(int)(*buf));
   fflush(stdout);
 #endif
 
   /* Sergey: CHANGE THIS IF BIGBUFS CHANGED IN roc_component.c */
   *((unsigned int *) *buf) = (size >> 2); /* put buffer size in 1st word */
-  /*printf("12345: %d (%d 0x%08x)\n",*((unsigned int *) *buf),size,*buf);fflush(stdout);*/
+  /*printf("[%2d] 12345: %d (%d 0x%08x)\n",fd,*((unsigned int *) *buf),size,*buf);fflush(stdout);*/
   bufferp = *buf/* + sizeof(size)*/;           /* set pointer to 2nd word */
 
 
@@ -530,7 +528,7 @@ start2 = gethrtime();
 retry1:
 
 	/*
-  printf("RECV2: fd=%d, bufferp=0x%08x, rembytes=0x%08x, recv_flags=%d\n",
+  printf("[%2d] RECV2: bufferp=0x%08x, rembytes=0x%08x, recv_flags=%d\n",
     fd, bufferp, rembytes, recv_flags);fflush(stdout);
 	*/
 
@@ -539,16 +537,16 @@ retry1:
 
 
 
-/*printf("2: %d %d [%d]\n",rembytes,cc,fd);*/
+/*printf("[%2d] 2: %d %d\n",fd,rembytes,cc);*/
 /*
-printf("cc=0x%08x\n",cc);fflush(stdout);
+printf("[%2d] cc=0x%08x\n",fd,cc);fflush(stdout);
 */
     if(cc == -1)
     {
       if(errno == EWOULDBLOCK) goto retry1;
       if(errno != ECONNRESET) perror("read2");
       puts("Error 2.");
-      printf("LINK_sized_read(): cc = %d, Errno is %d.\n", cc, errno);
+      printf("[%2d] LINK_sized_read(): cc = %d, Errno is %d.\n",fd, cc, errno);
       fflush(stdout);
       return(-1);
     }
@@ -556,7 +554,7 @@ printf("cc=0x%08x\n",cc);fflush(stdout);
     if(cc == 0)
     { /* EOF - process died */
       /* GHGHGH */
-      printf("process died (cc==0) - return\n");
+      printf("[%2d] process died (cc==0) - return\n",fd);
       fflush(stdout);
       return(0);
     }
@@ -565,22 +563,22 @@ printf("cc=0x%08x\n",cc);fflush(stdout);
       /* read() returned more bytes than requested!?!?!?! */
       /* this can't happen, but appears to anyway */
 
-      printf("LINK_sized_read(): returned more bytes than requested!?!?!?!\n");
-      printf("LINK_sized_read(,,%d) = read(,,%d) = %d!?!?!\n",
+      printf("[%2d] LINK_sized_read(): returned more bytes than requested!?!?!?!\n",fd);
+      printf("[%2d] LINK_sized_read(,,%d) = read(,,%d) = %d!?!?!\n",fd,
               size,rembytes,cc);
-      printf("LINK_sized_read(): recv() returned more chars than requested - exit.\n");
+      printf("[%2d] LINK_sized_read(): recv() returned more chars than requested - exit.\n",fd);
       fflush(stdout);
       exit(0);
     }
     else if(cc != rembytes)
     {
       /* (cc > 0) && (cc < rembytes) */
-      printf("LINK_sized_read(): cc=%d != rembytes=%d -> retry ...\n",cc,rembytes);
+      printf("[%2d] LINK_sized_read(): cc=%d != rembytes=%d -> retry ...\n",fd,cc,rembytes);
       fflush(stdout);
       n_retry2++;
     }
 #ifdef DEBUG
-    printf("LINK_sized_read(): recv(,,%d) returned %d\n",rembytes,cc);
+    printf("[%2d] LINK_sized_read(): recv(,,%d) returned %d\n",fd,rembytes,cc);
     fflush(stdout);
 #endif
     /* Always adjust these to get out of the while loop */
@@ -602,7 +600,7 @@ bb_check(bigbuf);
 */
 
   /*
-printf("RECV3: %d %d %d %d 0x%08x %d - 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x (%d)\n",
+printf("[%2d] RECV3: %d %d %d %d 0x%08x %d - 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x (%d)\n",fd,
 bigbuf[0],bigbuf[1],bigbuf[2],bigbuf[3],bigbuf[4],bigbuf[5],
 bigbuf[6],bigbuf[7],bigbuf[8],bigbuf[9],bigbuf[10],bigbuf[11],size);
   */
@@ -613,23 +611,23 @@ bigbuf[6],bigbuf[7],bigbuf[8],bigbuf[9],bigbuf[10],bigbuf[11],size);
 	/*
     if(llenw>200000)
     {
-      printf("WARN: llenw=%d, size=%d\n",llenw,size);
-      printf("RECV4: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x - 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x (%d)\n",
+      printf("[%2d] WARN: llenw=%d, size=%d\n",fd,llenw,size);
+      printf("[%2d] RECV4: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x - 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x (%d)\n",fd,
       bigbuf[0],bigbuf[1],bigbuf[2],bigbuf[3],bigbuf[4],bigbuf[5],
       bigbuf[6],bigbuf[7],bigbuf[8],bigbuf[9],bigbuf[10],bigbuf[11],size);
 	}
 	*/
 #ifdef DEBUG
-    printf("SWAP (0x%08x), llenw=%d\n",magic,llenw);
+    printf("[%2d] SWAP (0x%08x), llenw=%d\n",fd,magic,llenw);
 #endif
     bufferSwap(bigbuf,llenw);
   }
 #ifdef DEBUG
   else
   {
-    printf("DO NOT SWAP (0x%08x)\n",magic);
+    printf("[%2d] DO NOT SWAP (0x%08x)\n",fd,magic);
 #ifdef DEBUG
-  printf("\nbuffer header: length=%d words, buffer#=%d, rocid=%d, #events=%d, fd/magic=0x%08x, end=%d\n",
+  printf("\n[%2d] buffer header: length=%d words, buffer#=%d, rocid=%d, #events=%d, fd/magic=0x%08x, end=%d\n",fd,
 		 bigbuf[BBIWORDS],bigbuf[BBIBUFNUM],bigbuf[BBIROCID],bigbuf[BBIEVENTS],bigbuf[BBIFD],bigbuf[BBIEND]);
 #endif
   }
@@ -642,7 +640,7 @@ bigbuf[6],bigbuf[7],bigbuf[8],bigbuf[9],bigbuf[10],bigbuf[11],size);
 
 
 /* to simulate delay 
-if(!(nev++%10)) {printf("sleep\n");sleep(1);}
+if(!(nev++%10)) {printf("[%2d] sleep\n",fd);sleep(1);}
 */
 
   tmp = (int *)(*buf);
@@ -651,7 +649,7 @@ if(!(nev++%10)) {printf("sleep\n");sleep(1);}
 
 
 end2 = end3 = gethrtime();
-/*printf("67890: %d\n",tmp[BBIWORDS]);fflush(stdout);*/
+/*printf("[%2d] 67890: %d\n",fd,tmp[BBIWORDS]);fflush(stdout);*/
 
 tprof[3] += (end1-start1)/NANOMICRO;
 tprof[4] += (end2-start2)/NANOMICRO;
@@ -662,11 +660,11 @@ tprof[2] += ((hrtime_t)tmp[BBIWORDS]); /* the number of bytes */
 if(++tprof[0] == NPROF1)
 {
 /*
-  printf("1: average buf: %4lld events, %6lld words,",
+  printf("[%2d] 1: average buf: %4lld events, %6lld words,",fd,
     tprof[1]/tprof[0],tprof[2]/tprof[0]);
   if(tprof[1] > 0)
   {
-    printf("  recv1=%5lld recv2=%5lld tot=%5lld\n",
+    printf("   recv1=%5lld recv2=%5lld tot=%5lld\n",
       tprof[3]/tprof[1],tprof[4]/tprof[1],tprof[5]/tprof[1]);
   }
   else
@@ -688,7 +686,7 @@ if(++tprof[0] == NPROF1)
 /*
 if(time3 > 3000000)
 {
-  printf("%7lld %7lld %7lld microsec (buf %d), rocid=%2d\n",
+  printf("[%2d] %7lld %7lld %7lld microsec (buf %d), rocid=%2d\n",fd,
   time1,time2,time3,tmp[1],tmp[2]);
 }
 */
@@ -701,7 +699,7 @@ if(time3 > 3000000)
 #endif
 
   /*
-  printf("LINK_sized_read(): set roc_linked for rocid=%d (0x%08x)\n",
+  printf("[%2d] LINK_sized_read(): set roc_linked for rocid=%d (0x%08x)\n",fd,
     tmp[2],roc_linked);
   fflush(stdout);
   */
@@ -875,7 +873,7 @@ start1 = gethrtime();
         {
           buf = (char *) bufptr[i];
 #ifdef DEBUG
-          printf("handle_link(): rocid=%d: got free buffer %d at 0x%08x\n",theLink->roc_queue->rocid,i,buf);
+          printf("[%2d] handle_link(): rocid=%d: got free buffer %d at 0x%08x\n",fd,theLink->roc_queue->rocid,i,buf);
           fflush(stdout);
 #endif
           break;
@@ -883,9 +881,11 @@ start1 = gethrtime();
       }
       if(buf == NULL)
       {
-        printf("handle_link(): rocid=%d: all buffers are full - wait ..\n",theLink->roc_queue->rocid);
+/*prints all the time
+        printf("[%2d] handle_link(): rocid=%d: all buffers are full - wait ..\n",fd,theLink->roc_queue->rocid);
+*/
         fflush(stdout);
-        usleep(USLEEP);
+        usleep(USLEEP);/*sleep(1);*/
 
 
 		/* wait here instead of sleep ??????????? */
@@ -912,16 +912,16 @@ start4 = gethrtime();
 end4 = gethrtime();
 
 #ifdef DEBUG
-    printf("handle_link(): got %d bytes\n",numRead); fflush(stdout);
+    printf("[%2d] handle_link(): got %d bytes\n",fd,numRead); fflush(stdout);
     fflush(stdout);
 #endif
     if(numRead <= 0)
     {
-      printf("handle_link(): LINK_sized_read() returns %d\n",numRead);fflush(stdout);
-      printf("handle_link(): put_cb_data calling ...\n");fflush(stdout);
+      printf("[%2d] handle_link(): LINK_sized_read() returns %d\n",fd,numRead);fflush(stdout);
+      printf("[%2d] handle_link(): put_cb_data calling ...\n",fd);fflush(stdout);
 	  usleep(USLEEP);
-      put_cb_data(&theLink->roc_queue, (void *) -1);
-      printf("handle_link(): put_cb_data called\n");fflush(stdout);
+      put_cb_data(fd,&theLink->roc_queue, (void *) -1);
+      printf("[%2d] handle_link(): put_cb_data called\n",fd);fflush(stdout);
       break;
     }
 
@@ -930,14 +930,14 @@ end4 = gethrtime();
 
     buf_long_p = (signed long *) buf;
 #ifdef DEBUG
-    printf("buffer from >%s< (%08x %08x %08x %08x %08x %08x %08x %08x)\n",
+    printf("[%2d] buffer from >%s< (%08x %08x %08x %08x %08x %08x %08x %08x)\n",fd,
            theLink->name,
            buf_long_p[0],buf_long_p[1],buf_long_p[2],buf_long_p[3],
            buf_long_p[4],buf_long_p[5],buf_long_p[6],buf_long_p[7]);
 #endif
     if(buf_long_p[BBIWORDS] == BBHEAD)
     {
-      printf("handle_link(): WARNING got empty buffer from ROC !\n");
+      printf("[%2d] handle_link(): WARNING got empty buffer from ROC !\n",fd);
       fflush(stdout);
 #ifndef NOALLOC
       free(buf);
@@ -948,7 +948,7 @@ end4 = gethrtime();
     /* Check for test_link data */
     if(buf_long_p[BBIEVENTS] < 0)
     {
-      printf("WARNING - handle_link discarding buffer. count = %d.\n",
+      printf("[%2d] WARNING - handle_link discarding buffer. count = %d.\n",fd,
         buf_long_p[BBIEVENTS]);fflush(stdout);
 #ifndef NOALLOC
       free(buf);
@@ -979,14 +979,14 @@ start2 = gethrtime();
 {
 unsigned int *bigbuf;
 bigbuf = (unsigned int *) buf;
-printf("PUTV3: %d %d %d %d %d %d - 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+ printf("[%2d] PUTV3: %d %d %d %d %d %d - 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",fd,
 bigbuf[0],bigbuf[1],bigbuf[2],bigbuf[3],bigbuf[4],bigbuf[5],
 bigbuf[6],bigbuf[7],bigbuf[8],bigbuf[9],bigbuf[10],bigbuf[11]);
 }
 #endif
-    if(put_cb_data(&theLink->roc_queue, (void *) buf) < 0)
+    if(put_cb_data(fd,&theLink->roc_queue, (void *) buf) < 0)
     {
-      printf("handle_link(): put_cb_data returns < 0 - break.\n");
+      printf("[%2d] handle_link(): put_cb_data returns < 0 - break.\n",fd);
       fflush(stdout);
       break;
     }
@@ -1033,10 +1033,10 @@ if(++nevtime1 == NPROF1)
 
 /*printf("handle_link(): thread exit for %9.9s\n",theLink->name); fflush(stdout);*/
 /*NOTE: segm fault printing 'theLink->name', probably pointer is not good any more ???*/
-  printf("handle_link(): thread exit\n"); fflush(stdout);
+  printf("[%2d] handle_link(): thread exit\n",fd); fflush(stdout);
 
 
-printf("907\n"); fflush(stdout);
+  printf("[%2d] 907\n",fd); fflush(stdout);
   pthread_exit(0);
 }
 

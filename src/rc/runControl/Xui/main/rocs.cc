@@ -44,6 +44,8 @@
 
 #undef DEBUG
 
+/* the number of roc spaces */
+#define NSPACE 5
 
 int root_height;
 XtAppContext app_context;
@@ -498,7 +500,7 @@ main(int argc, char** argv)
   int ac, ii, jj, ix, iy, xpos, ypos, dx, dy, status;
   Arg arg[20];
   int firstxtermframe, nxtermframes;
-  char tmp[128];
+  char tmp[128], tmp1[128];
   XtActionsRec   rec;
   WidgetList     children;
   int            nchildren;
@@ -514,7 +516,8 @@ main(int argc, char** argv)
   else if(argc==3)
   {
     if(!strncmp(argv[1],"-embed",6)) embedded = 1;
-    if(!strncmp(argv[2],"-log",4)) logging = 1;
+
+    if( (!strncmp(argv[2],"-log",4)) || (!strncmp(argv[2],"-logs",5)) ) logging = 1;
   }
 
 
@@ -585,28 +588,19 @@ main(int argc, char** argv)
 
 
 
-#if 1
-  menW->createTabFrame("rocs1",0, &firstxtermframe, &nxtermframes);
-  for(ii=firstxtermframe; ii<firstxtermframe+nxtermframes; ii++)
-  {
-    sprintf(tmp,"%02d_",ii);
-    printf("rocs1: xtermsFrame number %d, window prefix >%s<\n",ii,tmp);
-    menW->createXterms (menW->xtermsFrame_[ii], tmp);
-    XtUnmanageChild (menW->xtermsFrame_[ii]);
-  }
-#endif
 
-#if 1
-  menW->createTabFrame("rocs2",0, &firstxtermframe, &nxtermframes);
-  for(ii=firstxtermframe; ii<firstxtermframe+nxtermframes; ii++)
+  for(jj=1; jj<NSPACE; jj++)
   {
-    sprintf(tmp,"%02d_",ii);
-    printf("rocs2: xtermsFrame number %d, window prefix >%s<\n",ii,tmp);
-    menW->createXterms (menW->xtermsFrame_[ii], tmp);
-    XtUnmanageChild (menW->xtermsFrame_[ii]);
+    sprintf(tmp1,"rocs%d",jj);
+    menW->createTabFrame(tmp1,0, &firstxtermframe, &nxtermframes);
+    for(ii=firstxtermframe; ii<firstxtermframe+nxtermframes; ii++)
+    {
+      sprintf(tmp,"%02d_",ii);
+      printf("%s: xtermsFrame number %d, window prefix >%s<\n",tmp1,ii,tmp);
+      menW->createXterms (menW->xtermsFrame_[ii], tmp);
+      XtUnmanageChild (menW->xtermsFrame_[ii]);
+    }
   }
-#endif
-
 
 
 

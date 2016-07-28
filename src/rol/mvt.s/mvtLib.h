@@ -37,5 +37,6 @@ int mvtGetNbrOfBeu(int id);
 int mvtGetPrescale(int id);
 int mvtGetZSMode(int id);
 int mvtSetCurrentBlockLevel( int block_level );
+int mvtGetRepRawData();
 
 #endif // #ifndef __MVTLIB__

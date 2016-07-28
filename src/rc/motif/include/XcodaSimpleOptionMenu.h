@@ -34,7 +34,7 @@ class XcodaSimpleOptionMenu: public XcodaUi
 public:
   // constructor and destructor
   XcodaSimpleOptionMenu (Widget parent, char* name, char* title, 
-		   int maxentries = 50);
+						 int maxentries = 100); /* sergey: 'maxentries' for configuration list is  MAX_NUM_RUNTYPES from daqRunLimits.h .. */
   virtual ~XcodaSimpleOptionMenu (void);
 
   // initialize all widgets

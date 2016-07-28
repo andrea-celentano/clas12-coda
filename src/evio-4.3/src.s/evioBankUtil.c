@@ -154,7 +154,7 @@ evCloseBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknu
   return(ind);
 }
 
-/* return index of the bank header */
+/* return index of the bank header; WILL SKIP BANK_OF_BANKS inside BANK_OF_BANKS !!?? */
 int
 evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, int *nbytes, int *ind_data)
 {
@@ -163,6 +163,9 @@ evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum
   *nbytes = 0;
   *ind_data = 0;
 
+#ifdef DEBUG
+  printf("evLinkBank: fragtag=0x%08x fragnum=%d banktag=0x%08x banknum=%d\n",fragtag,fragnum,banktag,banknum);
+#endif
   if( (ind = evLinkFrag(buf, fragtag, fragnum)) <= 0)
   {
 #ifdef DEBUG
@@ -178,14 +181,14 @@ evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum
     return(0);
   }
 
-  ind += 2;         /* skip fragment header */
   ind_save = ind;
+  ind += 2;         /* skip fragment header */
 
 #ifdef DEBUG
   printf("evLinkBank: starting while() loop, fragment len=%d, ind=%d\n",len,ind);
 #endif
 
-  while((ind-ind_save)<(len+1)) /*sergey: +1 ??? */
+  while((ind-ind_save)<(len/*+1*/)) /*sergey: +1 ??? */
   {
     nw = buf[ind] + 1;
     tag1 = (buf[ind+1]>>16)&0xffff;
@@ -193,7 +196,8 @@ evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum
     typ1 = (buf[ind+1]>>8)&0x3f;
     num1 =  buf[ind+1]&0xff;
 #ifdef DEBUG
-    printf("evLinkBank: considering bank at ind=%5d: nw=%d, tag1=0x%04x, pad1=0x%02x, typ1=0x%02x, num1=0x%02x\n",ind,nw,tag1,pad1,typ1,num1);
+    printf("evLinkBank: considering bank at ind=%5d (ind_save=%5d len=%5d): nw=%d, tag1=0x%04x, pad1=0x%02x, typ1=0x%02x, num1=0x%02x\n",
+		   ind,ind_save,len,nw,tag1,pad1,typ1,num1);
 #endif
 
 #ifdef DEBUG

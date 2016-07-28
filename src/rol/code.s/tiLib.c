@@ -4410,6 +4410,29 @@ tiDisableTSInput(unsigned int inpMask)
   return OK;
 }
 
+
+
+/* sergey*/
+int
+tiGetTSInputMask()
+{
+  int ret;
+
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  TILOCK;
+  ret = vmeRead32(&TIp->tsInput);
+  TIUNLOCK;
+
+  return(ret);
+}
+
+
+
+
 /**
  * @ingroup Config
  * @brief Set (or unset) high level for the output ports on the front panel

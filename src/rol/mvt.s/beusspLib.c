@@ -551,7 +551,7 @@ int  beusspWriteConf(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg, volatile 
 
 
                beusspSetAdr32(BEUSSPreg,BEUSSPfifo,BEUSSPconf->base_adr_fifo );
-         beusspSetSampleBlock(BEUSSPreg,BEUSSPconf->NbOfSamples,BEUSSPconf->NbOfEventsPerBlock);
+ //        beusspSetSampleBlock(BEUSSPreg,BEUSSPconf->NbOfSamples,BEUSSPconf->NbOfEventsPerBlock);
          beusspSetActiveLinks(BEUSSPreg,BEUSSPconf->rol_enb);
               beusspSetClkSrc(BEUSSPreg,BEUSSPconf->ClkSrc);           
      beusspSetNearEndLoopBack(BEUSSPreg,BEUSSPconf->near_end_loop_enb);

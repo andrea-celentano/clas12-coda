@@ -372,15 +372,37 @@ __prestart()
 	it will overwrite any previous block level settings
 */
 
+
+
+	tiSetBusySource(TI_BUSY_SWB, 0);
+
+	if( mvt_fptr_err_1 == (FILE *)NULL )
+	{
+		if( (mvt_fptr_err_1 = fopen("mvt_roc_err_1.txt", "w+")) == (FILE *)NULL )
+		{
+			fprintf(stderr, "%s: fopen failed to open mvt_roc_err_1.txt in write mode with %d\n", __FUNCTION__, errno);
+			perror("fopen failed");
+		}
+	}
+	if( mvt_fptr_err_1 != (FILE *)NULL )
+	{
+		fprintf(mvt_fptr_err_1,"%s : Information below concerns run %d\n", __FUNCTION__, rol->runNumber );
+		fflush( mvt_fptr_err_1 );
+	}
+
 #ifdef USE_MVT
 	if(nmvt>0)
 	{
-	  block_level = tiGetCurrentBlockLevel();
-	  mvtSetCurrentBlockLevel( block_level );
-	  printf("%s; mvt block level set to %d \n", __FUNCTION__, block_level);fflush(stdout);
-	vmeBusLock();
-		mvtPrestart();
-	vmeBusUnlock();
+		block_level = tiGetCurrentBlockLevel();
+		mvtSetCurrentBlockLevel( block_level );
+		if( mvt_fptr_err_1 != (FILE *)NULL )
+		{
+			fprintf(mvt_fptr_err_1, "%s; mvt block level set to %d \n", __FUNCTION__, block_level);
+			fflush( mvt_fptr_err_1 );
+		}
+		vmeBusLock();
+			mvtPrestart();
+		vmeBusUnlock();
 		mvt_to_cntr = 0;
 		mvt_to.tv_sec  = 0;
 		mvt_to.tv_usec = 90000;
@@ -392,7 +414,7 @@ __prestart()
 
 //ADDED BY YM September 25 2015
 // because the tisyncReset is distributed to BEUSSPs only after MvtPrestart is executed and sync commandes are enabled. 
-//#ifndef TI_SLAVE ????????????????????????????????????????????????????????????????????????????????????????????????????
+#ifndef TI_SLAVE
 	sleep(1);
 	vmeBusLock();
 		tiSyncReset(1);
@@ -410,7 +432,7 @@ __prestart()
 	{
 		printf("ERROR: syncrequest still ON after tiSyncReset()\n");
 	}
-//#endif
+#endif
 
 	vmeBusLock();
 		tiStatus(1);
@@ -427,20 +449,6 @@ printf("INFO: Prestart1 as TI_SLAVE\n");fflush(stdout);
 printf("INFO: Prestart1 as TI_NONE\n");fflush(stdout);
 #endif
 #endif
-
-	if( mvt_fptr_err_1 == (FILE *)NULL )
-	{
-		if( (mvt_fptr_err_1 = fopen("mvt_roc_err_1.txt", "w+")) == (FILE *)NULL )
-		{
-			fprintf(stderr, "%s: fopen failed to open mvt_roc_err_1.txt in write mode with %d\n", __FUNCTION__, errno);
-			perror("fopen failed");
-		}
-	}
-	if( mvt_fptr_err_1 != (FILE *)NULL )
-	{
-		fprintf(mvt_fptr_err_1,"%s : Information below concerns run %d\n", __FUNCTION__, rol->runNumber );
-		fflush( mvt_fptr_err_1 );
-	}
 
 	*(rol->nevents) = 0;
 	rol->recNb = 0;

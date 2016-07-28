@@ -474,15 +474,15 @@ bb_write_(BIGBUF **bbh, int flag)
       return(NULL);
 	}
 
-    printf("[%d] bb_write: waiting for buffer (write=%d read=%d) unlock \n",bbp->id,bbp->write,bbp->read);
+/*printf("[%d] bb_write: waiting for buffer (write=%d read=%d) unlock \n",bbp->id,bbp->write,bbp->read);*/
     BB_UNLOCK;
-	/*
+	
     if(flag) return(NULL);
-	*/
-	usleep(100000);
+	
+	usleep(10000); /* was 100000 */
 	
     BB_LOCK;
-    printf("[%d] bb_write: waiting for buffer (write=%d read=%d) lock\n",bbp->id,bbp->write,bbp->read);
+/*printf("[%d] bb_write: waiting for buffer (write=%d read=%d) lock\n",bbp->id,bbp->write,bbp->read);*/
 	
   }
 

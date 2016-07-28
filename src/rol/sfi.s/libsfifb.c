@@ -1536,18 +1536,19 @@ sfiRamLoadDisable()
   vmeWrite32(sfi.sequencerEnable, 1);
 }
 
+/* sergey: replace 'vmeDmaLocalToVmeAdrs()' with 'usrDmaLocalToVmeAdrs()' */
 void
 sfiLoadAddr(unsigned int a)
 {
   if(a)
     {
       vmeWrite32(fastLoadDmaAddressPointer,
-		 vmeDmaLocalToVmeAdrs((unsigned int)a));
+				 /*vme*/usrDmaLocalToVmeAdrs((unsigned int)a));
     }
   else
     {
       vmeWrite32(fastLoadDmaAddressPointer,
-		 vmeDmaLocalToVmeAdrs((unsigned int)dma_dabufp));
+				 /*vme*/usrDmaLocalToVmeAdrs((unsigned int)dma_dabufp));
     }
 }
 

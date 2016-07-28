@@ -5,6 +5,16 @@
 
 #define NEW
 
+/* PRad Trigger Table */
+#define TRG_LGSUM TI_TSINPUT_1
+#define TRG_TOTALSUM TI_TSINPUT_2
+#define TRG_LMSLED   TI_TSINPUT_3
+#define TRG_LMSALPHA TI_TSINPUT_4
+#define TRG_TAGGERE  TI_TSINPUT_5
+#define TRG_SCIN     TI_TSINPUT_6
+
+#define TRG_PRODUCTION (TRG_LGSUM | TRG_TOTALSUM)
+//#define TRG_PRODUCTION TRG_SCIN
 
 #undef SSIPC
 
@@ -13,6 +23,9 @@ static int nusertrig, ndone;
 #define USE_PRAD
 #define EVENT_CYCLE
 #undef USE_V767
+#define USE_DSC2
+#define USE_V1190
+#undef V1190_TEST
 
 #undef DEBUG
 
@@ -68,12 +81,15 @@ static char ssname[80];
 #endif
 
 #include "rol.h"
+#include "TIPRIMARY_source.h"
 
 
 
 #ifdef USE_PRAD
 
 #include "dsc2Lib.h"
+static int ndsc2=0, ndsc2_daq=0;
+
 #ifdef USE_V767
 #include "v767Lib.h"
 
@@ -82,12 +98,22 @@ unsigned int V767_ADDR1 = 0x380000;
 /* V767_OFF is the increment for each subsequent v767 (ie. next module would be 0x180000) */
 unsigned int V767_OFF = 0x080000;
 #endif
+
+#ifdef USE_V1190
+
+#include "tdc1190.h"
+unsigned int V1190_ADDR1 = 0x380000;
+unsigned int V1190_OFF = 0x080000;
+unsigned int datascan;
+int ntdcs;
+unsigned int rlenbuf[24];
+#endif
+
 #endif
 
 void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE);
 void usrtrig_done();
 
-#include "TIPRIMARY_source.h"
 
 
 
@@ -160,14 +186,9 @@ extern int rocMask; /* defined in roc_component.c */
 
 #endif
 
-/* PRad Trigger Table */
-#define TRG_PEDESTAL TI_TSINPUT_1
-#define TRG_TOTALSUM TI_TSINPUT_2
-#define TRG_LMSLED   TI_TSINPUT_3
-#define TRG_LMSALPHA TI_TSINPUT_4
-#define TRG_TAGGERE  TI_TSINPUT_5
+static int livetime, live_percent;
 
-static unsigned int trigger_type = TRG_PEDESTAL;
+static unsigned int trigger_type = TRG_LMSLED;
 static unsigned int lms_phase = 1;
 
 #ifdef EVENT_CYCLE
@@ -203,7 +224,7 @@ lms_phase_change(int n)
   {
     lms_phase_shift();
     // LMS wheel change will take about 1-2 secs
-    taskDelay(250);
+    taskDelay(200);
   }
 }
 
@@ -253,7 +274,6 @@ getTdcSlotNumbers(int *slotnumbers)
 {
   return(0);
 }
-
 
 
 static void
@@ -321,6 +341,18 @@ __download()
 vmeBusLock();
   tiLoadTriggerTable(3);
   tiSetTriggerWindow(7);	// (7+1)*4ns trigger it coincidence time to form trigger type
+  
+  tiSetTriggerHoldoff(1,60,1);
+  tiSetTriggerHoldoff(2,0,1);
+  tiSetTriggerHoldoff(3,0,1);
+  tiSetTriggerHoldoff(4,0,1);
+  
+  tiAddSlave(1);
+  tiAddSlave(2);
+  tiAddSlave(3);
+  tiAddSlave(7);
+  tiAddSlave(8);
+  
 vmeBusUnlock();
 #endif
 
@@ -331,7 +363,10 @@ vmeBusUnlock();
 #ifdef USE_PRAD
   /* (width + 3)*4 ns, 300 ns width */
 vmeBusLock();
-  tiSetPromptTriggerWidth(72);
+  tiSetPromptTriggerWidth(68);
+  int ii;
+  for(ii = 1; ii <= 6; ++ii)
+    tiSetTSInputDelay(ii, 0);
 vmeBusUnlock();
 #endif
 
@@ -375,8 +410,19 @@ if(rol->pid==18)
 
 vmeBusLock();
 
-  dsc2Init(0x400000,0x80000,5,1<<19);
-  dsc2Config ("");
+ dsc2Init(0x400000,0x80000,5,0/*1<<19*/);
+  ndsc2 = dsc2GetNdsc();
+  printf("!!!!!!!!!!! ndsc2=%d\n",ndsc2);
+  if(ndsc2>0)
+  {
+    DSC2_READ_CONF_FILE;
+    ndsc2_daq = dsc2GetNdsc_daq();
+    printf("!!!!!!!!!!! ndsc2_daq=%d\n",ndsc2_daq);
+  }
+ printf("Set Gate Source... \n");
+ dsc2SetGateSource(9, 1, 1);
+ dsc2SetTestInput(9, 0);
+ //dsc2SetGateSource(9, 2, 3);
 /*
   dsc2Init(0x480000,0x80000,5,1<<19);
   int dsc_ch, dsc_sl;
@@ -420,6 +466,13 @@ vmeBusUnlock();
   /*     v767SaveConfig(itdc); */
 #endif
 
+#ifdef USE_V1190
+vmeBusLock();
+    tdc1190Init(V1190_ADDR1, V1190_OFF, 1, 0);
+    TDC_READ_CONF_FILE;
+vmeBusUnlock();
+#endif
+
 #endif /* USE_PRAD */
 
 
@@ -445,6 +498,7 @@ __prestart()
   int ii, i1, i2, i3;
   int ret;
 
+  vmeCheckMutexHealth(10);
 
   /* Clear some global variables etc for a clean start */
   *(rol->nevents) = 0;
@@ -486,12 +540,18 @@ vmeBusLock();
 vmeBusUnlock();
 #endif
 
+#ifdef USE_V1190
+vmeBusLock();
+  tdc1190Clear(0);
+  tdc1190Status(0);
+vmeBusUnlock();
+#endif
   /*if(nfadc>0)*/
   {
-    printf("Set BUSY from FP for FASTBUS\n");
-vmeBusLock();
-    tiSetBusySource(TI_BUSY_FP, 0);
-vmeBusUnlock();
+/*     printf("Set BUSY from FP for FASTBUS\n"); */
+/* vmeBusLock(); */
+/*     tiSetBusySource(TI_BUSY_FP, 0); */
+/* vmeBusUnlock(); */
   }
 #endif
 
@@ -545,8 +605,10 @@ vmeBusUnlock();
     printf("INFO: syncrequest is OFF now\n");
   }
 
+  /*
   printf("holdoff rule 1 set to %d\n",tiGetTriggerHoldoff(1));
   printf("holdoff rule 2 set to %d\n",tiGetTriggerHoldoff(2));
+  */
 
 #endif
 
@@ -559,13 +621,33 @@ vmeBusLock();
 vmeBusUnlock();
 #endif
 
+#ifdef USE_V1190
+  tdc1190SetBLTEventNumber(0, block_level);
+#endif
 
 vmeBusLock();
-  ti_usetrg(TRG_PEDESTAL);
+  tdc1190Status(0);
 vmeBusUnlock();
 
+#ifdef EVENT_CYCLE
+  event_count = 0;
+#endif
 
 vmeBusLock();
+ printf("TISTATUS 1\n");
+  tiStatus(1);
+vmeBusUnlock();
+
+vmeBusLock();
+  ti_usetrg(TRG_LMSLED);
+//  ti_usetrg(TRG_TOTALSUM);
+  //tiSetInputPrescale(1, 2);
+  //tiSetInputPrescale(2, 2);
+vmeBusUnlock();
+
+vmeBusLock();
+  tiSetBlockBufferLevel(8);
+ printf("TISTATUS 2\n");
   tiStatus(1);
 vmeBusUnlock();
 
@@ -588,10 +670,14 @@ __go()
 #ifndef TI_SLAVE
   /* set sync event interval (in blocks) */
 vmeBusLock();
- tiSetSyncEventInterval(0/*10000*//*block_level*/);
-vmeBusUnlock();
+ tiSetSyncEventInterval(100000/*10000*//*block_level*/);
+
+ printf("TI: Sync Event Block-Interval = %d\n",
+	tiGetSyncEventInterval());
+ vmeBusUnlock();
 #endif
 
+ 
 
 #ifdef USE_PRAD
   /* Enable modules, if needed, here */
@@ -600,17 +686,25 @@ vmeBusLock();
   v767Clear(0);
 vmeBusUnlock();
 #endif
+
+#ifdef USE_V1190
+vmeBusLock();
+  tdc1190Clear(0);
+vmeBusUnlock();
+#endif
   /* DCS2
   dsc2LatchScalers(0,1);
   */
 #endif
 
+  tiStatus(1);
 
   /* always clear exceptions */
   jlabgefClearException(1);
 
   nusertrig = 0;
   ndone = 0;
+
 
   CDOENABLE(TIPRIMARY,TIR_SOURCE,0); /* bryan has (,1,1) ... */
 
@@ -660,7 +754,7 @@ vmeBusUnlock();
   //reset lms phase
   printf("INFO: trying to reset lms phase.");
 vmeBusLock();
-  lms_phase_change(6 + 1 - lms_phase);
+  lms_phase_change((6 + 1 - lms_phase)%6);
 vmeBusUnlock();
 #endif
 
@@ -697,7 +791,6 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 #ifdef USE_PRAD
   int islot;
   int stat, dCnt, idata;
-  unsigned int sync_or_unbuff;
   unsigned int *dma_dabufp;
 #endif
 
@@ -716,8 +809,6 @@ usleep(100);
   /*
   sleep(1);
   */
-
-
 
   CEOPEN(EVTYPE, BT_BANKS); /* reformatted on CODA_format.c !!! */
 
@@ -772,10 +863,18 @@ vmeBusUnlock();
 	  */
 
 	  
-      for(jj=0; jj<len; jj++) *rol->dabufp++ = LSWAP(tdcbuf[jj]);
+      for(jj=0; jj<len; jj++) *rol->dabufp++ = tdcbuf[jj];
 	  
     }
-    *rol->dabufp++ = LSWAP((lms_phase<<16) | trigger_type); 
+    *rol->dabufp++ = LSWAP((lms_phase<<16) | trigger_type);
+/*
+    *rol->dabufp++ = LSWAP(tiGetScalar(1,0));
+    *rol->dabufp++ = LSWAP(tiGetScalar(2,0));
+    *rol->dabufp++ = LSWAP(tiGetScalar(3,0));
+    *rol->dabufp++ = LSWAP(tiGetScalar(4,0));
+    *rol->dabufp++ = LSWAP(tiGetScalar(5,0));
+    *rol->dabufp++ = LSWAP(tiGetScalar(6,0));
+*/
     BANKCLOSE;
 
     /* Turn off all output ports 
@@ -802,95 +901,142 @@ TIMERL_START;
 
 
 #ifdef USE_PRAD
+
 #ifdef USE_V767
-  /*
-  BANKOPEN(5, BT_UI4, 0);
-  */
-  BANKOPEN(0xe121,1,rol->pid);
-  dma_dabufp = rol->dabufp;
+
+    BANKOPEN(0xe121,1,rol->pid);
+    dma_dabufp = rol->dabufp;
 
 
-vmeBusLock();
-  stat = v767Dready(0);
-vmeBusUnlock();
-
-  jj = 0;
-  while( (jj<100) && (stat==0) )
-  {
 vmeBusLock();
     stat = v767Dready(0);
 vmeBusUnlock();
-    jj++;
-  }
 
-  if(stat)
-  {
+    jj = 0;
+    while( (jj<100) && (stat==0) )
+    {
 vmeBusLock();
-    dCnt = v767ReadEvent(0, dma_dabufp, 256);
+      stat = v767Dready(0);
 vmeBusUnlock();
-    if(dCnt <= 0) /*Error*/
-	{
-      *dma_dabufp++ = LSWAP(0xed767bad);
-      printf("v767(%d): No data or error.  dCnt = %d\n", ii, dCnt);
+      jj++;
+    }
+
+    if(stat)
+    {
+vmeBusLock();
+      dCnt = v767ReadEvent(0, dma_dabufp, 256);
+vmeBusUnlock();
+      if(dCnt <= 0) /*Error*/
+	  {
+        *dma_dabufp++ = LSWAP(0xed767bad);
+        printf("v767(%d): No data or error.  dCnt = %d\n", ii, dCnt);
+      }
+      else
+      {
+        dma_dabufp += dCnt;
+        /*printf("Read: %d\n", dCnt);*/
+      }
     }
     else
     {
-      dma_dabufp += dCnt;
-      /*printf("Read: %d\n", dCnt);*/
+      printf("v767(%d): Timeout. Data not ready.\n", ii);
     }
-  }
-  else
-  {
-    printf("v767(%d): Timeout. Data not ready.\n", ii);
-  }
 
 
-  rol->dabufp = dma_dabufp;
-  BANKCLOSE;
+    rol->dabufp = dma_dabufp;
+    BANKCLOSE;
 
 #endif
+
+#ifdef USE_V1190
+    int icheck = 0, maxcheck = 200, nev = 0;
+
+    for(icheck = 0; icheck < maxcheck; icheck++)
+    {
+      nev = tdc1190Dready(0);
+      if(nev > 0) break;
+    }
+
+    if(nev > 0) 
+    {
+      
+      vmeBusLock();
+      rlen = tdc1190ReadBoard(0, tdcbuf);
+      vmeBusUnlock();
+      
+      if(rlen > 0) 
+	  {
+	  BANKOPEN(0xe121,1,rol->pid);
+
+	    for(jj=0; jj<rlen; jj++)
+	    {
+	      *rol->dabufp++ = LSWAP(tdcbuf[jj]);
+#ifdef V1190_TEST
+	      if(!((*rol->nevents)%1000)) 
+		  {
+		    printf("Read %d words. \n", rlen);
+		    if((tdcbuf[jj]&0xf8000000) == 0)
+		      printf("channel %d, value %d\n", (tdcbuf[jj] >> 18)&0x7f, (tdcbuf[jj]&0x3ffff));
+		  }
+#endif
+	    }
+	    BANKCLOSE;
+	  }
+    }
+    else
+    {
+      printf("%s: ERROR.  No data ready in TDC1190\n",
+	     __FUNCTION__);
+    }
+
+
+#endif /* USE_V1190 */
+
+
 #endif /* USE_FASTBUS */
 
 
 
-#if 0
+#if 1
 #ifndef TI_SLAVE
 
-  /* create HEAD bank if master and standalone crates, NOT slave */
+    /* create HEAD bank if master and standalone crates, NOT slave */
 
-	event_number = (EVENT_NUMBER) * block_level - block_level;
+    event_number = (EVENT_NUMBER) * block_level - block_level;
 
     BANKOPEN(0xe112,1,0);
 
-	dabufp1 = rol->dabufp;
+    dabufp1 = rol->dabufp;
 
     *rol->dabufp ++ = LSWAP((0x10<<27)+block_level); /*block header*/
 
     for(ii=0; ii<block_level; ii++)
-	{
+    {
       event_number ++;
 	  /*
-	  printf(">>>>>>>>>>>>> %d %d\n",(EVENT_NUMBER),event_number);
+      printf(">>>>>>>>>>>>> %d %d\n",(EVENT_NUMBER),event_number);
       sleep(1);
 	  */
       *rol->dabufp ++ = LSWAP((0x12<<27)+(event_number&0x7FFFFFF)); /*event header*/
 
-      nwords = 5; /* UPDATE THAT IF THE NUMBER OF WORDS CHANGED BELOW !!! */
+      nwords = 7; /* UPDATE THAT IF THE NUMBER OF WORDS CHANGED BELOW !!! */
       *rol->dabufp ++ = LSWAP((0x14<<27)+nwords); /*head data*/
       *rol->dabufp ++ = 0; /*version  number */
       *rol->dabufp ++ = LSWAP(RUN_NUMBER); /*run  number */
       *rol->dabufp ++ = LSWAP(event_number); /*event number */
       if(ii==(block_level-1))
-	  {
+      {
         *rol->dabufp ++ = LSWAP(time(0)); /*event unix time */
         *rol->dabufp ++ = LSWAP(EVTYPE); /*event type */
+        *rol->dabufp ++ = LSWAP(livetime); /* livetime */
 	  }
       else
 	  {
         *rol->dabufp ++ = 0;
         *rol->dabufp ++ = 0;
+        *rol->dabufp ++ = 0;
 	  }
-	}
+    }
 
     nwords = ((int)rol->dabufp-(int)dabufp1)/4+1;
 
@@ -911,11 +1057,11 @@ TIMERL_STOP(100000/block_level,1000+rol->pid);
 
 
 
-#if 0 /* enable/disable sync events processing */
+#if 1 /* enable/disable sync events processing */
 
 
     /* read boards configurations */
-    if(syncFlag==1 || EVENT_NUMBER==1)
+    if(syncFlag == 1 || EVENT_NUMBER==1)
     {
       printf("SYNC: read boards configurations\n");
 
@@ -927,6 +1073,9 @@ TIMERL_STOP(100000/block_level,1000+rol->pid);
       *chptr++ = '\n';
       nbytes ++;
 
+
+
+
 vmeBusLock();
       len = tiUploadAll(chptr, 10000);
 vmeBusUnlock();
@@ -936,37 +1085,112 @@ vmeBusUnlock();
       nbytes += len;
 
 
-#ifdef USE_FADC250_HIDE
-      if(nfadc>0)
-      {
-vmeBusLock();
-        len = fadc250UploadAll(chptr, 10000);
-vmeBusUnlock();
-        /*printf("\nFADC len=%d\n",len);
-        printf("%s\n",chptr);*/
-        chptr += len;
-        nbytes += len;
-	  }
+
+
+      /* 'nbytes' does not includes end_of_string ! */
+      chptr[0] = '\n';
+      chptr[1] = '\n';
+      chptr[2] = '\n';
+      chptr[3] = '\n';
+      nbytes = (((nbytes+1)+3)/4)*4;
+      chptr0[nbytes-1] = '\0';
+
+      nwords = nbytes/4;
+      rol->dabufp += nwords;
+
+      BANKCLOSE;
+
+      printf("SYNC: read boards configurations - done\n");
+    }
 #endif
-	}
 
 
+int trg_switch = 0;
+#ifdef EVENT_CYCLE
+
+  /*printf("START EVENT CYCLE\n");fflush(stdout);*/
+
+vmeBusLock();
+  ++event_count;
+ 
+  switch(trigger_type)
+  {
+  default:
+  case TRG_LGSUM:
+  case TRG_TOTALSUM:
+  case TRG_TAGGERE:
+  case TRG_SCIN:
+    break;
+  case TRG_LMSLED:
+    if(event_count > 10000) {
+      lms_phase_shift();
+      ti_usetrg(TRG_LMSALPHA);
+      event_count = 0;
+      trg_switch = 1;
+    }
+    break;
+  case TRG_LMSALPHA:
+    if(event_count > 10000) {
+      ti_usetrg(TRG_PRODUCTION);
+      event_count = 0;
+      trg_switch = 1;
+    }
+    break;
+  }
+vmeBusUnlock();
+
+  /*printf("END EVENT CYCLE\n");fflush(stdout);*/
+
+#endif
 
 
     /* read scaler(s) */
-    if(syncFlag==1 || EVENT_NUMBER==1)
+    if(syncFlag==1 || EVENT_NUMBER==1 || trg_switch == 1)
     {
-	  ;
-	}
+#ifdef USE_DSC2
+	  printf("ndsc2_daq=%d\n",ndsc2_daq);fflush(stdout);
+	  if(ndsc2_daq>0)
+	  {
+        BANKOPEN(0xe115,1,rol->pid);
+        for(jj=0; jj<1/*ndsc2_daq*/; jj++)
+        {
+          slot = dsc2Slot_daq(jj);
+          printf("dsc2: jj=%d slot=%d\n",jj,slot);
+vmeBusLock();
+          /* in following argument 4 set to 0xFF means latch and read everything, 0x3F - do not latch and read everything */
+          nwords = dsc2ReadScalers(slot, tdcbuf, 0x10000, 0xFF, 1);
+          if(nwords == 72) {
+              printf("dsc2: tdc gated counts   = %08d %08d %08d %10d\n",tdcbuf[3],tdcbuf[4],tdcbuf[9],tdcbuf[10]);
+              printf("dsc2: trg gated counts   = %08d %08d %08d %10d\n",tdcbuf[19],tdcbuf[20],tdcbuf[25],tdcbuf[26]);
+              printf("dsc2: tdc ungated counts   = %08d %08d %08d %10d\n",tdcbuf[35],tdcbuf[36],tdcbuf[41],tdcbuf[42]);
+              printf("dsc2: trg ungated counts = %08d %08d %08d %10d\n",tdcbuf[51],tdcbuf[52],tdcbuf[57],tdcbuf[58]);
+          }
+
+          if(tdcbuf[58] != 0) {
+              float live_time = (float)tdcbuf[26]/(float)tdcbuf[58];
+              printf("DAQ live time: %f\%\n", (1.-live_time)*100.);
+          }
+vmeBusUnlock();
+
+          /* unlike other boards, dcs2 scaler readout already swapped in 'dsc2ReadScalers', so swap it back, because
+          hps2.c expects big-endian format*/
+          for(ii=0; ii<nwords; ii++) *rol->dabufp ++ = LSWAP(tdcbuf[ii]);
+        }
+        BANKCLOSE;
+	  }
+#endif
+    }
+
+
+
 
 
 #ifndef TI_SLAVE
+
     /* print livetite */
     if(syncFlag==1)
 	{
-      printf("SYNC: livetime\n");
-
-      int livetime, live_percent;
+      printf("SYNC: livetime\n");fflush(stdout);
 vmeBusLock();
       tiLatchTimers();
       livetime = tiLive(0);
@@ -987,7 +1211,7 @@ vmeBusUnlock();
     /* for physics sync event, make sure all board buffers are empty */
     if(syncFlag==1)
     {
-      printf("SYNC: make sure all board buffers are empty\n");
+      printf("SYNC: make sure all board buffers are empty\n");fflush(stdout);
 
       int nblocks;
       nblocks = tiGetNumberOfBlocksInBuffer();
@@ -998,13 +1222,17 @@ vmeBusUnlock();
         printf("SYNC ERROR: TI nblocks = %d\n",nblocks);fflush(stdout);
         sleep(10);
 	  }
+      
+      /*check if anything left in TDC event buffer; if yes, print warning message and clear event buffer*/
+      int nev = tdc1190Dready(0);
+      if(nev > 0) 
+	  {
+	    printf("WARN: v1290[%2d] has %d events - clear it\n",jj,nev);
+	    tdc1190Clear(0);
+	  }
+      
       printf("SYNC: make sure all board buffers are empty - done\n");
-	}
-
-
-#endif /* if 0 */
-
-
+    }
 
 
 
@@ -1017,39 +1245,7 @@ vmeBusUnlock();
   nusertrig ++;
   printf("usrtrig called %d times\n",nusertrig);fflush(stdout);
   */
-#ifdef EVENT_CYCLE
-vmeBusLock();
 
-  ++event_count;
-
-  switch(trigger_type)
-  {
-  default:
-  case TRG_TOTALSUM:
-  case TRG_TAGGERE:
-    break;
-  case TRG_PEDESTAL:
-    if(event_count > 10000) {
-      ti_usetrg(TRG_LMSLED);
-      event_count = 0;
-    }
-    break;
-  case TRG_LMSLED:
-    if(event_count > 10000) {
-      lms_phase_shift();
-      ti_usetrg(TRG_LMSALPHA);
-      event_count = 0;
-    }
-    break;
-  case TRG_LMSALPHA:
-    if(event_count > 10000) {
-      ti_usetrg(TRG_TOTALSUM);
-      event_count = 0;
-    }
-    break;
-  }
-vmeBusUnlock();
-#endif
   return;
 }
 
@@ -1071,6 +1267,7 @@ __done()
 
   /* Acknowledge tir register */
   CDOACK(TIPRIMARY,TIR_SOURCE,0);
+
 
   return;
 }

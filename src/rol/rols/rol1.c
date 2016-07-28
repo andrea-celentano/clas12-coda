@@ -175,6 +175,14 @@ extern int rocMask; /* defined in roc_component.c */
 
 
 void
+titest2()
+{
+  printf("roc >%4.4s<, next_block_level=%d, current block level = %d\n",rcname,tiGetNextBlockLevel(),tiGetCurrentBlockLevel());
+}
+
+
+
+void
 tsleep(int n)
 {
 #ifdef VXWORKS
@@ -882,7 +890,7 @@ __prestart()
   CTRIGRSA(TIPRIMARY, TIR_SOURCE, usrtrig, usrtrig_done);
 #endif
 
-  printf(">>>>>>>>>> next_block_level = %d, block_level = %d, use next_block_level\n",next_block_level,block_level);
+  printf(">>>>>>>>>> next_block_level = %d, block_level = %d, use %d\n",next_block_level,block_level,next_block_level);
   block_level = next_block_level;
 
 
@@ -1225,11 +1233,22 @@ vmeBusUnlock();
 /* set block level in all boards where it is needed;
    it will overwrite any previous block level settings */
 
+
+
+
+#if 0
 #ifdef TI_SLAVE /* assume that for master and standalone TIs block level is set from config file */
 vmeBusLock();
   tiSetBlockLevel(block_level);
 vmeBusUnlock();
 #endif
+#endif
+ printf("tiCurrentBlockLevel = %d, block_level = %d\n",tiGetCurrentBlockLevel(),block_level);
+
+
+
+
+
 #ifdef USE_V1190
   for(ii=0; ii<ntdcs; ii++)
   {
@@ -2579,7 +2598,7 @@ vmeBusUnlock();
 	  */
       *rol->dabufp ++ = LSWAP((0x12<<27)+(event_number&0x7FFFFFF)); /*event header*/
 
-      nwords = 5; /* UPDATE THAT IF THE NUMBER OF WORDS CHANGED BELOW !!! */
+      nwords = 6; /* UPDATE THAT IF THE NUMBER OF WORDS CHANGED BELOW !!! */
       *rol->dabufp ++ = LSWAP((0x14<<27)+nwords); /*head data*/
       *rol->dabufp ++ = 0; /*version  number */
       *rol->dabufp ++ = LSWAP(RUN_NUMBER); /*run  number */
@@ -2807,7 +2826,7 @@ vmeBusUnlock();
 
 
 #ifndef TI_SLAVE
-    /* print livetite */
+    /* print livetime */
     if(syncFlag==1)
 	{
       printf("SYNC: livetime\n");

@@ -47,7 +47,7 @@
 #define MAX_EVENT_POOL   400
 
 #ifdef Linux_x86_64
-#define SEND_BUF_SIZE  (4 * 1024 * 1024)
+#define SEND_BUF_SIZE  (8 * 1024 * 1024)
 #else
 #define SEND_BUF_SIZE  (4 * 1024 * 1024) /*sergey: use 3 for CLAS !!!!!*/
 #endif
@@ -65,7 +65,7 @@
 
 #endif
 
-#define MAX_ROCS 75 /* must accomodate biggest roc id, not the number of rocs !!! */
+#define MAX_ROCS 76 /* must accomodate biggest roc id, not the number of rocs !!! */
 
 #define QSIZE 8 /* the number of buffers in EB, normally 8, was set to 6 trying to decrease memory usage on clondaq5 */
 
@@ -73,7 +73,7 @@
 #define NTHREADMAX 7
 #define NFIFOMAX   4000 /* the number of events in ET system */
 #define NIDMAX     7 /*(NFIFOMAX+NTHREADMAX)*/
-#define NCHUNKMAX  400
+#define NCHUNKMAX  110
 
 
 /* big buffer defines */
@@ -137,7 +137,7 @@ extern "C" {
 CIRCBUF *new_cb(int roc, char *name, char *parent);
 void     cb_init(int roc);
 void     delete_cb(CIRCBUF **cbp);
-int      put_cb_data(CIRCBUF **cbp, void *data);
+int      put_cb_data(int fd, CIRCBUF **cbp, void *data);
 int      get_cb_data(CIRCBUF **cbp, int id, int chunk,
                      unsigned int *evptr[NCHUNKMAX], int *buflen, int *rocid);
 char    *get_cb_name(CIRCBUF *cbp);
@@ -171,3 +171,7 @@ typedef struct data_link
   int bufCnt;
   CIRCBUF *roc_queue;
 } DATA_LINK_S;
+
+
+
+

@@ -220,7 +220,7 @@ int BecParams_Sprintf( BecParams *params, char *buf  )
 		}
 		if( ((feu-1) % 4) == 0 )
 			sprintf( buf, "%s#", buf );
-		sprintf( buf, "%s Feu %2d <-> ", buf, feu );
+		sprintf( buf, "%s Feu %3d <-> ", buf, feu );
 		if( params->FeuId2BeuId[feu] > 0 )
 		{
 			if( (params->FeuId2BeuLnkId[feu]<0) || (DEF_MAX_NB_OF_FEU_PER_BEU<=params->FeuId2BeuLnkId[feu]) )
@@ -238,6 +238,7 @@ int BecParams_Sprintf( BecParams *params, char *buf  )
 		else
 			sprintf( buf, "%s\n", buf );
 	}
+	sprintf( buf, "%s\n", buf );
 
 	// All went fine
 	return D_RetCode_Sucsess;

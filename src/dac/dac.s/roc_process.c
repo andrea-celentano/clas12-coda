@@ -190,6 +190,13 @@ int
 proc_end()
 {
   ROLPARAMS *rolP = &rolP2;
+
+  printf("proc_end reached\n");fflush(stdout);
+
+  rolP->daproc = DA_END_PROC;
+  (*rolP->rol_code) (rolP);
+
+  printf("proc_end done\n");fflush(stdout);
   return(0);
 }
 
@@ -497,6 +504,13 @@ sleep(1);
 
   /* force input 'big' buffer read/write methods to exit */
   bb_cleanup(&(bigprocptr->gbigin));
+
+
+  /*sergey 2016 */
+  printf("roc_process: calls 'proc_end'\n");
+  proc_end();
+  /*sergey 2016 */
+
 
   printf("PROC THREAD EXIT\n");
 }

@@ -317,7 +317,7 @@ struct TI_A24RegStruct
 #define TI_CLOCK_HFBR5       (1)
 #define TI_CLOCK_HFBR1       (2)
 #define TI_CLOCK_FP          (3)
-#define TI_CLOCK_MASK        0x0000000F
+#define TI_CLOCK_MASK        0x3/*sergey: was 0x0000000F*/
 
 /* 0x30 trig1Prescale bits and masks */
 #define TI_TRIG1PRESCALE_MASK          0x0000FFFF

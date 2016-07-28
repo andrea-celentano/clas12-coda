@@ -41,6 +41,7 @@
 #include "stdio.h"
 #include "codaSlist.h"
 
+
 //======================================================================
 //	class codaSlist implementation
 //======================================================================
@@ -274,7 +275,9 @@ int codaSlistIterator::operator ! (void)
   // update current to point to next position
   if (currentLink == 0)
     if (previousLink != 0)
+	{
       currentLink = previousLink->ptrToNextLink;
+	}
 
   // now see if currentLink is valid
   return currentLink != 0;
@@ -286,9 +289,13 @@ int codaSlistIterator::operator ++()
   // special processing if current link is deleted
   if (currentLink == 0){
     if (previousLink == 0)
+	{
       currentLink = theList.ptrToFirstLink;
+	}
     else
+	{
       currentLink = previousLink->ptrToNextLink;
+	}
   }
   else{
     // advance pointer
@@ -317,8 +324,9 @@ void codaSlistIterator::removeCurrent (void)
 
   // case 1, removing first element
   if (previousLink == 0)
+  {
     theList.ptrToFirstLink = currentLink->ptrToNextLink;
-  
+  }
   // case 2, not removing the first element
   else
     previousLink->ptrToNextLink = currentLink->ptrToNextLink;
@@ -354,8 +362,9 @@ void codaSlistIterator::addAfter(codaSlistItem val)
 
   // case 2, at end of list
   else if (previousLink != 0)
+  {
     currentLink = previousLink->insert(val);
-  
+  }
   // case 3, start of list
   else
     theList.codaSlist::add(val);

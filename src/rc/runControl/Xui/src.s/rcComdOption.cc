@@ -126,6 +126,21 @@ rcComdOption::parseOptions (void)
 	    msqld_ = new char[::strlen (argv_[i]) + 1];
 	    ::strcpy (msqld_, argv_[i]);
       }
+
+      /*sergey*/
+      else if (::strcmp (argv_[i], "-e") == 0 || ::strcmp (argv_[i], "-expid") == 0 || ::strcmp (argv_[i], "-dbasename") == 0)
+      {
+	    i++;
+	    if (i >= argc_ || argv_[i][0] == '-')
+        {
+	      usage (argv_[0]) ;
+	      ::exit (1);
+	    }
+	    dbasename_ = new char[::strlen (argv_[i]) + 1];
+	    ::strcpy (dbasename_, argv_[i]);
+      }
+      /*sergey*/
+
       else if (::strcmp (argv_[i], "-s") == 0 || ::strcmp (argv_[i], "-session") == 0)
       {
 	    i++;
@@ -301,19 +316,20 @@ void
 rcComdOption::usage (char* progname)
 {
   fprintf (stderr, "Command Options are:\n"
-	   "-h, -help --help:      display this text\n"
-	   "-a, -animate    :      animate graphics                      \n"
-	   "-r, -rcServer <host>:  start server on host \"host\"         \n"
-	   "-m, -msqld <host>:     use database daemon on \"host\"       \n"
-	   "-s, -session <name>:   use \"name\" as the session name      \n"
-	   "-v, -verbose    :      verbose error reporting               \n"
-	   "-o, -output     :      local message output                  \n"
-	   "-c, -cedit -codaedit : start coda configuration editor       \n"
-	   "-d, -dbedit     :      start database editor                 \n"
-	   "-r, -rocs       :      start rocs/eb/er/etc windows          \n"
-	   "-A, -autostart  :      start UNIX components when required   \n"
-	   "-w, -wide       :      start in full screen mode             \n"
-	   "-n, -noedit     :      disable editing in codaedit           \n"
+	   "-h, -help, --help             : display this text\n"
+	   "-a, -animate                  : animate graphics                      \n"
+	   "-r, -rcServer <host>          : start server on host \"host\"         \n"
+	   "-m, -msqld <host>             : use database daemon on \"host\"       \n"
+	   "-e, -expid, -dbasename <name> : use \"name\" as the session name      \n"
+	   "-s, -session <name>           : use \"name\" as the session name      \n"
+	   "-v, -verbose                  : verbose error reporting               \n"
+	   "-o, -output                   : local message output                  \n"
+	   "-c, -cedit, -codaedit         : start coda configuration editor       \n"
+	   "-d, -dbedit                   : start database editor                 \n"
+	   "-r, -rocs                     : start rocs/eb/er/etc windows          \n"
+	   "-A, -autostart                : start UNIX components when required   \n"
+	   "-w, -wide                     : start in full screen mode             \n"
+	   "-n, -noedit                   : disable editing in codaedit           \n"
 	   );
 }
 

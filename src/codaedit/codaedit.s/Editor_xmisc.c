@@ -743,11 +743,12 @@ setup_comp_attr(Widget w,
   {
     daq->node_name = strsave(str);
     (*comp->write_hostname)(comp, xgc.dpy, XtWindow(sw_geometry.draw_area));
-    if (!type) {/* add new node mode */
-      /* add default port name */
-      for (i = 0; i < comp->num_ports; i++){
-	if (comp->ip_port[i].ip_addr == NULL)
-	  comp->ip_port[i].ip_addr = strsave (daq->node_name);
+    if (!type) /* add new node mode add default port name */
+	{
+      for (i = 0; i < comp->num_ports; i++)
+      {
+	    if (comp->ip_port[i].ip_addr == NULL)
+	      comp->ip_port[i].ip_addr = strsave (daq->node_name);
       }
     }
     XtFree(str);
@@ -800,6 +801,9 @@ setup_comp_attr(Widget w,
   XtFree(str);
 
   str = XmTextFieldGetString(widgets->code_widget[0]);
+
+  printf("setup_comp_attr: coda_widget[0] (ROL1) >%s<\n",str);
+
   if(daq->type == CODA_ROC)
   {
     if(!str || !*str)
@@ -1320,9 +1324,10 @@ printf("comp->comp.type = %d\n",comp->comp.type);
     /*sergey: for CODA_ROC and CODA_TRIG suggests default readout lists,
       user can change it if necessary*/
 
-#if 0
 	printf("444\n");fflush(stdout);
-    if(comp->comp.boot_string == NULL)
+
+    /*if(comp->comp.boot_string == NULL)*/
+    if(comp->comp.code[0] == NULL)
 	{
 	printf("5\n");fflush(stdout);
       for(i=0; i<3; i++) rols[i] = (char *) calloc(128,1);
@@ -1336,20 +1341,20 @@ printf("comp->comp.type = %d\n",comp->comp.type);
         res = getDefaultCodeFromDbase ("ROC", rols);
 	  }
 	printf("7\n");fflush(stdout);
-
+#if 1
       if(res==0)
 	  {
-	    printf("--> rols[0] >%s<\n",rols[0]);
+	    printf("--> rols[0] >%s< rols[1] >%s<\n",rols[0],rols[1]);
 
         XmTextFieldSetString(atw.code_widget[0], rols[0]);
         XmTextFieldSetString(atw.code_widget[1], rols[1]);
         XmTextFieldSetString(atw.code_widget[2], rols[2]);
 	  }
+#endif
 	printf("8\n");fflush(stdout);
       for(i=0; i<3; i++) free(rols[i]);
 	printf("9\n");fflush(stdout);
 	}
-#endif
 
   }
   else if (comp->comp.type == CODA_EB)

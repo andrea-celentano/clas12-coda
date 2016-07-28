@@ -19,6 +19,8 @@ TI_BUFFER_LEVEL 1                              # 0 - pipeline mode, 1 - ROC Lock
 
 TI_INPUT_PRESCALE bit prescale                 # bit: 0-5, prescale: 0-15, actual prescale value is 2^prescale
 
+TI_INPUT_MASK bit1 bit2 bit3 bit4 bit5 bit6    # bits: 0 or 1
+
 TI_RANDOM_TRIGGER en prescale                  # en: 0=disabled 1=enabled, prescale: 0-15, nominal rate = 500kHz/2^prescale
 
 TI_HOLDOFF   rule   time  timescale            # rule: 1-4, time: 0-127, timescale: 0-1
@@ -58,6 +60,7 @@ static unsigned int delay, offset;
 static int block_level;
 static int buffer_level;
 static int input_prescale[6];
+static int input_mask;
 static int random_enabled;
 static int random_prescale;
 static int holdoff_rules[4];
@@ -114,6 +117,7 @@ tiInitGlobals()
   holdoff_timescale[3] = 0;
   for(ii=0; ii<MAXSLAVES; ii++) slave_list[ii] = 0;
   for(ii=0; ii<6; ii++) input_prescale[ii] = 0;
+  input_mask = 0x3f;
   fiber_in = 1;
 
   return(0);
@@ -130,7 +134,7 @@ tiReadConfigFile(char *filename)
   char   str_tmp[STRLEN], keyword[ROCLEN];
   char   host[ROCLEN], ROC_name[ROCLEN];
   char   str2[2];
-  int    args, i1, i2, i3;
+  int    args, i1, i2, i3, i4, i5, i6;
   int    slot, chan;
   unsigned int  ui1, ui2;
   char *getenv();
@@ -239,13 +243,23 @@ tiReadConfigFile(char *filename)
         sscanf (str_tmp, "%*s %d %d", &i1, &i2);
         if((i1 < 1) || (i1 > 6))
         {
-          printf("\nReadConfigFile: Invalid prescaler inputs selction, %s\n",str_tmp);
+          printf("\nReadConfigFile: Invalid prescaler inputs selection, %s\n",str_tmp);
         }
         if((i2 < 0) || (i2 > 15))
         {
-          printf("\nReadConfigFile: Invalid prescaler value selction, %s\n",str_tmp);
+          printf("\nReadConfigFile: Invalid prescaler value selection, %s\n",str_tmp);
         }
         input_prescale[i1-1] = i2;
+      }
+
+      else if(active && (strcmp(keyword,"TI_INPUT_MASK")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d %d %d %d %d",&i1,&i2,&i3,&i4,&i5,&i6);
+        if( (i1!=0)||(i1!=1)||(i2!=0)||(i2!=1)||(i3!=0)||(i3!=1)||(i4!=0)||(i4!=1)||(i5!=0)||(i5!=1)||(i6!=0)||(i6!=1) )
+        {
+          printf("\nReadConfigFile: Invalid input mask selection, %s\n",str_tmp);
+        }
+        input_mask = i1+(i2<<1)+(i3<<2)+(i4<<3)+(i5<<4)+(i6<<5);
       }
 
       else if(active && (strcmp(keyword,"TI_RANDOM_TRIGGER")==0))
@@ -331,6 +345,8 @@ tiDownloadAll()
   /*for(ii=0; ii<nslave; ii++) tiAddSlave(slave_list[ii]); done automatically in ROL1 */
   for(ii=0; ii<6; ii++) tiSetInputPrescale(ii+1,input_prescale[ii]);
 
+  tiEnableTSInput(input_mask);
+
   for(ii=0; ii<4; ii++) tiSetTriggerHoldoff(ii+1,holdoff_rules[ii],holdoff_timescale[ii]);
   
   tiSetFiberDelay(delay, offset);
@@ -400,6 +416,9 @@ tiUploadAll(char *string, int length)
   /*
   printf("tiUploadAll: block_level=%d, buffer_level=%d\n",block_level,buffer_level);
   */
+
+  input_mask = tiGetTSInputMask();
+
   for(ii = 0; ii < 6; ii++)
   {
     input_prescale[ii] = tiGetInputPrescale(ii+1);
@@ -438,6 +457,11 @@ tiUploadAll(char *string, int length)
       sprintf(sss,"TI_HOLDOFF %d %d %d\n",ii+1,holdoff_rules[ii],holdoff_timescale[ii]);
       ADD_TO_STRING;
     }
+
+    sprintf(sss,"TI_INPUT_MASK %d %d %d %d %d %d\n",
+      (input_mask>>5)&1,(input_mask>>4)&1,(input_mask>>3)&1,
+      (input_mask>>2)&1,(input_mask>>1)&1,(input_mask)&1);
+    ADD_TO_STRING;
 
     for(ii = 0; ii < 6; ii++)
     {

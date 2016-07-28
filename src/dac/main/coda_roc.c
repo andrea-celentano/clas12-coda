@@ -36,6 +36,15 @@ int tcpServer(char *name);
 #include "circbuf.h"
 #include "bigbuf.h"
 
+
+static unsigned int tloop1=0;
+static unsigned int tloop2=0;
+static unsigned int tloop3=0;
+static unsigned int tloop4=0;
+static unsigned int tloop5=0;
+static unsigned int tloop6=0;
+
+
 #define CODA_ERROR 1
 #define CODA_OK 0
 
@@ -76,7 +85,8 @@ int rocMask = 0;
 /*static*/ int rocp_primefd;
 /*static*/ int rocp_recNb;
 
-/*static*/ /*time_t*/hrtime_t timeout;
+static /*time_t*/hrtime_t currenttime;
+static /*time_t*/hrtime_t timeout;
 
 
 
@@ -96,7 +106,8 @@ static hrtime_t time3;
 
 static char confFile[256];
 
-extern char    *session; /* coda_component.c */
+extern char *expid; /* coda_component.c */
+extern char *session; /* coda_component.c */
 
 #include "libdb.h"
 
@@ -117,6 +128,7 @@ static int print_output_buffers_are_full = 1; /* enable warning message */
 
 /*static*/ int tsendBufSize = 0; /* total buffer size; can be <= SEND_BUF_SIZE */
 
+/*static*/ unsigned int g_max_ev_in_buf = 32;
 /*static*/ unsigned int g_events_in_buffer = 0;
 
 /* socket number */
@@ -579,7 +591,7 @@ mytest1(char *confname)
   int numRows;
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
   printf("3122: dbsock=%d\n",dbsock);
   if(dbsock==NULL)
   {
@@ -776,12 +788,12 @@ codaDownload(char *confname)
 	}
   }
 
-printf("31: >%s< >%s<\n",getenv("MYSQL_HOST"), getenv("EXPID"));fflush(stdout);
+printf("31: >%s< >%s<\n",getenv("MYSQL_HOST"), expid);fflush(stdout);
 
 
   /* connect to database */
   printf("MYSQL_HOST >%s<\n",getenv("MYSQL_HOST"));fflush(stdout);
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
   printf("3123: dbsock=%d\n",dbsock);fflush(stdout);
   if(dbsock==NULL)
   {
@@ -1089,7 +1101,7 @@ printf("codaDownload: listArgc=%d listArgv >%s< >%s<\n",listArgc,listArgv[0],lis
 
 /* connect to database */
 printf("MYSQL_HOST >%s<\n",getenv("MYSQL_HOST"));fflush(stdout);
-dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
 printf("3123-1: dbsock=%d\n",dbsock);fflush(stdout);
 if(dbsock==NULL)
 {
@@ -1437,7 +1449,7 @@ codaPrestart()
   /* connect to database */
   /***********************/
 
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
   printf("315: dbsock=%d\n",dbsock);
   if(dbsock==NULL)
   {
@@ -1700,6 +1712,17 @@ codaEnd()
     }
   }
 
+
+  /*sergey 2016 
+  if(nrols>1)
+  {
+    printf("calls 'proc_end', rocid=%d\n",rocId());
+    proc_end(rocId());
+  }
+  sergey 2016 */
+
+
+
   if((rocp->async_roc_flag == 1))
   {
     printf("codaEnd: go to Downloaded for async roc\n");fflush(stdout);
@@ -1925,10 +1948,12 @@ codaGo()
     if(object->nevents < 10) \
     { \
       timeout = gethrtime() + 1*100000; \
+	  /*printf("SET_TIMEOUT 3: timeout=%lld\n",timeout);*/	\
     } \
     else \
     { \
-      timeout = gethrtime() + (token_interval/60)*1000000;	/*1sec*/	\
+      timeout = gethrtime() + (token_interval/60)*100000;	/*1000000 - 1sec*/	\
+	  /*printf("SET_TIMEOUT 4: timeout=%lld\n",timeout);*/				\
     }
 
 /*
@@ -1954,6 +1979,12 @@ codaGo()
 */
 
 void
+tloopprint()
+{
+  printf("tdisp = %u %u %u %u %u %u\n",tloop1,tloop2,tloop3,tloop4,tloop5,tloop6);
+}
+
+void
 rols_loop()
 {
   objClass object = localobject;
@@ -1964,12 +1995,17 @@ rols_loop()
 
   /* some initialization */
   icycle3=0;
-  timeout = 0;
   dataInBuf = BBHEAD_BYTES;
   g_events_in_buffer = 0;
   clear_to_send = 0;
   SET_TIMEOUT(88);
 
+  tloop1=0;
+  tloop2=0;
+  tloop3=0;
+  tloop4=0;
+  tloop5=0;
+  tloop6=0;
   while(1)
   {
     setHeartBeat(HB_ROL,0,5);
@@ -1980,7 +2016,7 @@ rols_loop()
       return;
     }
     setHeartBeat(HB_ROL,1,5);
-
+    tloop1++;
     output_proc_network(0);
 
   }
@@ -1998,7 +2034,8 @@ rols_loop()
     /* send current output buffer */ \
     /* set now 'dabufp' to the beginning of */ \
     /* 'big' buffer just to fill a header   */ \
-    /*printf("1 SEND_BUFFER_ROC %d (0x%08x)\n",abc,dabufp);*/ \
+	/*prints all the time*/ \
+    /*printf("1 SEND_BUFFER_ROC %d (0x%08x)\n",abc,dabufp);*/	\
     dabufp = bb_write_current(&gbigDMA); \
     /*printf("2 SEND_BUFFER_ROC %d (0x%08x %d) (conditions %d %d)\n",abc,dabufp,dabufp[0],clear_to_send,rocp_primefd);*/ \
     /*setHeartBeat(HB_ROL,15,5);*/ \
@@ -2024,7 +2061,8 @@ rols_loop()
     /*printf("SSS2 %d (0x%08x %d)\n",abc,dabufp,dabufp[0]);*/ \
     if(dabufp[BBIWORDS] > BBHEAD) \
     { \
-	  /*printf("coda_roc: bb_write 1\n");*/	\
+      /* prints all the time */ \
+	  /*printf("coda_roc: calling 'bb_write', MAY WAIT INSIDE FOREVER IF THERE IS NO SPACE !!!!!!!!!!!!!!!!!!!\n");*/ \
       dabufp = bb_write(&gbigDMA); \
       if(dabufp == NULL) \
       { \
@@ -2136,6 +2174,7 @@ else bb_cleanup(&bignet.gbigin);
     nevent = time1 = time2 = 0;
     do
     {
+      tloop2++;
       start = gethrtime();
       setHeartBeat(HB_ROL,3,5);
 
@@ -2163,15 +2202,56 @@ bla2
 #endif
 #endif
 
+      tloop3++;
 TRANSITION_LOCK;
           rolP->daproc = DA_POLL_PROC;
-	      /* printf("11: befor ROL1\n");fflush(stdout);*/
+	      /*printf("11: befor ROL1\n");fflush(stdout);*/
+      tloop4++;
           (*rolP->rol_code) (rolP); /* pseudo-trigger cdopoll */
-	      /* printf("11: after ROL1\n");fflush(stdout);*/
+      tloop5++;
+	      /*printf("11: after ROL1\n");fflush(stdout);*/
 TRANSITION_UNLOCK;
+      tloop6++;
 
           setHeartBeat(HB_ROL,22,5);
         }
+
+
+		/*
+..........................................
+[1] bb_write_current (in):  write=4 read=8
+[1] bb_write_current (out): write=4 read=8
+[1] bb_write (in):          write=4 read=8
+[1] bb_write (out):         write=5 read=8
+
+[1] bb_write_current (in):  write=5 read=8
+[1] bb_write_current (out): write=5 read=8
+[1] bb_write (in):          write=5 read=8
+[1] bb_write (out):         write=6 read=8
+
+[1] bb_write_current (in):  write=6 read=8
+[1] bb_write_current (out): write=6 read=8
+[1] bb_write (in):          write=6 read=8
+[1] bb_write (out):         write=7 read=8
+
+[1] bb_write_current (in):  write=7 read=8
+[1] bb_write_current (out): write=7 read=8
+[1] bb_write (in):          write=7 read=8
+
+  3: ROLS_LOOP LOCKed, waiting to send buffer ...
+  1 SEND_BUFFER_ROC 3 (0x00000000)
+  [1] bb_write_current (in):  write=7 read=8
+  [1] bb_write_current (out): write=7 read=8
+  coda_roc: calling 'bb_write', MAY WAIT INSIDE FOREVER IF THERE IS NO SPACE !!!!!!!!!!!!!!!!!!!
+  [1] bb_write (in):          write=7 read=8
+
+setHeartError: 0 >sys 0, mask 22<
+WARN: HeartBeat[0]: heartbeat=1469225947(1469225947) heartmask=22
+UDP_cancel: cancel >inf:adcecal5 sys 0, mask 22<
+
+		*/
+
+
 
         /* 'delayed' done */
         if(rolP->doDone)
@@ -2182,11 +2262,11 @@ TRANSITION_UNLOCK;
           because it was no space in buffer for the next event */
           /* here we wait for buffer become available, and call "__done()" ourself */
           SENDBUFFER_LOCK;
-          /*printf("ROLS_LOOP LOCKed, waiting to send buffer ...\n");fflush(stdout);*/
+          printf("3: ROLS_LOOP LOCKed, waiting to send buffer ...\n");fflush(stdout);
           SEND_BUFFER_(3);
-          /*printf("ROLS_LOOP LOCKed, buffer sent\n");fflush(stdout);*/
+          printf("3: ROLS_LOOP LOCKed, buffer sent\n");fflush(stdout);
           SENDBUFFER_UNLOCK;
-          /*printf("ROLS_LOOP UNLOCKed\n");fflush(stdout);*/
+          printf("3: ROLS_LOOP UNLOCKed\n");fflush(stdout);
 		  /* call done only if writing was successful !!!???*/
           setHeartBeat(HB_ROL,23,5);
 TRANSITION_LOCK;
@@ -2197,33 +2277,70 @@ TRANSITION_UNLOCK;
           setHeartBeat(HB_ROL,24,5);
 		}
       }
+
+      setHeartBeat(HB_ROL,25,5);
+
       /* end of ROL1 */
 	  /***************/
 
       /* update statistics: 'object_nlongs' updated by ROL1, we just copying to old location*/
 	  object->nlongs = object_nlongs;
 
-      /* check for timeout - NEED TO SYNCHRONIZE WITH ROL1 !!! */
-      /* on timeout condition we are sending ONLY if buffer is not empty - this is what we want ? */
-      if(/*time(0)*/gethrtime() > timeout)
+
+
+
+
+
+
+	  /* need following to send buffer on 'timeout' for low datarate crates, otherwise it will never send anything
+		 because high datarate crates will fill EB buffers and ... ???????? */
+
+      /*if(rocp->state == DA_ENDING)*/
       {
-		/*printf("coda_roc: timeout.. timeout=%d\n",timeout);*/
-        if(dataInBuf > BBHEAD_BYTES)
+        /* check for timeout - NEED TO SYNCHRONIZE WITH ROL1 !!! */
+        /* on timeout condition we are sending ONLY if buffer is not empty - this is what we want ? */
+        currenttime = gethrtime();
+        if(currenttime > timeout)
         {
-		  /*printf("coda_roc: ..sent ! dataInBuf=%d BBHEAD_BYTES=%d\n",dataInBuf,BBHEAD_BYTES);*/
-          clear_to_send  = 1;
-      SENDBUFFER_LOCK;
-          SEND_BUFFER_(4);
-      SENDBUFFER_UNLOCK;
+/*prints all the time
+		  printf("coda_roc: currenttime=%lld timeout=%lld dataInBuf=%d\n",currenttime,timeout,dataInBuf);fflush(stdout);
+*/
+          if(dataInBuf > BBHEAD_BYTES)
+          {
+/*prints all the time
+		    printf("coda_roc: ..sent ! dataInBuf=%d BBHEAD_BYTES=%d\n",dataInBuf,BBHEAD_BYTES);
+*/
+            clear_to_send  = 1;
+            SENDBUFFER_LOCK;
+/*prints all the time
+            printf("4: ROLS_LOOP LOCKed, waiting to send buffer ...\n");fflush(stdout);
+*/
+            SEND_BUFFER_(4);
+/*prints all the time
+            printf("4: ROLS_LOOP LOCKed, buffer sent\n");fflush(stdout);
+*/
+            SENDBUFFER_UNLOCK;
+/*prints all the time
+            printf("4: ROLS_LOOP UNLOCKed\n");fflush(stdout);
+*/
+          }
+          else
+		  {
+            SET_TIMEOUT(89);
+		  }
+/*prints all the time
+          printf(" ..break, timeout=%lld\n",timeout);fflush(stdout);
+*/
+          break;
         }
-        else
-		{
-          SET_TIMEOUT(89);
-		}
-        /*printf(" ..break\n");fflush(stdout);*/
-        break;
+        setHeartBeat(HB_ROL,26,5);
       }
-      
+
+
+
+
+
+
     } while(1); /* 'do' loop */
     /**********************************************/
     /**********************************************/

@@ -7,3 +7,19 @@ EditorSelectConfig: confn >dc12<
 initConfigSel reached
 initConfigSel: already inited - do nothing
 Construct comp clastrig2 26  TS clastrig2 
+
+
+==================================================
+
+moving TS from 'process' to 'config':
+
+'process' table used:
+
+Editor_database.c:
+  createProcessTable (void)
+  removeDaqCompFromProcTable (char* name)
+  isDaqCompInProcTable (char* name)
+  insertDaqCompToProcTable (daqComp* comp)
+  updateDaqCompToProcTable (daqComp* comp)
+  createRcNetCompsFromDbase (rcNetComp** comp, int *num)
+

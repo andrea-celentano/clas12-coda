@@ -70,7 +70,7 @@ main(int argc, char *argv[])
   }
   */
 
-  slot = 3;
+  slot = 9;
   partype = SCALER_PARTYPE_THRESHOLD;
   ret = tcp->GetBoardParams(slot, partype, &buf, &len);
   for(ii=0; ii<len; ii++) {printf("ch[%2d] thres1=%d\n",ii,buf[ii]);fflush(stdout);}
@@ -95,10 +95,14 @@ main(int argc, char *argv[])
   while(1)
   {
 	
-    slot=3;
+    slot=9;
     ret = tcp->ReadScalers(slot, &buf, &len);
-    printf("cratemsgclienttest: ret=%d, len=%d slot=%d\n",ret,len, slot);
-    for(ii=0; ii<len; ii++) printf("  cratemsgclienttest: [%2d] %10d 0x%08x (swap 0x%08x)\n",ii,buf[ii],buf[ii],LSWAP(buf[ii]));fflush(stdout);
+//    printf("cratemsgclienttest: ret=%d, len=%d slot=%d\n",ret,len, slot);
+//    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    ii = 35;
+    printf("lead glass sum: %10d \n",buf[ii]);fflush(stdout);
+    ii = 36;
+    printf("total sum:      %10d \n",buf[ii]);fflush(stdout);
     delete [] buf;
 
 	/*

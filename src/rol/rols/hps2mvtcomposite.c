@@ -127,7 +127,8 @@ int MVT_PRESCALE = 0;
 int MVT_NBR_OF_BEU = 0;
 int MVT_NBR_EVENTS_PER_BLOCK = 0;
 int MVT_NBR_SAMPLES_PER_EVENT = 0;
-int MVT_NBR_OF_FEU[DEF_MAX_NB_OF_BEU] = {0}; 
+int MVT_NBR_OF_FEU[DEF_MAX_NB_OF_BEU] = {0}; // PROBLEM WITH THIS ARRAY !!! Pour acceder au nombre de feu sur une beu, j'utilise soit un index de beu soit un beuid ...bref, je me mélange.
+					     // Il me faut une correspondance beuID numero de beu ... bref, il faut harmoniser tout cela !!			
 int mvt_event_number = 0; 
 
 
@@ -184,7 +185,7 @@ __prestart()
 	/* Register a sync trigger source (up to 32 sources) */
 	CTRIGRSS(EVENT, 1, rol2trig, rol2trig_done); /* second arg=1 - what is that ? */
 
-	rol2_report_raw_data = daqGetReportRawData();
+	rol2_report_raw_data = daqGetReportRawData() | mvtGetRepRawData();
 	printf("ROL2: rol2_report_raw_data set to %d\n",rol2_report_raw_data);
 
 	rol->poll = 1;
@@ -556,7 +557,8 @@ FCCA FCAA
 
 		else if(banktag[jj] == 0xe118) /* MVT hardware format */
 		{
-		  REPORT_RAW_BANK_IF_REQUESTED;
+			if( ((mvt_event_number%MVT_PRESCALE)==0) && (MVT_PRESCALE!=1000000) )
+		  		REPORT_RAW_BANK_IF_REQUESTED;
 		  banknum = rol->pid;
 #ifdef DEBUG6
 if( mvt_fptr_err_2 != (FILE *)NULL )
@@ -847,7 +849,7 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 	/*loop over events*/
 	for(iev=0; iev<nnE; iev++)
 	{
-		mvt_event_number ++;
+//		mvt_event_number ++;
 		lenev = 2;
 
 		banknum = iev; /* using event number inside block as bank number - for now */
@@ -1044,14 +1046,16 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 }
 #endif
 									//OUTPUT CURRENT TIMESTAMP 
-									current_timestamp_low = (( datain[ ( iSMP[jj][ibl][iev][0] + 2 ) ] ) & 0x7FFF0000) << 1 +
- 											(( datain[ ( iSMP[jj][ibl][iev][0]     ) ] ) & 0x00000800) << 5 ;
-									current_timestamp_high = (( datain[ ( iSMP[jj][ibl][iev][0] + 1 ) ] ) & 0x7FFF0000) >>  1 + 
-											(( datain[ ( iSMP[jj][ibl][iev][0] + 1 ) ] ) & 0x00007FFF);		
+									current_timestamp_low = ((( datain[ ( iSMP[jj][ibl][iev][0] + 2 ) ] ) & 0x7FFF0000) << 1) +
+ 											(((~( datain[ ( iSMP[jj][ibl][iev][0]     ) ] )) & 0x00000800) << 5) ;
+	
+									current_timestamp_high = ((( datain[ ( iSMP[jj][ibl][iev][0] + 1 ) ] ) & 0x7FFF0000) >>  1) + 
+											((( datain[ ( iSMP[jj][ibl][iev][0] + 1 ) ] ) & 0x00007FFF));		
 
 									ii = iFEU[jj][ibl][iev][0][i_feu];
 									current_feu_tmstmp   = current_timestamp_low +
 											((( datain[ ii + 2] ) & 0x0FFF0000) >>  13 )+  (( datain[ ii + 2] ) & 0x00000007);
+									current_feu_tmstmp |= ((MVT_ZS_MODE &0x1)<<15);
 							        	a_trigtime[0] = current_timestamp_high;
              								a_trigtime[1] = current_feu_tmstmp;
 #ifdef DEBUG7								
@@ -1271,7 +1275,7 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 			lenout  += 2;
 		}
 #endif // #ifdef SPLIT_BLOCKS
-
+		mvt_event_number ++;
 	} // for(iev=0; iev<nnE; iev++) /* loop over events */
 
 	/* returns full fragment length (long words) */  

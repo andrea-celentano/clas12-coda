@@ -51,6 +51,7 @@ CODA_decode_frag(unsigned int **datap, evDesc desc)
 {
   desc->length = ((*datap)[0] - 1) << 2;
   desc->evnb   = (*datap)[1] & 0xff;
+  /*printf("??? iev=%d\n",desc->evnb);*/
   desc->type   = ((*datap)[1] >> 16) & 0x00ff;
   SOFT_TRIG_FIX;
   desc->fragments[0] = &(*datap)[2];

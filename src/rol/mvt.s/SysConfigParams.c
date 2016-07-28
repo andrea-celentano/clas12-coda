@@ -111,6 +111,7 @@ int SysParams_Init( SysParams *params )
 	params->NbOfSmpPerEvt     = 0;
 	params->NbOfEvtPerBlk     = 0;
 	params->BlockPrescale     = 1;
+	params->RepRawData        = 0;
 
 	// System topology
 	for( bec=0; bec<DEF_MAX_NB_OF_BEC; bec++ )
@@ -184,6 +185,7 @@ int SysParams_Sprintf( SysParams *params, char *buf  )
 	sprintf( buf, "%sSys ClkMode        %s\n", buf, SysClkMode2Str( params->ClkMode ) );
 	sprintf( buf, "%sSys SparseSmp      %d\n", buf, params->SparseSmp );
 	sprintf( buf, "%sSys BlockPrescale  %d\n", buf, params->BlockPrescale );
+	sprintf( buf, "%sSys BRepRawData    %d\n", buf, params->RepRawData );
 
 //fprintf( stderr, "%s: Global parameters OK\n", __FUNCTION__ );
 
@@ -561,7 +563,8 @@ int SysParams_Prop( SysParams *params )
 			sprintf( feu_params->Main_Conf_ClkSel, "RecClk" );
 			feu_params->Feu_Pwr_Dream = 0xF;
 			feu_params->Feu_Pwr_PrtFlt = 0xFFFF;
-			feu_params->Feu_RunCtrl_DrDblSmpClk = params->SparseSmp;
+			feu_params->Feu_RunCtrl_DrDblSmpClk = 0;
+			feu_params->Main_Conf_DataPipeLen = params->SparseSmp;
 			feu_params->Feu_RunCtrl_AdcDatRdyDel = 8;
 			feu_params->Feu_RunCtrl_EvTstExt = 0;
 //			feu_params->Feu_Pulser_Enable = 0;
@@ -570,6 +573,7 @@ int SysParams_Prop( SysParams *params )
 			feu_params->Feu_PreScale_EvtData = 1;
 			sprintf( feu_params->Trig_Conf_Src, "Tg_Src_Int" );
 			sprintf( feu_params->Trig_Conf_File, "None" );
+			feu_params->Trig_Conf_TrigVetoLen = 0;
 			feu_params->Trig_Conf_Rate = 0;
 			feu_params->TI_Ignore = 1;
 			feu_params->TI_DcBal_Enc = 0;
@@ -577,10 +581,12 @@ int SysParams_Prop( SysParams *params )
 			feu_params->TI_Bert = 0;
 			feu_params->SelfTrig_DreamMask = 0xFF;
 			feu_params->SelfTrig_Mult = 7;
-			feu_params->SelfTrig_CmbHitProp = 0;
+			feu_params->SelfTrig_CmbHitPropFb = 0;
+			feu_params->SelfTrig_CmbHitPropOl = 0;
 			feu_params->SelfTrig_TrigTopo = 0;
 			feu_params->SelfTrig_DrmHitWid = 0x3F;
 			feu_params->SelfTrig_CmbHitWid = 0x3F;
+			feu_params->SelfTrig_Veto = 0xFFFFFF;
 			feu_params->UdpChan_Enable = 0;
 			feu_params->ComChan_Enable = 1;
 			// Dream clock parameters
@@ -677,10 +683,10 @@ int SysParams_Parse( SysParams *params, int line_num )
 			{
 				params->SparseSmp = atoi( argv[2] );
 				// Check the parameter: has to be derived from FeuConfigParams.h
-				if( (params->SparseSmp < 0) || (1 < params->SparseSmp) )
+				if( (params->SparseSmp < 0) || (7 < params->SparseSmp) )
 				{
 					params->SparseSmp = 0;
-					fprintf( stderr, "%s: line %d: attempt to set unsupported SparseSmp %s; must be in [0,1]\n", __FUNCTION__, line_num, argv[2] ); 
+					fprintf( stderr, "%s: line %d: attempt to set unsupported SparseSmp %s; must be in [0,7]\n", __FUNCTION__, line_num, argv[2] ); 
 					return D_RetCode_Err_Wrong_Param;
 				}
 			}
@@ -713,6 +719,16 @@ int SysParams_Parse( SysParams *params, int line_num )
 				{
 					params->BlockPrescale = 1;
 					fprintf( stderr, "%s: line %d: attempt to set negative or 0 BlockPrescale %s; must be positive\n", __FUNCTION__, line_num, argv[2] ); 
+					return D_RetCode_Err_Wrong_Param;
+				}
+			}
+			else if( strcmp( argv[1], "RepRawData" ) == 0 )
+			{
+				params->RepRawData = atoi( argv[2] );
+				if( (params->RepRawData < 0) || (1 < params->RepRawData) )
+				{
+					params->RepRawData = 0;
+					fprintf( stderr, "%s: line %d: attempt to set unsupported RepRawData %s; must be 0 or 1\n", __FUNCTION__, line_num, argv[2] ); 
 					return D_RetCode_Err_Wrong_Param;
 				}
 			}

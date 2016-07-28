@@ -69,7 +69,7 @@ static int dscID_daq[DSC_MAX_BOARDS+1];        /* array of slot numbers for daq 
 static int Ndsc_tcp = 0;                       /* Number of DSCs for tcpserver's scalers readout */
 static int dscID_tcp[DSC_MAX_BOARDS+1];        /* array of slot numbers for tcpserver's scalers readout */
 
-#undef DEBUG
+#define DEBUG
 
 #define FNLEN     128       /* length of config. file name */
 #define STRLEN    250       /* length of str_tmp */
@@ -368,7 +368,7 @@ dsc2ReadConfigFile(char *filename)
         {
           slot1 = atoi(str2);
           slot2 = slot1 + 1;
-          if(slot1<2 && slot1>21)
+          if(slot1<0 && slot1>21)
           {
             printf("\nReadConfigFile: Wrong slot number %d\n\n",slot1);
             return(-4);
@@ -412,7 +412,7 @@ dsc2ReadConfigFile(char *filename)
       else if(active && ((strcmp(keyword,"DSC2_CH_THRESHOLD") == 0) && (kk >= 0)))
       {
         sscanf (str_tmp, "%*s %d %d %d", &chan, &i1, &i2);
-		printf("--> %d %d %d\n",chan, i1, i2);
+		printf("--> slot1=%d slot2=%d chan=%d i1=%d i2=%d\n",slot1, slot2, chan, i1, i2);
         if((chan<0) || (chan>=NCHAN))
         {
           printf("\nReadConfigFile: Wrong channel number, %d\n\n",chan);
@@ -420,6 +420,14 @@ dsc2ReadConfigFile(char *filename)
         }
         for(slot=slot1; slot<slot2; slot++) TDCThreshold[slot][chan] = i1;
         for(slot=slot1; slot<slot2; slot++) TRGThreshold[slot][chan] = i2;
+
+		/*
+slot = 9;
+for(jj=0;jj<NCHAN;jj++) printf("!!!      chan=%2d, TDCThreshold=%d, TRGThreshold=%d\n",jj,TDCThreshold[slot][jj],TRGThreshold[slot][jj]);
+		*/
+
+
+
       }
 
       else if(active && ((strcmp(keyword,"DSC2_TRGDIGITAL") == 0) && (kk >= 0)))
@@ -444,7 +452,7 @@ dsc2ReadConfigFile(char *filename)
       else if(active && ((strcmp(keyword,"DSC2_ENABLE_DAQ_READOUT") == 0) && (kk >= 0)))
       {
         sscanf (str_tmp, "%*s %d", &slot);
-        if((slot<2) || (slot>=21))
+        if((slot<0) || (slot>=21))
         {
           printf("\nReadConfigFile: Wrong slot number, %d\n\n",slot);
           return(-6);
@@ -493,6 +501,8 @@ dsc2ReadConfigFile(char *filename)
   fclose(fd);
 
 
+  printf("dsc2ReadConfigFile !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+
 #ifdef DEBUG
   Ndsc = dsc2GetNdsc();
   for(ii=0; ii<Ndsc; ii++)
@@ -515,6 +525,7 @@ dsc2ReadConfigFile(char *filename)
 	}
     printf("   scalerRefPrescale=%d\n",scalerRefPrescale[slot]);
     printf("   scalerFlags=%d\n",scalerFlags[slot]);
+	printf("   daq readout=%d\n",DAQReadoutMask[slot]);
   }
 #endif
 
@@ -643,18 +654,18 @@ dsc2Mon(int slot)
 
   if(Ndsc_daq)
   {
-    printf("Following %d slots are set for daq readout:\n",Ndsc_daq);
+    printf("Following %d slots are set for daq readout: ",Ndsc_daq);
+    for(jj=0; jj<Ndsc_daq; jj++) printf(" %d",dscID_daq[jj]);
+    printf("\n");
   }
   else
   {
     printf("There are no daq readout slots\n");
-    for(jj=0; jj<Ndsc_daq; jj++) printf(" %d",dscID_daq[jj]);
-    printf("\n");
   }
 
   if(Ndsc_tcp)
   {
-    printf("Following %d slots are set for tcpserver readout:\n",Ndsc_tcp);
+    printf("Following %d slots are set for tcpserver readout: ",Ndsc_tcp);
     for(jj=0; jj<Ndsc_tcp; jj++) printf(" %d",dscID_tcp[jj]);
     printf("\n");
   }

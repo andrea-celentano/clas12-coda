@@ -1007,18 +1007,22 @@ rcRocMenuWindow::CreateOptionMenu (Widget parent)
 void
 rcRocMenuWindow::RocsSelectConfig(char *currconfig)
 {
+  rcComdOption* option = rcComdOption::option ();
   int ii, ncomp_old, jj, kk, ret, i = 0;
   char temp[128], temp2[128];
   rcNetComp* daq_list[MAX_NUM_COMPS];
   int        num_comps;
   ConfigInfo* configs[EDITOR_MAX_CONFIGS];
   int        num_configs;
-
-  char *session = getenv("SESSION");
   pid_t pid;
   int myargc;
   char *myargv[20];
+  char *expid;
+  char *session;
 
+  expid = option->dbasename();
+  session = option->session();
+  printf("\n>>> Will use expid(dbasename) >%s<, session name >%s<\n\n",expid,session);
 
   /* cleanup previously opened components if any */
   if(ncomp_)
@@ -1063,7 +1067,7 @@ rcRocMenuWindow::RocsSelectConfig(char *currconfig)
 	  */
       for(ii=0; ii<num_configs; ii++)
 	  {
-		/*
+		
         printf("  Comp[%d] name >%s<\n",ii,configs[ii]->comp_name);
         printf("      code0 >%s<\n",configs[ii]->code[0]);
         printf("      code1 >%s<\n",configs[ii]->code[1]);
@@ -1081,7 +1085,7 @@ rcRocMenuWindow::RocsSelectConfig(char *currconfig)
           printf("     output:comp_name >%s<, output:port_name >%s<\n",
 				 configs[ii]->outputs[jj]->comp_name,configs[ii]->outputs[jj]->port_name);
         }
-		*/
+		
 
         /* skip coda_xxx, we will not start xterm for it */
         if(!strncmp(configs[ii]->comp_name,"coda_",5))
@@ -1218,7 +1222,7 @@ rcRocMenuWindow::RocsSelectConfig(char *currconfig)
           sprintf(temp,"stop_coda_process -p %s -match \"%s %s\"",comp[kk].boot_string,comp[kk].comp_name,type_name[kk]);
           myargv[myargc++] = strdup( temp );
 
-          sprintf(temp,"%s -s %s -o \"%s %s\":%s %s",comp[kk].boot_string,session,comp[kk].comp_name,type_name[kk],comp[kk].comp_name,type_name[kk]);
+          sprintf(temp,"%s -e %s -s %s -o \"%s %s\":%s %s",comp[kk].boot_string,expid,session,comp[kk].comp_name,type_name[kk],comp[kk].comp_name,type_name[kk]);
           myargv[myargc++] = strdup( temp );
 
 

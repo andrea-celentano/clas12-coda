@@ -12,6 +12,8 @@ static int nusertrig, ndone;
 
 #define USE_FASTBUS
 
+#undef USE_SEQUENCER
+
 #undef DEBUG
 
 
@@ -100,6 +102,19 @@ int CrateID;
 int HeaderID;
 int SlotHi, SlotLo, SlotsContiguous;
 char myhostname[256];
+
+#ifdef USE_SEQUENCER
+
+/* 1881 broadcast class will be 0 */
+#define BROADCAST_1881  1
+#define BROADCAST_1881_CODE  0x5
+
+#define MAX1881LENGTH   68/*actually 65, give it some more*/
+#define NDMASTAT        3
+unsigned int RAM_ADDR = 0x100;
+
+#endif
+
 #endif
 
 void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE);
@@ -180,6 +195,55 @@ extern int rocMask; /* defined in roc_component.c */
 #endif
 
 
+#ifdef USE_SEQUENCER
+void
+sfiRamLoad()
+{
+  int islot = 0;
+
+  /* Setup Sequencer for RAM List Loading at RAM_ADDR */
+  SFI_RAM_LOAD_ENABLE(RAM_ADDR);
+
+
+#if 1 /* CLAS version */
+
+  /* broadcast to load next event for 1881/1877/1877S (increment readpointer)*/
+  FBWCM(BROADCAST_1881_CODE,0,0x400);
+
+  /* set starting address to the first(highest) slot */
+  FBAD(SlotHi,0);
+
+  /* block read: use FBBR() for 32-bit or FBBRF() for 64-bit transfer */
+  FBBR(MAX1881LENGTH*Nmodules); /* use the biggest length can be */
+  FBREL;
+
+  /*........... Store final word count in FIFO*/
+  FBSWC;
+  /*FBEND*/;                         /*..... End of List */
+  /*SFI_WAIT;*/                      /*..... Wait a little */
+  /*SFI_RAM_LOAD_DISABLE;*/          /*..... Re-enable Sequencer */
+
+#else
+
+  /* Load the List */
+  for(islot=SlotLo; islot<=SlotHi; islot++)
+  {
+    FBWC(islot,0,0x400);        /* Write CSR0 Write 0x400 and release (Load Next Event) */
+    FBAD(islot,0);              /* Address Module DSR0 */
+    FBBR(300);                  /* Start Block Read (maxwords=300) (And Clear Word Counter) */
+    FBSWC;                      /* Store word count into fifo */
+    FBREL;                      /* Release the Bus */
+  }
+
+#endif
+
+
+  FBEND;                         /* End of List */
+  /*clas had SFI_WAIT;*/taskDelay(1);                  /* Wait a little */
+  SFI_RAM_LOAD_DISABLE;          /* Re-enable Sequencer */
+
+}
+#endif
 
 void
 tsleep(int n)
@@ -556,25 +620,39 @@ __prestart()
 
 #ifndef TI_SLAVE
 vmeBusLock();
-tiSetBusySource(TI_BUSY_LOOPBACK,0);
-  /*tiSetBusySource(TI_BUSY_FP,0);*/
+//tiSetBusySource(TI_BUSY_LOOPBACK,0);
+//  tiSetBusySource(TI_BUSY_FP,0);
 vmeBusUnlock();
 #endif
 
 
 
 #ifdef USE_FASTBUS
+
+
+  /* Enable SFI Sequencer */
 vmeBusLock();
   sfiEnableSequencer();
 vmeBusUnlock();
+
+#ifdef USE_SEQUENCER
+  /* Load directives into the sequencer */
+vmeBusLock();
+  sfiRamLoad();
+vmeBusUnlock();
+
+#endif
 
   /*if(nfadc>0)*/
   {
     printf("Set BUSY from FP for FASTBUS\n");
 vmeBusLock();
-    tiSetBusySource(TI_BUSY_FP, 0);
+// tiSetBusySource(TI_BUSY_FP, 0);
+     tiSetBusySource(0, 1);
+//    tiSetBusySource(0, 0);
 vmeBusUnlock();
   }
+
 #endif
 
 
@@ -638,6 +716,7 @@ vmeBusUnlock();
 #ifdef TI_SLAVE /* assume that for master and standalone TIs block level is set from config file */
 vmeBusLock();
   tiSetBlockLevel(block_level);
+  tiSetBlockBufferLevel(0);
 vmeBusUnlock();
 #endif
 
@@ -671,6 +750,9 @@ vmeBusUnlock();
 #endif
 
 
+vmeBusLock();
+  tiStatus(1);
+vmeBusUnlock();
 
 
   /* always clear exceptions */
@@ -758,12 +840,22 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   int stat, dCnt, idata;
   unsigned int sync_or_unbuff;
   unsigned int *dma_dabufp;
+#ifdef USE_SEQUENCER
+  unsigned int dmastat[NDMASTAT];
+  unsigned int fbres=0, fbsum=0;
+#endif
 #endif
 
   char *chptr, *chptr0;
 
   /*printf("EVTYPE=%d syncFlag=%d\n",EVTYPE,syncFlag);*/
 
+#if 0
+#ifdef USE_FASTBUS
+  /* do it here, let it work while we are reading TI */
+  sfiEnableSequencer(); /* enable SFI Sequencer */
+#endif
+#endif
 
   if(syncFlag) printf("EVTYPE=%d syncFlag=%d\n",EVTYPE,syncFlag);
 
@@ -831,7 +923,7 @@ vmeBusUnlock();
 
 	  
       BANKOPEN(0xe10A,1,rol->pid);
-      for(jj=0; jj<len; jj++) *rol->dabufp++ = LSWAP(tdcbuf[jj]);
+      for(jj=0; jj<len; jj++) *rol->dabufp++ = tdcbuf[jj];
       BANKCLOSE;
 	  
     }
@@ -862,8 +954,9 @@ TIMERL_START;
 #ifdef USE_FASTBUS
 
 vmeBusLock();
-  sfiEnableSequencer();
+ sfiEnableSequencer(); /* MOVE IT UP !!?? */
 vmeBusUnlock();
+
   sync_or_unbuff = 0;
   // Broadcast scan for data
   ii = 0;
@@ -883,6 +976,33 @@ vmeBusUnlock();
   dma_dabufp = sfibuf;
   if(ii < 50)
   {
+
+#ifdef USE_SEQUENCER
+
+    SFI_LOAD_ADDR(/*0*/dma_dabufp); /* Sequencer block reads to current position in buffer */
+
+    fbres = fpram(RAM_ADDR,NDMASTAT,&dmastat[0]); /* final word counts into dmastat[3] */
+    if(fbres) 
+	{
+	  printf("ERROR: Sequencer error.  fpram returned 0x%08x\n",fbres);
+	  sfi_error_decode(1); /* 1 - do '*sfi.sequencerReset=1' inside, 0 - don't */
+
+	  *dma_dabufp++ = LSWAP(0xfb000bad);
+	  *dma_dabufp++ = LSWAP(fbres);
+	  for(i=0; i<NDMASTAT; i++)
+	  {
+	    *dma_dabufp++ = LSWAP(dmastat[i]);
+	  }
+	}
+    else
+	{
+	  fbsum = dmastat[0] & 0x00ffffff;
+	  /*fbsum = (dmastat[0]&0xffff) + (dmastat[1]&0xffff) + (dmastat[2]&0xffff);*/
+	  dma_dabufp += fbsum;
+	}
+
+#else
+
     /* Load next event -- broadcast */
 vmeBusLock();
     fb_fwcm_1(0x15,0,0x400,1,0,1,0,0,0);
@@ -916,6 +1036,9 @@ vmeBusUnlock();
 
     dma_dabufp += dCnt>>2;
 	/*    fpbr(SlotHi,1000);  */
+
+#endif
+
   }
   else
   {
@@ -943,60 +1066,11 @@ vmeBusUnlock();
   *dma_dabufp++ = LSWAP(SCANMASK); 
   *dma_dabufp++ = LSWAP(0xfabb0000);
 */
-  /* if event is not in sync */
-  if(sync_or_unbuff != 0)
-  {
-    for(ii = 0; ii < MAX_SLOTS; ii++)
-    {
-      nhitmod[ii]=0;
-    }
-    int itimeout = 0;
-    do
-    {
-      if(itimeout++ > 100) break;
-      datascan = 0;
-vmeBusLock();
-      fb_frcm_1(9,0,&datascan,1,0,1,0,0,0);
-vmeBusUnlock();
-	  /*      printf("0x%x  0x%x\n",datascan, SCANMASK); */
-      if(datascan & SCANMASK)
-      {
-        for(ii = 0; ii < MAX_SLOTS; ii++)
-        {
-          switch(MODULE_TYPE[ii])
-          {
-          case MODULE_LRS1881M:
-            if(datascan & (1<<ii)){
-              nhitmod[ii]++;
-vmeBusLock();
-              fb_fwc_1(ii,0,0x400,1,1,0,1,0,0,0);
-vmeBusUnlock();
-            }
-            break;
-          }
-        }
-      }
-    } while(datascan & SCANMASK);
- 
-    ii = 0 ;
-    while(ii <  MAX_SLOTS)
-    { 
-      if(nhitmod[ii] != 0)
-      {
-        datascan = 0xdcfe0000 + (ii << 11) + (nhitmod[ii] & 0x7ff);
-        *dma_dabufp++ = LSWAP(datascan); 
-      }
-      ii++ ;
-    }
-  }
 
   /* copy data from slave buffer to the output buffer */
   nw = dma_dabufp - sfibuf;
   /*printf("nw=%d\n",nw);*/
 
-  /*
-  BANKOPEN(7, BT_UI4, 0);
-  */
   BANKOPEN(0xe120,1,rol->pid);
   for(jj=0; jj<nw; jj++) *rol->dabufp++ = sfibuf[jj];
   BANKCLOSE;
@@ -1062,105 +1136,145 @@ TIMERL_STOP(100000/block_level,1000+rol->pid);
 
 
 
-#if 0 /* enable/disable sync events processing */
+#if 1 /* enable/disable sync events processing */
 
+ 
+/* read boards configurations */
+ if(syncFlag==1 || EVENT_NUMBER==1)
+   {
+     printf("SYNC: read boards configurations\n");
 
-    /* read boards configurations */
-    if(syncFlag==1 || EVENT_NUMBER==1)
-    {
-      printf("SYNC: read boards configurations\n");
+     BANKOPEN(0xe10E,3,rol->pid);
+     chptr = chptr0 =(char *)rol->dabufp;
+     nbytes = 0;
 
-      BANKOPEN(0xe10E,3,rol->pid);
-      chptr = chptr0 =(char *)rol->dabufp;
-      nbytes = 0;
+     /* add one 'return' to make evio2xml output nicer */
+     *chptr++ = '\n';
+     nbytes ++;
 
-      /* add one 'return' to make evio2xml output nicer */
-      *chptr++ = '\n';
-      nbytes ++;
-
-vmeBusLock();
-      len = tiUploadAll(chptr, 10000);
-vmeBusUnlock();
-      /*printf("\nTI len=%d\n",len);
-      printf(">%s<\n",chptr);*/
-      chptr += len;
-      nbytes += len;
-
-
-#ifdef USE_FADC250_HIDE
-      if(nfadc>0)
-      {
-vmeBusLock();
-        len = fadc250UploadAll(chptr, 10000);
-vmeBusUnlock();
-        /*printf("\nFADC len=%d\n",len);
-        printf("%s\n",chptr);*/
-        chptr += len;
-        nbytes += len;
-	  }
-#endif
-	}
-
-
-
-
-    /* read scaler(s) */
-    if(syncFlag==1 || EVENT_NUMBER==1)
-    {
-	  ;
-	}
-
+     vmeBusLock();
+     len = tiUploadAll(chptr, 10000);
+     vmeBusUnlock();
+     /*printf("\nTI len=%d\n",len);
+       printf(">%s<\n",chptr);*/
+     chptr += len;
+     nbytes += len;
+     
+     BANKCLOSE;
+   }
+     /* read scaler(s) */
 
 #ifndef TI_SLAVE
-    /* print livetite */
-    if(syncFlag==1)
-	{
-      printf("SYNC: livetime\n");
+     /* print livetite */
+     if(syncFlag==1)
+       {
+	 printf("SYNC: livetime\n");
 
-      int livetime, live_percent;
-vmeBusLock();
-      tiLatchTimers();
-      livetime = tiLive(0);
-vmeBusUnlock();
-      live_percent = livetime/10;
-	  printf("============= Livetime=%3d percent\n",live_percent);
+	 int livetime, live_percent;
+	 vmeBusLock();
+	 tiLatchTimers();
+	 livetime = tiLive(0);
+	 vmeBusUnlock();
+	 live_percent = livetime/10;
+	 printf("============= Livetime=%3d percent\n",live_percent);
 #ifdef SSIPC
-	  {
-        int status;
-        status = epics_msg_send("hallb_livetime","int",1,&live_percent);
-	  }
+	 {
+	   int status;
+	   status = epics_msg_send("hallb_livetime","int",1,&live_percent);
+	 }
 #endif
-      printf("SYNC: livetime - done\n");
-	}
+	 printf("SYNC: livetime - done\n");
+       }
 #endif
 
 
-    /* for physics sync event, make sure all board buffers are empty */
-    if(syncFlag==1)
-    {
-      printf("SYNC: make sure all board buffers are empty\n");
+     /* for physics sync event, make sure all board buffers are empty */
+     if(syncFlag==1)
+       {
+	 printf("SYNC: make sure all board buffers are empty\n");
 
-      int nblocks;
-      nblocks = tiGetNumberOfBlocksInBuffer();
-      /*printf(" Blocks ready for readout: %d\n\n",nblocks);*/
+	 int nblocks;
+	 nblocks = tiGetNumberOfBlocksInBuffer();
+	 /*printf(" Blocks ready for readout: %d\n\n",nblocks);*/
 
-      if(nblocks)
-	  {
-        printf("SYNC ERROR: TI nblocks = %d\n",nblocks);fflush(stdout);
-        sleep(10);
-	  }
-      printf("SYNC: make sure all board buffers are empty - done\n");
-	}
+	 if(nblocks)
+	   {
+	     printf("SYNC ERROR: TI nblocks = %d\n",nblocks);fflush(stdout);
+	     sleep(10);
+	   }
 
+#ifdef USE_FASTBUS
+	 /* Check for extra hits, keep reading the modules with hits */
+	 /* until cleared, and put the number of extra hits into datastream. */
+	 for(ii = 0; ii < MAX_SLOTS; ii++)
+	   {
+	     nhitmod[ii]=0;
+	   }
 
+	 int itimeout = 0;
+	 printf("SYNC: Datascan!\n");
+	 vmeBusLock();
+	 fb_frcm_1(9,0,&datascan,1,0,1,0,0,0);
+	 vmeBusUnlock();
+	 printf("SYNC: Datascan = 0x%08x\n", datascan);
+	 
+	 while((datascan & SCANMASK) && (itimeout < 100))
+	   {
+	     itimeout++;
+	     datascan = 0;
+
+	     printf("SYNC: Datascan!\n");
+	     vmeBusLock();
+	     fb_frcm_1(9,0,&datascan,1,0,1,0,0,0);
+	     vmeBusUnlock();
+
+	     printf("SYNC: Datascan = 0x%08x\n", datascan);
+
+	     if(datascan & SCANMASK)
+	       {
+		 printf("SYNC ERROR: Fastbus datascan = 0x%08x  SCANMASK = 0x%08x\n",
+			datascan, SCANMASK);
+	      
+		 for(ii = 0; ii < MAX_SLOTS; ii++)
+		   {
+		     switch(MODULE_TYPE[ii])
+		       {
+		       case MODULE_LRS1881M:
+			 if(datascan & (1<<ii))
+			   {
+			     nhitmod[ii]++;
+			  
+			     vmeBusLock();
+			     fb_fwc_1(ii,0,0x400,1,1,0,1,0,0,0);
+			     vmeBusUnlock();
+			   }
+			 break;
+		       }
+		   }
+	       }
+	   } 
+#ifdef SKIP_DATA_INSERT      
+	 for (ii = 0; ii <  MAX_SLOTS; i++)
+	   { 
+	     if(nhitmod[ii] != 0)
+	       {
+		 datascan = 0xdcfe0000 + (ii << 11) + (nhitmod[ii] & 0x7ff);
+		 *rol->dabufp ++ = LSWAP(datascan); 
+	       }
+	   }
+#endif /* SKIP_DATA_INSERT       */
+	 
+#endif /* USE_FASTBUS */
+
+	 printf("SYNC: make sure all board buffers are empty - done\n");
+	 
+       }
 #endif /* if 0 */
-
-
-
-
-
+ 
   }
+ 
 
+ 
   /* close event */
   CECLOSE;
 

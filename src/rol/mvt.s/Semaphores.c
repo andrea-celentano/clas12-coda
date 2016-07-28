@@ -79,6 +79,7 @@ int Sem_Init( unsigned int adr )
 
 	/* Check semaphore value */
 	sem_reg_val = Peek(sem_reg_adr);
+//printf( "%s: sem_reg_val 0x%08x\n\r", __FUNCTION__, sem_reg_val );
 	if( Sem_GetMine(sem_reg_val) )
 	{
 		sprintf( sem_msg, "Sem_Init: SEM_STATE_ERROR" );
@@ -106,6 +107,7 @@ int Sem_Init( unsigned int adr )
  */
 int Sem_Acquire()
 {
+//printf( "%s: Started\n\s", __FUNCTION__ );
 	/* Check if already granted */
 	if( sem_state == SEM_STATE_GRANTED )
 	{
@@ -116,10 +118,11 @@ int Sem_Acquire()
 
 	/* Get SC register value */
 	sem_reg_val = Peek(sem_reg_adr);
+//printf( "%s: sem_reg_val 0x%08x\n\r", __FUNCTION__, sem_reg_val );
 	/* Check if semaphore is set */
 	if( Sem_GetMine(sem_reg_val) )
 	{
-		sprintf( sem_msg, "Sem_Acquire: mine already set" );
+		sprintf( sem_msg, "Sem_Acquire: mine already set in 0x%08x", sem_reg_val );
 		sem_state = SEM_STATE_ERROR;
 		return D_RetCode_Err_Sem;
 	}
@@ -135,6 +138,7 @@ int Sem_Acquire()
 	sem_reg_val = Sem_SetMine(sem_reg_val);
 	Poke( sem_reg_adr, sem_reg_val );
 	sem_reg_val = Peek( sem_reg_adr );
+//printf( "%s: sem_reg_val 0x%08x\n\r", __FUNCTION__, sem_reg_val );
 	if( Sem_Get(sem_reg_val) != SEM_VAL )
 	{
 		/* Contention detected: back-off to try later */
@@ -145,6 +149,7 @@ int Sem_Acquire()
 
 	/* Acquired */
 	sem_state = SEM_STATE_GRANTED;
+//printf( "%s: Done\n\s", __FUNCTION__ );
 	return D_RetCode_Sucsess;
 }
 
@@ -155,6 +160,7 @@ int Sem_Acquire()
  */
 int Sem_Free()
 {
+//printf( "%s: Started\n\s", __FUNCTION__ );
 	/* Check if access was granted */
 	if( sem_state != SEM_STATE_GRANTED )
 	{
@@ -165,6 +171,7 @@ int Sem_Free()
 
 	/* Check SC register value */
 	sem_reg_val = Peek(sem_reg_adr);
+//printf( "%s: sem_reg_val 0x%08x\n\r", __FUNCTION__, sem_reg_val );
 	if( Sem_GetMine(sem_reg_val) == 0 )
 	{
 		sprintf( sem_msg, "Sem_Free: mine is not set" );
@@ -178,6 +185,7 @@ int Sem_Free()
 
 	/* Freed */
 	sem_state = SEM_STATE_FREE;
+//printf( "%s: Done\n\s", __FUNCTION__ );
 	return D_RetCode_Sucsess;
 }
 

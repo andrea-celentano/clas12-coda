@@ -1,8 +1,6 @@
 
 /* rol1dummy.c - UNIX first readout list (polling mode) */
 
-#define DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -15,6 +13,8 @@
 
 #include "circbuf.h"
 
+
+#define USE_GEM
 
 /*****************************/
 /* former 'crl' control keys */
@@ -62,6 +62,15 @@ getTdcSlotNumbers(int *slotnumbers)
   return(0);
 }
 
+#ifdef USE_GEM
+#include <evio.h>
+#include <evioBankUtil.h>
+#define MAXEVIOBUF 10000000
+static int input_handle;
+//static char *input_filename = "/tmp/pradfb_000350.evio.0";
+static char *input_filename = "/home/clasrun/PRad/GemView/db/physics_online1586.dat";
+static unsigned int buf[MAXEVIOBUF];
+#endif
 
 static void
 __download()
@@ -97,6 +106,7 @@ __download()
 static void
 __prestart()
 {
+  int status;
   unsigned long jj, adc_id, sl;
   char *env;
 
@@ -117,6 +127,24 @@ __prestart()
   printf("rcname >%4.4s<\n",rcname);
 
 
+
+  /* user code */
+
+#ifdef USE_GEM
+  /* open evio input file */
+  if((status = evOpen(input_filename,"r",&input_handle))!=0)
+  {
+    printf("\n ?Unable to open input file >%s<, status=%d\n\n",input_filename,status);
+    
+    exit(1);
+  }
+  else
+  {
+    printf("\n Open data file >%s<\n",input_filename);
+  }
+#endif
+
+
   printf("INFO: User Prestart 1 executed\n");
 
   /* from parser (do we need that in rol2 ???) */
@@ -132,6 +160,11 @@ __end()
   int ii, total_count, rem_count;
 
   CDODISABLE(TEST,1,0);
+
+#ifdef USE_GEM
+  printf("\n  Read %d events\n\n",*(rol->nevents));
+  evClose(input_handle);
+#endif
 
   printf("INFO: User End 1 Executed\n");
 
@@ -165,16 +198,80 @@ __go()
 void
 usrtrig(unsigned long EVTYPE, unsigned long EVSOURCE)
 {
-  int len, ii;
-
-  
-usleep(1000);
-  
+  int len, ii, status;
+  int ind, tag, num, fragtag, fragnum, nbytes, ind_data, timestamp_flag, type, *nhits;
+  GET_PUT_INIT;
 
   rol->dabufp = (long *) 0;
 
   CEOPEN(EVTYPE, BT_BANKS);
 
+  /*usleep(500);*/
+  sleep(1);
+  
+#ifdef USE_GEM
+
+reopened:
+
+  if( (status = evRead(input_handle,buf,MAXEVIOBUF)) == 0 )
+  {
+	//fragtag = 7;
+	fragtag = 3;
+    fragnum = -1;
+    //tag = 57631;
+    num = 0;
+    
+    for(tag=9; tag<=13; tag++) /* 5,6,7,8,9,10,11,12 */
+	{
+      ind = evLinkBank(buf, fragtag, fragnum, tag, num, &nbytes, &ind_data);
+      
+      if(ind > 0)
+	  {
+		
+		/*PRINT_BUFFER(&buf[ind_data], &buf[ind_data]+(nbytes/4));*/
+
+        BANKOPEN(tag,1,num);
+        len = nbytes/4;
+        for(ii=0; ii<len; ii++)
+        {
+          *rol->dabufp++ = buf[ind_data+ii];
+          
+        }
+        BANKCLOSE;
+
+	  }
+	}
+
+  }
+  else if(status==-1)
+  {
+    printf("Reached end-of-file (status=%d), reopen\n",status);fflush(stdout);
+
+    evClose(input_handle);
+
+    /* open evio input file */
+    if((status = evOpen(input_filename,"r",&input_handle))!=0)
+    {
+      printf("\n ?Unable to open input file >%s<, status=%d\n\n",input_filename,status);
+      exit(1);
+    }
+    else
+    {
+      printf("\n Open data file >%s<\n",input_filename);
+    }
+    goto reopened;
+  }
+  else
+  {
+    printf("Error reading data file (status=%d)\n",status);fflush(stdout);
+    exit(1);
+  }
+
+
+
+#endif
+
+  /*
   BANKOPEN(0xe1FF,1,rol->pid);
   len = 20;
   for(ii=0; ii<len; ii++)
@@ -182,6 +279,7 @@ usleep(1000);
     *rol->dabufp++ = ii;
   }
   BANKCLOSE;
+  */
 
   CECLOSE;
 

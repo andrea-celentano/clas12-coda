@@ -117,6 +117,7 @@ dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
   int indexByOrder=0;
   volatile struct dsc_struct *dsc;  
   unsigned int a32addr=0;
+  unsigned int a24addr; /*sergey*/
 
   /* Check if we are to exit when pointers are setup */
   if(iFlag&(1<<16))
@@ -240,13 +241,38 @@ dsc2Init(unsigned int addr, unsigned int addr_inc, int ndsc, int iFlag)
 	  printf("%s: Module at addr=0x%x has an invalid slot number (%d)\n",
 		 __FUNCTION__, (UINT32) dsc - dscA24Offset, slotno);
 	  errFlag = 1;
-	  if(!indexByOrder) continue;
-	}
 
-    if(indexByOrder)
-	{
-      slotno_save = slotno;
-      slotno = Ndsc;
+      if(indexByOrder)
+	  {
+        slotno_save = slotno;
+        slotno = Ndsc;
+	  }
+      else /* sergey: set slot number by address */
+	  {
+        /*continue;*/
+        a24addr = (UINT32)dsc - dscA24Offset;
+        if(a24addr==0x100000)      slotno =  2;
+        else if(a24addr==0x180000) slotno =  3;
+        else if(a24addr==0x200000) slotno =  4;
+        else if(a24addr==0x280000) slotno =  5;
+        else if(a24addr==0x300000) slotno =  6;
+        else if(a24addr==0x380000) slotno =  7;
+        else if(a24addr==0x400000) slotno =  8;
+        else if(a24addr==0x480000) slotno =  9;
+        else if(a24addr==0x500000) slotno = 10;
+        else if(a24addr==0x580000) slotno = 11;
+        else if(a24addr==0x600000) slotno = 12;
+        else if(a24addr==0x680000) slotno = 13;
+        else if(a24addr==0x700000) slotno = 14;
+        else if(a24addr==0x780000) slotno = 15;
+        else if(a24addr==0x800000) slotno = 16;
+        else if(a24addr==0x880000) slotno = 17;
+        else if(a24addr==0x900000) slotno = 18;
+        else if(a24addr==0x980000) slotno = 19;
+        else if(a24addr==0xA00000) slotno = 20;
+        else if(a24addr==0xA80000) slotno = 21;
+        printf("---> ASSIGN SLOT=%d FOR THE DSC2 WITH ADDRESS 0x%08x\n",slotno,a24addr);
+	  }
 	}
 
     dscID[Ndsc] = slotno;

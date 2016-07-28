@@ -449,7 +449,7 @@ tipInit(unsigned int mode, int iFlag)
     }
   tipReadoutMode = mode;
 
-#ifdef SKIPTHIS
+/* #ifdef SKIPTHIS */
   /* Setup some Other Library Defaults */
   if(tipMaster!=1)
     {
@@ -496,7 +496,7 @@ tipInit(unsigned int mode, int iFlag)
     tipWrite(&TIPp->fiberSyncDelay,
 	       (tipFiberLatencyOffset<<16)&TIP_FIBERSYNCDELAY_LOOPBACK_SYNCDELAY_MASK);
 
-#endif /* SKIPTHIS */
+/* #endif /\* SKIPTHIS *\/ */
 
   /* Set Default Block Level to 1, and default crateID */
   if(tipMaster==1)
@@ -515,7 +515,7 @@ tipInit(unsigned int mode, int iFlag)
   tipSetPrescale(0);
 
   /* MGT reset */
-  /*if(tipMaster==1)sergey*/
+  /* if(tipMaster==1) */
     {
       tipResetMGT();
     }
@@ -3703,7 +3703,7 @@ tipGetBlockLimitStatus()
 unsigned int
 tipBReady()
 {
-  unsigned int blockBuffer=0, readyInt=0, rval=0;
+  unsigned int blockBuffer=0, blockReady=0, rval=0;
 
   if(TIPp==NULL) 
     {
@@ -3714,11 +3714,11 @@ tipBReady()
   TIPLOCK;
   blockBuffer = tipRead(&TIPp->blockBuffer);
   rval        = (blockBuffer&TIP_BLOCKBUFFER_BLOCKS_READY_MASK)>>8;
-  readyInt    = (blockBuffer&TIP_BLOCKBUFFER_BREADY_INT_MASK)>>24;
+  blockReady  = ((blockBuffer&TIP_BLOCKBUFFER_TRIGGERS_NEEDED_IN_BLOCK)>>16)?0:1;
   tipSyncEventReceived = (blockBuffer&TIP_BLOCKBUFFER_SYNCEVENT)>>31;
   tipNReadoutEvents = (blockBuffer&TIP_BLOCKBUFFER_RO_NEVENTS_MASK)>>24;
 
-  if( (readyInt==1) && (tipSyncEventReceived) )
+  if( (rval==1) && (tipSyncEventReceived) & (blockReady))
     tipSyncEventFlag = 1;
   else
     tipSyncEventFlag = 0;
@@ -3992,6 +3992,7 @@ tipSetClockSource(unsigned int source)
 
   TIPLOCK;
   tipWrite(&TIPp->clock, clkset);
+  usleep(10000);
 
 #ifdef SKIPTHIS
   /* Reset DCM (Digital Clock Manager) - 250/200MHz */
@@ -7308,4 +7309,14 @@ int
 tipBusy()
 {
   if(tipMaster) tipPrintBusyCounters();
+}
+
+int
+tipGetNumberOfBlocksInBuffer()
+{
+  int blockBuffer;
+  int nblocks;
+  blockBuffer  = tipRead(&TIPp->blockBuffer);
+  nblocks = (blockBuffer&TIP_BLOCKBUFFER_BLOCKS_READY_MASK)>>8;
+  return(nblocks);
 }

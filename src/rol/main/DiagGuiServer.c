@@ -518,6 +518,7 @@ vmeReadTask()
     /* skip initialization* */
     iFlag |= (1<<16);
   }
+  /*iFlag |= (1<<19);*/ /* ignore slot numbers, enumerate boards from 0 */
 
   dsc2Init(0x100000,0x80000,16,iFlag);
   dsc2Config("");
@@ -528,8 +529,6 @@ fadcA32Address = maxA32Address + FA_MAX_A32_MEM;
 
   /* fill map array with DSC2's found */
   for(ii=0; ii<ndsc2_tcp; ii++) if( (slot=dsc2Slot_tcp(ii)) > 0) vmescalersmap[slot] = SCALER_TYPE_DSC2;
-
-
 
 
   /*************/

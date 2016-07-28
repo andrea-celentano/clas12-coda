@@ -30,6 +30,8 @@ $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
 	./$(OSTYPE_MACHINE)/rol/srs1_slave.so \
 	./$(OSTYPE_MACHINE)/rol/pgem1_master.so \
 	./$(OSTYPE_MACHINE)/rol/pgem1_slave.so \
+        ./$(OSTYPE_MACHINE)/rol/pgem2_master.so \
+        ./$(OSTYPE_MACHINE)/rol/pgem2_slave.so \
 	./$(OSTYPE_MACHINE)/rol/hps1test_master.so \
 	./$(OSTYPE_MACHINE)/rol/hps1test_slave.so \
 	./$(OSTYPE_MACHINE)/rol/hps1mvt_master.so \
@@ -76,6 +78,14 @@ $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
 	$(CC) -DTI_MASTER $(CCROLOPT)
 
 ./$(OSTYPE_MACHINE)/rol/pgem1_slave.o : rols/pgem1.c
+	$(MKROLDIR)
+	$(CC) -DTI_SLAVE $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/pgem2_master.o : rols/pgem2.c
+	$(MKROLDIR)
+	$(CC) -DTI_MASTER $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/pgem2_slave.o : rols/pgem2.c
 	$(MKROLDIR)
 	$(CC) -DTI_SLAVE $(CCROLOPT)
 
@@ -176,6 +186,17 @@ else ifeq ("$(OSTYPE_MACHINE)","Linux_nios2")
 else
 ##########  LIBNAMES += $(CODA)/src/codatt/$(OSTYPE_MACHINE)/lib/libcodatt.a
 ##########  LIBNAMES += $(CODA)/src/bosio/$(OSTYPE_MACHINE)/lib/libbosio.a
+
+
+
+
+
+  LIBNAMES += $(CODA)/src/gem/$(OSTYPE_MACHINE)/lib/libgem.a
+  LIBNAMES += $(CODA)/src/evio-4.3/$(OSTYPE_MACHINE)/lib/libevio.a
+
+
+
+
   LIBNAMES += $(CODA)/src/mysql4.1.20/$(OSTYPE_MACHINE)/lib/libmysql4.1.20.a
 
   LIBNAMES += -lpthread

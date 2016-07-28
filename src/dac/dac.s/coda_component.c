@@ -86,10 +86,12 @@ static char udphost[128];
 
 
 
+/*static*/ char    *expid = NULL;
 /*static*/ char    *session = NULL;
 static char    *objects = NULL;
 /*static*/ char    *mysql_host = NULL;
 
+static char Expid[80];
 static char Session[80];
 static char Objects[80];
 static char Mysql_host[80];
@@ -824,7 +826,7 @@ printf("\n\ncoda_constructor reached\n");fflush(stdout);
   if(codaUpdateStatus("booted") != CODA_OK) return(CODA_ERROR);
   printf("INFO: '%s' state now '%s'\n",localobject->name,localobject->state);
 
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
   sprintf(tmpp,"SELECT id FROM process WHERE name='%s'",localobject->name);
   if(dbGetInt(dbsock, tmpp, &localobject->codaid)==CODA_ERROR)
   {
@@ -901,6 +903,7 @@ CODA_Init(int argc, char **argv)
   char listArgv[LISTARGV1][LISTARGV2];
 
   const char *help = "\nusage:\n\n coda_[roc/eb/er/etc]\n"
+    "              [-expid Name of experiment, same as database name]\n"
     "              [-session Name of current Session]\n"
     "              [-objects Name and type of this object]\n"
     "              [-name Name of object]\n"
@@ -915,6 +918,12 @@ CODA_Init(int argc, char **argv)
     {
       printf("%s",help);
       exit(0);
+    }
+    else if (strncasecmp(argv[i],"-expid",2)==0)
+    {
+      strcpy(Expid,argv[i+1]);
+      expid = Expid;
+      i=i+2;
     }
     else if (strncasecmp(argv[i],"-session",2)==0)
     {
@@ -973,16 +982,18 @@ CODA_Init(int argc, char **argv)
 
   printf("CODA_Init reached, input params: >%s< >%s<\n",Session,Objects);
 
+  if(expid == NULL) expid = getenv("EXPID");
   if(session == NULL) session = getenv("SESSION");
 
-  if (objects == NULL || session == NULL)
+  if (objects == NULL || expid == NULL || session == NULL)
   {
-    printf("ERROR: objects and session must be defined\n");
+    printf("ERROR: objects, expid and session must be defined\n");
     exit(0);
   }
   else
   {
-    printf("CODA_Init: use 'SESSION' as >%s<, objects as >%s<\n",session,objects);fflush(stdout);
+    printf("CODA_Init: use 'expid' as >%s<, 'session' as >%s<, 'objects' as >%s<\n",
+      expid,session,objects);fflush(stdout);
   }
 
 
@@ -1018,7 +1029,7 @@ CODA_Init(int argc, char **argv)
 
 
 
-  dbsock = dbConnect(mysql_host, getenv("EXPID"));
+  dbsock = dbConnect(mysql_host, expid);
   printf("333333333333333\n");fflush(stdout);
 
   /* It would be nice here to set the uid and gid of the process to 
@@ -1103,7 +1114,7 @@ CODA_Init(int argc, char **argv)
 	  /* set 'type' field in 'process' table if ROC or TS */
       if( (!strcmp(ObjectsClass,"ROC")) || (!strcmp(ObjectsClass,"TS")) )
 	  {
-        dbsock = dbConnect(mysql_host, getenv("EXPID"));
+        dbsock = dbConnect(mysql_host, expid);
         printf("44444444444444\n");fflush(stdout);
         sprintf(tmp,"UPDATE process SET type='%s' WHERE name='%s'",ObjectsClass,ObjectsName);
         printf("DB update: >%s<\n",tmp);
@@ -1292,7 +1303,7 @@ getConfFile(char *configname, char *conffile, int lname)
   char tmpp[1000];
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
 
   sprintf(tmp,"SELECT value FROM %s_option WHERE name='confFile'",configname);
   if(dbGetStr(dbsock, tmp, tmpp)==CODA_ERROR)
@@ -1802,7 +1813,7 @@ codaUpdateStatus(char *status)
 
   /* update database */
   printf("codaUpdateStatus: dbConnecting ..\n");fflush(stdout);
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
   if(dbsock==NULL)
   {
     printf("cannot connect to the database 7 - exit\n");
@@ -1910,7 +1921,7 @@ UDP_start()
 
   printf("UDP_start 111\n");fflush(stdout);
 
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
   if(dbsock==NULL)
   {
     printf("UDP_start: cannot connect to the database - exit\n");
@@ -2116,7 +2127,7 @@ CODAtcpServer(void)
   }
 
   /* update database with port number */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
   sprintf(temp,"%d",portnum);
 
   /* use 'inuse' field; replace 'inuse' by 'port' when DP_ask not in use !!! */

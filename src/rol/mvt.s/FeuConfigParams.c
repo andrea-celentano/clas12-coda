@@ -31,6 +31,10 @@
 --                     2014/09/24 IM Improve dumping of parameters to file
 --                     2014/10/09 IM Common Parser instead of local 
 --                 1.1 2014/11/17 IM Feu_RunCtrl_EvTstExt parameter added
+--                 1.2 2016/01/11 IM Trig_Conf_TrigVetoLen parameter added to TrigGen
+--                 1.3 2016/02/24 IM Number of Topological trigger registers increased from 8 to 32
+--                 1.4 2016/03/15 IM Max16031 registers added
+--                     2016/03/18 IM Gradually replace Main_Conf_DataPipeLen by Main_Conf_SparseRd parameter
 --
 -- Comments:
 --
@@ -137,7 +141,7 @@ int FeuParams_Init( FeuParams *feu_params )
 	// Main module config parameters
 	feu_params->Main_Conf_ClkSel[0]      ='\0';
 	feu_params->Main_Conf_AdcDtp         =  0; // Depricated
-	feu_params->Main_Conf_DataPipeLen    =  0; // Depricated
+	feu_params->Main_Conf_DataPipeLen    =  0; // Use for sparce readout
 	feu_params->Main_Conf_DreamMask      = -1;
 	feu_params->Main_Conf_Samples        = -1;
 	// Main module Trigger logic parameters
@@ -183,6 +187,7 @@ int FeuParams_Init( FeuParams *feu_params )
 	feu_params->Trig_Conf_Rate           = -1;
 	feu_params->Trig_Conf_Src[0]         ='\0';
 	feu_params->Trig_Conf_TrigPipeLen    = -1;
+	feu_params->Trig_Conf_TrigVetoLen    = -1;
 	feu_params->Trig_Conf_File[0]        ='\0';
 
 	// Auxiliari Trigger Interface
@@ -194,10 +199,12 @@ int FeuParams_Init( FeuParams *feu_params )
 	// Self Trigger parameters
 	feu_params->SelfTrig_DreamMask       = -1;
 	feu_params->SelfTrig_Mult            = -1;
-	feu_params->SelfTrig_CmbHitProp      = -1;
+	feu_params->SelfTrig_CmbHitPropFb    = -1;
+	feu_params->SelfTrig_CmbHitPropOl    = -1;
 	feu_params->SelfTrig_DrmHitWid       = -1;
 	feu_params->SelfTrig_CmbHitWid       = -1;
 	feu_params->SelfTrig_TrigTopo        = -1;
+	feu_params->SelfTrig_Veto            = -1;
 	for( index=0; index<D_FeuPar_SelfTrigTopo_Size; index++ )
 		feu_params->SelfTrig_Topology[index] = 0;
 
@@ -228,6 +235,10 @@ int FeuParams_Init( FeuParams *feu_params )
 	// EE Prom values
 	for( reg=0; reg<D_FeuPar_EeProm_Size; reg++ )
 		feu_params->ee_prom[reg]=(short)(-1);
+
+	// max16031 values
+	for( reg=0; reg<D_FeuPar_Max16031_Size; reg++ )
+		feu_params->max16031[reg]=(short)(-1);
 
 	return D_RetCode_Sucsess;
 }
@@ -315,14 +326,10 @@ int FeuParamsCol_Sprintf( FeuParamsCol *feu_params_col, char *buf  )
 				sprintf( append_str, "Feu %s Main_Conf_AdcDtp %d\n", feu_str, feu_params_col->feu_params[feu].Main_Conf_AdcDtp );
 				strcat( buf, append_str);
 			}
-			if
-			(
-				( (feu == 0) && (feu_params_col->feu_params[0].Main_Conf_DataPipeLen != 0) )
-				||
-				( feu_params_col->feu_params[feu].Main_Conf_DataPipeLen != feu_params_col->feu_params[0].Main_Conf_DataPipeLen )
-			)
+			if( (feu == 0) || ( feu_params_col->feu_params[feu].Main_Conf_DataPipeLen != feu_params_col->feu_params[0].Main_Conf_DataPipeLen) )
 			{
-				sprintf( append_str, "Feu %s Main_Conf_DataPipeLen %d\n", feu_str, feu_params_col->feu_params[feu].Main_Conf_DataPipeLen );
+				sprintf( append_str, "Feu %s Main_Conf_SparseRd %d\n", feu_str, feu_params_col->feu_params[feu].Main_Conf_DataPipeLen );
+//				sprintf( append_str, "Feu %s Main_Conf_DataPipeLen %d\n", feu_str, feu_params_col->feu_params[feu].Main_Conf_DataPipeLen );
 				strcat( buf, append_str);
 			}
 			if( (feu == 0) || (feu_params_col->feu_params[feu].Main_Conf_DreamMask != feu_params_col->feu_params[0].Main_Conf_DreamMask) )
@@ -514,6 +521,11 @@ int FeuParamsCol_Sprintf( FeuParamsCol *feu_params_col, char *buf  )
 				sprintf( append_str, "Feu %s Trig_Conf_TrigPipeLen %d\n", feu_str, feu_params_col->feu_params[feu].Trig_Conf_TrigPipeLen );
 				strcat( buf, append_str);
 			}
+			if( (feu == 0) || (feu_params_col->feu_params[feu].Trig_Conf_TrigVetoLen != feu_params_col->feu_params[0].Trig_Conf_TrigVetoLen) )
+			{
+				sprintf( append_str, "Feu %s Trig_Conf_TrigVetoLen %d\n", feu_str, feu_params_col->feu_params[feu].Trig_Conf_TrigVetoLen );
+				strcat( buf, append_str);
+			}
 			if( (feu == 0) || ( strcmp( feu_params_col->feu_params[feu].Trig_Conf_File, feu_params_col->feu_params[0].Trig_Conf_File ) != 0 ) )
 			{
 				sprintf( append_str, "Feu %s Trig_Conf_File %s\n", feu_str, feu_params_col->feu_params[feu].Trig_Conf_File );
@@ -557,9 +569,14 @@ int FeuParamsCol_Sprintf( FeuParamsCol *feu_params_col, char *buf  )
 				sprintf( append_str, "Feu %s SelfTrig_Mult %d\n", feu_str, feu_params_col->feu_params[feu].SelfTrig_Mult );
 				strcat( buf, append_str);
 			}
-			if( (feu == 0) || (feu_params_col->feu_params[feu].SelfTrig_CmbHitProp != feu_params_col->feu_params[0].SelfTrig_CmbHitProp) )
+			if( (feu == 0) || (feu_params_col->feu_params[feu].SelfTrig_CmbHitPropFb != feu_params_col->feu_params[0].SelfTrig_CmbHitPropFb) )
 			{
-				sprintf( append_str, "Feu %s SelfTrig_CmbHitProp %d\n", feu_str, feu_params_col->feu_params[feu].SelfTrig_CmbHitProp );
+				sprintf( append_str, "Feu %s SelfTrig_CmbHitPropFb %d\n", feu_str, feu_params_col->feu_params[feu].SelfTrig_CmbHitPropFb );
+				strcat( buf, append_str);
+			}
+			if( (feu == 0) || (feu_params_col->feu_params[feu].SelfTrig_CmbHitPropOl != feu_params_col->feu_params[0].SelfTrig_CmbHitPropOl) )
+			{
+				sprintf( append_str, "Feu %s SelfTrig_CmbHitPropOl %d\n", feu_str, feu_params_col->feu_params[feu].SelfTrig_CmbHitPropOl );
 				strcat( buf, append_str);
 			}
 			if( (feu == 0) || (feu_params_col->feu_params[feu].SelfTrig_DrmHitWid != feu_params_col->feu_params[0].SelfTrig_DrmHitWid) )
@@ -572,28 +589,49 @@ int FeuParamsCol_Sprintf( FeuParamsCol *feu_params_col, char *buf  )
 				sprintf( append_str, "Feu %s SelfTrig_CmbHitWid %d\n", feu_str, feu_params_col->feu_params[feu].SelfTrig_CmbHitWid );
 				strcat( buf, append_str);
 			}
+			if( (feu == 0) || (feu_params_col->feu_params[feu].SelfTrig_Veto != feu_params_col->feu_params[feu].SelfTrig_Veto) )
+			{
+				sprintf( append_str, "Feu %s SelfTrig_Veto %d\n", feu_str, feu_params_col->feu_params[feu].SelfTrig_Veto );
+				strcat( buf, append_str);
+			}
 			if( (feu == 0) || (feu_params_col->feu_params[feu].SelfTrig_TrigTopo != feu_params_col->feu_params[feu].SelfTrig_TrigTopo) )
 			{
 				sprintf( append_str, "Feu %s SelfTrig_TrigTopo %d\n", feu_str, feu_params_col->feu_params[feu].SelfTrig_TrigTopo );
 				strcat( buf, append_str);
 			}
 //fprintf( stderr, "%s: Self OK\n", __FUNCTION__ );
-			// Topology parameters
 			strcat( buf, "# Self Trigger topology parameters\n" );
-			for( reg=0; reg<D_FeuPar_SelfTrigTopo_Size; reg++ )
+			for( reg=0; reg<D_FeuPar_SelfTrigTopo_Size; )
 			{
-				if( (feu == 0) || (feu_params_col->feu_params[feu].SelfTrig_Topology[reg] != feu_params_col->feu_params[0].SelfTrig_Topology[reg]) )
+				if
+				( 
+					(feu == 0)
+					|| 
+					(
+						feu_params_col->feu_params[feu].SelfTrig_Topology[reg+0] != feu_params_col->feu_params[0].SelfTrig_Topology[reg+0]
+						||
+						feu_params_col->feu_params[feu].SelfTrig_Topology[reg+1] != feu_params_col->feu_params[0].SelfTrig_Topology[reg+1]
+						||
+						feu_params_col->feu_params[feu].SelfTrig_Topology[reg+2] != feu_params_col->feu_params[0].SelfTrig_Topology[reg+2]
+						||
+						feu_params_col->feu_params[feu].SelfTrig_Topology[reg+3] != feu_params_col->feu_params[0].SelfTrig_Topology[reg+3]
+					)
+				)
 				{
 					sprintf
 					(
 						append_str,
-						"Feu %s SelfTrig_Topology %1d 0x%08x\n",
+						"Feu %s SelfTrig_Topology %2d 0x%08x 0x%08x 0x%08x 0x%08x\n",
 						feu_str,
 						reg,
-						feu_params_col->feu_params[feu].SelfTrig_Topology[reg]
+						feu_params_col->feu_params[feu].SelfTrig_Topology[reg+0],
+						feu_params_col->feu_params[feu].SelfTrig_Topology[reg+1],
+						feu_params_col->feu_params[feu].SelfTrig_Topology[reg+2],
+						feu_params_col->feu_params[feu].SelfTrig_Topology[reg+3]
 					);
 					strcat( buf, append_str);
 				}
+				reg += 4;
 			}
 //fprintf( stderr, "%s: Topo OK\n", __FUNCTION__ );
 
@@ -698,6 +736,29 @@ int FeuParamsCol_Sprintf( FeuParamsCol *feu_params_col, char *buf  )
 				}
 			}
 //fprintf( stderr, "%s: feu=%d Eeprom OK\n", __FUNCTION__, feu );
+
+			// Max16031 values
+			strcat( buf, "# Max16031 Values\n" );
+			for( reg=0; reg<D_FeuPar_Max16031_Size; reg++ )
+			{
+				if
+				(
+					((feu == 0) && (feu_params_col->feu_params[0].max16031[reg] >= 0))
+					||
+					(feu_params_col->feu_params[feu].max16031[reg] != feu_params_col->feu_params[0].max16031[reg])
+				)
+				{
+					sprintf
+					(
+						append_str,
+						"Feu %s Max16031 0x%02x 0x%02x\n",
+						feu_str,
+						reg,
+						feu_params_col->feu_params[feu].max16031[reg]
+					);
+					strcat( buf, append_str);
+				}
+			}
 
 			// Dream parameters
 			for( dream=0; dream<D_FeuPar_NumOfDreams; dream++ )
@@ -860,6 +921,10 @@ int FeuParamsCol_Parse( FeuParamsCol *feu_params_col, int line_num )
 			{
 				feu_params_col->feu_params[feu].Trig_Conf_TrigPipeLen=atoi(argv[3]);
 			}
+			else if( strcmp( argv[2], "Trig_Conf_TrigVetoLen" ) == 0 )
+			{
+				feu_params_col->feu_params[feu].Trig_Conf_TrigVetoLen=atoi(argv[3]);
+			}
 			else if( strcmp( argv[2], "Trig_Conf_File" ) == 0 )
 			{
 				strcpy( feu_params_col->feu_params[feu].Trig_Conf_File, argv[3] );
@@ -890,9 +955,13 @@ int FeuParamsCol_Parse( FeuParamsCol *feu_params_col, int line_num )
 			{
 				feu_params_col->feu_params[feu].SelfTrig_Mult=atoi(argv[3]);
 			}
-			if( strcmp( argv[2], "SelfTrig_CmbHitProp" ) == 0 )
+			if( strcmp( argv[2], "SelfTrig_CmbHitPropFb" ) == 0 )
 			{
-				feu_params_col->feu_params[feu].SelfTrig_CmbHitProp=atoi(argv[3]);
+				feu_params_col->feu_params[feu].SelfTrig_CmbHitPropFb=atoi(argv[3]);
+			}
+			if( strcmp( argv[2], "SelfTrig_CmbHitPropOl" ) == 0 )
+			{
+				feu_params_col->feu_params[feu].SelfTrig_CmbHitPropOl=atoi(argv[3]);
 			}
 			if( strcmp( argv[2], "SelfTrig_DrmHitWid" ) == 0 )
 			{
@@ -902,39 +971,46 @@ int FeuParamsCol_Parse( FeuParamsCol *feu_params_col, int line_num )
 			{
 				feu_params_col->feu_params[feu].SelfTrig_CmbHitWid=atoi(argv[3]);
 			}
+			if( strcmp( argv[2], "SelfTrig_Veto" ) == 0 )
+			{
+				feu_params_col->feu_params[feu].SelfTrig_Veto=atoi(argv[3]);
+			}
 			if( strcmp( argv[2], "SelfTrig_TrigTopo" ) == 0 )
 			{
 				feu_params_col->feu_params[feu].SelfTrig_TrigTopo=atoi(argv[3]);
 			}
 			else if( strcmp( argv[2], "SelfTrig_Topology" ) == 0 )
 			{
-				if( argc != 5 )
+				if( argc != 8 )
 				{
-					fprintf( stderr, "FeuParamsCol_Fread: line=%d wrong SelfTrig_Topology argc=%d != 5\n", line_num, argc );
+					fprintf( stderr, "FeuParamsCol_Fread: line=%d wrong SelfTrig_Topology argc=%d != 8\n", line_num, argc );
 					return D_RetCode_Err_Wrong_Param;
 				}
 				dream_reg = atoi( argv[3] );
-				if( (dream_reg<0) || (D_FeuPar_SelfTrigTopo_Size<=dream_reg) )
+				if( (dream_reg<0) || (D_FeuPar_SelfTrigTopo_Size<=dream_reg) || ((dream_reg % 4)!=0) )
 				{
 					fprintf( stderr, "FeuParamsCol_Fread: line=%d wrong SelfTrig_Topology adr=%d\n", line_num, dream_reg );
 					return D_RetCode_Err_Wrong_Param;
 				}
 				//feu_params_col->feu_params[feu].SelfTrig_Topology[dream_reg]=(unsigned int)strtoll( argv[4], &end_ptr, 16 );
-				sscanf( argv[4], "0x%08x", &(feu_params_col->feu_params[feu].SelfTrig_Topology[dream_reg]) );
+				for( dream=0; dream<4; dream++ )
+				{
+					sscanf( argv[4+dream], "0x%08x", &(feu_params_col->feu_params[feu].SelfTrig_Topology[dream_reg+dream]) );
+				}
 			}
 			// Main module configuration register parameters
 			else if( strcmp( argv[2], "Main_Conf_ClkSel"   ) == 0 )
 			{
 				strcpy( feu_params_col->feu_params[feu].Main_Conf_ClkSel, argv[3] );
 			}
+			else if( (strcmp( argv[2], "Main_Conf_DataPipeLen" ) == 0) || (strcmp( argv[2], "Main_Conf_SparseRd" ) == 0) )
+			{
+				feu_params_col->feu_params[feu].Main_Conf_DataPipeLen=atoi(argv[3]);
+			}
 			/*
 			else if( strcmp( argv[2], "Main_Conf_AdcDtp"   ) == 0 )
 			{
 				feu_params_col->feu_params[feu].Main_Conf_AdcDtp=atoi(argv[3]);
-			}
-			else if( strcmp( argv[2], "Main_Conf_DataPipeLen"   ) == 0 )
-			{
-				feu_params_col->feu_params[feu].Main_Conf_DataPipeLen=atoi(argv[3]);
 			}
 			*/
 			else if( strcmp( argv[2], "Main_Conf_DreamMask"   ) == 0 )
@@ -1129,6 +1205,22 @@ int FeuParamsCol_Parse( FeuParamsCol *feu_params_col, int line_num )
 				}
 				feu_params_col->feu_params[feu].ee_prom[dream_reg]=(short)(strtol( argv[4], &end_ptr, 16 ));
 			}
+			// Max16031
+			else if( strcmp( argv[2], "Max16031" ) == 0 )
+			{
+				if( argc != 5 )
+				{
+					fprintf( stderr, "%s: line=%d wrong Max16031 argc=%d != 5\n", __FUNCTION__, line_num, argc );
+					return D_RetCode_Err_Wrong_Param;
+				}
+				dream_reg = strtol( argv[3], &end_ptr, 16 );
+				if( (dream_reg<0) || (D_FeuPar_Max16031_Size<=dream_reg) )
+				{
+					fprintf( stderr, "FeuParamsCol_Fread: line=%d wrong Max16031 reg=%d\n", line_num, dream_reg );
+					return D_RetCode_Err_Wrong_Param;
+				}
+				feu_params_col->feu_params[feu].max16031[dream_reg]=(short)(strtol( argv[4], &end_ptr, 16 ));
+			}
 			// Dream parameters
 			else if( strcmp( argv[2], "Dream" ) == 0 )
 			{
@@ -1251,7 +1343,8 @@ int FeuParamsCol_PropComParams( FeuParamsCol *feu_params_col )
 		if( feu_params_col->feu_params[feu].Main_Conf_Samples < 0 )
 			feu_params_col->feu_params[feu].Main_Conf_Samples = feu_params_col->feu_params[0].Main_Conf_Samples;
 		feu_params_col->feu_params[feu].Main_Conf_AdcDtp = 0;
-		feu_params_col->feu_params[feu].Main_Conf_DataPipeLen = 0;
+		if( feu_params_col->feu_params[feu].Main_Conf_DataPipeLen < 0 )
+			feu_params_col->feu_params[feu].Main_Conf_DataPipeLen = feu_params_col->feu_params[0].Main_Conf_DataPipeLen;
 
 		// Dream Clock parameters
 		if( feu_params_col->feu_params[feu].dream_clk_params.RdClk_Div == 0.0 )
@@ -1334,6 +1427,8 @@ int FeuParamsCol_PropComParams( FeuParamsCol *feu_params_col )
 			sprintf(feu_params_col->feu_params[feu].Trig_Conf_Src, "%s", feu_params_col->feu_params[0].Trig_Conf_Src);
 		if( feu_params_col->feu_params[feu].Trig_Conf_TrigPipeLen < 0 )
 			feu_params_col->feu_params[feu].Trig_Conf_TrigPipeLen = feu_params_col->feu_params[0].Trig_Conf_TrigPipeLen;
+		if( feu_params_col->feu_params[feu].Trig_Conf_TrigVetoLen < 0 )
+			feu_params_col->feu_params[feu].Trig_Conf_TrigVetoLen = feu_params_col->feu_params[0].Trig_Conf_TrigVetoLen;
 		if( feu_params_col->feu_params[feu].Trig_Conf_File[0]=='\0' )
 			sprintf(feu_params_col->feu_params[feu].Trig_Conf_File, "%s", feu_params_col->feu_params[0].Trig_Conf_File);
 
@@ -1352,12 +1447,16 @@ int FeuParamsCol_PropComParams( FeuParamsCol *feu_params_col )
 			feu_params_col->feu_params[feu].SelfTrig_DreamMask = feu_params_col->feu_params[0].SelfTrig_DreamMask;
 		if( feu_params_col->feu_params[feu].SelfTrig_Mult < 0 )
 			feu_params_col->feu_params[feu].SelfTrig_Mult = feu_params_col->feu_params[0].SelfTrig_Mult;
-		if( feu_params_col->feu_params[feu].SelfTrig_CmbHitProp < 0 )
-			feu_params_col->feu_params[feu].SelfTrig_CmbHitProp = feu_params_col->feu_params[0].SelfTrig_CmbHitProp;
+		if( feu_params_col->feu_params[feu].SelfTrig_CmbHitPropFb < 0 )
+			feu_params_col->feu_params[feu].SelfTrig_CmbHitPropFb = feu_params_col->feu_params[0].SelfTrig_CmbHitPropFb;
+		if( feu_params_col->feu_params[feu].SelfTrig_CmbHitPropOl < 0 )
+			feu_params_col->feu_params[feu].SelfTrig_CmbHitPropOl = feu_params_col->feu_params[0].SelfTrig_CmbHitPropOl;
 		if( feu_params_col->feu_params[feu].SelfTrig_DrmHitWid < 0 )
 			feu_params_col->feu_params[feu].SelfTrig_DrmHitWid = feu_params_col->feu_params[0].SelfTrig_DrmHitWid;
 		if( feu_params_col->feu_params[feu].SelfTrig_CmbHitWid < 0 )
 			feu_params_col->feu_params[feu].SelfTrig_CmbHitWid = feu_params_col->feu_params[0].SelfTrig_CmbHitWid;
+		if( feu_params_col->feu_params[feu].SelfTrig_Veto < 0 )
+			feu_params_col->feu_params[feu].SelfTrig_Veto = feu_params_col->feu_params[0].SelfTrig_Veto;
 		if( feu_params_col->feu_params[feu].SelfTrig_TrigTopo < 0 )
 			feu_params_col->feu_params[feu].SelfTrig_TrigTopo = feu_params_col->feu_params[0].SelfTrig_TrigTopo;
 		// Topology parameters
@@ -1452,6 +1551,13 @@ int FeuParamsCol_PropComParams( FeuParamsCol *feu_params_col )
 				feu_params_col->feu_params[feu].adc_params.adc_reg[index].flg = feu_params_col->feu_params[0].adc_params.adc_reg[index].flg;
 				feu_params_col->feu_params[feu].adc_params.adc_reg[index].val = feu_params_col->feu_params[0].adc_params.adc_reg[index].val;
 			}
+		}
+
+		// Max16031 parameters
+		for( index=0; index<D_FeuPar_Max16031_Size; index++ )
+		{
+			if( feu_params_col->feu_params[feu].max16031[index] < 0 )
+				feu_params_col->feu_params[feu].max16031[index] = feu_params_col->feu_params[0].max16031[index];
 		}
 
 	} // for( feu=1; feu<D_FeuParamsCol_NumOfFeuParams; feu++ )

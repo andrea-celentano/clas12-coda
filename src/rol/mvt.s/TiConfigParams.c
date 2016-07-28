@@ -211,7 +211,7 @@ int TiParams_Sprintf( TiParams *params, char *buf  )
 	sprintf( buf, "%sTi %s ExtEidTstp       %d\n",    buf, id_str, params->ExtEidTstp );
 
 	// Trigger inhibit threshold in event blocks
-	sprintf( buf, "%sTi %s TrgInhThr       %d\n",    buf, id_str, params->TrgInhThr );
+	sprintf( buf, "%sTi %s TrgInhThr        %d\n",    buf, id_str, params->TrgInhThr );
 
 	// All went fine
 	return D_RetCode_Sucsess;

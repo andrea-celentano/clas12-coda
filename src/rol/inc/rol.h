@@ -196,13 +196,14 @@ extern int clear_to_send;
 extern int last_event_check;
 extern uint32_t *dabufp;
 extern unsigned int dataInBuf;
+extern unsigned int g_max_ev_in_buf;
 extern unsigned int g_events_in_buffer;
 extern int tsendBufSize;
 extern int rocp_primefd;
 extern int rocp_recNb;
 extern int this_roc_id;
 extern int token_interval;
-extern /*time_t*/hrtime_t timeout;
+static/*extern*/ /*time_t*/hrtime_t timeout; /* from coda_roc.c */
 
 extern pthread_mutex_t sendbuffer_lock;
 #define SENDBUFFER_LOCK pthread_mutex_lock(&sendbuffer_lock)
@@ -325,7 +326,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     dataInBuf += (len+1)<<2; /* set pointer .. to the next event */ \
     g_events_in_buffer++;    /* increment event counter in buffer */ \
 	/* check if big buffer is full */ \
-    if(dataInBuf > (tsendBufSize - SEND_BUF_MARGIN)) \
+    if( dataInBuf > (tsendBufSize - SEND_BUF_MARGIN) || (g_events_in_buffer>=g_max_ev_in_buf))	\
     { \
 	  /*printf("clear_to_send 1: dataInBuf=%d tsendBufSize=%d SEND_BUF_MARGIN=%d\n",dataInBuf,tsendBufSize,SEND_BUF_MARGIN);*/ \
       clear_to_send = 1; \
@@ -474,10 +475,12 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     if(*(rol->nevents) < 10)						\
     { \
       timeout = gethrtime() + 1*100000;	\
+	  /*printf("SET_TIMEOUT 1: timeout=%d\n",timeout);*/	\
     } \
     else \
     { \
       timeout = gethrtime() + (token_interval/60)*200000;	\
+	  /*printf("SET_TIMEOUT 2: timeout=%d\n",timeout);*/	\
     }
 
 /*
@@ -495,16 +498,20 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 
 #define SEND_BUFFER_ \
   /*SENDING big buffer*/ \
+  tdisp18++; \
   SENDBUFFER_LOCK; \
+  tdisp19++; \
   if((clear_to_send==1) && (rocp_primefd>=0))	\
   { \
-	/*printf("ROL1: clear_to_send = %d === \n",clear_to_send);*/	\
+	/*printf("ROL1: clear_to_send = %d === \n",clear_to_send);*/ \
     /*logMsg("SEND_BUFFER_ROL1 (0x%08x)\n",dabufp);*/	\
     /*setHeartBeat(HB_ROL,14,5);*/ \
     /* send current output buffer */ \
     /* set now 'dabufp' to the beginning of */ \
     /* 'big' buffer just to fill a header   */ \
+  tdisp20++; \
     dabufp = bb_write_current(&gbigDMA); \
+  tdisp21++; \
     /*setHeartBeat(HB_ROL,15,5);*/ \
     if(dabufp == NULL) \
     { \
@@ -527,7 +534,9 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     { \
       /*trying to get next buffer; if not available - do nothing, rols_loop will take care*/ \
 	  /*printf("rol.h: bb_write_nodelay 1\n");*/ \
-      dabufp = bb_write_nodelay(&gbigDMA); \
+  tdisp22++; \
+  dabufp = bb_write_nodelay(&gbigDMA);		\
+  tdisp23++; \
       if(dabufp == NULL) \
       { \
         rocp_recNb --; /* decrement it back */ \
@@ -553,6 +562,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
       logMsg("attempt to send short buffer failed1 !!!\n",1,2,3,4,5,6);	\
     } \
   } \
+  tdisp24++; \
   SENDBUFFER_UNLOCK
 
 
@@ -560,7 +570,9 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 #define WRITE_EVENT_ \
   rol->dabufp = NULL; \
   /* call done routine */ \
+  tdisp16++; \
   (*doneRtns)(); \
+  tdisp17++; \
   /* if buffer if full, trying to send it and get new one; \
 	in case of problem - do NOT call "__done()", leave it for rols_loop */ \
   SEND_BUFFER_; \
@@ -589,6 +601,30 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
 
 
 
+static unsigned int tdisp1=0;
+static unsigned int tdisp2=0;
+static unsigned int tdisp3=0;
+static unsigned int tdisp4=0;
+static unsigned int tdisp5=0;
+static unsigned int tdisp6=0;
+static unsigned int tdisp7=0;
+static unsigned int tdisp8=0;
+static unsigned int tdisp9=0;
+static unsigned int tdisp10=0;
+static unsigned int tdisp11=0;
+static unsigned int tdisp12=0;
+static unsigned int tdisp13=0;
+static unsigned int tdisp14=0;
+static unsigned int tdisp15=0;
+static unsigned int tdisp16=0;
+static unsigned int tdisp17=0;
+static unsigned int tdisp18=0;
+static unsigned int tdisp19=0;
+static unsigned int tdisp20=0;
+static unsigned int tdisp21=0;
+static unsigned int tdisp22=0;
+static unsigned int tdisp23=0;
+static unsigned int tdisp24=0;
 
 
 
@@ -679,10 +715,14 @@ cdodispatch(unsigned int theType)
   /*printf("cdodispatch: increment 'nevents to %d\n",*(rol->nevents));*/
 
   /*UNLOCKINTS;?????*/
+  tdisp13++;
   (*trigRtns)(theType, Tcode);
+  tdisp14++;
   /*LOCKINTS;?????*/
 
   WRITE_EVENT_;
+
+  tdisp15++;
 
   dispatch_busy = 0;
 }
@@ -715,17 +755,13 @@ theIntHandler(int theSource)
 
 /* polling handler: if running in polling mode, called instead of interrupt
    handler */
-static unsigned int tdisp1=0;
-static unsigned int tdisp2=0;
-static unsigned int tdisp3=0;
-static unsigned int tdisp4=0;
-static unsigned int tdisp5=0;
-static unsigned int tdisp6=0;
 
 void
 tdispprint()
 {
-  printf("tdisp = %u %u %u %u %u %u\n",tdisp1,tdisp2,tdisp3,tdisp4,tdisp5,tdisp6);
+  printf("tdisp = %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u\n",
+		 tdisp1,tdisp2,tdisp3,tdisp4,tdisp5,tdisp6,tdisp7,tdisp8,tdisp9,tdisp10,tdisp11,tdisp12,tdisp13,tdisp14,tdisp15,
+         tdisp16,tdisp17,tdisp18,tdisp19,tdisp20,tdisp21,tdisp22,tdisp23,tdisp24);
 }
 
 static int
@@ -743,23 +779,30 @@ cdopolldispatch()
   tdisp1++;
   if(!poolEmpty)
   {
-  tdisp2++;
+    tdisp2++;
     if(syncTRtns) /*for VME_source.h it is vmettest*/
     {
-  tdisp3++;
-      if(stat=(*syncTRtns)(Tcode))/*mostly returns 0; if returns 1 - call trigger routine*/
+      tdisp3++;
+      stat=(*syncTRtns)(Tcode);
+      tdisp4++;
+      if(stat) /*mostly 0; if 1 - call trigger routine*/
       {
-  tdisp4++;
+        tdisp5++;
         LOCKINTS;
-  tdisp5++;
+        tdisp6++;
         if(!dispatch_busy)
         {
-  tdisp6++;
+          tdisp7++;
           theType = (*ttypeRtns)(Tcode);  
+          tdisp8++;
           cdodispatch(theType);
+          tdisp9++;
         }
+        tdisp10++;
         UNLOCKINTS;
+        tdisp11++;
       }
+      tdisp12++;
     }   
   }
   else
@@ -778,7 +821,6 @@ cdopolldispatch()
 
 
 static char rol_name__[40];
-static char temp_string__[132];
 
 
 static void
@@ -845,6 +887,24 @@ tdisp3=0;
 tdisp4=0;
 tdisp5=0;
 tdisp6=0;
+tdisp7=0;
+tdisp8=0;
+tdisp9=0;
+tdisp10=0;
+tdisp11=0;
+tdisp12=0;
+tdisp13=0;
+tdisp14=0;
+tdisp15=0;
+tdisp16=0;
+tdisp17=0;
+tdisp18=0;
+tdisp19=0;
+tdisp20=0;
+tdisp21=0;
+tdisp22=0;
+tdisp23=0;
+tdisp24=0;
 	  __go();
 	  break;
     case DA_POLL_PROC:

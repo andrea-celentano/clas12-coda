@@ -29,6 +29,10 @@
 --                     2014/09/03 IM Trigger Interface Bert parameter added
 --                 1.1 2014/11/17 IM Feu_RunCtrl_EvTstExt parameter added
 --                 1.1 2014/12/10 IM Dream clock parameters added
+--                 1.2 2016/01/11 IM Trig_Conf_TrigVetoLen parameter added to TrigGen
+--                 1.3 2016/02/24 IM Number of Topological trigger registers increased from 8 to 32
+--                 1.4 2016/03/15 IM Max16031 registers added
+--                 1.5 2016/03/15 IM Max16031 registers added
 --
 -- Comments:
 --
@@ -50,7 +54,7 @@ extern void parse_line(char *s);
 #define H_FeuConfigParams
 
 #ifndef DEF_MAX_NB_OF_FEU
-#define DEF_MAX_NB_OF_FEU 256
+#define DEF_MAX_NB_OF_FEU 64
 #endif
 
 #ifndef DEF_MAX_NB_OF_DREAM
@@ -102,7 +106,8 @@ typedef struct _AdcParams
 
 #define D_FeuPar_NumOfDreams (DEF_MAX_NB_OF_DREAM+1)
 #define D_FeuPar_EeProm_Size 16
-#define D_FeuPar_SelfTrigTopo_Size 8
+#define D_FeuPar_Max16031_Size 256
+#define D_FeuPar_SelfTrigTopo_Size 32
 typedef struct _FeuParams
 {
 	// Main module config parameters
@@ -154,6 +159,7 @@ typedef struct _FeuParams
 	int  Trig_Conf_Rate;
 	char Trig_Conf_Src[24];
 	int  Trig_Conf_TrigPipeLen;
+	int  Trig_Conf_TrigVetoLen;
 	char Trig_Conf_File[128];
 
 	// Auxiliari Trigger Interface
@@ -165,10 +171,12 @@ typedef struct _FeuParams
 	// Self Trigger parameters
 	int  SelfTrig_DreamMask;
 	int  SelfTrig_Mult;
-	int  SelfTrig_CmbHitProp;
+	int  SelfTrig_CmbHitPropFb;
+	int  SelfTrig_CmbHitPropOl;
 	int  SelfTrig_DrmHitWid;
 	int  SelfTrig_CmbHitWid;
 	int  SelfTrig_TrigTopo;
+	int  SelfTrig_Veto;
 	unsigned int SelfTrig_Topology[D_FeuPar_SelfTrigTopo_Size];
 
 	// Communication registers
@@ -189,8 +197,10 @@ typedef struct _FeuParams
 
 	// EE Prom values
 	short ee_prom[D_FeuPar_EeProm_Size];
+
+	// EE Prom values
+	short max16031[D_FeuPar_Max16031_Size];
 } FeuParams;
-int FeuParams_Init( FeuParams *feu_params );
 
 #define D_FeuParamsCol_NumOfFeuParams (DEF_MAX_NB_OF_FEU+1)
 typedef struct _FeuParamsCol

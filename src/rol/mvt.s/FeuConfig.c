@@ -1746,7 +1746,7 @@ int _FeuConfig( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 	{
 		// Trigger module config parameters
 		// Only optical link trigger is supported 
-		wr_val = D_Tg_RegConf_Set( 0, feu_params->Trig_Conf_TrigPipeLen, Tg_Src_Int, 0 );
+		wr_val = D_Tg_RegConf_Set( 0, 0, feu_params->Trig_Conf_TrigPipeLen, Tg_Src_Int, 0 );
 		// Set configuration register address 
 		reg_adr = D_CBus_SetModType(      0, D_CBus_Mod_TrigGen );
 		reg_adr = D_Tg_AdrZone_Set( reg_adr, D_Tg_AdrZone_Reg );
@@ -1800,7 +1800,7 @@ int _FeuConfig( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 	// Self Trigger Interface parameters
 	{
 		// Mask Dreams: no self trigger
-		wr_val = D_SelfTrig_Csr_Conf_Set( 0, 0xFF, 7, 0, 63, 63, 0 );
+		wr_val = D_SelfTrig_Csr_Conf_Set( 0, 0xFF, 7, 0, 63, 63, 0, 0 );
 		// Set configuration register address 
 		reg_adr = D_CBus_SetModType(            0, D_CBus_Mod_SelfTrig );
 		reg_adr = D_SelfTrig_AdrZone_Set( reg_adr, D_SelfTrig_AdrZone_Reg );

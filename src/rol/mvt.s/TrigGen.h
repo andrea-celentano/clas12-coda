@@ -19,6 +19,7 @@
 --                     2011/03/07 IM Trigger pipeline added
 --                     2013/02/12 IM Change constant trigger rate to 1, 10 & 100 Hz 
 --                     2013/04/04 IM Change Any trigger to NegExp trigger 
+--                 1.2 2016/01/11 IM Veto parameter added
 --
 -- Comments:
 --
@@ -95,9 +96,9 @@
 	char *Tg_Src2Str(Tg_Src Tg_Src);
 
 	/* Configuration, command and status register mapped at baseaddress + 0
-	-- |      Status     |      Command     |             Config       |
-	-- | Enabled | Ready | Trig | En | Init | TrigPipeLen | Src | Rate |
-	-- |   21    |  20   |  19  | 18 | 17   |    16-5     | 4-2 | 1-0  |
+	-- |      Status     |      Command     |                Config                  |
+	-- | Enabled | Ready | Trig | En | Init | TrigVetoLen | TrigPipeLen | Src | Rate |
+	-- |   31    |  30   |  29  | 28 | 27   |    26-17    |    16-5     | 4-2 | 1-0  |
 	-- Src: 0-Push button; 1-Ext trig; 2-Const rate; 3-Bram
 	-- Rate: 0-0Hz; 1-1Hz; 2-2Hz; 3-3Hz
 	*/
@@ -107,11 +108,13 @@
 	#define D_Tg_RegConf_Src_Len              3
 	#define D_Tg_RegConf_TrigPipeLen_Ofs   5
 	#define D_Tg_RegConf_TrigPipeLen_Len     12
-	#define D_Tg_RegCmd_Init_Ind          17
-	#define D_Tg_RegCmd_En_Ind            18
-	#define D_Tg_RegCmd_Trig_Ind          19
-	#define D_Tg_RegStat_Raedy_Ind        20
-	#define D_Tg_RegStat_Enabled_Ind      21
+	#define D_Tg_RegConf_TrigVetoLen_Ofs   17
+	#define D_Tg_RegConf_TrigVetoLen_Len     10
+	#define D_Tg_RegCmd_Init_Ind          27
+	#define D_Tg_RegCmd_En_Ind            28
+	#define D_Tg_RegCmd_Trig_Ind          29
+	#define D_Tg_RegStat_Raedy_Ind        30
+	#define D_Tg_RegStat_Enabled_Ind      31
 
 	// Field manipulation macros
 	// Config
@@ -121,26 +124,28 @@
 	#define D_Tg_RegConf_Src_Set(  word, val )          PutBits(word, D_Tg_RegConf_Src_Ofs,  D_Tg_RegConf_Src_Len, val )
 	#define D_Tg_RegConf_TrigPipeLen_Get(  word )       GetBits(word, D_Tg_RegConf_TrigPipeLen_Ofs,  D_Tg_RegConf_TrigPipeLen_Len )
 	#define D_Tg_RegConf_TrigPipeLen_Set(  word, val )  PutBits(word, D_Tg_RegConf_TrigPipeLen_Ofs,  D_Tg_RegConf_TrigPipeLen_Len, val )
+	#define D_Tg_RegConf_TrigVetoLen_Get(  word )       GetBits(word, D_Tg_RegConf_TrigVetoLen_Ofs,  D_Tg_RegConf_TrigVetoLen_Len )
+	#define D_Tg_RegConf_TrigVetoLen_Set(  word, val )  PutBits(word, D_Tg_RegConf_TrigVetoLen_Ofs,  D_Tg_RegConf_TrigVetoLen_Len, val )
 
 	#define D_Tg_RegConf_GetConfig(reg) \
 		GetBits \
 		( \
 			reg, \
 			D_Tg_RegConf_Rate_Ofs, \
-			D_Tg_RegConf_TrigPipeLen_Len+D_Tg_RegConf_Rate_Len+D_Tg_RegConf_Src_Len \
+			D_Tg_RegConf_TrigVetoLen_Len+D_Tg_RegConf_TrigPipeLen_Len+D_Tg_RegConf_Rate_Len+D_Tg_RegConf_Src_Len \
 		)
 
-	#define D_Tg_RegConf_Set( reg, trig_pipe_len, src, rate ) \
+	#define D_Tg_RegConf_Set( reg, trig_veto_len, trig_pipe_len, src, rate ) \
 		PutBits \
 		( \
 			reg, \
 			D_Tg_RegConf_Rate_Ofs, \
-			(D_Tg_RegConf_TrigPipeLen_Len+D_Tg_RegConf_Rate_Len+D_Tg_RegConf_Src_Len), \
-			(trig_pipe_len<<D_Tg_RegConf_TrigPipeLen_Ofs)+(src<<D_Tg_RegConf_Src_Ofs)+ rate \
+			(D_Tg_RegConf_TrigVetoLen_Len+D_Tg_RegConf_TrigPipeLen_Len+D_Tg_RegConf_Rate_Len+D_Tg_RegConf_Src_Len), \
+			(trig_veto_len<<D_Tg_RegConf_TrigVetoLen_Ofs)+(trig_pipe_len<<D_Tg_RegConf_TrigPipeLen_Ofs)+(src<<D_Tg_RegConf_Src_Ofs)+ rate \
 		)
 
 	// Default value
-	#define D_Def_Tg_Conf D_Tg_RegConf_Set( 0, 1, Tg_Src_ExtSyn, Tg_Rate_One_Hz )
+	#define D_Def_Tg_Conf D_Tg_RegConf_Set( 0, 0, 1, Tg_Src_ExtSyn, Tg_Rate_One_Hz )
 
 	// Commands
 	#define D_Tg_RegCmd_Init_Get( word )    GetBits(word, D_Tg_RegCmd_Init_Ind,  1 )

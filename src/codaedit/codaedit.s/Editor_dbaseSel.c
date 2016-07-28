@@ -104,7 +104,8 @@ dbaseSelOk (Widget w, XtPointer data, XmAnyCallbackStruct* cbs)
     pop_error_message (temp, w);
     return;
   }
-  else {
+  else
+  {
     XcodaEditorShowDatabaseName (currdbase);
     XcodaEditorEnableInput ();
     if (constructRcnetComps (daq_list, &num_comps) == 0) 
@@ -133,7 +134,8 @@ EditorSelectExp (Widget w, char *exp)
     pop_error_message (temp, w);
     return;
   }
-  else {
+  else
+  {
     XcodaEditorShowDatabaseName (currdbase);
     XcodaEditorEnableInput ();
     if (constructRcnetComps (daq_list, &num_comps) == 0) 

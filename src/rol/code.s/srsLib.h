@@ -35,6 +35,8 @@ int   srsConnect(int *sockfd, char *ip, int port);
 int   srsStatus(char *ip, int pflag);
 int   srsReadBlock(int sockfd, volatile unsigned int* buf_in, int nwrds, int blocklevel,
 		   int *frameCnt);
+int   srsCheckAndClearBuffers(int *sockfds, int nfds, volatile unsigned int* buf_in,
+			      int nwrds, int blocklevel, int *frameCnt);
 
 int   srsSetDAQIP(char *ip, char *daq_ip, int port);
 int   srsSetDTCClk(char *ip, int dtcclk_inh, int dtctrg_inh, 
