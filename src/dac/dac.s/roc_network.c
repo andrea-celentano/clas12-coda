@@ -28,6 +28,7 @@
 #include "circbuf.h"
 #include "bigbuf.h"
 
+extern char    *mysql_host; /* coda_component.c */
 extern char    *expid; /* coda_component.c */
 
 #define CODA_ERROR 1
@@ -566,7 +567,7 @@ rocOpenLink(char *fromname, char *toname, char host_return[128], int *port_retur
   printf("rocOpenLink: set name to >%s<\n",name);
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
   printf("3121: dbsock=%d\n",dbsock);
   if(dbsock==NULL)
   {

@@ -500,7 +500,28 @@ tdc1290GetChannels(int id, UINT16 channels[2])
   return(OK);
 }
 
+
+
+
+
+
+
+
 /*****************************************************************************/
+
+static char *expid= NULL;
+
+void
+tdc1190SetExpid(char *string)
+{
+  tdc1290SetExpid(string);
+}
+
+void
+tdc1290SetExpid(char *string)
+{
+  expid = strdup(string);
+}
 
 void
 tdc1290InitGlobals()
@@ -557,11 +578,20 @@ tdc1290ReadConfigFile(char *filename)
   unsigned int  ui1, ui2;
   char *getenv();
   char *clonparms;
-  char *expid;
 
   gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
-  expid = getenv("EXPID");
+
+  if(expid==NULL)
+  {
+    expid = getenv("EXPID");
+    printf("\nNOTE: use EXPID=>%s< from environment\n",expid);
+  }
+  else
+  {
+    printf("\nNOTE: use EXPID=>%s< from CODA\n",expid);
+  }
+
   if(strlen(filename)!=0) /* filename specified */
   {
     if ( filename[0]=='/' || (filename[0]=='.' && filename[1]=='/') )
@@ -831,10 +861,11 @@ tdc1290DownloadAll()
   }
   if(window_offset < -800000) tdata = -32000;
   else                        tdata = window_offset/25;
-  printf("Set Window Offset to %d ns\n",tdata*25);
+  value = (unsigned short)tdata;
+  printf("Set Window Offset to %d ns, tdata=0x%04x, value=0x%04x\n",tdata*25,tdata,value);
   for(ii=0; ii<Nc1190; ii++)
   {
-    tdc1190WriteMicro(ii,tdata);
+    tdc1190WriteMicro(ii,/*tdata*/value);
   }
 
   /* set Extra Search Margin (after window) (ns) */
@@ -2863,6 +2894,9 @@ tdc1190SetWindowWidth(int id, UINT32 window_width)
   return tdc1190WriteMicro(id,tdata);
 }
 
+
+/* window offset can be set from -2048 (0xF800) to +40 (0x0028) */
+/* default: tdata=0xFFD8 means -1 millisec (0xFFFF-0xFFD8=39, 39*25=975ns) */
 STATUS
 tdc1190SetWindowOffset(int id, INT32 window_offset)
 {
@@ -2876,7 +2910,7 @@ tdc1190SetWindowOffset(int id, INT32 window_offset)
   else             
     tdata = window_offset/25;
 
-  printf("%s(%d): Set Window Offset to %d ns\n",__FUNCTION__,id,tdata*25);
+  printf("%s(%d): Set Window Offset to %d ns (tdata=0x%04x)\n",__FUNCTION__,id,tdata*25,(unsigned short)tdata);
 
   return tdc1190WriteMicro(id,tdata);
 

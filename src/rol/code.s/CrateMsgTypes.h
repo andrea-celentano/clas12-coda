@@ -27,7 +27,8 @@
 #define SCALER_TYPE_DSC2        0
 #define SCALER_TYPE_FADC250     1
 #define SCALER_TYPE_VSCM        2
-#define SCALER_TYPE_MAX         3   /* the maximum number of different board types */
+#define SCALER_TYPE_VTP         3
+#define SCALER_TYPE_MAX         4   /* the maximum number of different board types */
 
 
 #define SCALER_PARTYPE_THRESHOLD    0

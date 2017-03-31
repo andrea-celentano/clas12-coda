@@ -35,6 +35,9 @@
      tdFirmwareUpdate 0x00300000 tdp31.svf
      tdFirmwareUpdate 0x00380000 tdp31.svf
      tdFirmwareUpdate 0x00400000 tdp31.svf
+     tdFirmwareUpdate 0x00480000 tdp31.svf
+     tdFirmwareUpdate 0x00500000 tdp31.svf
+     tdFirmwareUpdate 0x00680000 tdp31.svf
 
      (tdFirmwareUpdate xxxxxxxxx tdp52.svf)
 

@@ -809,7 +809,7 @@ faStatus(int id, int sflag)
     PTW, PL, NSB, NSA, NP, adcChanDisabled, playbackMode;
   unsigned int adc_enabled, adc_version, adc_option;
   unsigned int trigCnt, trig2Cnt, srCnt, itrigCnt, ramWords;
-  unsigned int mgtStatus;
+  unsigned int mgtStatus, mgtCtrl;
   unsigned int berr_count=0;
   unsigned int scaler_interval=0;
   unsigned int tet_trg[16], tet_readout[16];
@@ -867,6 +867,7 @@ faStatus(int id, int sflag)
 
 #ifdef CLAS12
   mgtStatus = vmeRead32(&(FAp[id]->gtx_status));
+  mgtCtrl = vmeRead32(&(FAp[id]->gtx_ctrl));
 
   for(ii=0;ii<FA_MAX_ADC_CHANNELS;ii++)
   {
@@ -1107,11 +1108,11 @@ faStatus(int id, int sflag)
   printf("  BERR count (from module) = %d\n",berr_count);
 
 #ifdef CLAS12
+  printf("  GTX Ctrl   Register      = 0x%08x\n",mgtCtrl);
   printf("  GTX Status Register      = 0x%08x, Errors:",mgtStatus);
-  if( mgtStatus & (0x1 | 0x2)) printf(" HardErr");
-  if( (mgtStatus&0x10)==0 || (mgtStatus&0x20)==0 ) printf(" LaneErr");
-  if( (mgtStatus&0x1000)==0 ) printf(" ChannelErr");
-  if( (mgtStatus&0x2000)==0 ) printf(" PLLErr");
+  if( mgtCtrl & 0x1) printf(" Reset");
+  if( (mgtStatus&0x2)==0 || (mgtStatus&0x4)==0 ) printf(" LaneErr");
+  if( (mgtStatus&0x1)==0 ) printf(" ChannelErr");
   printf("\n\n");
 
   printf("  Ch| Readout - TET | Trigger - TET | GAIN   | PED    \n");
@@ -3986,7 +3987,7 @@ faGetMGTChannelStatus(int id)
   status = vmeRead32(&(FAp[id]->gtx_status));
   FAUNLOCK;
 
-  if(status & 0x1000)
+  if(status & 0x1)
     return(1);
 
   return(0);

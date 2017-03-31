@@ -67,6 +67,16 @@ static int holdoff_rules[4];
 static int holdoff_timescale[4];
 static int fiber_in;
 
+
+static char *expid = NULL;
+
+void
+tiSetExpid(char *string)
+{
+  expid = strdup(string);
+}
+
+
 /* tiInit() have to be called before this function */
 int  
 tiConfig(char *fname)
@@ -139,11 +149,20 @@ tiReadConfigFile(char *filename)
   unsigned int  ui1, ui2;
   char *getenv();
   char *clonparms;
-  char *expid;
   
   gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
-  expid = getenv("EXPID");
+
+  if(expid==NULL)
+  {
+    expid = getenv("EXPID");
+    printf("\nNOTE: use EXPID=>%s< from environment\n",expid);
+  }
+  else
+  {
+    printf("\nNOTE: use EXPID=>%s< from CODA\n",expid);
+  }
+
   if(strlen(filename)!=0) /* filename specified */
   {
     if ( filename[0]=='/' || (filename[0]=='.' && filename[1]=='/') )

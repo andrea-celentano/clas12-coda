@@ -1552,6 +1552,7 @@ srsReadFile(char *path, char *ip, int *port, unsigned int *obuffer)
   return nwords;
 }
 
+#ifndef Linux_armv7l
 static unsigned long long int 
 rdtsc(void)
 {
@@ -1562,3 +1563,4 @@ rdtsc(void)
 
   return ((unsigned long long)a) | (((unsigned long long)d) << 32);
 }
+#endif

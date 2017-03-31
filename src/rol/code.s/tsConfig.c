@@ -1,5 +1,6 @@
 #if defined(VXWORKS) || defined(Linux_vme)
 
+
 /****************************************************************************
  *
  *  tsConfig.c  -  configuration library file for ts board 
@@ -19,7 +20,7 @@ TS_BUFFER_LEVEL 1                              # 0 - pipeline mode, 1 - ROC Lock
 
 TS_INPUT_PRESCALE bit prescale                 # bit: 0-5, prescale: 0-15, actual prescale value is 2^prescale
 
-TS_INPUT_MASK bit1 bit2 bit3 bit4 bit5 bit6    # bits: 0 or 1
+TS_INPUT_MASK 0x7FFFFFFF                       # 32-bit mask in HEX
 
 TS_RANDOM_TRIGGER en prescale                  # en: 0=disabled 1=enabled, prescale: 0-15, nominal rate = 500kHz/2^prescale
 
@@ -66,6 +67,15 @@ static int random_prescale;
 static int holdoff_rules[4];
 static int holdoff_timescale[4];
 static int fiber_in;
+
+
+static char *expid= NULL;
+
+void
+tsSetExpid(char *string)
+{
+  expid = strdup(string);
+}
 
 /* tsInit() have to be called before this function */
 int  
@@ -117,7 +127,7 @@ tsInitGlobals()
   holdoff_timescale[3] = 0;
   for(ii=0; ii<MAXSLAVES; ii++) slave_list[ii] = 0;
   for(ii=0; ii<6; ii++) input_prescale[ii] = 0;
-  input_mask = 0x3f;
+  input_mask = 0x7fffffff;
   fiber_in = 1;
 
   return(0);
@@ -134,16 +144,25 @@ tsReadConfigFile(char *filename)
   char   str_tmp[STRLEN], keyword[ROCLEN];
   char   host[ROCLEN], ROC_name[ROCLEN];
   char   str2[2];
-  int    args, i1, i2, i3, i4, i5, i6;
+  int    args, i1, i2, i3, i4, i5, i6, k[32];
   int    slot, chan;
   unsigned int  ui1, ui2;
   char *getenv();
   char *clonparms;
-  char *expid;
   
   gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
-  expid = getenv("EXPID");
+
+  if(expid==NULL)
+  {
+    expid = getenv("EXPID");
+    printf("\nNOTE: use EXPID=>%s< from environment\n",expid);
+  }
+  else
+  {
+    printf("\nNOTE: use EXPID=>%s< from CODA\n",expid);
+  }
+
   if(strlen(filename)!=0) /* filename specified */
   {
     if ( filename[0]=='/' || (filename[0]=='.' && filename[1]=='/') )
@@ -254,12 +273,9 @@ tsReadConfigFile(char *filename)
 
       else if(active && (strcmp(keyword,"TS_INPUT_MASK")==0))
       {
-        sscanf (str_tmp, "%*s %d %d %d %d %d %d",&i1,&i2,&i3,&i4,&i5,&i6);
-        if( (i1!=0)||(i1!=1)||(i2!=0)||(i2!=1)||(i3!=0)||(i3!=1)||(i4!=0)||(i4!=1)||(i5!=0)||(i5!=1)||(i6!=0)||(i6!=1) )
-        {
-          printf("\nReadConfigFile: Invalid input mask selection, %s\n",str_tmp);
-        }
-        input_mask = i1+(i2<<1)+(i3<<2)+(i4<<3)+(i5<<4)+(i6<<5);
+        sscanf (str_tmp, "%*s 0x%X",&i1);
+        input_mask = i1;
+        printf("\nReadConfigFile: input_mask = 0x%08x\n",input_mask);
       }
 
       else if(active && (strcmp(keyword,"TS_RANDOM_TRIGGER")==0))
@@ -346,7 +362,10 @@ tsDownloadAll()
 
   /*for(ii=0; ii<6; ii++) tsSetInputPrescale(ii+1,input_prescale[ii]);TS*/
 
-  /*tsEnableTSInput(input_mask);TS*/
+  tsSetFPInput(input_mask);
+  printf("tsDownloadAll: setting input_mask=0x%08x\n",input_mask);
+  input_mask = tsGetFPInput();
+  printf("tsDownloadAll: reading back input_mask=0x%08x\n",input_mask);
 
   for(ii=0; ii<4; ii++) tsSetTriggerHoldoff(ii+1,holdoff_rules[ii],holdoff_timescale[ii]);
   
@@ -363,9 +382,15 @@ sleep(1);
   tsSetBlockBufferLevel(buffer_level);
 
   if(!random_enabled)
+  {
     tsDisableRandomTrigger();
+    tsSetTriggerSource(6);
+  }
   else
+  {
     tsSetRandomTrigger(1, random_prescale);
+    tsSetTriggerSource(5);
+  }
 
   /*tsSetFiberIn_preInit(fiber_in);TS*/
 
@@ -420,7 +445,7 @@ tsUploadAll(char *string, int length)
   printf("tsUploadAll: block_level=%d, buffer_level=%d\n",block_level,buffer_level);
   */
 
-  /*input_mask = tsGetTSInputMask();TS*/
+  input_mask = tsGetFPInput();
 
   for(ii = 0; ii < 6; ii++)
   {
@@ -461,9 +486,7 @@ tsUploadAll(char *string, int length)
       ADD_TO_STRING;
     }
 
-    sprintf(sss,"TS_INPUT_MASK %d %d %d %d %d %d\n",
-      (input_mask>>5)&1,(input_mask>>4)&1,(input_mask>>3)&1,
-      (input_mask>>2)&1,(input_mask>>1)&1,(input_mask)&1);
+    sprintf(sss,"TS_INPUT_MASK 0x%08x\n",input_mask);
     ADD_TO_STRING;
 
     for(ii = 0; ii < 6; ii++)

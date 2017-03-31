@@ -54,6 +54,7 @@ typedef void 		(*VOIDFPTR) (); /* ptr to function returning void */
 
 /* currently processed message */
 static char current_message[REQUEST_MSG_SIZE];
+static char mysql_host[128];
 static char localname[128];
 
 /*
@@ -243,14 +244,15 @@ my_execute(char *string)
 
 
 int
-tcpServer(char *name)
+tcpServer(char *name, char *mysqlhost)
 {
   pthread_t id;
   pthread_attr_t attr;
 
-  printf("tcpServer reached, name >%s<\n",name);fflush(stdout);
+  printf("tcpServer reached: name >%s<, mysqlhost >%s<\n",name,mysqlhost);fflush(stdout);
   strcpy(localname,name);
-  printf("tcpServer reached, localname >%s<\n",localname);fflush(stdout);
+  strcpy(mysql_host,mysqlhost);
+  printf("tcpServer reached: localname >%s<, mysql_host >%s<\n",localname,mysql_host);fflush(stdout);
 
   pthread_attr_init(&attr); /* initialize attr with default attributes */
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
@@ -285,7 +287,7 @@ TcpServer(void)
   int numRows;
   char tmp[256], *myname, *hname, *ch;
   
-  printf("TcpServer reached\n");fflush(stdout);
+  printf("TcpServer(external) reached\n");fflush(stdout);
 
 #ifdef Linux
   prctl(PR_SET_NAME,"tcpServer");
@@ -312,8 +314,8 @@ TcpServer(void)
   /* bind socket to local address */
   while(bind(sFd, (struct sockaddr *)&serverAddr, sockAddrSize) == ERROR)
   {
-    printf("TcpServer: trying port %d\n",portnum);
-    perror("TcpServer: bind");
+    printf("TcpServer(external): trying port %d\n",portnum);
+    perror("TcpServer(external): bind");
 
     /* try another port (just increment on one) */
     portnum ++;
@@ -325,7 +327,7 @@ TcpServer(void)
 
     serverAddr.sin_port = htons(portnum);
   }
-  printf("TcpServer: bind on port %d\n",portnum);
+  printf("TcpServer(external): bind on port %d\n",portnum);
 
   /* create queue for client connection requests */ 
   if(listen (sFd, SERVER_MAX_CONNECTIONS) == ERROR)
@@ -336,10 +338,10 @@ TcpServer(void)
   }
 
   myname = localname;
-  printf("TcpServer: myname >%s<\n",myname);fflush(stdout);
+  printf("TcpServer(external): myname >%s<\n",myname);fflush(stdout);
 
   /* update daq database 'Ports' table with port number and host name */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), "daq");
+  dbsock = dbConnect(mysql_host, "daq");
 
   /* trying to select our name from 'Ports' table */
   sprintf(tmp,"SELECT Name FROM Ports WHERE Name='%s'",myname);
@@ -363,12 +365,12 @@ TcpServer(void)
     mysql_free_result(result);
 
 	hname = getenv("HOST");
-	printf("hname befor >%s<\n",hname);
+	printf("TcpServer(external): hname befor >%s<\n",hname);
     /* remove everything starting from first dot */
     ch = strstr(hname,".");
     if(ch != NULL) *ch = '\0';
     else ch = hname[strlen(hname)];
-	printf("hname after >%s<\n",hname);
+	printf("TcpServer(external): hname after >%s<\n",hname);
 
     /*printf("nrow=%d\n",numRows);*/
     if(numRows == 0)
@@ -393,7 +395,7 @@ TcpServer(void)
     }
     else
     {
-      printf("Query >%s< succeeded\n",tmp);
+      printf("TcpServer(external): Query >%s< succeeded\n",tmp);
     }
   }
 
@@ -410,7 +412,7 @@ TcpServer(void)
     many requests may create network buffer shortage */
     if(request_in_progress)
     {
-      printf("wait: request in progress\n");
+      printf("TcpServer(external): wait: request in progress\n");
       sleep(1);
       continue;
     }
@@ -450,9 +452,18 @@ usrNetStackDataPoolStatus("tcpServer",1);
 	  */
       /* block annoying IP address(es) */
       /*if(!strncmp((int) inet_ntoa (clientAddr.sin_addr),"129.57.71.",10))*/
+
+	  /* is it better ???
+      if( strncmp(address,"129.57.167.",11) &&
+          strncmp(address,"129.57.160.",11) &&
+          strncmp(address,"129.57.68.",10)  &&
+          strncmp(address,"129.57.69.",10)  &&
+          strncmp(address,"129.57.86.",10) &&
+          strncmp(address,"129.57.29.",10) )
+	  */
       if(!strncmp(targ.address,"129.57.71.",10))
 	  {
-        printf("WARN: ignore request from %s\n",targ.address);
+        printf("TcpServer(external): WARN: ignore request from %s\n",targ.address);
         close(targ.newFd);
         request_in_progress = 0;
 	  }
@@ -461,7 +472,7 @@ usrNetStackDataPoolStatus("tcpServer",1);
         ret = pthread_create(&id, &detached_attr, tcpServerWorkTask, &targ);
         if(ret!=0)
         {
-          printf("ERROR: pthread_create(CODAtcpServerWorkTask) returned %d\n",
+          printf("TcpServer(external): ERROR: pthread_create(CODAtcpServerWorkTask) returned %d\n",
             ret);
           close(targ.newFd);
           request_in_progress = 0;
@@ -537,7 +548,7 @@ tcpServerWorkTask(TWORK *targ)
   }
   else if(nRead == 0)
   {
-    printf("connection closed, exit thread\n");
+    printf("TcpServer(external): connection closed, exit thread\n");
   }
   else
   {

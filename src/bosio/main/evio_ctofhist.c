@@ -128,6 +128,8 @@ gotControlEvent(et_event **pe, int size)
 #undef DEBUG_SEARCH
 
 #undef DEBUG
+#define DEBUG1 /* TDC bank */
+/*#define DEBUG2*/ /* FADC bank */
  
 #define NWPAWC 20000000 /* Length of the PAWC common block. */
 #define LREC 1024      /* Record length in machine words. */
@@ -141,7 +143,7 @@ struct {
 } quest_;
 
 
-#define MAXEVENTS 20000000
+#define MAXEVENTS 100000
 
 #define MAXBUF 10000000
 unsigned int buf[MAXBUF];
@@ -281,6 +283,14 @@ static int adcslab[22][16] = {
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+  1, 3, 5, 7, 1, 3, 5, 7, 9,11,13,15, 9,11,13,15, /*slot 3*/
+  2, 4, 6, 8, 2, 4, 6, 8,10,12,14,16,10,12,14,16, /*slot 4*/
+ 17,19,21,23,17,19,21,23,25,27,29,31,25,27,29,31, /*slot 5*/
+ 18,20,22,24,18,20,22,24,26,28,30,32,26,28,30,32, /*slot 6*/
+ 33,35,37,39,33,35,37,39,41,43,45,47,41,43,45,47, /*slot 7*/
+ 34,36,38,40,34,36,38,40,42,44,46,48,42,44,46,48, /*slot 8*/
+
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -291,12 +301,6 @@ static int adcslab[22][16] = {
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  1, 3, 5, 7, 1, 3, 5, 7, 9,11,13,15, 9,11,13,15, /*slot 13*/
-  2, 4, 6, 8, 2, 4, 6, 8,10,12,14,16,10,12,14,16, /*slot 14*/
- 17,19,21,23,17,19,21,23,25,27,29,31,25,27,29,31, /*slot 15*/
- 18,20,22,24,18,20,22,24,26,28,30,32,26,28,30,32, /*slot 16*/
- 33,35,37,39,33,35,37,39,41,43,45,47,41,43,45,47, /*slot 17*/
- 34,36,38,40,34,36,38,40,42,44,46,48,42,44,46,48, /*slot 18*/
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -307,6 +311,14 @@ static int adclr[22][16] = {
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+  1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, /*slot 3*/
+  1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, /*slot 4*/
+  1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, /*slot 5*/
+  1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, /*slot 6*/
+  1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, /*slot 7*/
+  1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, /*slot 8*/
+
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -317,12 +329,6 @@ static int adclr[22][16] = {
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, /*slot 13*/
-  1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, /*slot 14*/
-  1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, /*slot 15*/
-  1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, /*slot 16*/
-  1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, /*slot 17*/
-  1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, /*slot 18*/
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -424,10 +430,10 @@ main(int argc, char **argv)
 
 
   /*arg-slot(from 0), fun-histnum*/
-  /*13,14,15,16,17,18,19*/
-  int adcslot2hist[22] = {0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,7,0,0};
   /*3,4,5,6,7,8,9*/
-  int tdcslot2hist[22] = {0,0,0,1,2,3,4,5,6,7,0,0,0,0,0,0,0,0,0,0,0,0};
+  int adcslot2hist[22] = {0,0,0,1,2,3,4,5,6,0,0,0,0,7,8,9,0,0,0,0,0,0};
+  /*3,4,5,6,7,8,9*/
+  int tdcslot2hist[22] = {0,0,0,1,2,3,4,5,6,7,0,0,0,0,0,0,8,0,0,0,0,0};
 
   int nr,sec,strip,nl,ncol,nrow,i,j, k, ii,jj,kk,l,l1,l2,ichan,nn,mm,iev,nbytes,ind1;
   char title[128], *ch;
@@ -557,7 +563,7 @@ main(int argc, char **argv)
   x1 = 0.;
   x2 = 100.;
   ww = 0.;
-  for(ii=0; ii<6; ii++)
+  for(ii=0; ii<9; ii++)
   {
     for(jj=0; jj<16; jj++)
     {
@@ -568,6 +574,7 @@ main(int argc, char **argv)
   }
 
 
+#if 0
   /* ADC pedestals for every slot/channel (1D) */
   nbins=200;
   x1 = 0.;
@@ -601,7 +608,7 @@ main(int argc, char **argv)
       hbook1_(&idn,title,&nbins,&x1,&x2,&ww,strlen(title));
     }
   }
-
+#endif
 
 
 
@@ -911,7 +918,7 @@ a123:
 	*/
 
 	/*TDCs*/
-    if((ind1 = evNlink(bufptr, 68, 0xe107, 0, &nbytes)) > 0)
+    if((ind1 = evNlink(bufptr, 60, 0xe107, 0, &nbytes)) > 0)
     {
       int half,chip,chan,bco,val,chan1,edge,nw,tdcl,tdcr;
       unsigned char *end, *start;
@@ -922,12 +929,12 @@ a123:
       int slot;
       int ndata0[22], data0[21][8];
       int baseline, sum, channel, ch1;
-#ifdef DEBUG
+#ifdef DEBUG1
       printf("ind1=%d, nbytes=%d\n",ind1,nbytes);fflush(stdout);
 #endif
       start = b08 = (unsigned char *) &bufptr[ind1];
       end = b08 + nbytes;
-#ifdef DEBUG
+#ifdef DEBUG1
       printf("ind1=%d, nbytes=%d (from 0x%08x to 0x%08x)\n",ind1,nbytes,b08,end);fflush(stdout);
 #endif
       tdcl = tdcr = 0;
@@ -941,8 +948,26 @@ a123:
 
         tmpx = ((float)val)/1000.;
         ww = 1.;
-        idn = 100+(tdcslot2hist[slot]-1)*16+chan;
-        hf1_(&idn,&tmpx,&ww);
+		if(slot<=8)
+		{
+          idn = 100+(tdcslot2hist[slot]-1)*16+chan;
+          hf1_(&idn,&tmpx,&ww);
+#ifdef DEBUG1
+        printf("TDC[0x%08x]:  slot=%2d  chan=%3d  edge=%1d  tdc=%5d(%f)  (hist_id=%d)\n",
+			   word,slot,chan,edge,val,(((float)val)/1000.),idn);
+#endif
+		}
+		else
+		{
+		  ;
+		  /*
+          idn = 500+(tdcslot2hist[slot]-1)*16+chan;
+          hf1_(&idn,&tmpx,&ww);
+		  */
+		}
+
+
+#if 0
 		/*if(slot==16) printf("-- %d(%d) %d %d(%f)\n",slot,tdcslot2hist[slot],chan,val,tmpx);*/
         if(slot==9 && chan==14)
 		{
@@ -965,6 +990,8 @@ a123:
 		  }
 		}
 
+
+
         jj = tdclr[slot][chan] - 1;
         kk = tdcslab[slot][chan] - 1;
         if(jj>=0)
@@ -974,18 +1001,17 @@ a123:
           ntdc[jj][kk] ++;
 		}
 
-#ifdef DEBUG
-        printf("TDC[0x%08x]:  slot=%2d  chan=%3d  edge=%1d  tdc=%5d(%f)  (hist_id=%d)\n",
-			   word,slot,chan,edge,val,(((float)val)/1000.),idn);
-#endif
         idn = 11;
 	    hf1_(&idn,&tmpx,&ww);
+#endif
+
+
 	  }
 	}
 
 
 	/* ADC raw mode bank */
-    if((ind1 = evNlink(bufptr, 68, 0xe101, 0, &nbytes)) > 0)
+    if((ind1 = evNlink(bufptr, 59, 0xe101, 0, &nbytes)) > 0)
     {
       unsigned char *end;
       unsigned long long time;
@@ -994,24 +1020,24 @@ a123:
       int ndata0[22], data0[21][8];
       int baseline, sum, channel, summing_in_progress;
       int datasaved[1000];
-#ifdef DEBUG
+#ifdef DEBUG2
       printf("ind1=%d, nbytes=%d\n",ind1,nbytes);
 #endif
       b08 = (unsigned char *) &bufptr[ind1];
       end = b08 + nbytes;
-#ifdef DEBUG
+#ifdef DEBUG2
       printf("ind1=%d, nbytes=%d (from 0x%08x to 0x%08x)\n",ind1,nbytes,b08,end);
 #endif
       while(b08<end)
       {
-#ifdef DEBUG
+#ifdef DEBUG2
         printf("begin while: b08=0x%08x\n",b08);
 #endif
         GET8(slot);
         GET32(trig);
         GET64(time);
         GET32(nchan);
-#ifdef DEBUG
+#ifdef DEBUG2
         printf("slot=%d, trig=%d, time=%lld nchan=%d\n",slot,trig,time,nchan);
 #endif
         for(nn=0; nn<nchan; nn++)
@@ -1019,7 +1045,7 @@ a123:
           GET8(chan);
           /*chan++;*/
           GET32(nsamples);
-#ifdef DEBUG
+#ifdef DEBUG2
           printf("  chan=%d, nsamples=%d\n",chan,nsamples);
 #endif
           baseline = sum = summing_in_progress = 0;
@@ -1029,17 +1055,17 @@ a123:
             datasaved[mm] = data;
 
 			/*printf("mm=%d data=%d\n",mm,data);*/
-            if(mm<30) baseline += data;
+            if(mm<4) baseline += data;
 
-            if(mm==30)
+            if(mm==4)
 			{
-              baseline = baseline / 30;
-#ifdef DEBUG
+              baseline = baseline / 4;
+#ifdef DEBUG2
               printf("slot=%d chan=%d baseline=%d\n",slot,chan,baseline);
 #endif
 			}
 
-            if(mm>35 && mm<70/*100*/)
+            if(mm>5 && mm<50/*100*/)
             {
               if(summing_in_progress==0 && data>(baseline+20))
 			  {
@@ -1082,6 +1108,9 @@ a123:
 	        {
               if(1/*slot < 17*/)
               {
+#ifdef DEBUG22
+                printf("adc=%f\n",tmpx);
+#endif
                 tmpx = (float)mm+0.5;
                 ww = (float)datasaved[mm];
                 idn = 200+(adcslot2hist[slot]-1)*16+chan;
@@ -1091,7 +1120,7 @@ a123:
 		  }
 
 
-
+#if 0
 		  if(1/*slot < 17*/)
 		  {
 			ww = 1.;
@@ -1126,9 +1155,11 @@ a123:
               nadc[jj][kk] ++;
 			}
 		  }
+#endif
+
 
         }
-#ifdef DEBUG
+#ifdef DEBUG2
         printf("end loop: b08=0x%08x\n",b08);
 #endif
       }

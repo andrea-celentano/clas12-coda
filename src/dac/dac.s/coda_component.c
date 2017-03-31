@@ -131,6 +131,9 @@ void tests()
   printf("Sizes: int=%d(%d) float=%d(%d)\n",sizeof(int),sizeof(int*),sizeof(float),sizeof(float*));
 }
 
+
+
+
 /*******************************************************/
 /*******************************************************/
 /* following function provide heartbeat information */
@@ -773,7 +776,8 @@ Recover_Init ()
   
   sigfillset(&signal_set);
   status = pthread_sigmask(SIG_BLOCK, &signal_set, NULL);
-  if (status != 0) {
+  if (status != 0)
+  {
     fprintf (stderr, "Recover_Init: error in setting signal mask, %d\n", status);
     exit (3);
   }
@@ -826,7 +830,7 @@ printf("\n\ncoda_constructor reached\n");fflush(stdout);
   if(codaUpdateStatus("booted") != CODA_OK) return(CODA_ERROR);
   printf("INFO: '%s' state now '%s'\n",localobject->name,localobject->state);
 
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
   sprintf(tmpp,"SELECT id FROM process WHERE name='%s'",localobject->name);
   if(dbGetInt(dbsock, tmpp, &localobject->codaid)==CODA_ERROR)
   {
@@ -982,18 +986,19 @@ CODA_Init(int argc, char **argv)
 
   printf("CODA_Init reached, input params: >%s< >%s<\n",Session,Objects);
 
+  if(mysql_host == NULL) mysql_host = getenv("MYSQL_HOST");
   if(expid == NULL) expid = getenv("EXPID");
   if(session == NULL) session = getenv("SESSION");
 
-  if (objects == NULL || expid == NULL || session == NULL)
+  if (objects == NULL || mysql_host  == NULL || expid == NULL || session == NULL)
   {
-    printf("ERROR: objects, expid and session must be defined\n");
+    printf("ERROR: objects, mysql_host, expid and session must be defined\n");
     exit(0);
   }
   else
   {
-    printf("CODA_Init: use 'expid' as >%s<, 'session' as >%s<, 'objects' as >%s<\n",
-      expid,session,objects);fflush(stdout);
+    printf("CODA_Init: use 'mysql_host' as >%s<, use 'expid' as >%s<, 'session' as >%s<, 'objects' as >%s<\n",
+		   mysql_host,expid,session,objects);fflush(stdout);
   }
 
 
@@ -1007,24 +1012,6 @@ CODA_Init(int argc, char **argv)
     strncpy(et_name, et_filename, ET_FILENAME_LENGTH - 1);
     et_name[ET_FILENAME_LENGTH - 1] = '\0';
   }
-
-  /* mysql host */
-  if(mysql_host)
-  {
-    static char tmp[100];
-    sprintf(tmp,"MYSQL_HOST=%s",mysql_host);
-    debug_printf(2, "MYSQL_HOST=%s\n",mysql_host);
-    putenv(tmp);
-  }
-  else
-  {
-    if(!(mysql_host = getenv("MYSQL_HOST")))
-    {
-      mysql_host = strdup("localhost");
-    }
-  }
-
-
 
 
 
@@ -1303,7 +1290,7 @@ getConfFile(char *configname, char *conffile, int lname)
   char tmpp[1000];
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
 
   sprintf(tmp,"SELECT value FROM %s_option WHERE name='confFile'",configname);
   if(dbGetStr(dbsock, tmp, tmpp)==CODA_ERROR)
@@ -1813,7 +1800,7 @@ codaUpdateStatus(char *status)
 
   /* update database */
   printf("codaUpdateStatus: dbConnecting ..\n");fflush(stdout);
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
   if(dbsock==NULL)
   {
     printf("cannot connect to the database 7 - exit\n");
@@ -1921,7 +1908,7 @@ UDP_start()
 
   printf("UDP_start 111\n");fflush(stdout);
 
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
   if(dbsock==NULL)
   {
     printf("UDP_start: cannot connect to the database - exit\n");
@@ -2091,7 +2078,7 @@ CODAtcpServer(void)
   /* creates an endpoint for communication and returns a socket file descriptor */
   if((sFd = socket(AF_INET, SOCK_STREAM, 0)) == ERROR)
   {
-    perror("socket"); 
+    perror("CODAtcpServer::socket"); 
     return(ERROR); 
   } 
 
@@ -2104,7 +2091,7 @@ CODAtcpServer(void)
   /* bind socket to local address */
   while(bind(sFd, (struct sockaddr *)&serverAddr, sockAddrSize) == ERROR)
   {
-    perror("bind");
+    perror("CODAtcpServer::bind");
 
     /* try another port (just increment on one) */
     portnum ++;
@@ -2116,7 +2103,7 @@ CODAtcpServer(void)
 
     serverAddr.sin_port = htons(portnum);
   }
-  printf("bind on port %d\n",portnum);
+  printf("CODAtcpServer: bind on port %d\n",portnum);
 
   /* create queue for client connection requests */ 
   if(listen(sFd, SERVER_MAX_CONNECTIONS) == ERROR)
@@ -2127,17 +2114,17 @@ CODAtcpServer(void)
   }
 
   /* update database with port number */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
   sprintf(temp,"%d",portnum);
 
   /* use 'inuse' field; replace 'inuse' by 'port' when DP_ask not in use !!! */
   sprintf(tmp,"UPDATE process SET inuse='%s' WHERE name='%s'",
     temp,localobject->name);
 
-  printf("DB update: >%s<\n",tmp);
+  printf("CODAtcpServer: DB update: >%s<\n",tmp);
   if(mysql_query(dbsock, tmp) != 0)
   {
-    printf("DB update: ERROR\n");
+    printf("CODAtcpServer: DB update: ERROR\n");
     return(ERROR);
   }
   dbDisconnect(dbsock);
@@ -2152,7 +2139,7 @@ CODAtcpServer(void)
     many requests may create network buffer shortage */
     if(coda_request_in_progress)
     {
-      printf("wait: coda request >%s< in progress\n",coda_current_message);
+      printf("CODAtcpServer: wait: coda request >%s< in progress\n",coda_current_message);
       sleep(1);
 
       continue;
@@ -2162,7 +2149,7 @@ CODAtcpServer(void)
     if((targ.newFd = accept(sFd, (struct sockaddr *)&clientAddr, &sockAddrSize))
           == ERROR)
     {
-      perror("accept"); 
+      perror("CODAtcpServer::accept"); 
       close(sFd); 
       return(ERROR); 
     }
@@ -2189,13 +2176,21 @@ printf("WorkTask: alloc 0x%08x\n",targ.address);fflush(stdout);
       pthread_attr_setdetachstate(&detached_attr, PTHREAD_CREATE_DETACHED);
       pthread_attr_setscope(&detached_attr, PTHREAD_SCOPE_SYSTEM);
 
-      printf("befor: socket=%d address>%s< port=%d\n",
+      printf("CODAtcpServer: befor: socket=%d address>%s< port=%d\n",
         targ.newFd,targ.address,targ.port); fflush(stdout);
 
       /* block annoying IP address(es) */
+	  /* is it better ???
+      if( strncmp(address,"129.57.167.",11) &&
+          strncmp(address,"129.57.160.",11) &&
+          strncmp(address,"129.57.68.",10)  &&
+          strncmp(address,"129.57.69.",10)  &&
+          strncmp(address,"129.57.86.",10) &&
+          strncmp(address,"129.57.29.",10) )
+	  */
       if(!strncmp(targ.address,"129.57.71.",10))
 	  {
-        printf("WARN: ignore request from %s\n",targ.address);
+        printf("CODAtcpServer: WARN: ignore request from %s\n",targ.address);
         close(targ.newFd);
         coda_request_in_progress = 0;
 	  }
@@ -2204,7 +2199,7 @@ printf("WorkTask: alloc 0x%08x\n",targ.address);fflush(stdout);
         ret = pthread_create(&id, &detached_attr, CODAtcpServerWorkTask, &targ);
         if(ret!=0)
         {
-          printf("ERROR: pthread_create(CODAtcpServerWorkTask) returned %d\n",
+          printf("CODAtcpServer: ERROR: pthread_create(CODAtcpServerWorkTask) returned %d\n",
             ret);
           close(targ.newFd);
           coda_request_in_progress = 0;

@@ -508,6 +508,15 @@ int mvtCleanup()
 /*
  * 
  */
+
+static char *expid = NULL;
+
+void
+mvtSetExpid(char *string)
+{
+  expid = strdup(string);
+}
+
 int mvtConfig( char *sys_conf_params_filename, int run_number, int bec_id )
 {
 	// time variables
@@ -528,7 +537,6 @@ int mvtConfig( char *sys_conf_params_filename, int run_number, int bec_id )
 	int roc_detected;
 
 	char *clonparms;
-	char *expid;
 
 	char line[LINE_SIZE];
 	int line_num;
@@ -561,7 +569,17 @@ int mvtConfig( char *sys_conf_params_filename, int run_number, int bec_id )
 	 **********************/
 	gethostname( host_name, 128);
 	clonparms = getenv( "CLON_PARMS" );
-	expid = getenv( "EXPID" );
+
+    if(expid==NULL)
+    {
+      expid = getenv("EXPID");
+      printf("\nNOTE: use EXPID=>%s< from environment\n",expid);
+    }
+    else
+    {
+      printf("\nNOTE: use EXPID=>%s< from CODA\n",expid);
+    }
+
 	if( strlen(sys_conf_params_filename) !=0 ) /* filename specified */
 	{
 		if( (sys_conf_params_filename[0]=='/') || ( (sys_conf_params_filename[0]=='.') && (sys_conf_params_filename[1]=='/') ) )

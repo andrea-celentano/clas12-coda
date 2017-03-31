@@ -1149,6 +1149,7 @@ int
 dsc2SetChannelMask(UINT32 id, UINT16 chMask, UINT16 type)
 {
   CHECKID(id);
+  /*printf("dsc2SetChannelMask: id=%d mask=0x%04x type=%d\n",id,chMask,type);*/
 
   if(type>2)
     {

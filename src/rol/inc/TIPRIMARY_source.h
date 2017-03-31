@@ -11,16 +11,18 @@
 #define __TIPRIMARY_ROL__
 
 
-#define DAQ_READ_CONF_FILE  {daqConfig("");    if(strncasecmp(rol->confFile,"none",4)) daqConfig(rol->confFile);}
-#define TI_READ_CONF_FILE   {tiConfig("");     if(strncasecmp(rol->confFile,"none",4)) tiConfig(rol->confFile);}
-#define DSC2_READ_CONF_FILE {dsc2Config("");   if(strncasecmp(rol->confFile,"none",4)) dsc2Config(rol->confFile);}
-#define VSCM_READ_CONF_FILE {vscmConfig("");   if(strncasecmp(rol->confFile,"none",4)) vscmConfig(rol->confFile);}
-#define FADC_READ_CONF_FILE {fadc250Config("");if(strncasecmp(rol->confFile,"none",4)) fadc250Config(rol->confFile);}
-#define SSP_READ_CONF_FILE  {sspConfig("");    if(strncasecmp(rol->confFile,"none",4)) sspConfig(rol->confFile);}
-#define GTP_READ_CONF_FILE  {gtpConfig("");    if(strncasecmp(rol->confFile,"none",4))) gtpConfig(rol->confFile);}
-#define TDC_READ_CONF_FILE  {tdc1190Config("");/*if(strncasecmp(rol->confFile,"none",4)) tdc1190Config(rol->confFile);*/}
-#define MVT_READ_CONF_FILE  {mvtConfig("");    if(strncasecmp(rol->confFile,"none",4)) mvtConfig(rol->confFile);}
-#define FTT_READ_CONF_FILE  {fttConfig("");    if(strncasecmp(rol->confFile,"none",4)) fttConfig(rol->confFile);}
+#define DAQ_READ_CONF_FILE  {daqSetExpid(expid);     daqConfig("");     if(strncasecmp(rol->confFile,"none",4)) daqConfig(rol->confFile);}
+#define TI_READ_CONF_FILE   {tiSetExpid(expid);      tiConfig("");      if(strncasecmp(rol->confFile,"none",4)) tiConfig(rol->confFile);}
+#define DSC2_READ_CONF_FILE {dsc2SetExpid(expid);    dsc2Config("");    if(strncasecmp(rol->confFile,"none",4)) dsc2Config(rol->confFile);}
+#define DCRB_READ_CONF_FILE {dcrbSetExpid(expid);    dcrbConfig("");    if(strncasecmp(rol->confFile,"none",4)) dcrbConfig(rol->confFile);}
+#define VSCM_READ_CONF_FILE {vscmSetExpid(expid);    vscmConfig("");    if(strncasecmp(rol->confFile,"none",4)) vscmConfig(rol->confFile);}
+#define FADC_READ_CONF_FILE {fadc250SetExpid(expid); fadc250Config(""); if(strncasecmp(rol->confFile,"none",4)) fadc250Config(rol->confFile);}
+#define SSP_READ_CONF_FILE  {sspSetExpid(expid);     sspConfig("");     if(strncasecmp(rol->confFile,"none",4)) sspConfig(rol->confFile);}
+#define GTP_READ_CONF_FILE  {gtpSetExpid(expid);     gtpConfig("");     if(strncasecmp(rol->confFile,"none",4)) gtpConfig(rol->confFile);}
+#define TDC_READ_CONF_FILE  {tdc1290SetExpid(expid); tdc1190Config(""); /*if(strncasecmp(rol->confFile,"none",4)) tdc1190Config(rol->confFile);*/}
+#define MVT_READ_CONF_FILE  {mvtSetExpid(expid);     mvtConfig("");     if(strncasecmp(rol->confFile,"none",4)) mvtConfig(rol->confFile);}
+#define FTT_READ_CONF_FILE  {fttConfig("");                             if(strncasecmp(rol->confFile,"none",4)) fttConfig(rol->confFile);}
+#define FLP_READ_CONF_FILE  {flpSetExpid(expid);     flpConfig("");     if(strncasecmp(rol->confFile,"none",4)) flpConfig(rol->confFile);}
 
 
 #include <stdio.h>
@@ -38,6 +40,9 @@ extern unsigned int tsIntCount;
 extern struct TI_A24RegStruct *TIp;
 extern int tiDoAck;
 #endif
+
+extern char *mysql_host; /* defined in coda_component.c */
+extern char *expid; /* defined in coda_component.c */
 
 extern char configname[128]; /* coda_component.c (need to add it in rolInt.h/ROLPARAMS !!??) */
 
@@ -123,7 +128,7 @@ static unsigned int i2_from_rol1;
 static void
 tiprimarytinit(int code)
 {
-  int ii, i1, i2, i3;
+  int ii, i1, i2, i3, ret;
   unsigned int slavemask, connectmask;
 
   /*int overall_offset=0x80;*/
@@ -166,7 +171,9 @@ vmeCheckMutexHealth(1);
   /* Initialize VME Interrupt interface - use defaults */
 vmeBusLock();
  /*tiSetFiberLatencyOffset_preInit(0xbf);*/ /*default is 0xbf in 4ns ticks*/
-  tiInit(TI_ADDR,TI_READOUT,0); /*tiInit((21<<19),2,0)*/
+  ret = tiInit(TI_ADDR,TI_READOUT,0); /*tiInit((21<<19),2,0)*/
+  if(ret<0) ret = tiInit(0,TI_READOUT,0);
+  if(ret<0) {printf("cannot find TI, ret=%d - exit\n",ret);exit(0);}
 #ifdef DEBUG
   tiStatus(1);
 #endif
@@ -201,6 +208,9 @@ vmeBusLock();
 vmeBusUnlock();
 
 #endif
+
+
+
 
 
 
@@ -251,7 +261,8 @@ try_again1:
 vmeBusLock();
   connectmask = tiGetConnectedFiberMask();
   printf("FIBER CONNECT MASK: 0x%08x\n",connectmask);
-  slavemask = tiGetSlaveMask();
+  slavemask = tiGetSlaveMask(); /* ERROR: we do not have it yet, addSlave() will be called in Prestart !!! */
+  printf("FIBER SLAVE MASK: 0x%08x\n",slavemask);
 vmeBusUnlock();
   for(ii=0; ii<8; ii++)
   {
@@ -259,7 +270,7 @@ vmeBusUnlock();
     if(i1)
 	{
       i2 = (i1 & connectmask) >> ii;
-      printf("======> ii=%d i2=%d\n",ii,i2);
+      printf("======> ii=%d i1=%d i2=%d\n",ii,i1,i2);
       if(i2==0)
 	  {
         printf("Fiber %d lost connection - trying to recover\n");
@@ -290,6 +301,11 @@ vmeBusUnlock();
 
 #endif
 
+
+
+
+
+
 }
 
 
@@ -298,8 +314,9 @@ vmeBusUnlock();
 static void
 tiprimarytriglink(int code, VOIDFUNCPTR isr)
 {
-  int numRows, ix, port, roc_id_db, roc_id_fiber[9];
+  int numRows, ix, port, roc_id_db, roc_id_fiber[9], have_sync_vtp;
   char tmp[1000];
+  char ourhostname[128], ourvtphostname[128], *p;
   MYSQL *dbsocket;
   MYSQL_RES *result;
   MYSQL_ROW row;
@@ -312,9 +329,17 @@ vmeBusUnlock();
 
 
 
+#if 0
 vmeBusLock();
   if(rol->pid==37||rol->pid==39) tiRemoveRocSWA(); /*temporary: remove GTPs by default*/
 vmeBusUnlock();
+#endif
+
+/*TEST
+if(rol->pid==1||rol->pid==38) tiAddRocSWA();
+else                          tiRemoveRocSWA();
+TEST*/
+
 
   /********************************************/
   /* found and add all 'inuse' rocs as slaves */
@@ -327,7 +352,7 @@ vmeBusUnlock();
 	printf("TIPRIMARY: port=%d, roc_id_fiber=%d\n",port,roc_id_fiber[port]);
   }
 
-  dbsocket = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsocket = dbConnect(mysql_host, expid);
   if(dbsocket==NULL)
   {
     printf("TIPRIMARY: ERROR: cannot connect to the database - exit\n");
@@ -355,15 +380,45 @@ vmeBusUnlock();
     numRows = mysql_num_rows(result);
     printf("TIPRIMARY: nrow=%d, my rocid=%d\n",numRows,rol->pid);
 
+
+	/* get out hostname and our vtp hostname if it exist */
+    strcpy(tmp,getenv("HOST"));
+    if( (p=strchr(tmp,'.'))!=NULL )
+	{
+      printf("Will use everything before first '.' appearance in HOST=>%s<\n",tmp);
+      *p = '\0';
+	}
+    sprintf(ourhostname,"%s",tmp);
+    sprintf(ourvtphostname,"%svtp",tmp);
+    printf("TIPRIMARY: our hostname is >%s<, our vtp hostname is >%s<\n",ourhostname,ourvtphostname);
+    have_sync_vtp = 0;
+
+    /* loop over all rows in configuration */
 	for(ix=0; ix<numRows; ix++)
     {
       row = mysql_fetch_row(result);
       printf("TIPRIMARY: [%1d] received from DB >%s< >%s< >%s<\n",ix,row[0],row[1],row[2]);
 
+
+      /* check if we have vtp as sync roc in our crate; assuming that vtp
+		 hostname will be our name with 'vtp' in the end, and 'outputs' for vtp roc is not empty */
+      if( strncmp(row[0],ourvtphostname,strlen(ourvtphostname)) == 0 ) /* we have vtp */
+	  {
+        if( strlen(row[1]) > 2)
+		{
+          have_sync_vtp = 1; /* vtp have output */
+          printf("TIPRIMARY: VTP installed in our crate, and it SYNC'ed\n");
+		}
+      }
+
+
+      /* */
       if( strncmp(row[2],"no",2) != 0 ) /* 'inuse' != 'no' */
       {
         roc_id_db = atoi(row[2]);
         printf("TIPRIMARY: roc_id_db = %d\n",roc_id_db);
+
+#if 0
 
         if(roc_id_db==38 && rol->pid==37) /*hps1/hps1gtp, temporary until resolved in hardware*/
 		{
@@ -414,6 +469,15 @@ vmeBusLock();
 vmeBusUnlock();
 		}
         else
+
+#endif
+
+
+
+
+
+
+
 		{
           printf("TIPRIMARY: looping over ports ..\n");
           for(port=1; port<=8; port++)
@@ -435,6 +499,10 @@ vmeBusUnlock();
             }
           }
 		}
+
+
+
+
       }
     }
 
@@ -443,6 +511,25 @@ vmeBusUnlock();
 
   /* disconnect from database */
   dbDisconnect(dbsocket);
+
+
+  /* if we have sync vtp */
+  if(have_sync_vtp)
+  {
+    printf("TIPRIMARY: add SWA ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+vmeBusLock();
+    tiSetBusySource(TI_BUSY_SWA,0);
+    tiAddRocSWA();
+vmeBusUnlock();
+  }
+  else
+  {
+    printf("TIPRIMARY: remove SWA +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+vmeBusLock();
+    tiRemoveRocSWA();
+vmeBusUnlock();
+  }
+
 
   switch(code)
   {

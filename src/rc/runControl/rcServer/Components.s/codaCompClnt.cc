@@ -113,10 +113,13 @@
 #include "libtcp.h"
 #include "libdb.h"
 
+
+#define TIMEOUT_IN_SECONDS 10
+
 static void
 alarmHandler(int sig)
 {
-  printf("codaCompClnt: timeout exit from tcpClient\n");fflush(stdout);
+  printf("codaCompClnt: alarmHandler: timeout (%d sec) exit from tcpClient\n",TIMEOUT_IN_SECONDS);fflush(stdout);
   signal(sig, alarmHandler);
   return;
 }
@@ -184,7 +187,7 @@ tcpClient(char *name, char *message)
   hptr = gethostbyname(hostname);
   if(hptr == NULL)
   {
-    printf("unknown hostname %s \n",hostname); 
+    printf("unknown hostname >%s<\n",hostname); 
     close(sFd);
     exit(1);
   }
@@ -195,10 +198,10 @@ tcpClient(char *name, char *message)
 
   
   signal(SIGALRM,alarmHandler);
-  alarm(3); /* in 3 seconds connect call will be interrupted if did not finished */
-  /*
-  printf("calling connect ..\n");fflush(stdout);
-  */
+  alarm(TIMEOUT_IN_SECONDS); /* in 'TIMEOUT_IN_SECONDS' seconds connect call will be interrupted if did not finished */
+  
+  printf("calling connect() to host >%s< port %d ..\n",hostname,portnum);fflush(stdout);
+  
   /* connect to server */ 
   if(connect (sFd, (struct sockaddr *) &serverAddr, sockAddrSize) == ERROR)
   {
@@ -206,9 +209,9 @@ tcpClient(char *name, char *message)
     close(sFd); 
     return(ERROR); 
   }
-  /* 
-  printf(".. connected !\n");fflush(stdout);
-  */
+   
+  printf(".. connected to >%s<!\n",hostname);fflush(stdout);
+  
   alarm(0); /* clear alarm so it will not interrupt us */
 
   /* build request, prompting user for message */ 

@@ -1,0 +1,27 @@
+###########################################################
+# Trigger System Configuration Setup for 12GeV Test Stand #
+###########################################################
+
+HOSTNAME dc11
+        MODULE MOD_TYPE_DCRBSCALERS     0
+                A24BaseAddr0                    0x00180000      #SLOT 3
+                A24BaseAddr1                    0x00200000      #SLOT 4
+                A24BaseAddr2                    0x00280000      #SLOT 5
+                A24BaseAddr3                    0x00300000      #SLOT 6
+                A24BaseAddr4                    0x00380000      #SLOT 7
+                A24BaseAddr5                    0x00400000      #SLOT 8
+                A24BaseAddr6                    0x00480000      #SLOT 9
+                A24BaseAddr7                    0x00700000      #SLOT 14
+                A24BaseAddr8                    0x00780000      #SLOT 15
+                A24BaseAddr9                    0x00800000      #SLOT 16
+                A24BaseAddr10                   0x00880000      #SLOT 17
+                A24BaseAddr11                   0x00900000      #SLOT 18
+                A24BaseAddr12                   0x00980000      #SLOT 19
+                A24BaseAddr13                   0x00A00000      #SLOT 20
+                Initialize
+                DacThreshold							10
+ENDHOST
+
+###########################################################
+#                End of configuration file                #
+###########################################################

@@ -1351,6 +1351,7 @@ XcodaEditorWriteToConfig(char* config_name, XcodaEditorGraph* graph)
   drawComp ***mesh;
   int      err = 0;
   char     temp[1024];
+  short order_num;
 
 #ifdef DEBUG
   printf("Editor_converter::XcodaEditorWriteToConfig reached\n");
@@ -1407,6 +1408,7 @@ XcodaEditorWriteToConfig(char* config_name, XcodaEditorGraph* graph)
   }
 
   /* write the configuration information to the database */
+  order_num = 0;
   for (m = 0; m < maxcol; m++)
   {
     for (n = 0; n < maxrow ; n++)
@@ -1475,8 +1477,9 @@ XcodaEditorWriteToConfig(char* config_name, XcodaEditorGraph* graph)
 #ifdef DEBUG
         printf("Editor_converter::XcodaEditorWriteToConfig: insertValToConfigTable(%s,%s,%s,%s,%s)\n",config_name, daq->comp_name, code, inputStr, outputStr);
 #endif
-	    err = insertValToConfigTable (config_name, daq->comp_name, code, inputStr, outputStr, nextComp, fComp);
-	
+	    err = insertValToConfigTable (config_name, daq->comp_name, code, inputStr, outputStr, nextComp, fComp, order_num); /*sergey: 'order_num' added */
+        order_num ++;	
+
 		/* sergey: if name starts from "coda_", use daq->code[0] as filename to update _option table */
         if(!strncmp(daq->comp_name,"coda_",5))
 		{

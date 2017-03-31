@@ -148,11 +148,11 @@ struct fadc_struct
 #ifdef CLAS12
   /* 0x0414 */ volatile unsigned int spare_adc_1[(0x500-0x414)>>2];
   /* 0x0500 */ volatile unsigned int gtx_ctrl;
-  /* 0x0504 */ volatile unsigned int gtx_ctrl_tile;
-  /* 0x0508 */ volatile unsigned int gtx_status;
-  /* 0x050C */ volatile unsigned int gtx_drp_ctrl;
-  /* 0x0510 */ volatile unsigned int gtx_drp_status;
-  /* 0x0514 */ volatile unsigned int gtx_softerr;
+  /* 0x0504 */ volatile unsigned int spare_gtx1;
+  /* 0x0508 */ volatile unsigned int spare_gtx2;
+  /* 0x050C */ volatile unsigned int spare_gtx3;
+  /* 0x0510 */ volatile unsigned int gtx_status;
+  /* 0x0514 */ volatile unsigned int spare_gtx4;
   /* 0x0518 */ volatile unsigned int gtx_la_ctrl;
   /* 0x051C */ volatile unsigned int gtx_la_status;
   /* 0x0520 */ volatile unsigned int gtx_la_data[2];
@@ -418,7 +418,7 @@ struct fadc_sdc_struct {
 #define FA_ADC_DEFAULT_NP      4
 #define FA_ADC_DEFAULT_THRESH  0
 
-#define FA_ADC_MAX_PL       1000
+#define FA_ADC_MAX_PL       2000
 #define FA_ADC_MAX_PTW       512
 #define FA_ADC_MAX_NSB       500
 #define FA_ADC_MAX_NSA       500

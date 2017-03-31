@@ -30,8 +30,10 @@ endif
 #
 # Check if the device is known (defined in tsconnect.conf)
 #
-set DEV=/dev/cu`grep -i "<$1>" $DIR_SCRIPT/tsconnect.conf|awk '{print $1}'`
-if ( $DEV == "/dev/cu" ) then
+# was '/dev/cua/' on Solaris, '/dev/cu' on RHEL5, does not exist on RHEL6/7 - sergey Aug 2016
+#
+set DEV=/dev/tty`grep -i "<$1>" $DIR_SCRIPT/tsconnect.conf|awk '{print $1}'`
+if ( $DEV == "/dev/tty" ) then
  echo " Unknown device: $1 "
  echo " Check $DIR_SCRIPT/tsconnect.conf for available devices"
  exit
@@ -45,8 +47,7 @@ set SPEED=`grep -i "<$1>" $DIR_SCRIPT/tsconnect.conf|awk '{print $4}'`
 #
 # If line is enabled (busy), we will bump them off.
 #
-###### old CDsts driver ### sudo $BIN/cdflush $DEV
-###sudo $BIN/dflush $DEV
+dflush $DEV
 
 #
 # Exit instructions

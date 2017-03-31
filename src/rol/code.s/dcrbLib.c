@@ -80,12 +80,12 @@ int ndcrb = 0;                                       /* Number of DCRBs in Crate
 int dcrbA32Base   = 0x09000000;                      /* Minimum VME A32 Address for use by DCRBs */
 int dcrbA32Offset = 0x08000000;                      /* Difference in CPU A32 Base - VME A32 Base */
 int dcrbA24Offset = 0x0;                             /* Difference in CPU A24 Base - VME A24 Base */
-volatile dcrb_regs *DCRBp[(DCRB_MAX_BOARDS+1)]; /* pointers to DCRB memory map */
-volatile unsigned int *DCRBpd[(DCRB_MAX_BOARDS+1)];      /* pointers to DCRB FIFO memory */
-volatile unsigned int *DCRBpmb;                        /* pointer to Multblock window */
-int dcrbID[DCRB_MAX_BOARDS];                           /* array of slot numbers for DCRBs */
-unsigned int dcrbAddrList[DCRB_MAX_BOARDS];            /* array of a24 addresses for DCRBs */
-int dcrbRev[(DCRB_MAX_BOARDS+1)];                      /* Board Revision Info for each module */
+volatile dcrb_regs *DCRBp[(DCRB_MAX_BOARDS+1)];      /* pointers to DCRB memory map */
+volatile unsigned int *DCRBpd[(DCRB_MAX_BOARDS+1)];  /* pointers to DCRB FIFO memory */
+volatile unsigned int *DCRBpmb;                      /* pointer to Multblock window */
+int dcrbID[DCRB_MAX_BOARDS+1];                       /* array of slot numbers for DCRBs */
+unsigned int dcrbAddrList[DCRB_MAX_BOARDS+1];        /* array of a24 addresses for DCRBs */
+int dcrbRev[(DCRB_MAX_BOARDS+1)];                    /* Board Revision Info for each module */
 int dcrbInited=0;                                    /* >0 if Library has been Initialized before */
 int dcrbMaxSlot=0;                                   /* Highest Slot hold an DCRB */
 int dcrbMinSlot=0;                                   /* Lowest Slot holding an DCRB */
@@ -180,7 +180,7 @@ dcrbInit(UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
   if((dcrbInited>0) && (dcrbID[0] != 0)) 
   {
     /* Hard Reset of all DCRB boards in the Crate
-    for(ii=0;ii<ndcrb;ii++) 
+    for(ii=0; ii<ndcrb; ii++) 
 	{
 	  dcrbHardReset(dcrbID[ii]);
 	}
@@ -299,7 +299,7 @@ dcrbInit(UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
   noBoardInit=iFlag&(1<<16);
 
   /* Hard Reset of all DCRB boards in the Crate */
-  for(ii=0;ii<ndcrb;ii++) 
+  for(ii=0; ii<ndcrb; ii++) 
   {
     if(!noBoardInit)
 	{
@@ -404,7 +404,7 @@ dcrbInit(UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
   taskDelay(1);
 
   /* Hard Reset FPGAs and FIFOs */
-  for(ii=0;ii<ndcrb;ii++)
+  for(ii=0; ii<ndcrb; ii++)
   {
     vmeWrite32(&(DCRBp[dcrbID[ii]]->Cfg.Reset),DCRB_CFG_RESET);
 	 taskDelay(1);
@@ -418,7 +418,7 @@ dcrbInit(UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
   dcrbSetDAC_Pulser(dcrbID[ii], 0x00, 0.0, 2000, 1000, 1010, 2);
 
   /* Write configuration registers with default/defined Sources */
-  for(ii=0;ii<ndcrb;ii++) 
+  for(ii=0; ii<ndcrb; ii++) 
   {
     
       /* Program an A32 access address for this DCRB's FIFO */
@@ -816,6 +816,75 @@ dcrbSetProcMode(int id, unsigned int lookBack, unsigned int windowWidth, unsigne
   DCRBUNLOCK;
 
   return(OK);
+}
+
+int
+dcrbGetWindowOffset(int id)
+{  
+  int lookBack;
+
+  if(id==0) id=dcrbID[0];
+
+  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
+  {
+    logMsg("dcrbGetWindowOffset: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
+    return(ERROR);
+  }
+
+  DCRBLOCK;
+  lookBack = vmeRead32(&DCRBp[id]->EB.Lookback);
+  DCRBUNLOCK;
+
+  /* convert inputs from ticks to ns */
+  lookBack = lookBack * DCRB_NS_PER_CLOCK;
+
+  return(lookBack);
+}
+
+int
+dcrbGetWindowWidth(int id)
+{  
+  int windowWidth;
+
+  if(id==0) id=dcrbID[0];
+
+  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
+  {
+    logMsg(": ERROR dcrbGetWindowWidth: DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
+    return(ERROR);
+  }
+
+  DCRBLOCK;
+  windowWidth = vmeRead32(&DCRBp[id]->EB.WindowWidth);
+  DCRBUNLOCK;
+
+  /* convert inputs from ticks to ns */
+  windowWidth = windowWidth * DCRB_NS_PER_CLOCK;
+
+  return(windowWidth);
+}
+
+int
+dcrbGetDeadtime(int id)
+{  
+  int deadTime;
+
+  if(id==0) id=dcrbID[0];
+
+  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
+  {
+    logMsg("dcrbGetDeadtime: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
+    return(ERROR);
+  }
+
+  DCRBLOCK;
+  deadTime = vmeRead32(&DCRBp[id]->Tdc[0].DeadCycles);
+  DCRBUNLOCK;
+
+  /* convert inputs from ticks to ns */
+  deadTime = deadTime * DCRB_NS_PER_CLOCK;
+
+  return(deadTime);
 }
 
 void
@@ -1709,7 +1778,8 @@ dcrbGetDAC(int id)
     logMsg("dcrbSetDAC: ERROR : DCRB in slot %d is not initialized \n",id,0,0,0,0,0);
     return(ERROR);
   }
-  thr = (int)((float)(vmeRead32(&DCRBp[id]->Cfg.DacThreshold) - 2048) / 8.06f);
+  thr = vmeRead32(&DCRBp[id]->Cfg.DacThreshold);
+  thr = (int)( ((float)(thr - 2048)) / 8.06f);
 
   return(thr);
 }
@@ -2157,11 +2227,23 @@ dcrbLinkReset(int id)
 /**** CONFIG ************************************/
 typedef struct
 {
+  int window_offset[DCRB_MAX_BOARDS];
+  int window_width[DCRB_MAX_BOARDS];
+  int deadtime[DCRB_MAX_BOARDS];
   int threshold[DCRB_MAX_BOARDS];
 
 } DCRB_CONFIG_STRUCT;
 
 DCRB_CONFIG_STRUCT conf;
+
+
+static char *expid = NULL;
+
+void
+dcrbSetExpid(char *string)
+{
+  expid = strdup(string);
+}
 
 void
 dcrbInitGlobals()
@@ -2200,11 +2282,20 @@ dcrbReadConfigFile(char *filename)
   unsigned int  ui1, ui2;
   char *getenv();
   char *clonparms;
-  char *expid;
 
   gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
-  expid = getenv("EXPID");
+
+  if(expid==NULL)
+  {
+    expid = getenv("EXPID");
+    printf("\nNOTE: use EXPID=>%s< from environment\n",expid);
+  }
+  else
+  {
+    printf("\nNOTE: use EXPID=>%s< from CODA\n",expid);
+  }
+
   if(strlen(filename)!=0) /* filename specified */
   {
     if ( filename[0]=='/' || (filename[0]=='.' && filename[1]=='/') )
@@ -2299,6 +2390,24 @@ dcrbReadConfigFile(char *filename)
         }
 	  }
 
+      else if(active && (strcmp(keyword,"DCRB_W_OFFSET")==0))
+      {
+        sscanf (str_tmp, "%*s %d", &i1);
+		for(slot=slot1; slot<slot2; slot++) conf.window_offset[slot] = i1;
+      }
+
+      else if(active && (strcmp(keyword,"DCRB_W_WIDTH")==0))
+      {
+        sscanf (str_tmp, "%*s %d", &i1);
+		for(slot=slot1; slot<slot2; slot++) conf.window_width[slot] = i1;
+      }
+
+      else if(active && (strcmp(keyword,"DCRB_DEADTIME")==0))
+      {
+        sscanf (str_tmp, "%*s %d", &i1);
+		for(slot=slot1; slot<slot2; slot++) conf.deadtime[slot] = i1;
+      }
+
       else if(active && (strcmp(keyword,"DCRB_THRESHOLD")==0))
       {
         sscanf (str_tmp, "%*s %d", &i1);
@@ -2334,6 +2443,7 @@ dcrbDownloadAll()
   {
     slot = dcrbSlot(id);
 
+    dcrbSetProcMode(slot, conf.window_offset[slot], conf.window_width[slot], conf.deadtime[slot]);
     dcrbSetDAC(slot, conf.threshold[slot]);
   }
 
@@ -2388,9 +2498,12 @@ dcrbUploadAll(char *string, int length)
   for(id=0; id<ndcrb; id++)
   {
     slot = dcrbSlot(id);
-
-    conf.threshold[slot] = dcrbGetDAC(slot);
-    printf("DCRB DAC slot=%d threshold=%d\n",slot,conf.threshold[slot]);
+	conf.window_offset[slot] = dcrbGetWindowOffset(slot);
+	conf.window_width[slot]  = dcrbGetWindowWidth(slot);
+	conf.deadtime[slot]      = dcrbGetDeadtime(slot);
+    conf.threshold[slot]     = dcrbGetDAC(slot);
+    printf("DCRB slot=%d: w_offset=%d, w_width=%d, deadtime=%d, threshold=%d\n",
+		   slot,conf.window_offset[slot],conf.window_width[slot],conf.deadtime[slot],conf.threshold[slot]);
   }
 
   if(length)
@@ -2398,7 +2511,16 @@ dcrbUploadAll(char *string, int length)
     str = string;
     str[0] = '\0';
 
-    sprintf(sss,"DCRB_THRESHOLD %d\n", conf.threshold[slot]); ADD_TO_STRING;
+    for(id=0; id<ndcrb; id++)
+    {
+      slot = dcrbSlot(id);
+      sprintf(sss,"DCRB_SLOT %d\n",slot);ADD_TO_STRING;
+
+      sprintf(sss,"DCRB_W_OFFSET %d\n", conf.window_offset[slot]); ADD_TO_STRING;
+      sprintf(sss,"DCRB_W_WIDTH %d\n", conf.window_width[slot]); ADD_TO_STRING;
+      sprintf(sss,"DCRB_DEADTIME %d\n", conf.deadtime[slot]); ADD_TO_STRING;
+      sprintf(sss,"DCRB_THRESHOLD %d\n", conf.threshold[slot]); ADD_TO_STRING;
+    }
 
     CLOSE_STRING;
   }
@@ -2408,8 +2530,8 @@ dcrbUploadAll(char *string, int length)
 int
 dcrbUploadAllPrint()
 {
-  char str[1025];
-  dcrbUploadAll(str, 1024);
+  char str[8192];
+  dcrbUploadAll(str, 8191);
   printf("%s",str);
 }
 

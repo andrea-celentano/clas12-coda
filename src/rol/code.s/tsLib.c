@@ -1637,6 +1637,29 @@ tsSetFPInput(unsigned int inputmask)
   return OK;
 }
 
+
+
+/*sergey*/
+unsigned int
+tsGetFPInput()
+{
+  unsigned int inputmask;
+
+  if(TSp==NULL)
+  {
+    printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  TSLOCK;
+  inputmask = vmeRead32(&TSp->fpInput);
+  TSUNLOCK;
+
+  return(inputmask);
+}
+
+
+
 /**
  * @ingroup Config
  * @brief Set the trigger source

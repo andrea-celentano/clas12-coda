@@ -179,6 +179,10 @@ ifeq ("$(OSTYPE)","VXWORKS")
   LIBNAMES +=
 else ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
   CLON_FLAGS += -I$(CODA)/Linux_armv7l/include
+  LIBNAMES += $(CODA)/src/mysql4.1.20/$(OSTYPE_MACHINE)/lib/libmysql4.1.20.a
+  LIBNAMES += -lvtp
+  LIBNAMES += /usr/local/lib/libi2c.a
+  LIBNAMES += -lpthread
   LIBNAMES += -lrt
 else ifeq ("$(OSTYPE_MACHINE)","Linux_nios2")
   CLON_FLAGS += -I$(CODA)/Linux_nios2/include
@@ -187,15 +191,11 @@ else
 ##########  LIBNAMES += $(CODA)/src/codatt/$(OSTYPE_MACHINE)/lib/libcodatt.a
 ##########  LIBNAMES += $(CODA)/src/bosio/$(OSTYPE_MACHINE)/lib/libbosio.a
 
-
-
-
-
   LIBNAMES += $(CODA)/src/gem/$(OSTYPE_MACHINE)/lib/libgem.a
+
+###  LIBNAMES += $(CODA)/src/dac/$(OSTYPE_MACHINE)/lib/libdac.a
+
   LIBNAMES += $(CODA)/src/evio-4.3/$(OSTYPE_MACHINE)/lib/libevio.a
-
-
-
 
   LIBNAMES += $(CODA)/src/mysql4.1.20/$(OSTYPE_MACHINE)/lib/libmysql4.1.20.a
 
@@ -208,9 +208,9 @@ ifeq ("$(OSTYPE_MACHINE)","Linux_i686_vme")
 ## smartsocket stuff
   CLON_FLAGS +=	-I$(CLON)/common/include
   CLON_FLAGS += -I$(RTHOME)/include
-  LIBNAMES += $(CLON)/Linux_i686/lib/libepicsutil.a
-  LIBNAMES += $(CLON)/Linux_i686/lib/libipc.a
-  LIBNAMES += -L$(RTHOME)/lib/$(OSTYPE_MACHINE) -lrtipc -lrtipcl -lrtutil -lrtcxxipc50
+#  LIBNAMES += $(CLON)/Linux_i686/lib/libepicsutil.a
+#  LIBNAMES += $(CLON)/Linux_i686/lib/libipc.a
+#  LIBNAMES += -L$(RTHOME)/lib/$(OSTYPE_MACHINE) -lrtipc -lrtipcl -lrtutil -lrtcxxipc50
 ## smartsocket stuff
 
 endif

@@ -22,7 +22,7 @@
 #define DCRB_DEFAULT_DEADTIME   32
 
 #define DCRB_BOARD_ID       0x44438242
-#define DCRB_MAX_BOARDS             20
+#define DCRB_MAX_BOARDS             21
 #define DCRB_MAX_TDC_CHANNELS       96
 #define DCRB_MAX_DATA_PER_CHANNEL  512
 #define DCRB_MAX_A32_MEM      0x800000   /* 8 Meg */

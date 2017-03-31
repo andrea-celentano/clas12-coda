@@ -24,7 +24,7 @@ coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 */
 
 
-#define SSIPC
+/*#define SSIPC*/
 
 static int nusertrig, ndone;
 
@@ -1174,6 +1174,7 @@ vmeBusUnlock();
   if(nssp>0)
   {
     SSP_READ_CONF_FILE;
+
     sspSlotMask=0;
     for(id=0; id<nssp; id++)
     {

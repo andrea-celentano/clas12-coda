@@ -17,6 +17,7 @@
 #include <evio.h>
 #include <evioBankUtil.h>
 
+
 static unsigned int buf[MAXEVIOBUF];
 static char *input_filename/* = "/work/dcrb/dcrb2_000049.evio.0_1600V_60mV"*/;
 static int input_handle;
@@ -26,7 +27,7 @@ static int output_handle;
 static int nevent         = 0;
 static int nwrite         = 0;
 static int skip_event     = 0;
-static int max_event      = 1000002;
+static int max_event      = 3/*1000002*/;
 
 
 #define DC_DATA_BLOCK_HEADER      0x00
@@ -37,15 +38,19 @@ static int max_event      = 1000002;
 #define DC_DATA_INVALID           0x0E
 #define DC_DATA_FILLER            0x0F
 
+
+
+
+
 int
 main(int argc, char **argv)
 {
   int status;
-  int l, tag, num;
+  int ii, l, tag, num;
   int ind, fragtag, fragnum, nbytes, ind_data, timestamp_flag, type, *nhits;
   int slot, slot_old, event, chan, tdc;
   int banktag = 0xe116, banknum = 0, banktyp = 0xf;
-  char *fmt = "c,i,l,N(c,s)"; /* slot,event#,timestamp,Nhits(channel,tdc) */
+  char *fmt = "c,i,l,N(c,s)";
   unsigned int ret, word;
   unsigned long long timestamp, timestamp_old;
   unsigned char *end, *start;
@@ -71,12 +76,6 @@ main(int argc, char **argv)
     exit(0);
   }
 
-  /* open evio input file */
-  if((status = evOpen(input_filename,"r",&input_handle))!=0)
-  {
-    printf("\n ?Unable to open input file %s, status=%d\n\n",input_filename,status);
-    exit(1);
-  }
 
   /* open evio output file */
   if((status = evOpen(output_filename,"w",&output_handle))!=0)
@@ -89,166 +88,110 @@ main(int argc, char **argv)
 
   nevent=0;
   nwrite=0;
-  while ((status=evRead(input_handle,buf,MAXEVIOBUF))==0)
+  while (nevent<max_event)
   {
+
+    printf("\n\nProcessing event %d\n",nevent);
+
     nevent++;
-    if(!(nevent%10000)) printf("processed %d events\n",nevent);
+
+    if(!(nevent%10000)) printf("evioUtilTest1: processed %d events\n",nevent);
     if(skip_event>=nevent) continue;
     /*if(user_event_select(buf)==0) continue;*/
+
 
     /**********************/
 	/* evioBankUtil stuff */
 
 	fragtag = 67;
-    fragnum = -1;
+    fragnum = 1;
     tag = 0xe105;
     num = 67;
 
-	ind = evLinkFrag(buf, fragtag, fragnum);
-    /*printf("evLinkFrag returns %d\n",ind);*/
-	if(ind<=0) continue;
 
-    ind = evLinkBank(buf, fragtag, fragnum, tag, num, &nbytes, &ind_data);
-    /*printf("evLinkBank returns %d\n",ind);*/
-	if(ind<=0) continue;
+    status = evOpenEvent(buf, 17);
+    printf("\n\nevOpenEvent returns %d\n",status);
 
-    start = (unsigned char *) &buf[ind_data];
-    end = start + nbytes;
-	/*printf("input: nbytes=%d (%d words)\n",nbytes,nbytes>>2);*/
+    status = evOpenFrag(buf, fragtag, fragnum);
+    printf("\n\nevOpenFrag returns %d\n",status);
 
-    if(ind > 0)
+    if(status >= 0)
 	{
       ret = evOpenBank(buf, fragtag, fragnum, banktag, banknum, banktyp, fmt, &ind_data);
       printf("evOpenBank returns = %d\n",ret);
 
       b08out = (unsigned char *)&buf[ind_data];
-      /*printf("first b08out = 0x%08x\n",b08out);*/
-      
+      printf("first b08out=0x%08x\n",b08out);
 
+	  slot = 13;
+      event = nevent;
+      timestamp = 0x123456789ABCLL;
 
+      PUT8(slot);
+      PUT32(event);
+      PUT64(timestamp);
 
+      nhits = (unsigned int *)b08out;
+	  PUT32(0);
 
+      for(ii=0; ii<20; ii++)
+	  {
+        (*nhits)++;
 
-        timestamp_flag = 0;
-        slot_old = -1;
-        b08 = start;
-        while(b08<end)
-	    {
-#ifdef DEBUG
-          /*printf("begin while: b08=0x%08x\n",b08);*/
-#endif
-          GET32(word);
-#ifdef DEBUG
-          printf("dcrb data word hex=0x%08x uint=%u int=%d\n",word,word,word);
-#endif
-          if(timestamp_flag)
-		  {
-			/* ???????????????????
-		    timestamp |= (word&0xffffff);
-			*/
-            timestamp = timestamp >> 24;
-            timestamp = (((unsigned long long)word&0xffffff)<<24) | timestamp;
+        chan = ii+1;
+        tdc = ii*10+100;
 
-#ifdef DEBUG
-		    printf(" {TRGTIME} TRIG TIME (3 low BYTES)\n");fflush(stdout);
-		    printf(" {TRGTIME} timestamp=%lld (%lld)\n",timestamp,timestamp_old);fflush(stdout);
-#endif
-            timestamp_flag = 0;
-			continue;
-		  }
+        PUT8(chan);
+        PUT16(tdc);
+	  }
 
-	      if(word & 0x80000000)
-	      {
-	        type = (word>>27)&0xF;
-	        switch(type)
-	        {
-		      case DC_DATA_BLOCK_HEADER:
-                slot = (word>>22)&0x1f;
-#ifdef DEBUG
-		        printf(" {BLKHDR} SLOTID: %d", (word>>22)&0x1f);fflush(stdout);
-		        printf(" NEVENTS: %d", (word>>11)&0x7ff);fflush(stdout);
-		        printf(" BLOCK: %d\n", (word>>0)&0x7ff);fflush(stdout);
-#endif
-		        break;
-		      case DC_DATA_BLOCK_TRAILER:
-#ifdef DEBUG
-		        printf(" {BLKTLR} SLOTID: %d", (word>>22)&0x1f);fflush(stdout);
-		        printf(" NWORDS: %d\n", (word>>0)&0x3fffff);fflush(stdout);
-#endif
-		        break;
-
-		      case DC_DATA_EVENT_HEADER:
-                event = (word>>0)&0xfffff/*0x7ffffff*/;
-#ifdef DEBUG
-		        printf(" {EVTHDR} EVENT: %d\n", event);fflush(stdout);
-#endif
-		        break;
-		      case DC_DATA_TRIGGER_TIME:
-		        timestamp = (((unsigned long long)word&0xffffff)<<24);
-                timestamp_flag = 1;
-#ifdef DEBUG
-		        printf(" {TRGTIME} TRIG TIME (3 HIGH BYTES)\n");fflush(stdout);
-#endif
-		        break;
-		      case DC_DATA_DCRBEVT:
-                chan = (word>>16)&0x7F;
-                tdc = (word>>0)&0xFFFF;
-#ifdef DEBUG
-		        printf(" {DCRBEVT} 0x%08x",word);fflush(stdout);
-		        printf(" CH: %3u", chan);fflush(stdout);
-		        printf(" TDC: %6u\n", tdc);fflush(stdout);
-#endif
-				if(slot!=slot_old)
-				{
-                  PUT8(slot);
-                  PUT32(event);
-                  PUT64(timestamp);
-
-                  nhits = (unsigned int *)b08out;
-			      PUT32(0);
-
-                  slot_old = slot;
-				}
-                (*nhits)++;
-                PUT8(chan);
-                PUT16(tdc);
-
-		        break;
-		      case DC_DATA_INVALID:
-		        printf(" {***DNV***}\n");fflush(stdout);
-                exit(1);
-		        break;
-		      case DC_DATA_FILLER:
-#ifdef DEBUG
-		        printf(" {FILLER}\n");fflush(stdout);
-#endif
-		        break;
-		      default:
-		        printf(" {***DATATYPE ERROR***}\n");fflush(stdout);
-                exit(1);
-		        break;
-	        }
-	      }
-#ifdef DEBUG
-	      else
-	      {
-	        printf("\n");fflush(stdout);
-	      }
-#endif
-
-
-#ifdef DEBUG
-          /*printf("end loop: b08=0x%08x\n",b08);*/
-#endif
-        }
-
-
-
-
-	  /*printf("last b08out = 0x%08x\n",b08out);*/
+	  printf("last b08out = 0x%08x\n",b08out);
 
       evCloseBank(buf, fragtag, fragnum, banktag, banknum, b08out);
-	  
+
+	}
+
+
+
+    fragnum ++;
+    banknum ++;
+
+    status = evOpenFrag(buf, fragtag, fragnum);
+    printf("\n\nevOpenFrag returns %d\n",status);
+
+    if(status >= 0)
+	{
+      ret = evOpenBank(buf, fragtag, fragnum, banktag, banknum, banktyp, fmt, &ind_data);
+      printf("evOpenBank returns = %d\n",ret);
+
+      b08out = (unsigned char *)&buf[ind_data];
+      printf("first b08out=0x%08x\n",b08out);
+
+	  slot = 13;
+      event = nevent;
+      timestamp = 0x123456789ABCLL;
+
+      PUT8(slot);
+      PUT32(event);
+      PUT64(timestamp);
+
+      nhits = (unsigned int *)b08out;
+	  PUT32(0);
+
+      for(ii=0; ii<20; ii++)
+	  {
+        (*nhits)++;
+
+        chan = ii+1;
+        tdc = ii*10+100;
+
+        PUT8(chan);
+        PUT16(tdc);
+	  }
+
+	  printf("last b08out = 0x%08x\n",b08out);
+
+      evCloseBank(buf, fragtag, fragnum, banktag, banknum, b08out);
 
 	}
 
@@ -256,22 +199,22 @@ main(int argc, char **argv)
     /**********************/
 
 
-
     nwrite++;
-    status = evWrite(output_handle,buf);
+    status = evWrite(output_handle,&buf[0]);
     if(status!=0)
     {
       printf("\n ?evWrite error output file %s, status=%d\n\n",output_filename,status);
       exit(1);
     }
-    if( (max_event>0) && (nevent>=max_event+skip_event) ) break;
+
+    printf("nevent=%d max_event=%d\n",nevent,max_event);
+
   }
 
 
   /* done */
   printf("\n  Read %d events, copied %d events\n\n",nevent,nwrite);
   evClose(output_handle);
-  evClose(input_handle);
 
   exit(0);
 }

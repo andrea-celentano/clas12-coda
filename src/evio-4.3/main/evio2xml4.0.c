@@ -780,7 +780,7 @@ static void dump_fragment(unsigned int *buf, int fragment_type) {
 
     /* data_type, tag, and num */
     if(brief==0)xml+=sprintf(xml," data_type=\"0x%x\"",type);
-    if(brief==0)xml+=sprintf(xml," tag=\"%d\"",tag);
+    if(brief==0)xml+=sprintf(xml," tag=\"%d(0x%04x)\"",tag,tag);
     if(brief==0)xml+=sprintf(xml," padding=\"%d\"",padding);
     if((brief==0)&&(fragment_type==BANK))xml+=sprintf(xml," num=\"%d\"",(int)num);
 
@@ -892,7 +892,7 @@ dump_composite(unsigned int *buf)
 
   /* data_type, tag, and num */
   if(brief==0) xml+=sprintf(xml," data_type=\"0x%x\"",type);
-  if(brief==0) xml+=sprintf(xml," tag=\"%d\"",tag);
+  if(brief==0) xml+=sprintf(xml," tag=\"%d(0x%04x)\"",tag,tag);
 
 
   /* length, ndata for verbose */

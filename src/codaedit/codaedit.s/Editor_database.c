@@ -349,13 +349,15 @@ createConfigTable (char* config)
 
   strcat  (queryString, "first char(32) not null,\n");
   strcat  (queryString, "next char(32) not null,\n");
-  strcat  (queryString, "inuse char(32) not null\n");
+  strcat  (queryString, "inuse char(32) not null,\n");
+
+  strcat  (queryString, "order_num int not null\n"); /* sergey */
+
   strcat  (queryString,")");
   if (mysql_query (mysql, queryString) != 0)
   {
-#ifdef _CODA_DEBUG
-    printf ("Create %s config table Error: %s\n",config, mysql_error(mysql));
-#endif
+    printf ("ERROR in Creating >%s< config table, error: >%s<\n",config, mysql_error(mysql));
+    printf ("ERROR: query was >%s<\n",queryString);
     return(-1);
   }
   else
@@ -375,9 +377,7 @@ createConfigTable (char* config)
     strcat  (queryString, valString);
     if (mysql_query(mysql, queryString) != 0)
     {
-#ifdef _CODA_DEBUG
       printf ("Insert into runtype error: %s\n", mysql_error(mysql));
-#endif
       return(-1);
     }
     else
@@ -395,6 +395,8 @@ createPositionTable (char* config)
 {
   char queryString[1024];
 
+  printf("createPositionTable for config >%s<\n",config);
+
   if (!databaseIsOpen()) return(-1);
 
   if (!databaseSelected()) return(-1);
@@ -406,9 +408,7 @@ createPositionTable (char* config)
   strcat  (queryString,")");
   if (mysql_query (mysql, queryString) != 0)
   {
-#ifdef _CODA_DEBUG
     printf ("Create %s pos table Error: %s\n",config, mysql_error(mysql));
-#endif
     return(-1);
   }
   else
@@ -1114,38 +1114,32 @@ insertValToScriptTable (char* config, char* name, codaScript* list)
 
 int 
 insertValToConfigTable (char* config, char* name, char* code,
-			char* inputs, char* outputs, char* next, int first)
+						char* inputs, char* outputs, char* next, int first, short order_num)
 {
   char queryString[1024];
   char valString[4096];  
 
-  /*printf("Editor_database: insertValToConfigTable(%s,%s,%s,%s,%s,%s,%d)\n",config,name,code,inputs,outputs,next,first);*/
-  printf("Editor_database: insertValToConfigTable(%s,%s, >%s<, %s,%s,%s,%d)\n",config,name,code,inputs,outputs,next,first);
+  printf("Editor_database: insertValToConfigTable(%s,%s, >%s<, %s,%s,%s,%d,%d)\n",config,name,code,inputs,outputs,next,first,order_num);
 
   if (databaseSelected ())
   {
     sprintf (queryString, "insert into %s\n",config);
-    if (next) {
-      if (first) 
-	sprintf (valString, "values ('%s','%s','%s','%s','yes','%s','no')",
-		 name, code, inputs, outputs, next);
-      else
-	sprintf (valString, "values ('%s','%s','%s','%s','no','%s','no')",
-		 name, code, inputs, outputs, next);
+
+    if (next)
+    {
+      if (first) sprintf (valString, "values ('%s','%s','%s','%s','yes','%s','no','%d')",name, code, inputs, outputs, next, order_num);
+      else       sprintf (valString, "values ('%s','%s','%s','%s','no','%s','no','%d')",name, code, inputs, outputs, next, order_num);
     }
-    else {
-      if (first)
-	sprintf (valString, "values ('%s','%s','%s','%s','yes','','no')",
-		 name, code, inputs, outputs);
-      else
-	sprintf (valString, "values ('%s','%s','%s','%s','no','','no')",
-		 name, code, inputs, outputs);
+    else
+    {
+      if (first) sprintf (valString, "values ('%s','%s','%s','%s','yes','','no','%d')",name, code, inputs, outputs, order_num);
+      else       sprintf (valString, "values ('%s','%s','%s','%s','no','','no','%d')",name, code, inputs, outputs, order_num);
     }
+
     strcat (queryString, valString);
-    if (mysql_query (mysql, queryString) != 0) {
-#ifdef _CODA_DEBUG
+    if (mysql_query (mysql, queryString) != 0)
+    {
       printf ("insert %s to config table failed: %s\n", config, mysql_error(mysql));
-#endif
       return -1;
     }
     return 0;
@@ -1273,7 +1267,8 @@ updateDaqCompToProcTable (daqComp* comp)
 int
 selectConfigTable (char* config)
 {
-  if (runType) {
+  if(runType)
+  {
     free (runType);
     runType = 0;
   }
@@ -1294,6 +1289,17 @@ removeMiscConfigInfo (void)
   if (runType) free (runType);
   runType = 0;
 }
+
+
+
+
+
+
+
+
+
+
+
 
 int
 createRcNetCompsFromDbase (rcNetComp** comp, int *num)
@@ -1345,6 +1351,13 @@ createRcNetCompsFromDbase (rcNetComp** comp, int *num)
   return 0;
 }
 
+
+
+
+
+
+/* sergey: sort components by place in 'position' table ??? */
+
 int
 retrieveConfigInfoFromDbase (char* config, ConfigInfo** cinfo, int* num)
 {
@@ -1353,34 +1366,66 @@ retrieveConfigInfoFromDbase (char* config, ConfigInfo** cinfo, int* num)
   MYSQL_ROW row;
   int  i = 0, j = 0;
   char      errmsg[256];
+  int ncol;
 
   *num = 0;
   if (!databaseSelected ()) return(-1);
-  
+
+
+
+
+  /**************************/
+  /* get config information */
+
   sprintf (queryString, "select * from %s", config);
   if (mysql_query (mysql, queryString) != 0)
   {
-#ifdef _CODA_DEBUG
-    printf ("get all from %s table error: %s\n", mysql_error(mysql));
-#endif
-    sprintf (errmsg, "Query %s table failed: %s", config, mysql_error(mysql));
-    pop_error_message (errmsg, sw_geometry.draw_area);
-    return -1;
+    printf("get all from %s table error: %s\n", config, mysql_error(mysql));
+    return(-1);
   }
   res = mysql_store_result (mysql);
   if (!res)
   {
-#ifdef _CODA_DEBUG
-    printf ("Query get all from %s table error: %s\n", mysql_error(mysql));
-#endif
+    printf ("Query get all from %s table error: %s\n", config, mysql_error(mysql));
     sprintf (errmsg, "Query %s table failed: %s", config, mysql_error(mysql));
     pop_error_message (errmsg, sw_geometry.draw_area);
-    return -1;
+    return(-1);
   }
+  ncol = mysql_num_fields(res);
+  printf("retrieveConfigInfoFromDbase: ncol=%d\n",ncol);
+
+
+
+  if(ncol==8) /* select again sorting by 'order_num' */
+  {
+    mysql_free_result (res); /* free 'res' after previous 'select' */
+
+    sprintf (queryString, "select * from %s order by order_num", config);
+    if (mysql_query (mysql, queryString) != 0)
+    {
+      printf ("get all from %s table error: %s\n", config, mysql_error(mysql));
+      sprintf (errmsg, "Query %s table failed: %s", config, mysql_error(mysql));
+      pop_error_message (errmsg, sw_geometry.draw_area);
+      return -1;
+    }
+    else
+	{
+      res = mysql_store_result (mysql);
+      if (!res)
+      {
+        printf ("Query get all from %s table error: %s\n", config, mysql_error(mysql));
+        sprintf (errmsg, "Query %s table failed: %s", config, mysql_error(mysql));
+        pop_error_message (errmsg, sw_geometry.draw_area);
+        return(-1);
+      }
+	}
+  }
+
+
   i = 0;
   while ((row = mysql_fetch_row (res)))
   {
-    cinfo[i] = newConfigInfo ();
+    cinfo[i] = newConfigInfo();
 #ifdef _CODA_DEBUG
     printf ("config info %s %s %s %s\n",row[0], row[1], row[2], row[3]);
 #endif
@@ -1393,7 +1438,12 @@ retrieveConfigInfoFromDbase (char* config, ConfigInfo** cinfo, int* num)
   mysql_free_result (res);
   *num = i;
 
+
+
+
+  /****************************/
   /* get position information */
+
   sprintf (queryString, "select * from %s_pos", config);
   if (mysql_query (mysql, queryString) != 0)
   {
@@ -1420,13 +1470,17 @@ retrieveConfigInfoFromDbase (char* config, ConfigInfo** cinfo, int* num)
   {
     for (i = 0; i < *num; i++)
     {
-      if (matchConfigInfo (cinfo[i], row[0]))
-	    setConfigInfoPosition (cinfo[i], atoi (row[1]), atoi (row[2]));
+      if( matchConfigInfo(cinfo[i], row[0])) setConfigInfoPosition(cinfo[i], atoi(row[1]), atoi(row[2]));
     }
   }
   mysql_free_result (res);
 
+
+
+
+  /**************************/
   /* get script information */
+
   sprintf (queryString, "select * from %s_script", config);
   if (mysql_query (mysql, queryString) != 0)
   {
@@ -1647,7 +1701,8 @@ compInConfigTables (char* name)
   if (listAllConfigs (configs, &num) < 0)
     return -1;
 
-  for (i = 0; i < num; i++) {
+  for (i = 0; i < num; i++)
+  {
     sprintf (queryString, "select * from %s where name = '%s'", configs[i], name);
     if (mysql_query (mysql, queryString) != 0) {
 #ifdef _CODA_DEBUG

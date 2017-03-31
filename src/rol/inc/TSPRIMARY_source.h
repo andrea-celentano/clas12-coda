@@ -11,8 +11,8 @@
 #define __TSPRIMARY_ROL__
 
 
-#define DAQ_READ_CONF_FILE  {daqConfig("");    if(strncasecmp(rol->confFile,"none",4)) daqConfig(rol->confFile);}
-#define TS_READ_CONF_FILE   {tsConfig("");     if(strncasecmp(rol->confFile,"none",4)) tsConfig(rol->confFile);}
+#define DAQ_READ_CONF_FILE  {daqSetExpid(expid); daqConfig("");  if(strncasecmp(rol->confFile,"none",4)) daqConfig(rol->confFile);}
+#define TS_READ_CONF_FILE   {tsSetExpid(expid);  tsConfig("");   if(strncasecmp(rol->confFile,"none",4)) tsConfig(rol->confFile);}
 
 
 #include <stdio.h>
@@ -23,6 +23,8 @@
 
 #include "../code.s/tsLib.h"
 
+extern char *mysql_host; /* defined in coda_component.c */
+extern char *expid; /* defined in coda_component.c */
 
 extern char configname[128]; /* coda_component.c (need to add it in rolInt.h/ROLPARAMS !!??) */
 
@@ -79,7 +81,7 @@ static int TSPRIMARY_isAsync;
 static int buffer_level = 1;
 
 /*max tested value is 40*/
-static int block_level = /*40*/10;
+static int block_level = /*40*/1;
 
 
 void
@@ -96,7 +98,7 @@ static int ntd;
 static void
 tsprimarytinit(int code)
 {
-  int ii, i1, i2, i3;
+  int ii, i1, i2, i3, ret;
   unsigned int slavemask, connectmask;
 
   /*int overall_offset=0x80;*/
@@ -119,12 +121,20 @@ tsprimarytinit(int code)
 
   /* Disable IRQ for VME Bus Errors
   vmeDisableBERRIrq();
-  */
+  
 
-  /* Initialize VME Interrupt interface - use defaults */
+
+*/
+
+
+
+  /* Initialize TS */
+
 vmeBusLock();
  /*tiSetFiberLatencyOffset_preInit(0xbf);*/ /*default is 0xbf in 4ns ticks*/
-  tsInit(TS_ADDR,TS_READOUT,0); /*tsInit((21<<19),2,0)*/
+  ret = tsInit(TS_ADDR,TS_READOUT,0); /*tsInit((21<<19),2,0)*/
+  if(ret<0) ret = tsInit(0,TS_READOUT,0);
+  if(ret<0) {printf("cannot find TS, ret=%d - exit\n",ret);exit(0);}
 #ifdef DEBUG
   tsStatus(1);
 #endif
@@ -132,10 +142,12 @@ vmeBusLock();
   tsIntDisable();
   /*tsDisableVXSSignals();TS*/
   TS_READ_CONF_FILE;
+
 #ifdef DEBUG
   printf("after tsConfig()\n");
   tsStatus(1);
 #endif
+
   block_level = tsConfigGetBlockLevel();
   buffer_level = tsConfigGetBufferLevel();
   printf("TSPRIMARY: new block_level (config) to %d\n",block_level);
@@ -147,17 +159,19 @@ vmeBusUnlock();
 
   /* only 1 trigger type for physics trigger */
 vmeBusLock();
-/*tsSetTriggerSource(TS_TRIGGER_TSINPUTS);*/
- tsSetTriggerSource(5); /* 5: random pulser, 6: GTP/Ext/GTP */
 
+  /*tsSetFPInput(0x7fffffff); done in config */
+  tsSetFPInputReadout(1); /* enables trigger bit pattern in fifo */
 
-  /*
-  tsDisableTSInput(TS_TSINPUT_ALL);
-  tsEnableTSInput( TS_TSINPUT_1 | TS_TSINPUT_2 | TS_TSINPUT_3 | TS_TSINPUT_4 | TS_TSINPUT_5 | TS_TSINPUT_6);
-  */
- tsLoadTriggerTable(/*3*/);
+  /* TS back inputs - disabled for now */
+  tsSetGTPInput(0x0);
+  tsSetGTPInputReadout(0);
+
+  tsLoadTriggerTable();
+
+  /* Set the sync delay width to 0x40*32 = 2.048us */
+  tsSetSyncDelayWidth(0x30, 0x40, 1);
 vmeBusUnlock();
-
 
 
 
@@ -271,7 +285,7 @@ vmeBusUnlock();
     }
   }
 
-  dbsocket = dbConnect(getenv("MYSQL_HOST"), getenv("EXPID"));
+  dbsocket = dbConnect(mysql_host, expid);
   if(dbsocket==NULL)
   {
     printf("TSPRIMARY: ERROR: cannot connect to the database - exit\n");

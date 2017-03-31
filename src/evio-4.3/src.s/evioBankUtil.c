@@ -262,7 +262,7 @@ evDropBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum
 int
 evOpenFrag(unsigned int *buf, int fragtag, int fragnum)
 {
-  int ii, ind, lev;
+  int ii, ind;
   int fragtyp = 0xe;
   int nw = 0; /*fragment created with length=0*/
 
@@ -273,9 +273,7 @@ evOpenFrag(unsigned int *buf, int fragtag, int fragnum)
     return(0);
   }
 
-  lev = buf[0] + 1; /*event length*/
-
-  ind = lev; /* first word after event */
+  ind = buf[0] + 1; /* index of the first word after existing event */
 
   /* create fragment header only */
   buf[ind]   = 1;
@@ -344,3 +342,27 @@ evDropFrag(unsigned int *buf, int fragtag, int fragnum)
   return(0);
 }
 
+
+
+
+
+
+int
+evOpenEvent(unsigned int *buf, int eventtag)
+{
+  int ii, ind;
+  int eventtyp = 0x10;
+  int eventnum = 0xCC;
+
+  /* create event header */
+  ind = 0;
+  buf[ind]   = 1;
+  buf[ind+1] = (eventtag&0xffff)<<16;
+  buf[ind+1] |= (eventtyp&0x3f)<<8;
+  buf[ind+1] |= eventnum&0xff;
+
+#ifdef DEBUG
+  printf("evOpenEvent: ind=%d buf[ind]=%d buf[ind+1]=0x%08x buf[0]=%d\n",ind,buf[ind],buf[ind+1],buf[0]);
+#endif
+  return(ind);
+}

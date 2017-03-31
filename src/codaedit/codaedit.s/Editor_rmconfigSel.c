@@ -33,6 +33,7 @@
 #include "Editor.h"
 #include "Editor_graph.h"
 
+Widget menu;
 static editorRmConfigSel  rmconfigSel;
 
 static void
@@ -57,11 +58,13 @@ createOptionMenu (Widget parent)
   Arg arg[20];
   int ac = 0;
   XmString t;
-  Widget menu;
   Widget option;
   int    i = 0;
 
-  menu = XmCreatePulldownMenu (parent, "optionPullDown", NULL, 0);
+  ac = 0;
+  XtSetArg(arg[ac], XmNpacking, XmPACK_COLUMN); ac++;
+  XtSetArg(arg[ac], XmNnumColumns, 1); ac++; /*will be changed on-flight based on the number of configs*/
+  menu = XmCreatePulldownMenu (parent, "optionPullDown", arg, ac);
 
   t = XmStringCreateSimple ("Run Type ");
   XtSetArg (arg[ac], XmNlabelString, t); ac++;
@@ -281,6 +284,7 @@ removeConfigSelPopup (void)
   Arg  arg[10];
   int  ac = 0;
   XmString t;
+  int ncols;
 
   if (rmconfigSel.managed_) 
     removeConfigSelPopdown ();
@@ -290,6 +294,13 @@ removeConfigSelPopup (void)
 
   /* get all database names */
   status = listAllConfigs (rmconfigSel.configs_, &(rmconfigSel.numConfigs_));
+
+  ncols = rmconfigSel.numConfigs_ / 16 + 1;
+  /*printf("setting ncols in pulldown menu to %d\n",ncols);*/
+  ac = 0;
+  XtSetArg(arg[ac], XmNnumColumns, ncols); ac++;
+  XtSetValues (menu, arg, ac);
+
 
   if (status == 0)
   {

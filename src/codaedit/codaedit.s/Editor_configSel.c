@@ -63,9 +63,10 @@ createOptionMenu (Widget parent)
 
   printf(">>> iconfigSel.numConfigs_=%d\n",iconfigSel.numConfigs_);
 
+  /* sergey: make it possible to set the number of rows in popup menu on flight */
   ac = 0;
   XtSetArg(arg[ac], XmNpacking, XmPACK_COLUMN); ac++;
-  XtSetArg(arg[ac], XmNnumColumns, 1); ac++; /*will be changed on-flight based on the number of configs*/
+  XtSetArg(arg[ac], XmNnumColumns, 1); ac++; /*sergey: will be changed on-flight based on the number of configs*/
   menu = XmCreatePulldownMenu (parent, "optionPullDown", arg, ac);
 
   ac = 0;

@@ -49,6 +49,9 @@ pthread_mutex_t   flpMutex = PTHREAD_MUTEX_INITIALIZER;
 volatile struct FLP_regs  *FLPp=NULL;    /* pointer to FLP memory map */
 unsigned long flpA24Offset=0;                    /* Difference in CPU A24 Base and VME A24 Base */
 unsigned short flpVersion=0;
+static int flpID[FLP_MAX_BOARDS+1];                       /* array of slot numbers for FLPs */
+
+static int Nflp = 0;                        /* Number of FLPs in Crate */
 
 #ifdef VXWORKS
 extern  int sysBusToLocalAdrs(int, char *, char **);
@@ -60,6 +63,25 @@ int Jmap[2][3] =
     {1, 0, 2}, // OUT1
     {0, 2, 1}  // OUT2
   };
+
+/* sergey: returns some globals */
+int
+flpGetNflp()
+{
+  return(Nflp);
+}
+
+int
+flpSlot(unsigned int id)
+{
+  if(id>=Nflp)
+  {
+    printf("%s: ERROR: Index (%d) >= FLPs initialized (%d).\n",__FUNCTION__,id,Nflp);
+    return(ERROR);
+  }
+
+  return(flpID[0/*id*/]);
+}
 
 /* Calculate R3 for regulator voltage */
 static float flpCalcR(float voltage)
@@ -283,6 +305,8 @@ flpInit(unsigned int tAddr, int iFlag)
 	printf("FLP VME (Local) address = 0x%.6x (0x%.8lx)\n",tAddr,laddr);
     }
 #endif
+  flpID[0/*id*/] = tAddr / 0x80000; /* sergey: temporary assuming 'standard' address convension */
+
   flpA24Offset = laddr-tAddr;
 
   /* Set Up pointer */
@@ -336,6 +360,8 @@ flpInit(unsigned int tAddr, int iFlag)
 	    }
 	}
     }
+
+  Nflp = 1; /* sergey: for now - one board */
   
   /* Check if we should exit here, or initialize some board defaults */
   if(noBoardInit)
@@ -726,17 +752,47 @@ flpGetOutputVoltages(int output, float *V1, float *V2, float *VLED)
     }
 
   FLOCK;
-  for(ireg=0; ireg<3; ireg++)
-    {
-      if(output==FLP_OUT1)
-	flpReadMCP(FLP_OUT1, ireg, (unsigned short*)&fr.OUT1[ireg]);
-      else
-	flpReadMCP(FLP_OUT2, ireg, (unsigned short*)&fr.OUT2[ireg]);
-    }
 
+
+
+
+#if 0 /*sergey*/
+  for(ireg=0; ireg<3; ireg++)
+  {
+    if(output==FLP_OUT1)      flpReadMCP(FLP_OUT1, ireg, (unsigned short*)&fr.OUT1[ireg]);
+    else if(output==FLP_OUT2) flpReadMCP(FLP_OUT2, ireg, (unsigned short*)&fr.OUT2[ireg]);
+  }
   *V1   = flpCalcVfromR(FLP_V1,fr.OUT1[FLP_V1]&FLP_VOLT_MASK);
   *V2   = flpCalcVfromR(FLP_V2,fr.OUT1[FLP_V2]&FLP_VOLT_MASK);
   *VLED = flpCalcVfromR(FLP_VLED,fr.OUT1[FLP_VLED]&FLP_VOLT_MASK);
+#endif
+
+
+
+  /* sergey: above does not work, do following */
+  {
+    struct FLP_regs fr;
+
+    for(ireg=0; ireg<3; ireg++)
+    {
+      fr.V_ADC[ireg] = vmeRead16(&FLPp->V_ADC[ireg]);
+    }
+    if(output==FLP_OUT1)
+	{
+	  *V1   = (float)((fr.V_ADC[0]&0xFF))*(5.5/256.0);
+	  *V2   = (float)((fr.V_ADC[0]&0xFF00)>>8)*(5.5/256.0);
+	  *VLED = (float)((fr.V_ADC[1]&0xFF00)>>8)*(8.0/256.0);
+	}
+    else if(output==FLP_OUT2)
+	{
+	  *V1   = (float)((fr.V_ADC[1]&0xFF))*(5.5/256.0);
+	  *V2   = (float)((fr.V_ADC[2]&0xFF))*(5.5/256.0);
+	  *VLED = (float)((fr.V_ADC[2]&0xFF00)>>8)*(8.0/256.0);
+    }
+  }
+
+
+
 
   FUNLOCK;
   
@@ -852,6 +908,8 @@ flpGetPulserPeriod(int output, unsigned int *period)
       }
     }
   FUNLOCK;
+
+  *period = (*period) & 0xFFFF; /* sergey */
 
   return OK;
 }

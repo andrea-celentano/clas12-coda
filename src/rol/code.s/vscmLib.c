@@ -87,7 +87,45 @@ int vscmInited = 0;
 int minSlot = 21;
 int maxSlot = 1;
 
+#define VCSM_SEM_BUF_LEN    256
 
+typedef struct
+{
+  char buf[VCSM_SEM_BUF_LEN];
+  int buf_len;
+  
+  int current_state;
+  
+  struct
+  {
+    int idle;
+    int initialization;
+    int observation;
+    int correction;
+    int classification;
+    int injection;
+    int fatalerror;
+  } sc;
+  
+  struct
+  {
+    int correctable_nonessential;
+    int uncorrectable_nonessential;
+    int correctable_essential;
+    int uncorrectable_essential;
+  } fc;
+  
+  struct
+  {
+    int crc;
+    int bfr;
+    int ecc1b_synvalid;
+    int ecc1b_syninvalid;
+    int ecc2b;
+  } error_detection;
+} vscmSemState_t;
+
+vscmSemState_t vscmSem[VSCM_MAX_BOARDS+1];
 
 #define STRLEN 1024
 
@@ -2105,6 +2143,257 @@ vscmPrestart(char *fname)
   }
 }
 
+void
+vscmSemPrintStats(int id)
+{
+  if (vscmIsNotInit(&id, __func__))
+    return;
+
+  printf("%s(%d):\n", __func__, id);
+  printf("   current_state                    = %d\n", vscmSem[id].current_state);
+  printf("   sc.idle                          = %d\n", vscmSem[id].sc.idle);
+  printf("   sc.initialization                = %d\n", vscmSem[id].sc.initialization);
+  printf("   sc.observation                   = %d\n", vscmSem[id].sc.observation);
+  printf("   sc.correction                    = %d\n", vscmSem[id].sc.correction);
+  printf("   sc.classification                = %d\n", vscmSem[id].sc.classification);
+  printf("   sc.injection                     = %d\n", vscmSem[id].sc.injection);
+  printf("   sc.fatalerror                    = %d\n", vscmSem[id].sc.fatalerror);
+  printf("   fc.correctable_nonessential      = %d\n", vscmSem[id].fc.correctable_nonessential);
+  printf("   fc.uncorrectable_nonessential    = %d\n", vscmSem[id].fc.uncorrectable_nonessential);
+  printf("   fc.correctable_essential         = %d\n", vscmSem[id].fc.correctable_essential);
+  printf("   fc.uncorrectable_essential       = %d\n", vscmSem[id].fc.uncorrectable_essential);
+  printf("   error_detection.crc              = %d\n", vscmSem[id].error_detection.crc);
+  printf("   error_detection.bfr              = %d\n", vscmSem[id].error_detection.bfr);
+  printf("   error_detection.ecc1b_synvalid   = %d\n", vscmSem[id].error_detection.ecc1b_synvalid);
+  printf("   error_detection.ecc1b_syninvalid = %d\n", vscmSem[id].error_detection.ecc1b_syninvalid);
+  printf("   error_detection.ecc2b            = %d\n", vscmSem[id].error_detection.ecc2b);
+}
+
+void
+vscmSemPrintStatsAll()
+{
+  int i;
+
+  printf("%s:                 ", __func__);
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmID[i]);
+  printf("\n");
+
+  printf("   current_state                    = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].current_state);
+  printf("\n");
+
+  printf("   sc.idle                          = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].sc.idle);
+  printf("\n");
+
+  printf("   sc.initialization                = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].sc.initialization);
+  printf("\n");
+
+  printf("   sc.observation                   = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].sc.observation);
+  printf("\n");
+
+  printf("   sc.correction                    = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].sc.correction);
+  printf("\n");
+
+  printf("   sc.classification                = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].sc.classification);
+  printf("\n");
+
+  printf("   sc.injection                     = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].sc.injection);
+  printf("\n");
+
+  printf("   sc.fatalerror                    = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].sc.fatalerror);
+  printf("\n");
+
+  printf("   fc.correctable_nonessential      = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].fc.correctable_nonessential);
+  printf("\n");
+
+  printf("   fc.uncorrectable_nonessential    = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].fc.uncorrectable_nonessential);
+  printf("\n");
+
+  printf("   fc.correctable_essential         = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].fc.correctable_essential);
+  printf("\n");
+
+  printf("   fc.uncorrectable_essential       = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].fc.uncorrectable_essential);
+  printf("\n");
+
+  printf("   error_detection.crc              = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].error_detection.crc);
+  printf("\n");
+
+  printf("   error_detection.bfr              = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].error_detection.bfr);
+  printf("\n");
+
+  printf("   error_detection.ecc1b_synvalid   = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].error_detection.ecc1b_synvalid);
+  printf("\n");
+
+  printf("   error_detection.ecc1b_syninvalid = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].error_detection.ecc1b_syninvalid);
+  printf("\n");
+
+  printf("   error_detection.ecc2b            = ");
+  for(i=0;i<nvscm;i++) printf("%2d ", vscmSem[vscmID[i]].error_detection.ecc2b);
+  printf("\n");
+}
+
+void
+vscmSemSendByte(int id, unsigned char ch)
+{
+  if (vscmIsNotInit(&id, __func__))
+    return;
+  
+  vmeWrite32(&VSCMpr[id]->Sem, ch | 0x100);
+}
+
+void
+vscmSemInjectError(int id, char *str)
+{
+  if (vscmIsNotInit(&id, __func__))
+    return;
+  
+  vmeWrite32(&VSCMpr[id]->Sem, 'I' | 0x100);
+  vmeWrite32(&VSCMpr[id]->Sem, 'N' | 0x100);
+  vmeWrite32(&VSCMpr[id]->Sem, ' ' | 0x100);
+  vmeWrite32(&VSCMpr[id]->Sem, str[0] | 0x100);
+  vmeWrite32(&VSCMpr[id]->Sem, str[1] | 0x100);
+  vmeWrite32(&VSCMpr[id]->Sem, str[2] | 0x100);
+  vmeWrite32(&VSCMpr[id]->Sem, str[3] | 0x100);
+  vmeWrite32(&VSCMpr[id]->Sem, str[4] | 0x100);
+  vmeWrite32(&VSCMpr[id]->Sem, str[5] | 0x100);
+  vmeWrite32(&VSCMpr[id]->Sem, str[6] | 0x100);
+  vmeWrite32(&VSCMpr[id]->Sem, str[7] | 0x100);
+  vmeWrite32(&VSCMpr[id]->Sem, str[8] | 0x100);
+  vmeWrite32(&VSCMpr[id]->Sem, 'O' | 0x100);
+}
+
+void
+vscmProcessSemBuffer(int id, int print)
+{
+  if (vscmIsNotInit(&id, __func__))
+    return;
+  
+  if(print)
+    printf("%s(%d): %s\n", __func__, id, vscmSem[id].buf);
+  
+  if(!strcmp(vscmSem[id].buf, "SC 00"))
+  {
+    vscmSem[id].current_state = 0x00;
+    vscmSem[id].sc.idle++;
+  }
+  else if(!strcmp(vscmSem[id].buf, "SC 01"))
+  {
+    vscmSem[id].current_state = 0x01;
+    vscmSem[id].sc.initialization++;
+  }
+  else if(!strcmp(vscmSem[id].buf, "SC 02"))
+  {
+    vscmSem[id].current_state = 0x02;
+    vscmSem[id].sc.observation++;
+  }
+  else if(!strcmp(vscmSem[id].buf, "SC 04"))
+  {
+    vscmSem[id].current_state = 0x04;
+    vscmSem[id].sc.correction++;
+  }
+  else if(!strcmp(vscmSem[id].buf, "SC 08"))
+  {
+    vscmSem[id].current_state = 0x08;
+    vscmSem[id].sc.classification++;
+  }
+  else if(!strcmp(vscmSem[id].buf, "SC 10"))
+  {
+    vscmSem[id].current_state = 0x10;
+    vscmSem[id].sc.injection++;
+  }
+  else if(!strcmp(vscmSem[id].buf, "SC 1F"))
+  {
+    vscmSem[id].current_state = 0x1F;
+    vscmSem[id].sc.fatalerror++;
+  }
+  else if(!strcmp(vscmSem[id].buf, "FC 00"))
+    vscmSem[id].fc.correctable_nonessential++;
+  else if(!strcmp(vscmSem[id].buf, "FC 20"))
+    vscmSem[id].fc.uncorrectable_nonessential++;
+  else if(!strcmp(vscmSem[id].buf, "FC 40"))
+    vscmSem[id].fc.correctable_essential++;
+  else if(!strcmp(vscmSem[id].buf, "FC 60"))
+    vscmSem[id].fc.uncorrectable_essential++;
+  else if(!strcmp(vscmSem[id].buf, "CRC"))
+    vscmSem[id].error_detection.crc++;
+  else if(!strcmp(vscmSem[id].buf, "BFR"))
+    vscmSem[id].error_detection.bfr++;
+  else if(!strcmp(vscmSem[id].buf, "SED OK"))
+    vscmSem[id].error_detection.ecc1b_synvalid++;
+  else if(!strcmp(vscmSem[id].buf, "SED NG"))
+    vscmSem[id].error_detection.ecc1b_syninvalid++;
+  else if(!strcmp(vscmSem[id].buf, "DED"))
+    vscmSem[id].error_detection.ecc2b++;
+  else
+  {
+    if(print)
+      printf("*** STRING NOT INTERPRETED ***\n");
+  }
+  
+  vscmSem[id].buf_len = 0;
+}
+
+/*
+ * Process SEM controller data
+ */
+void
+vscmMonitorSem(int id, int print)
+{
+  int i, val;
+
+  if (vscmIsNotInit(&id, __func__))
+    return;
+
+  for(i = 0; i < VCSM_SEM_BUF_LEN; i++)
+  {
+    val = vmeRead32(&VSCMpr[id]->Sem) & 0x1FF;
+    if(val & 0x100)
+      break;	// exit if SEM monitor transmit is empty
+
+    if(val == 0x0D)
+      val = 0x00;
+      
+    if(vscmSem[id].buf_len < VCSM_SEM_BUF_LEN)
+      vscmSem[id].buf[vscmSem[id].buf_len++] = val;
+    else
+      vscmSem[id].buf[VCSM_SEM_BUF_LEN-1] = 0x00;
+    
+    if(!val)
+      vscmProcessSemBuffer(id, print);
+  }
+}
+
+void
+vscmMonitorSemAll()
+{
+  int i;
+
+  for(i = 0; i < nvscm; i++)
+    vscmMonitorSem(vscmID[i], 0);
+}
+
+void
+vscmSemProcessAll()
+{
+  vscmMonitorSemAll();
+  vscmSemPrintStatsAll();
+}
+
 /*
  * Returns the number of VSCMs initalized
  */
@@ -2118,6 +2407,8 @@ vscmInit(uintptr_t addr, uint32_t addr_inc, int numvscm, int flag)
   int boardID = 0;
   uint32_t fw;
 
+  memset(vscmSem, 0, sizeof(vscmSem));
+  
   /* Check for valid address */
   if (addr == 0) {
     logMsg("ERROR: %s: Must specify VME-based A24 address for VSCM 0\n", \
@@ -2455,6 +2746,14 @@ typedef struct
 
 static VSCM_CONFIG_STRUCT conf[VSCM_MAX_BOARDS+1]; /* index is slot number */
 
+static char *expid = NULL;
+
+void
+vscmSetExpid(char *string)
+{
+  expid = strdup(string);
+}
+
 
 void
 vscmInitGlobals()
@@ -2525,7 +2824,6 @@ vscmReadConfigFile(char *filename)
   unsigned int  ui1, ui2;
   char *getenv();
   char *clonparms;
-  char *expid;
 
   int nval;
   char charval[10][STRLEN];
@@ -2533,7 +2831,17 @@ vscmReadConfigFile(char *filename)
 
   gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
-  expid = getenv("EXPID");
+
+  if(expid==NULL)
+  {
+    expid = getenv("EXPID");
+    printf("\nNOTE: use EXPID=>%s< from environment\n",expid);
+  }
+  else
+  {
+    printf("\nNOTE: use EXPID=>%s< from CODA\n",expid);
+  }
+
   if(strlen(filename)!=0) /* filename specified */
   {
     if ( filename[0]=='/' || (filename[0]=='.' && filename[1]=='/') )
@@ -2769,6 +3077,8 @@ vscmDownloadAll()
 
   return(0);
 }
+
+
 
 /* vscmInit() have to be called before this function */
 int  

@@ -74,7 +74,7 @@ Editor_pixmap.c - assign pixmap file
 #define CODA_EBANA     17 /*was 4 - temporary to resolve references */
 
 #define MAX_NUM_PORTS  5
-#define MAX_NUM_IOS    40
+#define MAX_NUM_IOS    130 /* was 40 */
 #define MAX_NUM_COMPS  500
 
 typedef struct _comp

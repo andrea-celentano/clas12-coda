@@ -124,11 +124,11 @@ gotControlEvent(et_event **pe, int size)
 
 
 
-#define CRATE1 25 /*first crate ID: sec1-1, sec2-7, sec3-13, sec4-19, sec5-25, sec6-31*/
+#define CRATE1 13 /*first crate ID: sec1-1, sec2-7, sec3-13, sec4-19, sec5-25, sec6-31*/
 
 #undef DEBUG_SEARCH
 
-#undef DEBUG
+#define DEBUG
  
 #define NWPAWC 20000000 /* Length of the PAWC common block. */
 #define LREC 1024      /* Record length in machine words. */
@@ -1540,9 +1540,10 @@ a123:
 
 	/*TDCs*/
     for(fragment=1; fragment<=36; fragment++)
+    /*for(fragment=18; fragment<=18; fragment++)*/
 	{
 
-    if((ind1 = evNlink(bufptr,  fragment, 0xe107,  fragment, &nbytes)) > 0)
+	  if((ind1 = evNlink(bufptr,  fragment, 0xe107,  0/*fragment*/, &nbytes)) > 0)
     {
       int half,chip,chan,bco,val,chan1,edge,nw,tdcl,tdcr;
       unsigned char *end, *start;

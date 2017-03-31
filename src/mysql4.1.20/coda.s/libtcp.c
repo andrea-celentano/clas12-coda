@@ -20,6 +20,14 @@
 #include "libtcp.h"
 #include "libdb.h"
 
+static char *mysql_host = NULL;
+
+void
+tcpClientSetMysqlHost(char *dbhost)
+{
+  mysql_host = strdup(dbhost);
+}
+
 int
 tcpClientCmd(char *target, char *command, char *result)
 {
@@ -39,6 +47,7 @@ tcpClientCmd(char *target, char *command, char *result)
   char tmp[1000], temp[100];
   char *ch;
 
+  if(mysql_host == NULL) mysql_host = getenv("MYSQL_HOST");
 
   /* create client's socket */ 
   if((sFd = socket (AF_INET, SOCK_STREAM, 0)) == ERROR)
@@ -61,7 +70,7 @@ tcpClientCmd(char *target, char *command, char *result)
 
   /* get port and host from DB; if no record in DB for <target name> - exit */
 
-  dbsock = dbConnect(getenv("MYSQL_HOST"), "daq");
+  dbsock = dbConnect(mysql_host, "daq");
 
   /* use 'port' field */
   sprintf(tmp,"SELECT tcpClient_tcp FROM Ports WHERE name='%s'",target);
@@ -100,7 +109,7 @@ tcpClientCmd(char *target, char *command, char *result)
   /* connect to server */ 
   if (connect (sFd, (struct sockaddr *) &serverAddr, sockAddrSize) == ERROR)
   {
-    perror ("connect"); 
+    perror ("libtcp::connect"); 
     close (sFd); 
     return (ERROR); 
   } 
@@ -215,6 +224,7 @@ tcpClientDP(char *target, char *command, char *result)
   char tmp[1000], temp[100];
   char *ch;
 
+  if(mysql_host == NULL) mysql_host = getenv("MYSQL_HOST");
 
   /* create client's socket */ 
   if((sFd = socket (AF_INET, SOCK_STREAM, 0)) == ERROR)
@@ -232,7 +242,7 @@ tcpClientDP(char *target, char *command, char *result)
 
   /* get port and host from DB; if no record in DB for <target name> - exit */
 
-  dbsock = dbConnect(getenv("MYSQL_HOST"), "daq"/*getenv("EXPID")*/);
+  dbsock = dbConnect(mysql_host, "daq"/*getenv("EXPID")*/);
 
   /* use 'port' field */
   sprintf(tmp,"SELECT tcpClient_tcp FROM Ports WHERE name='%s'",target);
@@ -266,7 +276,7 @@ tcpClientDP(char *target, char *command, char *result)
 
   /* connect to server */ 
   if (connect (sFd, (struct sockaddr *) &serverAddr, sockAddrSize) == ERROR) { 
-    perror ("connect"); 
+    perror ("libtcp::connect"); 
     close (sFd); 
     return (ERROR); 
   } 

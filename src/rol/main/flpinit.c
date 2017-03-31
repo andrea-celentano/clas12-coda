@@ -1,5 +1,5 @@
 
-/* dsc2init.c */
+/* flpinit.c */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,17 +18,55 @@ main(int argc, char *argv[])
   unsigned int addr, laddr;
   int slot = 0;
   float v1 = 0, v2 = 0, v3 = 0;
-  
+  float freq = 6000;
+  int nflp;
+
   /* Open the default VME windows */
   vmeOpenDefaultWindows();
  
-  /* from Download */
   vmeBusLock();
-  flpInit(0x300000,20); /* 0x300000 - FLP in slot 6 */
-  if (argc == 3){
+
+  flpInit(0x900000,20); /* 0x900000 - FLP in slot 18 */
+  nflp = flpGetNflp();
+  printf ("Setting flp\n");
+
+
+  if(nflp>0)
+  {
+    if (atoi(argv[1]) == 1)
+      {  flpEnableOutput(0);
+	flpEnableOutput(1);
+	flpEnableIntPulser(0);
+	flpEnableIntPulser(1);
+	
+	flpConfig("");
+	
+	flpStatus(0);
+	
+	flpUploadAllPrint();
+      }
+    if (atoi(argv[1]) == 0){
+      flpDisableOutput(0);
+      flpDisableOutput(1);
+      flpDisableIntPulser(1);
+      flpDisableIntPulser(0);
+      flpStatus(0);
+
+    }
+
+  }
+
+
+
+#if 0
+  if(argc == 4)
+  {
     v3 = atof(argv[2]);
     printf("set voltage, %4.3f\n", v3);
-    if (atoi(argv[1]) == 1){
+    freq = atof(argv[3]);
+    printf ("set frequency, %4.3f", freq);
+    if (atoi(argv[1]) == 1)
+    {
       
       flpEnableOutput(0);
       flpEnableOutput(1);
@@ -36,8 +74,8 @@ main(int argc, char *argv[])
       flpEnableIntPulser(1);
       flpSetOutputVoltages(0, 3.5, 3.5, v3);
       flpSetOutputVoltages(1, 3.5, 3.5, v3);
-      flpSetPulserPeriod(0, 200000);
-      flpSetPulserPeriod(1, 200000);
+      flpSetPulserPeriod(0, 50000000.0/freq);
+      flpSetPulserPeriod(1, 50000000.0/freq);
     }
     else{
       if (atoi(argv[1]) == 0){
@@ -51,9 +89,12 @@ main(int argc, char *argv[])
       }
     }
   }
-  else printf ("Must be two arguments\n");
+  else printf ("Must be three arguments\n");
   flpStatus(0);
+#endif
+
   vmeBusUnlock();
+
   exit(0);
 }
 

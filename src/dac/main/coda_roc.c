@@ -27,7 +27,7 @@ static pthread_attr_t detached_attr;
 
 
 #ifdef Linux
-int tcpServer(char *name);
+int tcpServer(char *name, char *mysqlhost);
 #endif
 
 
@@ -106,6 +106,7 @@ static hrtime_t time3;
 
 static char confFile[256];
 
+extern char *mysql_host; /* coda_component.c */
 extern char *expid; /* coda_component.c */
 extern char *session; /* coda_component.c */
 
@@ -177,6 +178,19 @@ void net_thread(BIGNET *bignetptr);
 
 void rols_loop();
 static int rols_loop_exit = 0;
+
+
+
+
+
+/* some access functions */
+
+char *
+dacGetExpid()
+{
+  return(expid);
+}
+
 
 
 
@@ -402,7 +416,7 @@ bla1
   pthread_mutex_init(&transition_lock, NULL);
   pthread_mutex_init(&sendbuffer_lock, NULL);
 
-  tcpServer(localobject->name); /*start server to process non-coda commands sent by tcpClient*/
+  tcpServer(localobject->name, mysql_host); /*start server to process non-coda commands sent by tcpClient*/
 
   return(CODA_OK);
 }
@@ -591,7 +605,7 @@ mytest1(char *confname)
   int numRows;
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
   printf("3122: dbsock=%d\n",dbsock);
   if(dbsock==NULL)
   {
@@ -788,12 +802,12 @@ codaDownload(char *confname)
 	}
   }
 
-printf("31: >%s< >%s<\n",getenv("MYSQL_HOST"), expid);fflush(stdout);
+printf("31: >%s< >%s<\n",mysql_host, expid);fflush(stdout);
 
 
   /* connect to database */
-  printf("MYSQL_HOST >%s<\n",getenv("MYSQL_HOST"));fflush(stdout);
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  printf("mysql_host >%s<\n",mysql_host);fflush(stdout);
+  dbsock = dbConnect(mysql_host, expid);
   printf("3123: dbsock=%d\n",dbsock);fflush(stdout);
   if(dbsock==NULL)
   {
@@ -978,6 +992,11 @@ dbDisconnect(dbsock);
     for(ix=0; ix<nrols; ix++) printf("nrols [%1d] >%s<\n",ix,listArgv[ix]);
 
 printf("codaDownload: listArgc=%d listArgv >%s< >%s<\n",listArgc,listArgv[0],listArgv[1]);
+if(listArgc<=0)
+{
+  printf("ERROR: cannot download readout list(s) - exit\n");
+  exit(0);
+}
 
     /* set ROCid */
     this_roc_id = object->codaid;
@@ -1100,8 +1119,8 @@ printf("codaDownload: listArgc=%d listArgv >%s< >%s<\n",listArgc,listArgv[0],lis
 
 
 /* connect to database */
-printf("MYSQL_HOST >%s<\n",getenv("MYSQL_HOST"));fflush(stdout);
-dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+printf("mysql_host >%s<\n",mysql_host);fflush(stdout);
+dbsock = dbConnect(mysql_host, expid);
 printf("3123-1: dbsock=%d\n",dbsock);fflush(stdout);
 if(dbsock==NULL)
 {
@@ -1449,7 +1468,7 @@ codaPrestart()
   /* connect to database */
   /***********************/
 
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
   printf("315: dbsock=%d\n",dbsock);
   if(dbsock==NULL)
   {

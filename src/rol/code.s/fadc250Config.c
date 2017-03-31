@@ -33,6 +33,10 @@ FADC250_NPEAK     1   <- number of Pulses in Mode 2 and 3.  (0x10C Bits:6-5)
 FADC250_ADC_MASK  1  0  1  0  1  0  1  0  1  0  1  0  1  0  1  0   <- channel enable mask
 FADC250_TRG_MASK  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1   <- trigger enable mask 
 
+FADC250_TRG_WIDTH   1  <- stretches pulse width of channel over threshold in 4ns ticks
+FADC250_TRG_MINTOT  1  <- minimum number of 4ns clocks channel must be over threshold to count towards multiplicity for FADC
+FADC250_TRG_MINMULT 1  <- minimum number of channels triggered simultaneously for FADC to send trigger to SD
+
 FADC250_TET       110        <- board Trigger Energy Threshold (TET), same for all 16 channels
 FADC250_CH_TET    0    110   <- channel# and TET_value for this channel
 FADC250_ALLCH_TET 111  222  2  3  4  5  6  7  8  9  10  11  12  13  14  15   <- 16 TETs (0x12C - 0x148)
@@ -102,6 +106,14 @@ static FADC250_CONF fa250[NBOARD+1];
 	  ui1 |= (msk[jj]<<jj); \
 	}
 
+
+static char *expid = NULL;
+
+void
+fadc250SetExpid(char *string)
+{
+  expid = strdup(string);
+}
 
 int
 fadc250Config(char *fname)
@@ -186,12 +198,21 @@ fadc250ReadConfigFile(char *filename_in)
   float f1, fmsk[16];
   char *getenv();
   char *clonparms;
-  char *expid;
   int do_parsing;
 
   gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
-  expid = getenv("EXPID");
+
+  if(expid==NULL)
+  {
+    expid = getenv("EXPID");
+    printf("\nNOTE: use EXPID=>%s< from environment\n",expid);
+  }
+  else
+  {
+    printf("\nNOTE: use EXPID=>%s< from CODA\n",expid);
+  }
+
   strcpy(filename,filename_in); /* copy filename from parameter list to local string */
   do_parsing = 1;
 

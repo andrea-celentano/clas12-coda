@@ -5,21 +5,20 @@
 
 #define NEW
 
-
 #undef SSIPC
 
 static int nusertrig, ndone;
-
 
 #undef DMA_TO_BIGBUF /*if want to dma directly to the big buffers*/
 
 #define USE_FADC250
 #define USE_DSC2
 #define USE_V1190
-/*#define USE_SSP*/
+#define USE_SSP
 #define USE_VSCM
 #define USE_DCRB
 #define USE_VETROC
+#define USE_FLP
 
 /* if event rate goes higher then 10kHz, with random triggers we have wrong
 slot number reported in GLOBAL HEADER and/or GLOBAL TRAILER words; to work
@@ -101,6 +100,7 @@ void usrtrig_done();
 #include "tdc1190.h"
 #include "vscmLib.h"
 
+
 #ifdef USE_SSP
 #include "sspLib.h"
 static int nssp;   /* Number of SSPs found with sspInit(..) */
@@ -117,6 +117,7 @@ static unsigned int *tdcbuf;
 extern unsigned int dabufp_usermembase;
 extern unsigned int dabufp_physmembase;
 /*#endif*/
+
 
 extern int rocMask; /* defined in roc_component.c */
 
@@ -279,6 +280,11 @@ static unsigned int sspSlotMask = 0; /* bit=slot (starting from 0) */
 static int SSP_SLOT;
 #endif
 
+#ifdef USE_FLP
+#include "flpLib.h"
+static int nflp;
+#endif
+
 #ifdef USE_VSCM
 static unsigned int vscmSlotMask = 0; /* bit=slot (starting from 0) */
 static int nvscm1 = 0;
@@ -325,7 +331,7 @@ char *
 getFadcPedsFilename(int rocid)
 {
   char *dir = NULL;
-  char *expid = NULL;
+  /*char *expid = NULL;*/
   static char fname[1024];
 
   if((dir=getenv("CLAS")) == NULL)
@@ -333,14 +339,16 @@ getFadcPedsFilename(int rocid)
     printf("ERROR: environment variable CLAS is not defined - exit\n");
     return(NULL);
   }
+  /*
   if((expid=getenv("EXPID")) == NULL)
   {
     printf("ERROR: environment variable EXPID is not defined - exit\n");
     return(NULL);
   }
+  */
   sprintf(fname,"%s/parms/peds/%s/fadc%02d.ped",dir,expid,rocid);
 
-  return fname;
+  return(fname);
 }
 
 #endif
@@ -351,7 +359,7 @@ __download()
   int i1, i2, i3;
 #ifdef USE_FADC250
 
-  int ii, id, isl, ichan, slot;
+  int ret, ii, id, isl, ichan, slot;
   unsigned short iflag;
   int fadc_mode = 1, iFlag = 0;
   int ich, NSA, NSB;
@@ -380,7 +388,7 @@ __download()
   if(ch != NULL)
   {
     strcpy(tmp,ch+strlen("fp="));
-    printf("tmp >>>>>>>>>>>>>>>>>>>>>%s<<<<<<<<<<<<<<<<<<<<<\n",tmp);
+    printf("FP >>>>>>>>>>>>>>>>>>>>>%s<<<<<<<<<<<<<<<<<<<<<\n",tmp);
     ti_slave_fiber_port = atoi(tmp);
     printf("ti_slave_fiber_port =%d\n",ti_slave_fiber_port);
     tiSetFiberIn_preInit(ti_slave_fiber_port);
@@ -454,6 +462,10 @@ if(rol->pid==18)
   */
 
   tdcbuf = (unsigned int *)i2_from_rol1;
+
+
+
+
 
 
 
@@ -693,13 +705,26 @@ STATUS for FADC in slot 18 at VME (Local) base address 0x900000 (0xa16b1000)
    *   SD SETUP
    ***************************************/
 vmeBusLock();
-  sdInit(1);   /* Initialize the SD library */
-  sdSetActiveVmeSlots(fadcSlotMask); /* Use the fadcSlotMask to configure the SD */
-  sdStatus();
+  ret = sdInit(1);   /* Initialize the SD library */
+  if(ret >= 0)
+  {
+    sdSetActiveVmeSlots(fadcSlotMask); /* Use the fadcSlotMask to configure the SD */
+    sdStatus();
+  }
+  else
+  {
+    printf("\n\nsdInit returns %d, probably SD does not installed in that crate ..\n\n\n",ret);
+  }
 vmeBusUnlock();
 
   printf("FADC250 Download() ends =========================\n\n");
 #endif
+
+
+
+
+
+
 
 
 #ifdef USE_V1190
@@ -707,8 +732,8 @@ vmeBusUnlock();
 
 vmeBusLock();
   ntdcs = tdc1190Init(0x11100000,0x80000,20,0);
-vmeBusUnlock();
   if(ntdcs>0) TDC_READ_CONF_FILE;
+vmeBusUnlock();
 
   for(ii=0; ii<ntdcs; ii++)
   {
@@ -849,13 +874,59 @@ vmeBusUnlock();
   printf("DC Download() ends =========================\n\n");
 #endif
 
+
+
+#ifdef USE_FLP
+  printf("FLP Download() starts =========================\n");
+vmeBusLock();
+  flpInit(0x00900000, 0); /* FLP in slot 18 */
+  nflp = flpGetNflp();
+
+  if(nflp>0)
+  {
+    FLP_READ_CONF_FILE;
+
+  flpEnableOutput(0);
+  flpEnableOutput(1);
+  flpEnableIntPulser(0);
+  flpEnableIntPulser(1);
+  flpStatus(0);
+
+  }
+vmeBusUnlock();
+
+
+/*
+  flpEnableOutput(0);
+  flpEnableOutput(1);
+  flpEnableIntPulser(0);
+  flpEnableIntPulser(1);
+  flpStatus(0);
+
+  flpSetOutputVoltages(0, 3.7, 3.7, 4.7);
+  flpSetOutputVoltages(1, 3.7, 3.7, 4.7);
+
+  flpGetOutputVoltages(1, &v1, &v2, &v3);
+  printf ("output voltage from 1 %3.2f, %3.2f, %3.2f\n", v1, v2, v3);
+
+  flpGetOutputVoltages(0, &v1, &v2, &v3);
+  printf ("output voltage %from 0 3.2f, %3.2f, %3.2f\n", v1, v2, v3);
+  flpSetPulserPeriod(0, 200000);
+
+  flpSetPulserPeriod(1, 200000);
+  flpStatus(0);
+*/
+
+#endif
+
+
   sprintf(rcname,"RC%02d",rol->pid);
   printf("rcname >%4.4s<\n",rcname);
 
 #ifdef SSIPC
   sprintf(ssname,"%s_%s",getenv("HOST"),rcname);
   printf("Smartsockets unique name >%s<\n",ssname);
-  epics_msg_sender_init(getenv("EXPID"), ssname); /* SECOND ARG MUST BE UNIQUE !!! */
+  epics_msg_sender_init(expid, ssname); /* SECOND ARG MUST BE UNIQUE !!! */
 #endif
 
   logMsg("INFO: User Download Executed\n",1,2,3,4,5,6);
@@ -931,9 +1002,13 @@ vmeBusUnlock();
 vmeBusLock();
     tiSetBusySource(TI_BUSY_SWB,0);
 	sdSetActiveVmeSlots(vscmSlotMask);
-	 
+
+#if 0
     if(rol->pid == 4) sdSetTrigoutLogic(0, 2); /* SD Trigout when VSCM multiplicity >= 2 - DO FOR SVT4: R1+R2*/
     else              sdSetTrigoutLogic(0, 1); /* SD Trigout when VSCM multiplicity >= 1 - DO FOR SVT5: R3*/
+#endif
+    sdSetTrigoutLogic(0, 2);
+
 vmeBusUnlock();
 
     VSCM_READ_CONF_FILE;
@@ -1005,13 +1080,15 @@ vmeBusUnlock();
 #endif
 
 vmeBusLock();
-  ndcrb = dcrbInit((4<<19), 0x80000, 16+2, 7); /* 7 boards from slot 4, 7 boards from slot 13 */
+  ndcrb = dcrbInit((3<<19), 0x80000, 20, 7); /* 7 boards from slot 3, 7 boards from slot 14 */
   if(ndcrb>0)
   {
-    dcrbGSetDAC(-30); /* threshold in mV */
+    DCRB_READ_CONF_FILE;
+
+    /*dcrbGSetDAC(-30); MUST COME FROM CONFIG FILE */ /* threshold in mV */
 
     /* last param is double-hit resolution in ns */
-    dcrbGSetProcMode(/*4000*/2000,/*4000*/2000,1000);
+    /*dcrbGSetProcMode(2000,2000,1000); MUST COME FROM CONFIG FILE */
   }
 vmeBusUnlock();
 
@@ -1140,13 +1217,14 @@ vmeBusUnlock();
   iFlag  = SSP_INIT_MODE_DISABLED; /* Disabled, initially */
   iFlag |= SSP_INIT_SKIP_FIRMWARE_CHECK;
   iFlag |= SSP_INIT_MODE_VXS;
-  iFlag |= SSP_INIT_FIBER0_ENABLE;         /* Enable hps1gtp fiber ports */
-  iFlag |= SSP_INIT_FIBER1_ENABLE;         /* Enable hps1gtp fiber ports */
-  iFlag |= SSP_INIT_GTP_FIBER_ENABLE_MASK; /* Enable all fiber port data to GTP */
+//  iFlag |= SSP_INIT_FIBER0_ENABLE;         /* Enable hps1gtp fiber ports */
+//  iFlag |= SSP_INIT_FIBER1_ENABLE;         /* Enable hps1gtp fiber ports */
+//  iFlag |= SSP_INIT_GTP_FIBER_ENABLE_MASK; /* Enable all fiber port data to GTP */
   /*iFlag|= SSP_INIT_NO_INIT;*/ /* does not configure SSPs, just set pointers */
   nssp=0;
 vmeBusLock();
   nssp = sspInit(0, 0, 0, iFlag); /* Scan for, and initialize all SSPs in crate */
+  //nssp = sspInit(0x180000, 0, 1, iFlag); /* Scan for, and initialize slot 3 ssp */
 vmeBusUnlock();
   printf("rol1: found %d SSPs (using iFlag=0x%08x)\n",nssp,iFlag);
 
@@ -1166,7 +1244,7 @@ vmeBusUnlock();
 
       /* SSP Status */
       /*sspPrintHpsScalers(sspSlot(id));*/
-      sspPrintHpsConfig(sspSlot(id));
+      //sspPrintHpsConfig(sspSlot(id));
     }
   }
 
@@ -1570,7 +1648,7 @@ void
 usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 {
   int *jw, ind, ind2, i, ii, jj, jjj, blen, len, rlen, itdcbuf, nbytes;
-  unsigned int *tdcbuf_save, *tdc;
+  unsigned int *tdcbuf_save, *tdc, utmp;
   unsigned int *dabufp1, *dabufp2;
   int njjloops, slot;
   int nwords;
@@ -1742,6 +1820,38 @@ vmeBusUnlock();
         tdc = &tdcbuf[itdcbuf];
         itdcbuf += rlen;
 
+
+#ifdef SLOTWORKAROUND
+		/* go through current board and fix slot number */
+        for(jj=0; jj<rlen; jj++)
+		{
+          utmp = LSWAP(tdc[jj]);
+
+          if( ((utmp>>27)&0x1F) == 8 ) /* GLOBAL HEADER */
+		  {
+            slot = utmp&0x1f;
+            if( slot != slotnums[ii] )
+			{
+              printf("ERROR: old=0x%08x: WRONG slot=%d IN GLOBAL HEADER, must be %d - fixed\n",utmp,slot,slotnums[ii]);
+              utmp = (utmp & 0xFFFFFFE0) | slotnums[ii];
+              printf("new=0x%08x\n",utmp);
+              tdc[jj] = LSWAP(utmp);
+            }
+		  }
+          else if( ((utmp>>27)&0x1F) == 0x10 ) /* GLOBAL TRAILER */
+		  {
+            slot = utmp&0x1f;
+            if( slot != slotnums[ii] )
+			{
+              printf("ERROR: old=0x%08x: WRONG slot=%d IN GLOBAL TRAILER, must be %d - fixed\n",utmp,slot,slotnums[ii]);
+              utmp = (utmp & 0xFFFFFFE0) | slotnums[ii];
+              printf("new=0x%08x\n",utmp);
+              tdc[jj] = LSWAP(utmp);
+            }
+		  }
+        }
+#endif
+
         for(jj=0; jj<rlen; jj++) *rol->dabufp ++ = tdc[jj];
       }
       BANKCLOSE;
@@ -1755,7 +1865,7 @@ vmeBusUnlock();
 
 
 
-
+#if 0
 #ifdef USE_SSP
     if(nssp>0)
     {
@@ -1804,7 +1914,7 @@ vmeBusUnlock();
 	  
     }
 #endif /* USE_SSP */
-
+#endif
 
 
 #ifdef USE_FADC250
@@ -2334,7 +2444,7 @@ vmeBusUnlock();
 	    stat = (gbready == dcrbSlotMask);
 	    if (stat>0) 
 	    {
-          printf("expected mask 0x%08x, got 0x%08x\n",dcrbSlotMask,gbready);
+          if(dcrbSlotMask!=gbready) printf("expected mask 0x%08x, got 0x%08x\n",dcrbSlotMask,gbready);
 	      break;
 	    }
 	  }
@@ -2381,11 +2491,11 @@ vmeBusUnlock();
 vmeBusLock();
             len = dcrbReadBlock(DCRB_SLOT, rol->dabufp, MAXDCRBWORDS, DCRB_ROFLAG);
 vmeBusUnlock();
-/*#ifdef DEBUG*/
+#ifdef DEBUG
             printf("DCRB: slot=%d, nw=%d, data-> 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
 			  DCRB_SLOT,len,LSWAP(rol->dabufp[0]),LSWAP(rol->dabufp[1]),LSWAP(rol->dabufp[2]),
 			  LSWAP(rol->dabufp[3]),LSWAP(rol->dabufp[4]),LSWAP(rol->dabufp[5]),LSWAP(rol->dabufp[6]));
-/*#endif*/
+#endif
             rol->dabufp += len;
             dCnt += len;
 
@@ -2394,11 +2504,11 @@ vmeBusUnlock();
 vmeBusLock();
             len = dcrbReadBlock(DCRB_SLOT, &tdcbuf[dCnt], MAXDCRBWORDS, DCRB_ROFLAG);
 vmeBusUnlock();
-/*#ifdef DEBUG*/
+#ifdef DEBUG
             printf("DC: slot=%d, nw=%d, data-> 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
 			  DCRB_SLOT,len,LSWAP(tdcbuf[dCnt+0]),LSWAP(tdcbuf[dCnt+1]),LSWAP(tdcbuf[dCnt+2]),
               LSWAP(tdcbuf[dCnt+3]),LSWAP(tdcbuf[dCnt+4]),LSWAP(tdcbuf[dCnt+5]),LSWAP(tdcbuf[dCnt+6]));
-/*#endif*/
+#endif
             dCnt += len;
 #endif
 	      }
@@ -2598,8 +2708,10 @@ vmeBusUnlock();
 	  */
       *rol->dabufp ++ = LSWAP((0x12<<27)+(event_number&0x7FFFFFF)); /*event header*/
 
-      nwords = 6; /* UPDATE THAT IF THE NUMBER OF WORDS CHANGED BELOW !!! */
+      nwords = 5; /* UPDATE THAT IF THE NUMBER OF WORDS CHANGED BELOW !!! */
       *rol->dabufp ++ = LSWAP((0x14<<27)+nwords); /*head data*/
+
+      /* COUNT DATA WORDS FROM HERE */
       *rol->dabufp ++ = 0; /*version  number */
       *rol->dabufp ++ = LSWAP(RUN_NUMBER); /*run  number */
       *rol->dabufp ++ = LSWAP(event_number); /*event number */
@@ -2613,9 +2725,11 @@ vmeBusUnlock();
         *rol->dabufp ++ = 0;
         *rol->dabufp ++ = 0;
 	  }
+      /* END OF DATA WORDS */
+
 	}
 
-    nwords = ((int)rol->dabufp-(int)dabufp1)/4+1;
+    nwords = ((int)rol->dabufp-(int)dabufp1)/4 + 1;
 
     *rol->dabufp ++ = LSWAP((0x11<<27)+nwords); /*block trailer*/
 
@@ -2663,7 +2777,7 @@ vmeBusUnlock();
       if(nfadc>0)
       {
 vmeBusLock();
-        len = fadc250UploadAll(chptr, 10000);
+        len = fadc250UploadAll(chptr, 14000);
 vmeBusUnlock();
         /*printf("\nFADC len=%d\n",len);
         printf("%s\n",chptr);*/
@@ -2698,6 +2812,19 @@ vmeBusUnlock();
 	  }
 #endif
 
+#ifdef USE_DCRB
+	  if(ndcrb>0)
+	  {
+vmeBusLock();
+        len = dcrbUploadAll(chptr, 10000);
+vmeBusUnlock();
+        /*printf("\nDCRB len=%d\n",len);
+        printf("%s\n",chptr);*/
+        chptr += len;
+        nbytes += len;
+	  }
+#endif
+
 #ifdef USE_VSCM
 	  if(nvscm1>0)
 	  {
@@ -2726,6 +2853,7 @@ vmeBusUnlock();
 #endif
 
 
+#if 0
 	  /* temporary for crates with GTP */
       if(rol->pid==37||rol->pid==39)
 	  {
@@ -2752,7 +2880,7 @@ vmeBusUnlock();
         chptr += len;
         nbytes += len;
 	  }
-
+#endif
 
       /* 'nbytes' does not includes end_of_string ! */
       chptr[0] = '\n';

@@ -15,11 +15,15 @@ endif
 # setting environment variables OSTYPE, MACHINE, PLATFORM etc - used to be in main .setup
 #
 set TESTFILE = /proc/vmeinfo
+set REDHATFILE = /etc/redhat-release
+set ARCHFILE = /etc/os-release
 setenv OSTYPE     `uname|sed 's/-/_/'`
 
 #obtain Linux release number (works on RHEL at least ..)
 if ( $OSTYPE == "Linux") then
+if ( -e $REDHATFILE ) then
   setenv OSRELEASE `cat /etc/redhat-release | cut -d "." -f 1 | cut -d " " -f 7`
+endif
 endif
 
 if ( $OSTYPE == "Darwin" ) then

@@ -1,3 +1,10 @@
+/*
+TDs:
+
+dc11 slot 9 port 1
+dc13 stot 13 port 1
+ */
+
 /*----------------------------------------------------------------------------*/
 /**
  * @mainpage
@@ -199,6 +206,7 @@ tdInit(UINT32 addr, UINT32 addr_inc, int nfind, int iFlag)
     }
   tdA24Offset = laddr - addr;
 
+  nTD = 0; /*sergey*/
   for (itd=0;itd<nfind;itd++) 
     {
       if(useList==1)

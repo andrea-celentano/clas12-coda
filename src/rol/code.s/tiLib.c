@@ -515,7 +515,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	  /* HFBR#1 Clock Source */
 	  tiSetClockSource(1);
 	  /* HFBR#1 Sync Source */
-	  tiSetSyncSource(TI_SYNC_HFBR1);
+	  tiSetSyncSource(TI_SYNC_HFBR1 | TI_SYNC_USER_SYNCRESET_ENABLED); /*sergey: add TI_SYNC_USER_SYNCRESET_ENABLED*/
 	  /* HFBR#1 Trigger Source */
 	  tiSetTriggerSource(TI_TRIGGER_HFBR1);
 	}
@@ -526,7 +526,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	  /* HFBR#5 Clock Source */
 	  tiSetClockSource(5);
 	  /* HFBR#5 Sync Source */
-	  tiSetSyncSource(TI_SYNC_HFBR5);
+	  tiSetSyncSource(TI_SYNC_HFBR5 | TI_SYNC_USER_SYNCRESET_ENABLED); /*sergey: add TI_SYNC_USER_SYNCRESET_ENABLED*/
 	  /* HFBR#5 Trigger Source */
 	  tiSetTriggerSource(TI_TRIGGER_HFBR5);
 	}
@@ -1271,7 +1271,7 @@ tiSetSlavePort(int port)
       /* HFBR#1 Clock Source */
       tiSetClockSource(1);
       /* HFBR#1 Sync Source */
-      tiSetSyncSource(TI_SYNC_HFBR1);
+      tiSetSyncSource(TI_SYNC_HFBR1 | TI_SYNC_USER_SYNCRESET_ENABLED); /*sergey: add TI_SYNC_USER_SYNCRESET_ENABLED*/
       /* HFBR#1 Trigger Source */
       tiSetTriggerSource(TI_TRIGGER_HFBR1);
     }
@@ -1282,7 +1282,7 @@ tiSetSlavePort(int port)
       /* HFBR#5 Clock Source */
       tiSetClockSource(5);
       /* HFBR#5 Sync Source */
-      tiSetSyncSource(TI_SYNC_HFBR5);
+      tiSetSyncSource(TI_SYNC_HFBR5 | TI_SYNC_USER_SYNCRESET_ENABLED); /*sergey: add TI_SYNC_USER_SYNCRESET_ENABLED*/
       /* HFBR#5 Trigger Source */
       tiSetTriggerSource(TI_TRIGGER_HFBR5);
     }

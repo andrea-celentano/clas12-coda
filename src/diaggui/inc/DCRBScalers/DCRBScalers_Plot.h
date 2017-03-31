@@ -245,6 +245,7 @@ public:
 		else if(!stricmp(pParam1, "A24BaseAddr12") && count) pRegs[12] = (DCRB_regs *)val;
 		else if(!stricmp(pParam1, "A24BaseAddr13") && count) pRegs[13] = (DCRB_regs *)val;
 		else if(!stricmp(pParam1, "DacThreshold") && count) SetThreshold(val);
+		else if(!stricmp(pParam1, "Initialize")) Initialize();
 		else
 			return kFALSE;
 #else
@@ -369,6 +370,17 @@ public:
 				pTimerUpdate->Start(1000*pSliderUpdateTime->GetPosition(), kTRUE);
 		}
 		return kTRUE;
+	}
+	
+	void Initialize()
+	{
+		for(int i = 0; i < MAX_DCRB_NUM; i++)
+		{
+			if(pRegs[i])
+			{
+				pM->WriteReg32(&pRegs[i]->Clk.Ctrl, 0);
+			}
+		}
 	}
 
 	void SetThreshold(unsigned int val)

@@ -115,7 +115,7 @@ rcComdOption::parseOptions (void)
 	    rcServerHost_ = new char[::strlen (argv_[i]) + 1];
 	    ::strcpy (rcServerHost_, argv_[i]);
       }
-      else if (::strcmp (argv_[i], "-m") == 0 || ::strcmp (argv_[i], "-msqld") == 0)
+      else if (::strcmp (argv_[i], "-m") == 0 || ::strcmp (argv_[i], "-mysqld") == 0)
       {
 	    i++;
 	    if (i >= argc_ || argv_[i][0] == '-')
@@ -319,7 +319,7 @@ rcComdOption::usage (char* progname)
 	   "-h, -help, --help             : display this text\n"
 	   "-a, -animate                  : animate graphics                      \n"
 	   "-r, -rcServer <host>          : start server on host \"host\"         \n"
-	   "-m, -msqld <host>             : use database daemon on \"host\"       \n"
+	   "-m, -mysqld <host>            : use database daemon on \"host\"       \n"
 	   "-e, -expid, -dbasename <name> : use \"name\" as the session name      \n"
 	   "-s, -session <name>           : use \"name\" as the session name      \n"
 	   "-v, -verbose                  : verbose error reporting               \n"

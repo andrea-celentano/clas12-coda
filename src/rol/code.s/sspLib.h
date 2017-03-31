@@ -6,12 +6,17 @@
  *                 Processor (SSP). 
  * 
  */ 
- 
+
+/* Macros to help with register spacers */
+#define MERGE_(a,b)  a##b
+#define LABEL_(a) MERGE_(unsigned int sspblank, a)
+#define BLANK LABEL_(__LINE__)
+
 #ifndef MAX_VME_SLOTS 
 #define MAX_VME_SLOTS    21 
 #endif
 
-#define SSP_MAX_FIFO        0x800000   /* 8 Meg */
+#define SSP_MAX_FIFO        0x80000   /* 0.5 Meg */
 #define SSP_MAX_A32MB_SIZE 0x800000
 
 #define SSP_SUPPORTED_FIRMWARE 0x0103
@@ -69,7 +74,7 @@ typedef struct
   /* 0x0020-0x0023 */ volatile unsigned int CrateId;
   /* 0x0024-0x002F */          unsigned int Reserved0[(0x0030-0x0024)/4];
   /* 0x0030-0x0033 */ volatile unsigned int MonCtrl;
-  /* 0x0034-0x0037 */ volatile unsigned int MonStatus;
+  /* 0x0034-0x0037 */ volatile unsigned int Latency;
   /* 0x0038-0x003F */          unsigned int Reserved1[(0x0040-0x0038)/4];
   /* 0x0040-0x004B */ volatile unsigned int MonMask[3];
   /* 0x004C-0x005F */          unsigned int Reserved2[(0x0060-0x004C)/4];
@@ -154,7 +159,7 @@ typedef struct
   /* 0x0098-0x00FF */          unsigned int Reserved2[(0x0100-0x0098)/4];
 } HpsPair_regs;
 
-/* HPS Event Builder */
+/* Event Builder */
 typedef struct
 {
   /* 0x0000-0x0003 */ volatile unsigned int Lookback;
@@ -171,24 +176,118 @@ typedef struct
   /* 0x002C-0x00FF */          unsigned int Reserved1[(0x0100-0x002C)/4];
 } EB_regs;
 
+#define GT_SSEC_DELAY_ESUM_MASK             0x000003FF
+#define GT_SSEC_DELAY_CLUSTER_MASK          0x000003FF
+#define GT_SSEC_WIDTHINT_ESUM_MASK          0x0000003F
+
+/* GT ecal subsystem */
+typedef struct
+{
+  /* 0x0000-0x0003 */ volatile unsigned int Delay_esum;
+  /* 0x0004-0x0007 */ volatile unsigned int Delay_cluster;
+  /* 0x0008-0x000F */ BLANK[(0x0010-0x0008)/4];
+  /* 0x0010-0x0013 */ volatile unsigned int WidthInt_esum;
+  /* 0x0014-0x001F */ BLANK[(0x020-0x0014)/4];
+  /* 0x0020-0x0023 */ volatile unsigned int Scaler_inner_cluster;
+  /* 0x0024-0x0027 */ volatile unsigned int Scaler_outer_cluster;
+  /* 0x0028-0x00FF */ BLANK[(0x0100-0x0028)/4];
+} GT_ssec_regs;
+
+#define GT_SSPC_DELAY_ESUM_MASK             0x000003FF
+#define GT_SSPC_DELAY_CLUSTER_MASK          0x000003FF
+#define GT_SSPC_WIDTHINT_ESUM_MASK          0x0000003F
+
+/* GT pcal subsystem */
+typedef struct
+{
+  /* 0x0000-0x0003 */ volatile unsigned int Delay_esum;
+  /* 0x0004-0x0007 */ volatile unsigned int Delay_cluster;
+  /* 0x0008-0x000F */ BLANK[(0x0010-0x0008)/4];
+  /* 0x0010-0x0013 */ volatile unsigned int WidthInt_esum;
+  /* 0x0014-0x001F */ BLANK[(0x020-0x0014)/4];
+  /* 0x0020-0x0023 */ volatile unsigned int Scaler_cluster;
+  /* 0x0024-0x00FF */ BLANK[(0x0100-0x0024)/4];
+} GT_sspc_regs;
+
+#define GT_GTPIF_LATENCY_MASK               0x0000007FF
+
+/* GT GTP interface */
+typedef struct
+{
+  /* 0x0000-0x0003 */ volatile unsigned int Latency;
+  /* 0x0004-0x00FF */ BLANK[(0x0100-0x0004)/4];
+} GT_gtpif_regs;
+
+#define GT_STRG_CTRL_EN                     0x00000001
+#define GT_STRG_CTRL_PCCLUSTER_EMIN_EN      0x00000002
+#define GT_STRG_CTRL_ECOCLUSTER_EMIN_EN     0x00000004
+#define GT_STRG_CTRL_ECICLUSTER_EMIN_EN     0x00000008
+#define GT_STRG_CTRL_PCESUM_EMIN_EN         0x00000010
+#define GT_STRG_CTRL_ECESUM_EMIN_EN         0x00000020
+
+#define GT_STRG_ECCTRL_ESUM_EMIN_MASK       0x00003FFF
+#define GT_STRG_ECCTRL_ESUM_WIDTH_MASK      0x00FF0000
+
+#define GT_STRG_PCCTRL_ESUM_EMIN_MASK       0x00003FFF
+#define GT_STRG_PCCTRL_ESUM_WIDTH_MASK      0x00FF0000
+
+#define GT_STRG_ECICTRL_CLUSTER_EMIN_MASK   0x00003FFF
+#define GT_STRG_ECICTRL_CLUSTER_WIDTH_MASK  0x00FF0000
+
+#define GT_STRG_ECOCTRL_CLUSTER_EMIN_MASK   0x00003FFF
+#define GT_STRG_ECOCTRL_CLUSTER_WIDTH_MASK  0x00FF0000
+
+#define GT_STRG_PCCTRL_CLUSTER_EMIN_MASK    0x00003FFF
+#define GT_STRG_PCCTRL_CLUSTER_WIDTH_MASK   0x00FF0000
+
+/* GT sector trigger */
+typedef struct
+{
+  /* 0x0000-0x0003 */ volatile unsigned int Ctrl;
+  /* 0x0004-0x000F */ BLANK[(0x0010-0x0004)/4];
+  /* 0x0010-0x0013 */ volatile unsigned int ECCtrl_esum;
+  /* 0x0014-0x0017 */ volatile unsigned int PCCtrl_esum;
+  /* 0x0018-0x001B */ volatile unsigned int ECInnerCtrl_cluster;
+  /* 0x001C-0x001F */ volatile unsigned int ECOuterCtrl_cluster;
+  /* 0x0020-0x0023 */ volatile unsigned int PCCtrl_cluster;
+  /* 0x0024-0x002F */ BLANK[(0x030-0x0024)/4];
+  /* 0x0030-0x0033 */ volatile unsigned int Scaler_trigger;
+  /* 0x0034-0x00FF */ BLANK[(0x0100-0x0034)/4];
+} GT_strg_regs;
+
 /* SSP memory structure */
 typedef struct
 {
-  /* 0x0000-0x00FF */ SspCfg_regs     Cfg;
-  /* 0x0100-0x01FF */ Clk_regs        Clk;
-  /* 0x0200-0x03FF */ Sd_regs         Sd;
-  /* 0x0400-0x04FF */ unsigned int    Reserved0[(0x0500-0x0400)/4];
-  /* 0x0500-0x05FF */ Fiber_regs      FiberTop;
-  /* 0x0600-0x06FF */ Fiber_regs      FiberBot;
-  /* 0x0700-0x08FF */ Hps_regs        HpsSingles[2];
-  /* 0x0900-0x0AFF */ HpsPair_regs    HpsPairs[2];
-  /* 0x0B00-0x0BFF */ HpsCosmic_regs  HpsCosmic;
-  /* 0x0C00-0x0FFF */ unsigned int    Reserved1[(0x1000-0x0C00)/4];
-  /* 0x1000-0x19FF */ Serdes_regs     Ser[10];
-  /* 0x1a00-0x1FFF */ unsigned int    Reserved2[(0x2000-0x1a00)/4];
-  /* 0x2000-0x20FF */ EB_regs         EB;
-  /* 0x2100-0x21FF */ Trigger_regs    Trigger;
-  /* 0x2200-0xFFFF */ unsigned int    Reserved3[(0x10000-0x2200)/4];
+  /* 0x0000-0x00FF */ SspCfg_regs       Cfg;
+  /* 0x0100-0x01FF */ Clk_regs          Clk;
+  /* 0x0200-0x03FF */ Sd_regs           Sd;
+  /* 0x0400-0x04FF */ unsigned int      Reserved0[(0x0500-0x0400)/4];
+  
+  struct
+  {
+    /* 0x0500-0x05FF */ Fiber_regs      FiberTop;
+    /* 0x0600-0x06FF */ Fiber_regs      FiberBot;
+    /* 0x0700-0x08FF */ Hps_regs        HpsSingles[2];
+    /* 0x0900-0x0AFF */ HpsPair_regs    HpsPairs[2];
+    /* 0x0B00-0x0BFF */ HpsCosmic_regs  HpsCosmic;
+  } hps;
+  
+  /* 0x0C00-0x0FFF */ unsigned int      Reserved1[(0x1000-0x0C00)/4];
+  /* 0x1000-0x19FF */ Serdes_regs       Ser[10];
+  /* 0x1a00-0x1FFF */ unsigned int      Reserved2[(0x2000-0x1a00)/4];
+  /* 0x2000-0x20FF */ EB_regs           EB;
+  /* 0x2100-0x21FF */ Trigger_regs      Trigger;
+  
+  struct
+  {
+  /* 0x2200-0x22FF */ GT_ssec_regs    ssec;
+  /* 0x2300-0x23FF */ GT_sspc_regs    sspc;
+  /* 0x2400-0x24FF */ GT_gtpif_regs   gtpif;
+  /* 0x2500-0x2FFF */ unsigned int    Reserved3[(0x3000-0x2500)/4];
+  /* 0x3000-0x33FF */ GT_strg_regs    strigger[4];
+  } gt;
+  
+  /* 0x3400-0xFFFF */ unsigned int    Reserved4[(0x10000-0x3400)/4];
 } SSP_regs;
 
 
@@ -351,7 +450,7 @@ typedef struct
 #define SSP_SER_VXS0		8
 #define SSP_SER_VXSGTP		9
 
-#define SSP_SER_NUM		2 /*10 (temporary to use 2 fiber only), also change ssp_serdes_names[SSP_SER_NUM] in sspLib.c*/
+#define SSP_SER_NUM		10
 
 #define SER_CRATEID_MASK        0x0000FFFF
 
@@ -364,8 +463,7 @@ typedef struct
 #define SSP_SER_STATUS_HARDERR(x)       (1<<x)
 #define SSP_SER_STATUS_LANEUP(x)        (1<<(x+4))
 #define SSP_SER_STATUS_POL_REVERSED(x)  (1<<(x+8))
-#define SSP_SER_STATUS_CHUP             (1<<12)
-#define SSP_SER_STATUS_TXLOCK           (1<<13)
+#define SSP_SER_STATUS_CHUP             (1<<0)
 #define SSP_SER_STATUS_SRCRDYN          (1<<14)
 
 #define SYSCLK_FREQ   50000000
@@ -378,6 +476,12 @@ typedef struct
 #define SSP_CLKSRC_NUM                  4
 
 #define SSP_CFG_BOARDID			0x53535020	// "SSP "
+
+#define SSP_CFG_SSPTYPE_COMMON    0x00
+#define SSP_CFG_SSPTYPE_HALLD     0x01
+#define SSP_CFG_SSPTYPE_HALLB     0x02
+#define SSP_CFG_SSPTYPE_HPS       0x03
+#define SSP_CFG_SSPTYPE_HALLBGT   0x04
 
 #define SSP_CFG_FIRMWAREREV_MASK           0x0000FFFF
 #define SSP_CFG_FIRMWAREREV_MAJOR_MASK     0x0000FF00
@@ -430,25 +534,6 @@ typedef struct
 #define SSP_STATUS_SHOWREGS   (1<<0)
 
 
-
-#define FNLEN     128       /* length of config. file name */
-#define STRLEN    250       /* length of str_tmp */
-#define ROCLEN     80       /* length of ROC_name */
-#define NBOARD     22
-
-
-/** SSP configuration parameters **/
-typedef struct {
-  int  group;
-  int  f_rev;
-  char SerNum[80];
-
-  unsigned short mask[8];
-
-} SSP_CONF;
-
-
-
 /* Global arrays of strings of names of ports/signals */
 extern const char *ssp_ioport_names[SD_SRC_NUM];
 extern const char *ssp_signal_names[SD_SRC_SEL_NUM];
@@ -471,6 +556,7 @@ int  sspGetClkSrc(int id, int pflag);
 int  sspSetIOSrc(int id, int ioport, int signal);
 void sspPrintIOSrc(int id, int pflag);
 int  sspTriggerSetup(int id, int fiber_mask, int gtp_src, int pflag);
+int  sspGetFirmwareType(int id);
 
 /* HPS routines */
 int  sspHps_SetLatency(int id, int latency);
@@ -501,22 +587,60 @@ int  sspHps_SetPairsEDmin(int id, int n, int min);
 void sspPrintHpsScalers(int id);
 void sspPrintHpsConfig(int id);
 
+/* GT routines */
+int sspGt_SetLatency(int id, int latency);
+int sspGt_GetLatency(int id);
+int sspGt_SetEcal_EsumDelay(int id, int delay);
+int sspGt_GetEcal_EsumDelay(int id);
+int sspGt_SetEcal_ClusterDelay(int id, int delay);
+int sspGt_GetEcal_ClusterDelay(int id);
+int sspGt_SetEcal_EsumIntegrationWidth(int id, int width);
+int sspGt_GetEcal_EsumIntegrationWidth(int id);
+int sspGt_SetPcal_EsumDelay(int id, int delay);
+int sspGt_GetPcal_EsumDelay(int id);
+int sspGt_SetPcal_ClusterDelay(int id, int delay);
+int sspGt_GetPcal_ClusterDelay(int id);
+int sspGt_SetPcal_EsumIntegrationWidth(int id, int width);
+int sspGt_GetPcal_EsumIntegrationWidth(int id);
+int sspGt_SetTrigger_Enable(int id, int trg, int en_mask);
+int sspGt_GetTrigger_Enable(int id, int trg);
+int sspGt_SetTrigger_EcalEsumEmin(int id, int trg, int val);
+int sspGt_GetTrigger_EcalEsumEmin(int id, int trg);
+int sspGt_SetTrigger_EcalEsumWidth(int id, int trg, int val);
+int sspGt_GetTrigger_EcalEsumWidth(int id, int trg);
+int sspGt_SetTrigger_PcalEsumEmin(int id, int trg, int val);
+int sspGt_GetTrigger_PcalEsumEmin(int id, int trg);
+int sspGt_SetTrigger_PcalEsumWidth(int id, int trg, int val);
+int sspGt_GetTrigger_PcalEsumWidth(int id, int trg);
+int sspGt_SetTrigger_EcalInnerClusterEmin(int id, int trg, int val);
+int sspGt_GetTrigger_EcalInnerClusterEmin(int id, int trg);
+int sspGt_SetTrigger_EcalInnerClusterWidth(int id, int trg, int val);
+int sspGt_GetTrigger_EcalInnerClusterWidth(int id, int trg);
+int sspGt_SetTrigger_EcalOuterClusterEmin(int id, int trg, int val);
+int sspGt_GetTrigger_EcalOuterClusterEmin(int id, int trg);
+int sspGt_SetTrigger_EcalOuterClusterWidth(int id, int trg, int val);
+int sspGt_GetTrigger_EcalOuterClusterWidth(int id, int trg);
+int sspGt_SetTrigger_PcalClusterEmin(int id, int trg, int val);
+int sspGt_GetTrigger_PcalClusterEmin(int id, int trg);
+int sspGt_SetTrigger_PcalClusterWidth(int id, int trg, int val);
+int sspGt_GetTrigger_PcalClusterWidth(int id, int trg);
+void sspPrintGtConfig(int id);
+
 /* Pulser routines */
 int  sspPulserStatus(int id);
 void sspPulserStart(int id);
 void sspPulserSetup(int id, float freq, float duty, unsigned npulses);
+int sspGetPulserFreq(int id);
 
 /* SSP serdes */
 void sspPortEnable(int id, int mask, int pflag);
 void sspPortResetErrorCount(int id, int mask);
 int  sspPortGetErrorCount(int id, int port, int lane);
-void sspPortPrintStatus(int id, int mask);
+void sspPortPrintStatus(int id);
 int  sspGetConnectedFiberMask(int id);
 int  sspGetCrateID(int id, int port);
 void sspSerdesEnable(int id, int mask, int pflag);
-int  sspSerdesGetErrorCount(int id, int ser, int lane);
-void sspSerdesResetErrorCount(int id, int mask);
-void sspSerdesPrintStatus(int id, int mask);
+void sspSerdesPrintStatus(int id);
 
 /* Scaler routines */
 void sspPrintScalers(int id);
@@ -545,6 +669,7 @@ int sspGetWindowWidth(int id);
 int sspSetWindowOffset(int id, int window_offset);
 int sspGetWindowOffset(int id);
 int sspBReady(int id);
+int sspGetNssp();
 unsigned int sspGBReady();
 
 #endif

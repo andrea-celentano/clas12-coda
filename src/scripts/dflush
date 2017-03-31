@@ -1,0 +1,8 @@
+#!/bin/csh -f
+#
+# 'dflush' script kills existins Realport connection
+# to specified port
+#
+sudo /sbin/fuser -k $1
+sudo /usr/bin/ditty flush startin startout $1
+#

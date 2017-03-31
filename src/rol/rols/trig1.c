@@ -395,13 +395,8 @@ vmeBusLock();
 vmeBusUnlock();
 
 
-  /* master and standalone crates, NOT slave */
 
-  sleep(1);
-vmeBusLock();
-  tsSyncReset(1);
-vmeBusUnlock();
-  sleep(1);
+  /* NOT USED !!!!!!!!!!!!!!!!!!!!
 vmeBusLock();
   tsSyncReset(1);
 vmeBusUnlock();
@@ -415,10 +410,57 @@ vmeBusUnlock();
     printf("ERROR: syncrequest still ON after tsSyncReset(); trying again\n");
     sleep(1);
 vmeBusLock();
+
     tsSyncReset(1);
+
 vmeBusUnlock();
     sleep(1);
   }
+  */
+
+
+
+
+
+
+
+
+
+
+
+  /* SYNC RESET */
+
+
+/*
+  sleep(1);
+vmeBusLock();
+  tsSyncReset(1);
+vmeBusUnlock();
+  sleep(1);
+*/
+
+
+
+
+
+
+
+
+vmeBusLock();
+  tsUserSyncReset(1);
+  tsUserSyncReset(0);
+vmeBusUnlock();
+
+
+
+
+
+
+
+
+
+
+
 
 vmeBusLock();
   ret = tsGetSyncResetRequest();
@@ -554,7 +596,7 @@ void
 usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 {
   int *jw, ind, ind2, i, ii, jj, jjj, blen, len, rlen, itdcbuf, nbytes;
-  unsigned int *tdcbuf_save, *tdc;
+  unsigned int *tdcbuf_save, *tdc, trailer;
   unsigned int *dabufp1, *dabufp2;
   int njjloops, slot;
   int nwords;
@@ -629,8 +671,19 @@ vmeBusUnlock();
       printf("ts: len=%d\n",len);
       for(jj=0; jj<len; jj++) printf("ts[%2d] 0x%08x\n",jj,LSWAP(tdcbuf[jj]));
 	  */
+	  /*	  
+ts: len=8
+ts[ 0] 0x8555d101
+ts[ 1] 0xff102001
+ts[ 2] 0x3a010004
+ts[ 3] 0x000001d1
+ts[ 4] 0x3f0bb0db
+ts[ 5] 0x00000005
+ts[ 6] 0x02000000
+ts[ 7] 0x8d400008
+	  */
 
-	  
+
       BANKOPEN(0xe10A,1,rol->pid);
       for(jj=0; jj<len; jj++) *rol->dabufp++ = tdcbuf[jj];
       BANKCLOSE;
@@ -646,8 +699,9 @@ vmeBusUnlock();
 
 
 
+
 #ifdef DEBUG
-    printf("fadc1: start fadc processing\n");fflush(stdout);
+    printf("trig1: start trigger processing\n");fflush(stdout);
 #endif
 
 
@@ -699,26 +753,30 @@ TIMERL_START;
 	  */
       *rol->dabufp ++ = LSWAP((0x12<<27)+(event_number&0x7FFFFFF)); /*event header*/
 
-      nwords = 6; /* UPDATE THAT IF THE NUMBER OF WORDS CHANGED BELOW !!! */
+      nwords = 5; /* UPDATE THAT IF THE NUMBER OF DATA WORDS CHANGED BELOW !!! */
       *rol->dabufp ++ = LSWAP((0x14<<27)+nwords); /*head data*/
+
+      /* COUNT DATA WORDS FROM HERE */
       *rol->dabufp ++ = 0; /*version  number */
       *rol->dabufp ++ = LSWAP(RUN_NUMBER); /*run  number */
       *rol->dabufp ++ = LSWAP(event_number); /*event number */
       if(ii==(block_level-1))
 	  {
         *rol->dabufp ++ = LSWAP(time(0)); /*event unix time */
-        *rol->dabufp ++ = LSWAP(EVTYPE); /*event type */
+		*rol->dabufp ++ = LSWAP(EVTYPE); /*event type */
 	  }
       else
 	  {
         *rol->dabufp ++ = 0;
         *rol->dabufp ++ = 0;
 	  }
+      /* END OF DATA WORDS */
 	}
 
-    nwords = ((int)rol->dabufp-(int)dabufp1)/4+1;
-
-    *rol->dabufp ++ = LSWAP((0x11<<27)+nwords); /*block trailer*/
+    nwords = ((int)rol->dabufp-(int)dabufp1)/4 + 1;
+    trailer = (0x11<<27)+nwords;
+    /*printf("ROL1: nwords=%d, block trailer = %d (0x%08x)\n",nwords,trailer,trailer);*/
+    *rol->dabufp ++ = LSWAP(trailer); /*block trailer*/
 
     BANKCLOSE;
 
@@ -754,23 +812,10 @@ vmeBusUnlock();
       chptr += len;
       nbytes += len;
 
-	  /*
-#ifdef USE_FADC250
-      if(nfadc>0)
-      {
-vmeBusLock();
-        len = fadc250UploadAll(chptr, 10000);
-vmeBusUnlock();
-        printf("\nFADC len=%d\n",len);
-        printf("%s\n",chptr);
-        chptr += len;
-        nbytes += len;
-	  }
-#endif
-*/
 
 
 
+#if 0
 	  /* temporary for crates with GTP */
       if(rol->pid==37||rol->pid==39)
 	  {
@@ -788,6 +833,7 @@ vmeBusUnlock();
         /*printf("gtptest1: roc >%s< exename >%s<\n",roc,exename);*/
 
         memset(result,0,TEXT_STR);
+        tcpClientSetMysqlHost(mysql_host);
         tcpClientCmd(roc, exename, result);
 
         len = strlen(result) - 2; /* 'result' has 2 extra chars in the end we do not want ????? */
@@ -796,7 +842,12 @@ vmeBusUnlock();
         strncpy(chptr,result,len);
         chptr += len;
         nbytes += len;
-	  }
+      }
+#endif
+
+
+
+
 
 
       /* 'nbytes' does not includes end_of_string ! */

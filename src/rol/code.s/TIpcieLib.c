@@ -184,6 +184,7 @@ static void FiberMeas();
  * @defgroup Deprec Deprecated - To be removed
  */
 
+#ifndef Linux_armv7l
 unsigned long long int rdtsc(void)
 {
   /*    unsigned long long int x; */
@@ -193,7 +194,7 @@ unsigned long long int rdtsc(void)
 
   return ((unsigned long long)a) | (((unsigned long long)d) << 32);
 }
-
+#endif
 
 /**
  * @ingroup PreInit

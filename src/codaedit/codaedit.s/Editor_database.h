@@ -274,7 +274,7 @@ extern int insertValToScriptTable (char* config, char* name, codaScript* list);
  ****************************************************************************/
 extern int insertValToConfigTable (char* config, char* name, char* code,
 				   char* inputs, char* outputs, char* next,
-				   int first);
+								   int first, short order_num);
 
 /*****************************************************************************
  *              int insertDaqcompToProcTable (daqComp* comp)                 *

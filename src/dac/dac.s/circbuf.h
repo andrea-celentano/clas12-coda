@@ -65,7 +65,11 @@
 
 #endif
 
-#define MAX_ROCS 76 /* must accomodate biggest roc id, not the number of rocs !!! */
+#ifdef Linux_x86_64
+#define MAX_ROCS 113 /* must accomodate biggest roc id, not the number of rocs !!! */
+#else
+#define MAX_ROCS 76
+#endif
 
 #define QSIZE 8 /* the number of buffers in EB, normally 8, was set to 6 trying to decrease memory usage on clondaq5 */
 

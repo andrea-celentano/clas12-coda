@@ -64,16 +64,17 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+  int evOpenEvent(unsigned int *buf, int eventtag);
 
-int evopenFrag(unsigned int *buf, int fragtag, int fragnum);
-int evOpenBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, int banktype, char *fmt, int *ind_data);
-int evCloseBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, unsigned char *b08);
+  int evOpenFrag(unsigned int *buf, int fragtag, int fragnum);
+  int evOpenBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, int banktype, char *fmt, int *ind_data);
+  int evCloseBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, unsigned char *b08);
 
-int evLinkFrag(unsigned int *buf, int fragtag, int fragnum);
-int evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, int *nbytes, int *ind_data);
+  int evLinkFrag(unsigned int *buf, int fragtag, int fragnum);
+  int evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum, int *nbytes, int *ind_data);
 
-int evDropFrag(unsigned int *buf, int fragtag, int fragnum);
-int evDropBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum);
+  int evDropFrag(unsigned int *buf, int fragtag, int fragnum);
+  int evDropBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum);
 
 #ifdef __cplusplus
 }

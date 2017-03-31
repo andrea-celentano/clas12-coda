@@ -86,6 +86,7 @@ static int force_exit = 0;
 static int PrestartCount = 0;
 /*static*/extern objClass localobject;
 extern char configname[128]; /* coda_component.c */
+extern char *mysql_host; /* coda_component.c */
 extern char *expid; /* coda_component.c */
 extern char *session; /* coda_component.c */
 #define ET_ERROR 1
@@ -262,7 +263,7 @@ etStart()
   /**********************************************/
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
 
 
 
@@ -534,7 +535,7 @@ goto a321;
   tcpState = DA_BOOTED;
   if(codaUpdateStatus("booted") != ET_OK) return(ET_ERROR);
 
-  tcpServer(localobject->name); /*start server to process non-coda commands sent by tcpClient*/
+  tcpServer(localobject->name, mysql_host); /*start server to process non-coda commands sent by tcpClient*/
 
 a321:
   ;
@@ -622,7 +623,7 @@ codaDownload(char *conf)
   /* extract all necessary information from database */
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
 
   /* disconnect from database */
   dbDisconnect(dbsock);
@@ -660,7 +661,7 @@ codaPrestart()
   printf("INFO: Prestarting\n");
 
   /*
-  dbsock = dbConnect(getenv("MYSQL_HOST"),  expid);
+  dbsock = dbConnect(mysql_host,  expid);
 
   sprintf(tmpp,"SELECT runNumber FROM sessions WHERE name='%s'",session);
   if(dbGetInt(dbsock,tmpp,&(object->runNumber))==ET_ERROR) return(ET_ERROR);

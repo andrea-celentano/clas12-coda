@@ -20,6 +20,7 @@
 #define FLPLIB_H
 
 #define FLP_SUPPORTED_FIRMWARE 0x03
+#define FLP_MAX_BOARDS         20
 
 
 struct FLP_A24RegStruct
@@ -118,5 +119,9 @@ int  flpGetExternalFrequency(int input, float *freq);
 int  flpSetPulserSource(int output, int src);
 int  flpEnableIntPulser(int output);
 int  flpDisableIntPulser(int output);
+
+/* sergey */
+int  flpGetNflp();
+int  flpSlot(unsigned int id);
 
 #endif /* FLPLIB_H */

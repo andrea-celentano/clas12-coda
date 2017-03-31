@@ -586,6 +586,7 @@ int  tsSetInstantBlockLevelChange(int enable);
 int  tsGetInstantBlockLevelChange();
 int  tsSetGTPInput(unsigned int inputmask);
 int  tsSetFPInput(unsigned int inputmask);
+unsigned int tsGetFPInput();
 int  tsSetTriggerSource(int trig);
 int  tsSetTriggerSourceMask(int trigmask);
 int  tsDisableTriggerSource(int fflag);

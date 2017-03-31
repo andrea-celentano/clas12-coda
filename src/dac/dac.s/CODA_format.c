@@ -34,8 +34,8 @@ char *loadwholefile(char *file, int *size);
 /* following hack makes TIs softtrig etc types in according to that scheme */
 #define SOFT_TRIG_FIX \
   /*printf("befor: desc->type=%d\n",desc->type);*/ \
-  if(desc->type==253) desc->type=0x3D; /*61*/		   \
-  if(desc->type==254) desc->type=0x3E; /*62*/			   \
+  /*if(desc->type==253) desc->type=0x3D;*/ /*61*/		   \
+  /*if(desc->type==254) desc->type=0x3E;*/ /*62*/		   \
   /*printf("after: desc->type=%d\n",desc->type)*/
 
 

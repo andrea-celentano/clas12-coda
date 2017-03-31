@@ -1,5 +1,5 @@
 
-#ifdef Linux_vme
+#if defined(Linux_vme) || defined(Linux_armv7l)
 
 #include <sys/mman.h>
 #include <sys/signal.h>
@@ -12,18 +12,24 @@
 #include <string.h>
 #include <unistd.h>
 #include "CrateMsgTypes.h"
+
+#ifdef Linux_vme
 #include "jvme.h"
+#include "dsc2Lib.h"
+#include "fadcLib.h"
+#include "vscmLib.h"
+#endif
+
+#ifdef Linux_armv7l
+#include "vtpLib.h"
+#endif
 
 
 #define SCALER_THREAD
 
 
-
 #ifdef SCALER_THREAD
 
-#include "dsc2Lib.h"
-#include "fadcLib.h"
-#include "vscmLib.h"
 
 
 /****************************************************************************
@@ -146,6 +152,11 @@ static unsigned int *tdcbuf;
 static unsigned int adcbuf[400];
 static unsigned int vscmbuf[MAXWORDS];
 
+#ifdef Linux_armv7l
+#define MAXVTPWORDS 4096
+static unsigned int vtpbuf[MAXVTPWORDS];
+#endif
+
 static int init_boards;
 
 
@@ -168,6 +179,14 @@ vmeGetScalersReadInterval()
   return(vmeScalersReadInterval);
 }
 
+
+
+
+static int ScalersReadoutStart();
+static int ScalersReadoutStop();
+
+
+#ifdef Linux_vme /* VME section */
 
 static int
 vmeScalersRead()
@@ -226,26 +245,6 @@ vmeBusUnlock();
 }
 
 
-
-
-/* return a number of slots (len) in the crate
-and the array of size len that is an array of board types.
-(type -1 : slot is empty, type 0 : is Discr2, type 1 : is FADC250)
- */
-int
-vmeGetCrateMap(int *buf, int *len)
-{
-  int slot, ii;
-
-  *len = MAXBOARDS + 1;
-  for(slot=0; slot<(*len); slot++) buf[slot] = vmescalersmap[slot];
-  /*
-  printf("\nvmeGetCrateMap: *len=%d\n",*len);fflush(stdout);
-  for(ii=0; ii<(*len); ii++) printf("  slot %2d, boardID 0x%08x\n",ii,buf[ii]);
-  printf("\n");
-  */
-  return(0);
-}
 
 
 
@@ -385,91 +384,6 @@ vmeBusUnlock();
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* following function called from boot script for every board */
-static void vmeReadTask();
-static int
-vmeScalersReadoutStart()
-{
-#ifndef VXWORKS
-  pthread_t id;
-#endif  
-
-#ifdef VXWORKS
-  vmescalers_lock = semBCreate(SEM_Q_FIFO, SEM_FULL);
-  if(vmescalers_lock == NULL)
-  {
-    printf("vmeScalersReadoutStart ERROR: could not allocate a semaphore\n");
-    return(-1);
-  }
-#else
-  pthread_mutex_init(&vmescalers_lock, NULL);
-#endif
-
-#ifdef VXWORKS
-  if(taskSpawn("vmeREAD", 250, 0, 100000,(FUNCPTR)vmeReadTask,
-	   0,0,0,0,0,0,0,0,0,0) == ERROR)
-  {
-    printf("ERROR vmeScalersReadoutStart: cannot start thread\n");
-    perror("taskSpawn"); 
-    return(-2);
-  }
-  else
-  {
-    printf("vmeScalersReadoutStart: 'vmeREAD' task started\n");
-  }
-#else
-  {
-    pthread_attr_t attr;
-
-    pthread_attr_init(&attr); /* initialize attr with default attributes */
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
-
-    pthread_create(&id, &attr, vmeReadTask, NULL);
-  }
-#endif
-
-  return(0);
-}
-
-
-static int
-vmeScalersReadoutStop()
-{
-  /* TODO: END TASK HERE !!!!!!!!!!!!!!!!!!!!!!!! */
-
-  free(vmescalers);
-
-#ifdef VXWORKS
-  semGive(vmescalers_lock);
-  semDelete(vmescalers_lock);
-#else
-  pthread_mutex_unlock(&vmescalers_lock);
-  pthread_mutex_destroy(&vmescalers_lock);
-#endif
-
-  return(0);
-}
-
-
 /* function for forcing synch. event every 10 seconds; use command
       taskSpawn "FORCE_SYNC",119,0,6000,ts2syncTask
    in the boot script */
@@ -598,10 +512,197 @@ faSetA32BaseAddress(fadcA32Address);
     }
   }
 
-  vmeScalersReadoutStop();
+  ScalersReadoutStop();
 
   return;
 }
+
+
+#endif /* VME section */
+
+
+
+
+#ifdef Linux_armv7l /* VTP section */
+
+static void
+vtpReadTask()
+{
+  int id, iFlag;
+  int ii, jj, nw, slot;
+  unsigned int max_scalers;
+
+  for(ii=0; ii<MAXBOARDS; ii++)
+  {
+    if( (vmescalers[ii] = (unsigned int *) calloc(MAXWORDS,4)) <= 0)
+    {
+      printf("ERROR in ScalerThread: cannot allocate memory\n");
+      return;
+    }
+    printf("ScalerThread: Allocated 0x%08x words for slot %d at address 0x%08x\n",MAXWORDS,ii,vmescalers[ii]);
+  }
+
+  for(ii=0; ii<(MAXBOARDS+1); ii++)
+  {
+    vmescalersmap[ii] = -1;
+  }
+
+
+  /*************/
+  /* VTP INIT */
+
+  /*
+  vtpInit();
+  vtpConfig ("");
+  */
+
+  /* fill map array with VTP found */
+  vmescalersmap[slot] = SCALER_TYPE_VTP;
+
+
+  /* always clean up init flag ! */
+  init_boards = 0;
+
+  while(1)
+  {
+    if(vmeScalersReadInterval==0) /* if interval==0, wait 1 sec and check again */
+    {
+#ifdef VXWORKS
+      taskDelay(sysClkRateGet());
+#else
+      sleep(1);
+#endif
+    }
+    else
+    {
+#ifdef VXWORKS
+      taskDelay(sysClkRateGet()*vmeScalersReadInterval);
+#else
+      sleep(vmeScalersReadInterval);
+#endif
+      
+      SCALER_LOCK;
+	  /* actual scales readout */
+      slot = 11; /* VTP always in slot 11 */
+      nw = vtpReadScalers(vtpbuf, MAXVTPWORDS);
+      vmescalerslen[slot] = nw;
+      for(ii=0; ii<nw; ii++) vmescalers[slot][ii] = vtpbuf[ii];
+
+      SCALER_UNLOCK;
+
+    }
+  }
+
+  ScalersReadoutStop();
+
+  return;
+}
+
+#endif /* VTP section */
+
+
+
+
+
+
+
+
+
+
+
+/* return a number of slots (len) in the crate
+and the array of size len that is an array of board types.
+(type -1 : slot is empty, type 0 : is Discr2, type 1 : is FADC250)
+ */
+int
+GetCrateMap(int *buf, int *len)
+{
+  int slot, ii;
+
+  *len = MAXBOARDS + 1;
+  for(slot=0; slot<(*len); slot++) buf[slot] = vmescalersmap[slot];
+  /*
+  printf("\nGetCrateMap: *len=%d\n",*len);fflush(stdout);
+  for(ii=0; ii<(*len); ii++) printf("  slot %2d, boardID 0x%08x\n",ii,buf[ii]);
+  printf("\n");
+  */
+  return(0);
+}
+
+
+
+/* following function called from boot script */
+static int
+ScalersReadoutStart()
+{
+#ifndef VXWORKS
+  pthread_t id;
+#endif  
+
+#ifdef VXWORKS
+  vmescalers_lock = semBCreate(SEM_Q_FIFO, SEM_FULL);
+  if(vmescalers_lock == NULL)
+  {
+    printf("ScalersReadoutStart ERROR: could not allocate a semaphore\n");
+    return(-1);
+  }
+#else
+  pthread_mutex_init(&vmescalers_lock, NULL);
+#endif
+
+#ifdef VXWORKS
+  if(taskSpawn("vmeREAD", 250, 0, 100000,(FUNCPTR)vmeReadTask,0,0,0,0,0,0,0,0,0,0) == ERROR)
+  {
+    printf("ERROR ScalersReadoutStart: cannot start thread\n");
+    perror("taskSpawn"); 
+    return(-2);
+  }
+  else
+  {
+    printf("ScalersReadoutStart: 'vmeREAD' task started\n");
+  }
+#else
+  {
+    pthread_attr_t attr;
+
+    pthread_attr_init(&attr); /* initialize attr with default attributes */
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+
+#ifdef Linux_vme
+    pthread_create(&id, &attr, vmeReadTask, NULL);
+#endif
+#ifdef Linux_armv7l
+    pthread_create(&id, &attr, vtpReadTask, NULL);
+#endif
+  }
+#endif
+
+  return(0);
+}
+
+
+static int
+ScalersReadoutStop()
+{
+  /* TODO: END TASK HERE !!!!!!!!!!!!!!!!!!!!!!!! */
+
+  free(vmescalers);
+
+#ifdef VXWORKS
+  semGive(vmescalers_lock);
+  semDelete(vmescalers_lock);
+#else
+  pthread_mutex_unlock(&vmescalers_lock);
+  pthread_mutex_destroy(&vmescalers_lock);
+#endif
+
+  return(0);
+}
+
+
+
+
 
 
 /********************************************************************************************************
@@ -630,6 +731,9 @@ short swap16(short val)
 {
   return HW_SWAP(val);
 }
+
+
+#ifdef Linux_vme /* vme section */
 
 int
 Vme_Read16(Cmd_Read16 *pCmd_Read16, Cmd_Read16_Rsp *pCmd_Read16_Rsp)
@@ -716,11 +820,6 @@ Vme_Write32(Cmd_Write32 *pCmd_Write32)
 }
 
 
-
-
-
-
-
 /**************************/
 /* start scaler functions */
 
@@ -751,26 +850,6 @@ Vme_ReadScalers(Cmd_ReadScalers *pCmd_ReadScalers, Cmd_ReadScalers_Rsp *pCmd_Rea
   return(size); /* size of outgoing message in bytes ! */
 }
 
-
-int
-Vme_GetCrateMap(Cmd_GetCrateMap *pCmd, Cmd_GetCrateMap_Rsp *pCmd_Rsp)
-{
-  int *pWr = pCmd_Rsp->vals;
-  int c = pCmd->cnt; /* count from input message - not used */
-  int size/* = 4+4*c*/;
-  int nw, slot, ii;
-  
-  printf("Vme_GetCrateMap reached\n");fflush(stdout);
-  
-  vmeGetCrateMap(pWr, &pCmd_Rsp->nslots);
-  pCmd_Rsp->cnt = pCmd_Rsp->nslots;
-  
-  for(ii=0; ii<pCmd_Rsp->nslots; ii++) printf("Vme_GetCrateMap: [%2d] 0x%08x\n",ii,pWr[ii]);
-  
-  size = pCmd_Rsp->nslots*4 + 8; /* +8 because have to count 'cnt' and 'nslots' in outgoing message */
-
-  return(size); /* output message size in bytes */
-}
 
 
 int
@@ -838,8 +917,94 @@ Vme_SetChannelParams(Cmd_SetChannelParams *pCmd)
 /* end scaler functions */
 /************************/
 
+#endif /* vme section */
 
 
+
+#ifdef Linux_armv7l /* vtp section */
+
+int
+Vtp_Read32(Cmd_Read32 *pCmd_Read32, Cmd_Read32_Rsp *pCmd_Read32_Rsp)
+{
+	unsigned int pRd = pCmd_Read32->addr; /*vtpRead32(volatile unsigned int *addr)*/
+	unsigned int *pWr = pCmd_Read32_Rsp->vals;
+	int c = pCmd_Read32->cnt;
+	int size = 4+4*c;
+
+	pCmd_Read32_Rsp->cnt = c;
+	if(pCmd_Read32->flags & CRATE_MSG_FLAGS_ADRINC)
+	  while(c--) {*pWr++ = vtpRead32((volatile unsigned int *)pRd); pRd++;}
+	else
+	  while(c--) {*pWr++ = vtpRead32((volatile unsigned int *)pRd);}
+
+	return size;
+}
+
+int
+Vtp_Write32(Cmd_Write32 *pCmd_Write32)
+{
+	unsigned int *pRd = pCmd_Write32->vals;
+	unsigned int pWr = pCmd_Write32->addr; /*vtpWrite32(volatile unsigned int *addr, unsigned int val)*/
+	int c = pCmd_Write32->cnt;
+	unsigned int val;
+
+	if(pCmd_Write32->flags & CRATE_MSG_FLAGS_ADRINC)
+	  while(c--) {val = *pRd++; vtpWrite32((volatile unsigned int *)pWr, val); pWr++;}
+	else
+	  while(c--) {val = *pRd++; vtpWrite32((volatile unsigned int *)pWr, val);}
+
+	return 0;
+}
+
+int
+Vtp_ReadScalers(Cmd_ReadScalers *pCmd_ReadScalers, Cmd_ReadScalers_Rsp *pCmd_ReadScalers_Rsp)
+{
+  unsigned int *pWr = pCmd_ReadScalers_Rsp->vals;
+  int c = pCmd_ReadScalers->cnt; /* count from input message - not used */
+  int size/* = 4+4*c*/;
+  int nw, slot, ii;
+
+  /*printf("Vme_ReadScalers reached\n");fflush(stdout);*/
+  nw = pCmd_ReadScalers->cnt;
+  slot = pCmd_ReadScalers->slot;
+  /*printf("Vme_ReadScalers: input: cnt=%d slot=%d\n",nw,slot);*/
+
+  pCmd_ReadScalers_Rsp->cnt = vmescalerslen[slot];
+
+  for(ii=0; ii<pCmd_ReadScalers_Rsp->cnt; ii++) pWr[ii] = vmescalers[slot][ii];
+  /*printf("Vme_ReadScalers: respond: cnt=%d (size=%d) 100=%d 120=%d\n",pCmd_ReadScalers_Rsp->cnt,size,pWr[100],pWr[120]);*/
+
+  size = pCmd_ReadScalers_Rsp->cnt*4 + 4; /* +4 because have to count 'cnt' in outgoing message */
+
+  return(size); /* size of outgoing message in bytes ! */
+}
+
+#endif /* vtp section */
+
+
+
+
+
+
+int
+Vme_GetCrateMap(Cmd_GetCrateMap *pCmd, Cmd_GetCrateMap_Rsp *pCmd_Rsp)
+{
+  int *pWr = pCmd_Rsp->vals;
+  int c = pCmd->cnt; /* count from input message - not used */
+  int size/* = 4+4*c*/;
+  int nw, slot, ii;
+  
+  printf("Vme_GetCrateMap reached\n");fflush(stdout);
+  
+  GetCrateMap(pWr, &pCmd_Rsp->nslots);
+  pCmd_Rsp->cnt = pCmd_Rsp->nslots;
+  
+  for(ii=0; ii<pCmd_Rsp->nslots; ii++) printf("Vme_GetCrateMap: [%2d] 0x%08x\n",ii,pWr[ii]);
+  
+  size = pCmd_Rsp->nslots*4 + 8; /* +8 because have to count 'cnt' and 'nslots' in outgoing message */
+
+  return(size); /* output message size in bytes */
+}
 
 
 
@@ -893,13 +1058,21 @@ main(int argc, char *argv[])
 	exit(0);
   }
 
+#ifdef Linux_vme
   /*vmeSetQuietFlag(1);*/
   stat = vmeOpenDefaultWindows();
-  if(stat != OK) goto CLOSE;
+  if(stat != 0) goto CLOSE;
+#endif
+#ifdef Linux_armv7l
+  stat = vtpOpen(VTP_FPGA_OPEN);
+  if(stat != VTP_FPGA_OPEN) goto CLOSE;
+  else printf("vtpOpen'ed\n");
+#endif
+
 
 #ifdef SCALER_THREAD
 
-
+#ifdef Linux_vme
   {
     int i1, i2, i3;
 
@@ -913,19 +1086,21 @@ main(int argc, char *argv[])
     i2_from_rol1 = i2_from_rol1 + 0x10;
     printf("tiprimarytinit: i2_from_rol1 = 0x%08x\n",i2_from_rol1);
   }
+#endif
 
-  vmeScalersReadoutStart(); /* pthread_create inside */
+  ScalersReadoutStart(); /* pthread_create inside */
 
   sleep(2);
-
 #endif
 
 
 //	stat = crateShmCreate();
-//	if(stat != OK)
+//	if(stat != 0)
 //		goto CLOSE;
 
 // Run socket server
+
+#ifdef Linux_vme
   gCrateServerCBFcn.Read16 = Vme_Read16;
   gCrateServerCBFcn.Write16 = Vme_Write16;
   gCrateServerCBFcn.Read32 = Vme_Read32;
@@ -936,6 +1111,20 @@ main(int argc, char *argv[])
   gCrateServerCBFcn.GetBoardParams = Vme_GetBoardParams;
   gCrateServerCBFcn.GetChannelParams = Vme_GetChannelParams;
   gCrateServerCBFcn.SetChannelParams = Vme_SetChannelParams;
+#endif
+
+#ifdef Linux_armv7l
+  gCrateServerCBFcn.Read16 = NULL;
+  gCrateServerCBFcn.Write16 = NULL;
+  gCrateServerCBFcn.Read32 = Vtp_Read32;
+  gCrateServerCBFcn.Write32 = Vtp_Write32;
+  gCrateServerCBFcn.Delay = NULL;
+  gCrateServerCBFcn.ReadScalers = Vtp_ReadScalers;
+  gCrateServerCBFcn.GetCrateMap = Vme_GetCrateMap;
+  gCrateServerCBFcn.GetBoardParams = NULL;
+  gCrateServerCBFcn.GetChannelParams = NULL;
+  gCrateServerCBFcn.SetChannelParams = NULL;
+#endif
 
   printf("Starting CrateMsgServer...");fflush(stdout);
   CrateMsgServerStart(&gCrateServerCBFcn, CRATEMSG_LISTEN_PORT);
@@ -946,7 +1135,14 @@ main(int argc, char *argv[])
 
 	
 CLOSE:
+
+#ifdef Linux_vme
   vmeCloseDefaultWindows();
+#endif
+#ifdef Linux_armv7l
+  vtpClose(VTP_FPGA_OPEN);
+  printf("vtpClose'd\n");
+#endif
 	
   return 0;
 }
@@ -954,8 +1150,14 @@ CLOSE:
 void
 closeup()
 {
-	vmeCloseDefaultWindows();
-	printf("DiagGUI server closed...\n");
+#ifdef Linux_vme
+  vmeCloseDefaultWindows();
+#endif
+#ifdef Linux_armv7l
+  vtpClose(VTP_FPGA_OPEN);
+#endif
+
+  printf("DiagGUI server closed...\n");
 }
 
 void

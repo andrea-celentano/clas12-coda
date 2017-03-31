@@ -19,7 +19,7 @@
 #include <time.h>
 #endif
 
-#define SSIPC
+/*#define SSIPC*/
 
 #ifdef SSIPC_HIDE
 #include <rtworks/ipc.h>

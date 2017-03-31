@@ -166,7 +166,11 @@ extern char *global_routine[8][32];
 #define API_DEBUG  2
 
 /* defines for listSplit1() */
-#define LISTARGV1 40
+
+/* ERROR: MUST BE AT LEAST >MAX_ROCS, because it is used to parse links (see coda_ebc.c linkArgv[LISTARGV1][LISTARGV2]) */
+/* HAVE TO CHECK IT SOMEHOW , OR JUST USE MAX_ROCS HERE ! */
+#define LISTARGV1 /*40*/128 
+
 #define LISTARGV2 256
 
 /* Linux and Darwin returns microsecs, Solaris returns nanosecs */
@@ -218,5 +222,7 @@ void SetBit128(WORD128 *hw, int32_t n);
 int32_t EQ128(WORD128 *hwa, WORD128 *hwb);
 void Clear128(WORD128 *hw);
 void Negate128(WORD128 *hw);
+
+char *dacGetExpid();
 
 #endif /* _CODA_DA_H */

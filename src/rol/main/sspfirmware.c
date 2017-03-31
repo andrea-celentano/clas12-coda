@@ -2,6 +2,16 @@
 /* sspfirmware.c */
 /*
 sspfirmware("ssp.bin",13)
+
+
+     cd $CLON_PARMS/firmwares
+     sspfirmware fe_ssp_hallb_gt.bin 3
+     sspfirmware fe_ssp_hallb_gt.bin 4
+     sspfirmware fe_ssp_hallb_gt.bin 5
+     sspfirmware fe_ssp_hallb_gt.bin 6
+     sspfirmware fe_ssp_hallb_gt.bin 7
+     sspfirmware fe_ssp_hallb_gt.bin 8
+
 */
 
 #include <stdio.h>

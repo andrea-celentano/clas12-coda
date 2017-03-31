@@ -47,7 +47,7 @@ static ECData aBuf[NHITS];
 static int nevent         = 0;
 static int nwrite         = 0;
 static int skip_event     = 0;
-static int max_event      = 10000;
+static int max_event      = 10000000;
 
 
 
@@ -65,10 +65,10 @@ ecdata_compare(ECData *i, ECData *j)
 int
 main(int argc, char **argv)
 {
-  int i, nw, status, trig, layer, strip;
+  int i, nw, status, trig, sector, layer, strip;
   int l, tag, num, nchan[22], *nchanptr, nn, mm, npulses;
   int pulse_integral, pulse_time, pulse_min, pulse_max;
-  int ind, fragtag, fragnum, nbytes, ind_data, timestamp_flag, type, *nhits;
+  int ind, fragtag, fragnum, fragtag1, fragnum1, nbytes, ind_data, timestamp_flag, type, *nhits;
   int slot, slot_old, event, chan, tdc;
   int banktag = 0xe102, banknum = 0, banktyp = 0xf;
   char *fmt = "c,i,l,N(c,N(s,i,s,s))";
@@ -138,11 +138,13 @@ main(int argc, char **argv)
 	/* evioBankUtil stuff */
 
 
-#if 0
+#if 1
 
     /********/
     /* ECAL */
     /********/
+
+    sector = 5;
 
 	fragtag = 1602;
     fragnum = 0;
@@ -182,7 +184,7 @@ main(int argc, char **argv)
 	printf("Process %d hit candidates\n",nbytes/4);
     for(i=0; i<nbytes/4; i++)
 	{
-      if(inBuf[1][i] != 5) continue; /* skip wrong sectors */
+      if(inBuf[1][i] != sector) continue; /* skip wrong sectors */
       if(inBuf[5][i] <= 0) continue; /* skip zero energy */
 
       aBuf[nw].sector = inBuf[1][i];
@@ -245,10 +247,13 @@ main(int argc, char **argv)
       trig ++;
       slot_old = 0;
 	  
-      i = evOpenFrag(buf, 7, 1);
+	  fragtag1 = 1/*7*/; /* 1 for sector 1, 7 for sector 2 */
+      fragnum1 = 1;
+
+      i = evOpenFrag(buf, fragtag1, 1);
       printf("evOpenFrag returned %d\n",i);
 	  
-      ret = evOpenBank(buf, 7/*fragtag*/, 1/*fragnum*/, banktag, banknum, banktyp, fmt, &ind_data);
+      ret = evOpenBank(buf, fragtag1, fragnum1, banktag, banknum, banktyp, fmt, &ind_data);
       printf("evOpenBank returns = %d\n",ret);
 
       b08out = (unsigned char *)&buf[ind_data];
@@ -264,7 +269,7 @@ main(int argc, char **argv)
 		printf("+++++++++++++ %d %d -> %d\n",aBuf[i].io,aBuf[i].view,layer);
         strip = aBuf[i].strip-1;
         slot = adcslotecal [layer] [strip];
-		chan = adcchanecal [layer] [strip];
+		chan = adcchanecal [layer] [strip] - 1;
         printf("### layer=%d strip=%d -> slot=%d chan=%d (nchan(so far)=%d)\n",layer,strip,slot,chan,nchan[slot]);
 
         if(slot != slot_old)
@@ -287,7 +292,7 @@ main(int argc, char **argv)
 	      nchan[slot] ++;
           *nchanptr = nchan[slot];
 
-          PUT8(chan);
+          PUT8((chan));
           PUT32(npulses);
           printf("  chan=%d, npulses=%d\n",chan,npulses);
 
@@ -307,7 +312,7 @@ main(int argc, char **argv)
         }
       }
 	  /*printf("last b08out = 0x%08x\n",b08out);*/
-      evCloseBank(buf, 7/*fragtag*/, 1/*fragnum*/, banktag, banknum, b08out);
+      evCloseBank(buf, fragtag1, fragnum1, banktag, banknum, b08out);
 	}
 
 #endif
@@ -315,7 +320,7 @@ main(int argc, char **argv)
 
 
 
-#if 1
+#if 0
 
     /********/
     /* PCAL */

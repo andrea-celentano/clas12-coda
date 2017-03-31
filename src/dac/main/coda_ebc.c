@@ -47,8 +47,8 @@ static int chunk = 100; /* 100; MUST BE LESS THEN NCHUNKMAX !!! */
 
 #define SOFT_TRIG_FIX_EB \
   /*printf("befor: typ=%d\n",typ);*/ \
-  if(typ==253) typ=0x41; \
-  if(typ==254) typ=0x42; \
+  /*if(typ==253) typ=0x41;*/		 \
+  /*if(typ==254) typ=0x42;*/		 \
   /*printf("after: typ=%d\n",typ)*/
 
 /*allocate it dynamically in according to ET event size
@@ -117,6 +117,7 @@ static unsigned int *hpsbuf;
 
 
 /*static*/ extern objClass localobject;
+extern char    *mysql_host; /* coda_component.c */
 extern char    *expid; /* coda_component.c */
 extern char    *session; /* coda_component.c */
 
@@ -1786,7 +1787,7 @@ deb_constructor()
   tcpState = DA_BOOTED;
   if(codaUpdateStatus("booted") != CODA_OK) return(CODA_ERROR);
 
-  tcpServer(localobject->name); /*start server to process non-coda commands sent by tcpClient*/
+  tcpServer(localobject->name, mysql_host); /*start server to process non-coda commands sent by tcpClient*/
 
   return(CODA_OK);
 }
@@ -1879,7 +1880,7 @@ codaDownload(char *confname)
   getConfFile(configname, confFile, 255);
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
   if(dbsock==NULL)
   {
     printf("cannot connect to the database 1 - exit\n");
@@ -1973,7 +1974,7 @@ roc_queue_ix = 0;
 
 
 
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
   if(dbsock==NULL)
   {
     printf("cannot connect to the database 2 - exit\n");
@@ -2157,7 +2158,7 @@ printf("=c=============================================\n");fflush(stdout);
 printf("=c=============================================\n");fflush(stdout);
 printf("=c=============================================\n");fflush(stdout);
 
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
   if(dbsock==NULL)
   {
     printf("cannot connect to the database 3 - exit\n");
@@ -2310,7 +2311,7 @@ static trArg args[NTHREADMAX];
   for(ix=0; ix<MAX_ROCS; ix++) roc_queues[ix]->deleting = 0;
 
   /* connect to database */
-  dbsocket = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsocket = dbConnect(mysql_host, expid);
   if(dbsocket==NULL)
   {
     printf("cannot connect to the database 4 - exit\n");
@@ -2531,7 +2532,7 @@ printf("codaEnd 1\n");fflush(stdout);
 /*kuku: always downloaded*/
   /* get current state */
 printf("codaEnd 2\n");fflush(stdout);
-  dbsocket = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsocket = dbConnect(mysql_host, expid);
   if(dbsocket==NULL)
   {
     printf("cannot connect to the database 5 - exit\n");

@@ -1,7 +1,7 @@
 
 /* daqLib.c - data aquisition-related library */
 
-#if defined(VXWORKS) || defined(Linux_vme)
+#if defined(VXWORKS) || defined(Linux_vme) || defined(Linux_armv7l)
 
 
 #include <stdio.h>
@@ -55,6 +55,15 @@ DAQ_CRATE end
 
 static int active;
 
+static char *expid = NULL;
+
+void
+daqSetExpid(char *string)
+{
+  expid = strdup(string);
+}
+
+
 /* daqInit() have to be called before this function */
 int  
 daqConfig(char *fname)
@@ -106,11 +115,20 @@ daqReadConfigFile(char *filename)
   unsigned int  ui1, ui2;
   char *getenv();
   char *clonparms;
-  char *expid;
   
   gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
-  expid = getenv("EXPID");
+
+  if(expid==NULL)
+  {
+    expid = getenv("EXPID");
+    printf("\nNOTE: use EXPID=>%s< from environment\n",expid);
+  }
+  else
+  {
+    printf("\nNOTE: use EXPID=>%s< from CODA\n",expid);
+  }
+
   if(strlen(filename)!=0) /* filename specified */
   {
     if ( filename[0]=='/' || (filename[0]=='.' && filename[1]=='/') )

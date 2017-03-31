@@ -67,6 +67,7 @@ typedef struct MONpriv
 static int PrestartCount = 0;
 extern objClass localobject;
 extern char configname[128]; /* coda_component.c */
+extern char *mysql_host; /* coda_component.c */
 extern char *expid; /* coda_component.c */
 extern char *session; /* coda_component.c */
 #define MON_ERROR 1
@@ -240,7 +241,7 @@ codaDownload(char *conf)
   UDP_start();
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
 
   sprintf(tmp,"SELECT value FROM %s_option WHERE name='SPLITMB'",
     configname);
@@ -496,7 +497,7 @@ codaPrestart()
   monp->nend = 1;
 
   /* connect to database */
-  dbsock = dbConnect(getenv("MYSQL_HOST"), expid);
+  dbsock = dbConnect(mysql_host, expid);
 
   /* Get the run number */
   sprintf(tmpp,"SELECT runNumber FROM sessions WHERE name='%s'",session);

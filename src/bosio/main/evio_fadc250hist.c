@@ -282,7 +282,7 @@ main(int argc, char **argv)
     if(iev < 3) continue; /*skip first 2 events*/
 
 	
-    if((ind1 = evNlink(buf, 6, 0xe101, 0, &nbytes)) > 0)
+    if((ind1 = evNlink(buf, 21, 0xe101, 0, &nbytes)) > 0)
     {
       unsigned char *end;
       unsigned long long time;
@@ -341,7 +341,7 @@ main(int argc, char **argv)
 	
 
 
-    if((ind1 = evNlink(buf, 6, 0xe103, 0, &nbytes)) > 0)
+    if((ind1 = evNlink(buf, 21, 0xe103, 0, &nbytes)) > 0)
     {
       unsigned short pulse_time;
       unsigned int pulse_integral;

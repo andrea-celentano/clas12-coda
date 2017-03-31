@@ -1,5 +1,5 @@
 
-#ifdef Linux_vme
+#if defined(Linux_vme) || defined(Linux_armv7l)
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -382,6 +382,8 @@ next_port:
   }
   printf("ListenerThread after listen\n");fflush(stdout);
 
+
+
   while(1)
   {
 	printf("waiting for accept, port >%d<\n",gListenPort);fflush(stdout);
@@ -420,7 +422,7 @@ next_port:
 	  {
         printf("CrateMsgServer: ignore request from %s\n",address);fflush(stdout);
         close(lsock);
-        return 0;
+        continue;
 	  }
 	  */
 
@@ -432,8 +434,8 @@ next_port:
           strncmp(address,"129.57.29.",10) )
 	  {
         printf("CrateMsgServer: ignore request from %s\n",address);fflush(stdout);
-        close(lsock);
-        return 0;
+        /*close(lsock);*/
+        continue;
 	  }
 
 	}
@@ -441,9 +443,10 @@ next_port:
 
 	pthread_create(&cThread, NULL, ConnectionThread, (void *)pcThreadParm);
   }
+
   close(lsock);
 	
-  return 0;
+  return(0);
 }
 
 

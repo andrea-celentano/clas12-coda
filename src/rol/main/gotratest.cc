@@ -65,9 +65,9 @@ const int NHOSTS = 3;
 //  strncpy(hostname,cstr,255);
 //  delete [] cstr;
 //  hostname = hosts[ih];
-  if(ih==0) strncpy(hostname,"svt2",255);
-  else if(ih==1) strncpy(hostname,"svt5",255);
-  else if(ih==2) strncpy(hostname,"svt7",255);
+  if(ih==0) strncpy(hostname,"svt1",255);
+  else if(ih==1) strncpy(hostname,"svt2",255);
+  else if(ih==2) strncpy(hostname,"svt3",255);
   tcp = new CrateMsgClient(hostname,hostport);
   if(tcp->IsValid())
   {

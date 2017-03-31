@@ -71,9 +71,9 @@ static int dscID_tcp[DSC_MAX_BOARDS+1];        /* array of slot numbers for tcps
 
 #define DEBUG
 
-#define FNLEN     128       /* length of config. file name */
-#define STRLEN    250       /* length of str_tmp */
-#define ROCLEN     80       /* length of ROC_name */
+#define FNLEN     256       /* length of config. file name */
+#define STRLEN    256       /* length of str_tmp */
+#define ROCLEN    256       /* length of ROC_name */
 #define NBOARD     22
 #define NCHAN      16
 
@@ -183,6 +183,14 @@ dsc2Config("")
 dsc2Mon(0)
 */
 
+static char *expid = NULL;
+
+void
+dsc2SetExpid(char *string)
+{
+  expid = strdup(string);
+}
+
 
 /* main function, have to be called after dsc2Init() */
 int
@@ -241,24 +249,35 @@ dsc2InitGlobals()
 
 
 #define DSC2_READ_MASKS(XXMASK,R_MSK,JJ_ADD) \
-    else if(active && ((strcmp(keyword,(XXMASK)) == 0) && (kk >= 0)))	\
+    else if(active && ((strcmp(keyword,XXMASK) == 0) && (kk >= 0)))	\
 	{ \
-	  sscanf (str_tmp, "%*s %d %d %d %d %d %d %d %d \
-                                %d %d %d %d %d %d %d %d", \
-		  &msk[ 0], &msk[ 1], &msk[ 2], &msk[ 3], \
-		  &msk[ 4], &msk[ 5], &msk[ 6], &msk[ 7], \
-		  &msk[ 8], &msk[ 9], &msk[10], &msk[11], \
-		  &msk[12], &msk[13], &msk[14], &msk[15]); \
+      /*printf("PROCESSING >%s< >%s<\n",XXMASK,str_tmp);*/				\
+	  args = sscanf (str_tmp, "%*s %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d", \
+		       &msk[ 0], &msk[ 1], &msk[ 2], &msk[ 3], \
+		       &msk[ 4], &msk[ 5], &msk[ 6], &msk[ 7], \
+		       &msk[ 8], &msk[ 9], &msk[10], &msk[11], \
+			   &msk[12], &msk[13], &msk[14], &msk[15]);				\
+	  /*printf ("   args=%d, msk => %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n",args, \
+		  msk[ 0], msk[ 1], msk[ 2], msk[ 3], \
+		  msk[ 4], msk[ 5], msk[ 6], msk[ 7], \
+		  msk[ 8], msk[ 9], msk[10], msk[11], \
+		  msk[12], msk[13], msk[14], msk[15]); \
+		  printf("   slot1=%d slot2=%d\n",slot1,slot2);*/	\
       for(slot=slot1; slot<slot2; slot++) \
       { \
+        /*printf("mask befor clear 0x%08x\n",(R_MSK) [slot]);*/ \
+        (R_MSK) [slot] &= ~(0xFFFF<<JJ_ADD); /*clear corresponding part of the mask*/ \
+        /*printf("mask after clear 0x%08x\n",(R_MSK) [slot]);*/ \
 	    for(jj=0; jj<NCHAN; jj++) \
 	    { \
 	      if( (msk[jj] < 0) || (msk[jj] > 1) ) \
 	      { \
 	        printf("\nReadConfigFile: Wrong mask bit value, %d\n\n",msk[jj]); return(-4); \
 	      } \
-	      (R_MSK) [slot] |= (msk[jj]<<(JJ_ADD)); \
+		  /*printf("msk[%d]=%d\n",jj,msk[jj]);*/		\
+	      (R_MSK) [slot] |= (msk[jj]<<(jj+JJ_ADD));  /*set corresponding part of the mask*/ \
 	    } \
+        /*printf("mask after setting 0x%08x\n",(R_MSK) [slot]);*/ \
       } \
 	}
 
@@ -277,16 +296,26 @@ dsc2ReadConfigFile(char *filename)
   int    ii, jj, ch, kk = 0;
   char   str_tmp[STRLEN], str2[STRLEN], keyword[ROCLEN];
   char   host[ROCLEN], ROC_name[ROCLEN];
-  int    i1, i2, i3, i4, msk[NCHAN];
+  int    msk[NCHAN];
+  int    args, i1, i2;
   int    slot, slot1, slot2, chan;
   char fname[FNLEN] = { "" };  /* config file name */
   char *getenv();
   char *clonparms;
-  char *expid;
 
   gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
-  expid = getenv("EXPID");
+
+  if(expid==NULL)
+  {
+    expid = getenv("EXPID");
+    printf("\nNOTE: use EXPID=>%s< from environment\n",expid);
+  }
+  else
+  {
+    printf("\nNOTE: use EXPID=>%s< from CODA\n",expid);
+  }
+
   if(strlen(filename)!=0) /* filename specified */
   {
     if ( filename[0]=='/' || (filename[0]=='.' && filename[1]=='/') )
@@ -387,13 +416,13 @@ dsc2ReadConfigFile(char *filename)
         /*printf("slot1=%d slot2=%d\n",slot1,slot2);*/
 	  }
 
-      DSC2_READ_MASKS("DSC2_TDCMASK",ChannelMask,(jj))
+      DSC2_READ_MASKS("DSC2_TDCMASK",ChannelMask,0)
 
-      DSC2_READ_MASKS("DSC2_TRGMASK",ChannelMask,(jj+16))
+      DSC2_READ_MASKS("DSC2_TRGMASK",ChannelMask,16)
 
-      DSC2_READ_MASKS("DSC2_TDCORMASK",ORMask,(jj))
+      DSC2_READ_MASKS("DSC2_TDCORMASK",ORMask,0)
 
-      DSC2_READ_MASKS("DSC2_TRGORMASK",ORMask,(jj+16))
+      DSC2_READ_MASKS("DSC2_TRGORMASK",ORMask,16)
 
       else if(active && ((strcmp(keyword,"DSC2_WIDTH") == 0) && (kk >= 0)))
 	  {
@@ -548,8 +577,10 @@ dsc2DownloadAll()
     slot = dsc2Slot(kk);
     dsc2SetPulseWidth(slot, TDCWidth[slot], 1);
     dsc2SetPulseWidth(slot, TRGWidth[slot], 2);
-    dsc2SetChannelMask(slot, ChannelMask[slot], 0);
-    dsc2SetChannelORMask(slot, ORMask[slot], 0);
+    dsc2SetChannelMask(slot,  ChannelMask[slot]&0xFFFF,      1); /* set tdc mask */
+    dsc2SetChannelMask(slot, (ChannelMask[slot]>>16)&0xFFFF, 2); /* set trg mask */
+    dsc2SetChannelORMask(slot,  ORMask[slot]&0xFFFF,      1); /* set tdc mask */
+    dsc2SetChannelORMask(slot, (ORMask[slot]>>16)&0xFFFF, 2); /* set trg mask */
     for(chan=0; chan<NCHAN; chan++)
     {
       dsc2SetThreshold(slot,chan,TDCThreshold[slot][chan],1);

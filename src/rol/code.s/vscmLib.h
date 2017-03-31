@@ -139,7 +139,8 @@ typedef struct {
 struct VSCM_regs {
 /* 0x0000-0x0003 */ volatile uint32_t FirmwareRev;
 /* 0x0004-0x0007 */ volatile uint32_t BoardID;
-/* 0x0008-0x000F */ volatile uint32_t Dummy0[(0x0010-0x0008)/4];
+/* 0x0008-0x000B */ volatile uint32_t Sem;
+/* 0x000C-0x000F */ volatile uint32_t Dummy0[(0x0010-0x000C)/4];
 /* 0x0010-0x0013 */ volatile uint32_t ICap;
 /* 0x0014-0x0017 */ volatile uint32_t SpiFlash;
 /* 0x0018-0x001B */ volatile uint32_t TokenInCfg;
