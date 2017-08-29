@@ -8,7 +8,7 @@
 #ifndef __VTP_ROL__
 #define __VTP_ROL__
 
-#define VTP_READ_CONF_FILE {vtpSetExpid(expid); if(strncasecmp(rol->confFile,"none",4)) vtpConfig(rol->confFile); else vtpConfig("");}
+#define VTP_READ_CONF_FILE {vtpSetExpid(expid); vtpInitGlobals(); vtpConfig(""); if(strncasecmp(rol->confFile,"none",4)) vtpConfig(rol->confFile);}
 
 extern char *mysql_host; /* defined in coda_component.c */
 extern char *expid; /* defined in coda_component.c */

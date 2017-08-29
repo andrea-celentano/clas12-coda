@@ -111,7 +111,7 @@ int mynev; /*defined in tttrans.c */
 
 #define MAXBLOCK    2  /* MVT/FTT with not more than 2 SSP blocks=boards */
 #define MAXEVENT   20  /* max number of events in one block */
-#define MAXSAMPLES 64
+#define MAXSAMPLES 128
 #define MAXFEU     24
 
 /* mvt board data type defs */
@@ -132,18 +132,21 @@ int MVT_NBR_OF_FEU[DEF_MAX_NB_OF_BEU] = {0}; // PROBLEM WITH THIS ARRAY !!! Pour
 int mvt_event_number = 0; 
 
 
-#define MVT_ERROR_NBR_OF_BEU			0x00000001
+#define MVT_ERROR_NBR_OF_BEU            0x00000001
 #define MVT_ERROR_NBR_EVENTS_PER_BLOCK  0x00000002
 #define MVT_ERROR_NBR_SAMPLES_PER_EVENT 0x00000004
 #define MVT_ERROR_NBR_OF_FEU            0x00000008
-#define MVT_ERROR_EVENT_NUM            0x00000010
-#define MVT_ERROR_BLOCK_NUM            0x00000020
+#define MVT_ERROR_EVENT_NUM             0x00000010
+#define MVT_ERROR_BLOCK_NUM             0x00000020
 
 
 /* daq stuff */
 static int rol2_report_raw_data;
 /* daq stuff */
 
+#define NTRIGBITS 6
+static unsigned int bitscalers[NTRIGBITS];
+static int havebits = 0;
 
 /* user routines */
 
@@ -164,6 +167,8 @@ __download()
 	  fprintf(stderr, "%s: fopen failed to open log file %s in write mode with %d\n", __FUNCTION__, logfilename, errno);
 	  perror("fopen failed");
 	}
+	fprintf( mvt_fptr_err_2,"%s : Opend at download\n", __FUNCTION__ );
+	fflush(  mvt_fptr_err_2 );
     }
   rol->poll = 1;
   return;
@@ -173,6 +178,7 @@ static void
 __prestart()
 {
 	int ii,ibeu;
+	char logfilename[128];
 
 	printf("INFO: Entering Prestart ROL2\n");
 
@@ -192,6 +198,17 @@ __prestart()
 
 	rol->recNb = 0;
 
+	if( mvt_fptr_err_2 == (FILE *)NULL )
+	{
+		sprintf(logfilename, "mvt_roc_%d_rol_2.log", rol->pid);
+		if( (mvt_fptr_err_2 = fopen(logfilename, "w")) == (FILE *)NULL )
+		{
+			fprintf(stderr, "%s: fopen failed to open log file %s in write mode with %d\n", __FUNCTION__, logfilename, errno);
+			perror("fopen failed");
+		}
+		fprintf( mvt_fptr_err_2,"%s : Opend at prestart\n", __FUNCTION__ );
+		fflush(  mvt_fptr_err_2 );
+	}
 	if( (MVT_ZS_MODE = mvtGetZSMode(rol->pid)) < 0 )
 	{
 		printf("ERROR: MVT ZS mode negative\n");
@@ -205,9 +222,9 @@ __prestart()
 	MVT_NBR_OF_BEU            = mvtGetNbrOfBeu(rol->pid);
 	MVT_NBR_EVENTS_PER_BLOCK  = mvtGetNbrOfEventsPerBlock(rol->pid);
 	MVT_NBR_SAMPLES_PER_EVENT = mvtGetNbrOfSamplesPerEvent(rol->pid);
-	for (ibeu = 1; ibeu <=MVT_NBR_OF_BEU; ibeu ++)
+	for (ibeu = 0; ibeu <DEF_MAX_NB_OF_BEU; ibeu++)
 	{
-		MVT_NBR_OF_FEU[ibeu-1] = mvtGetNbrOfFeu(rol->pid, ibeu);
+		MVT_NBR_OF_FEU[ibeu] = mvtGetNbrOfFeu(rol->pid, ibeu+1);
 	}
 
 	printf("INFO: MVT_ZS_MODE %d\n",                MVT_ZS_MODE             );
@@ -215,9 +232,9 @@ __prestart()
 	printf("INFO: MVT_NBR_OF_BEU %d\n",             MVT_NBR_OF_BEU           );
 	printf("INFO: MVT_NBR_EVENTS_PER_BLOCK %d\n",   MVT_NBR_EVENTS_PER_BLOCK );
 	printf("INFO: MVT_NBR_SAMPLES_PER_EVENT %d\n",  MVT_NBR_SAMPLES_PER_EVENT);
-	for (ibeu = 0; ibeu<MVT_NBR_OF_BEU; ibeu++)
+	for (ibeu = 0; ibeu<DEF_MAX_NB_OF_BEU; ibeu++)
 	{
-		printf("INFO: MVT_NBR_OF_FEU %d %d\n",ibeu , MVT_NBR_OF_FEU[ibeu] );
+		printf("INFO: MVT_NBR_OF_FEU %d %d\n", ibeu, MVT_NBR_OF_FEU[ibeu] );
 	}
 
 	printf("INFO: Prestart ROL22 executed\n");
@@ -275,6 +292,7 @@ __go()
 
 	int nFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES]={0};
 	int iFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES][MAXFEU]={0};
+	unsigned int mFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES]={0};
 
 	int nbchannelsFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES][MAXFEU]={0};
 	int sizeFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES][MAXFEU]={0};
@@ -331,7 +349,7 @@ rol2trig(int a, int b)
   int islot, ichan, ii, jj, kk;
   int banknum = 0;
   int have_time_stamp, a_nevents2, a_event_type;
-  int a_event_number_l, a_timestamp_l, a_event_number_h, a_timestamp_h;
+  int a_event_number_l, a_timestamp_l, a_event_number_h, a_timestamp_h, a_bitpattern;
   int a_clusterN, a_clusterE, a_clusterY, a_clusterX, a_clusterT, a_type, a_data, a_time;
   long long timestamp, latency, latency_offset;
 
@@ -358,6 +376,16 @@ rol2trig(int a, int b)
 		if( banktyp[jj] != 3 )
 			for(ii=0; ii<lenin; ii++)
 				datain[ii] = LSWAP(datain[ii]);
+
+
+
+
+
+
+
+
+
+
 
 		if(banktag[jj] == 0xe10A) /* TI hardware format */
 		{
@@ -417,7 +445,8 @@ rol2trig(int a, int b)
 					{
 						/* event header */
 						a_event_type = ((datain[ii]>>24)&0xFF);
-						if(((datain[ii]>>16)&0xFF)!=0x01) printf("ERROR in TI event header word (0x%02x)\n",((datain[ii]>>16)&0xFF));
+						if(a_event_type==0)               printf("%s: 1st pass ERROR in TI event header word: datain[%d]=0x%08X : event type = %d for event %d\n", __FUNCTION__, ii, datain[ii], a_event_type, datain[ii+1]);
+						if(((datain[ii]>>16)&0xFF)!=0x01) printf("%s: 1st pass ERROR in TI event header word: datain[%d]=0x%08X : (0x%02x) != 0x01\n",__FUNCTION__, ii, datain[ii], ((datain[ii]>>16)&0xFF));
 						a_nwords = datain[ii]&0xFF;
 #ifdef DEBUG1
 						printf("[%3d] EVENT HEADER, a_nwords = %d\n",ii,a_nwords);
@@ -473,6 +502,48 @@ rol2trig(int a, int b)
 #endif
 							ii++;
 						}
+
+		    if(a_nwords>3)
+		    {
+		      a_bitpattern = datain[ii]&0xFF;
+#ifdef DEBUG1
+		      printf("[%3d] a_bitpattern = 0x%08x\n",ii,a_bitpattern);
+#endif
+		      ii++;
+		    }
+
+		    if(a_nwords>4)
+		    {
+#ifdef DEBUG1
+		      printf("[%3d] TS word4 = 0x%08x\n",ii,datain[ii]);
+#endif
+		      ii++;
+		    }
+
+		    if(a_nwords>5)
+		    {
+#ifdef DEBUG1
+		      printf("[%3d] TS word5 = 0x%08x\n",ii,datain[ii]);
+#endif
+		      ii++;
+		    }
+
+		    if(a_nwords>6)
+		    {
+#ifdef DEBUG1
+		      printf("[%3d] TS word6 = 0x%08x\n",ii,datain[ii]);
+#endif
+		      ii++;
+		    }
+
+		    if(a_nwords>7)
+		    {
+		      printf("ERROR: TS has more then 7 data words - exit\n");
+		      exit(0);
+		    }
+
+
+
 		  			} // for(iii=0; iii<a_nevents; iii++)
 				}
 				else if( ((datain[ii]>>27)&0x1F) == 0x11) /*block trailer*/
@@ -539,6 +610,10 @@ rol2trig(int a, int b)
 			} /* while(ii<lenin) */
 		} /* if(banktag[jj] == 0xe10A) TI hardware format */
 
+
+
+
+
 //***********************************************************************************
 //****************************************************************MVT_ERROR_BLOCK_NUM*******************
 //***********************************************************************************
@@ -558,32 +633,44 @@ FCCA FCAA
 		else if(banktag[jj] == 0xe118) /* MVT hardware format */
 		{
 			if( ((mvt_event_number%MVT_PRESCALE)==0) && (MVT_PRESCALE!=1000000) )
-		  		REPORT_RAW_BANK_IF_REQUESTED;
-		  banknum = rol->pid;
-#ifdef DEBUG6
-if( mvt_fptr_err_2 != (FILE *)NULL )
-{
-	fprintf(mvt_fptr_err_2,"%s: FIRST PASS MVT \n", __FUNCTION__);
-	fflush(mvt_fptr_err_2);
-}
-#endif
-
+				REPORT_RAW_BANK_IF_REQUESTED;
+			banknum = rol->pid;
 	
 			error   = 0;
 			ii      = 0;
 			printing= 1;
 			nB[jj]  = 0; /* cleanup block counter */            
 			nBT[jj] = 0; /* cleanup block trailer counter */
-
+#ifdef DEBUG6
+if( mvt_fptr_err_2 != (FILE *)NULL )
+{
+	fprintf(mvt_fptr_err_2,"%s: FIRST PASS MVT STARTS lenin=%d ii=%d datain[ii]=0x%08x address=0x%08x\n", __FUNCTION__, lenin, ii, datain[ii], datain);
+	fflush(mvt_fptr_err_2);
+}
+#endif
 
 			while(ii<lenin)
 			{
+#ifdef DEBUG6
+if( mvt_fptr_err_2 != (FILE *)NULL )
+{
+	fprintf(mvt_fptr_err_2,"%s: FIRST PASS MVT Go through lenin=%d ii=%d datain[ii]=0x%08x\n", __FUNCTION__, lenin, ii, datain[ii]);
+	fflush(mvt_fptr_err_2);
+}
+#endif
 				if( (datain[ii]&0xFFFF0000) == MVT_TYPE_BLKHDR) /* block header */
 				{
 					nB[jj]++;                 /* increment block counter */
 					iB[jj][nB[jj]-1] = ii;    /* remember block start index */
 					nE[jj][nB[jj]-1] = 0;     /* cleanup event counter in current block */
-					ii++;   	      
+					ii++;
+#ifdef DEBUG6
+if( mvt_fptr_err_2 != (FILE *)NULL )
+{
+	fprintf(mvt_fptr_err_2,"%s: FIRST PASS MVT MVT_TYPE_BLKHDR=0x%08x jj=%d ii=%d datain[ii]=0x%08x nB[jj]=%d\n", __FUNCTION__, MVT_TYPE_BLKHDR, jj, ii, datain[ii], nB[jj]);
+	fflush(mvt_fptr_err_2);
+}
+#endif
 				}
 				else if( (datain[ii]&0xFFFFFFFF) == MVT_TYPE_BLKTLR) /*block trailer*/
 				{
@@ -614,6 +701,7 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 					nSMP[jj][k][m]    = 1; /* initialize sample number in current event */
 					iSMP[jj][k][m][0] = ii;
 					nFEU[jj][k][m][0] = 0; /* cleanup FEU counter in current sample*/
+					mFEU[jj][k][m][0] = 0; /* cleanup FEU map in current sample*/
 					ii++;	      
 				}
 				else if (  (datain[ii]&0xFFFF0000) == MVT_TYPE_SAMPLE ) /*sample header*/
@@ -624,6 +712,7 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 					l = nSMP[jj][k][m]-1;
 					iSMP[jj][k][m][l] = ii;
 					nFEU[jj][k][m][l] = 0;   /* cleanup FEU counter in current sample */
+					mFEU[jj][k][m][l] = 0;   /* cleanup FEU map in current sample */
 					ii++;	  
 				}
 				else if( (datain[ii]&0xFFFF0000) == MVT_TYPE_FEUHDR) /* mvt sample */
@@ -636,11 +725,16 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 					iFEU[jj][k][m][l][p]=ii;  /* remember event start index*/
 					nbchannelsFEU[jj][k][m][l][p]=0;
 					sizeFEU[jj][k][m][l][p] = (datain[ii]&0x000003FF);
+currentFeuId = ((( datain[ ii] ) & 0x00007C00 ) >> 10 );
+if( (currentFeuId < 0) || (currentFeuId >23) )
+	fprintf(mvt_fptr_err_2,"%s: FIRST PASS strange feuid %d in datain[ii]=0x%08x \n", __FUNCTION__, currentFeuId, ii, datain[ii]);
+else
+	mFEU[jj][k][m][l] |= (1<<currentFeuId); 
 
 #ifdef DEBUG6
 if( mvt_fptr_err_2 != (FILE *)NULL )
 {
-	fprintf(mvt_fptr_err_2,"%s:MVT_ZS_MODE : %d\n", __FUNCTION__, MVT_ZS_MODE );
+	fprintf(mvt_fptr_err_2,"%s: MVT_ZS_MODE : %d ii=%d datain[ii]=0x%08x\n", __FUNCTION__, MVT_ZS_MODE, ii, datain[ii] );
 	fflush(mvt_fptr_err_2);
 }
 #endif
@@ -664,13 +758,10 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 #ifdef DEBUG6								
 if( mvt_fptr_err_2 != (FILE *)NULL )
 {
-	fprintf(mvt_fptr_err_2,"%s: FIRST PASS 0xe118 : datain[ii]  0x%08x \n", __FUNCTION__,  datain[ii]    );
+	fprintf(mvt_fptr_err_2,"%s: FIRST PASS 0xe118 after big jump over data: ii=%d datain[ii]=0x%08x \n", __FUNCTION__, ii, datain[ii]);
 	fflush(mvt_fptr_err_2);
 }
 #endif
-
-
-				
 				}
 				else if( (datain[ii]&0xFFFFFFFF) == MVT_TYPE_FILLER) /*filler*/
 				{
@@ -689,6 +780,13 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 			{
 				mvt_error_counter ++;
 				mvt_error_type |= MVT_ERROR_NBR_OF_BEU;
+#ifdef DEBUG6
+if( mvt_fptr_err_2 != (FILE *)NULL )
+{
+	fprintf(mvt_fptr_err_2,"%s: MVT FIRST PASS 0xe118 ERROR: jj=%d nB[jj]=%d != MVT_NBR_OF_BEU=%d\n", __FUNCTION__, jj, nB[jj], MVT_NBR_OF_BEU);
+	fflush(mvt_fptr_err_2);
+}
+#endif
 			}
 			else
 			{
@@ -708,20 +806,34 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 							{
 								mvt_error_counter ++;
 								mvt_error_type |= MVT_ERROR_NBR_SAMPLES_PER_EVENT;
+								printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
+								printf("0xe118 : mvt error currentBeuId =%d jj =%d ibl=%d iev=%d nsmp =%d expected=%d\n",
+									currentBeuId, jj, ibl, iev, nSMP[jj][ibl][iev], MVT_NBR_SAMPLES_PER_EVENT );
 							} 
 							else
 							{
 								for (i_sample=0; i_sample < MVT_NBR_SAMPLES_PER_EVENT ; i_sample ++)
 								{ 
-								
-								
 									if( nFEU[jj][ibl][iev][i_sample] != MVT_NBR_OF_FEU[currentBeuId] )
 									{
-									printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
-									printf("0xe118 : mvt error currentBeuId =%d jj =%d ibl=%d iev=%d i_sample=%d nfeu =%d expected=%d \n",currentBeuId, jj, ibl,iev,i_sample, nFEU[jj][ibl][iev][i_sample], MVT_NBR_OF_FEU[ibl] );
-								
+										printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
+//										printf("0xe118 : mvt error currentBeuId =%d jj =%d ibl=%d iev=%d i_sample=%d nfeu=%d expected=%d\n",
+//											currentBeuId, jj, ibl, iev, i_sample, nFEU[jj][ibl][iev][i_sample],
+//											MVT_NBR_OF_FEU[currentBeuId] );
+										printf("0xe118 : mvt error currentBeuId =%d jj =%d ibl=%d iev=%d i_sample=%d nfeu=%d expected=%d received from 0x%08x\n",
+											currentBeuId, jj, ibl, iev, i_sample, nFEU[jj][ibl][iev][i_sample],
+											MVT_NBR_OF_FEU[currentBeuId], mFEU[jj][ibl][iev][i_sample]);
+										printf("0xe118 : nfeu for beu 0 %d 1 %d 2 %d\n", MVT_NBR_OF_FEU[0], MVT_NBR_OF_FEU[1], MVT_NBR_OF_FEU[2] );
 										mvt_error_counter ++;
 										mvt_error_type |= MVT_ERROR_NBR_OF_FEU;
+if( mvt_fptr_err_2 != (FILE *)NULL )
+{
+	fprintf(mvt_fptr_err_2,"%s: MVT FIRST PASS 0xe118 ERROR: currentBeuId =%d jj =%d ibl=%d iev=%d i_sample=%d nfeu=%d expected=%d received from 0x%08x\n",
+											__FUNCTION__, currentBeuId, jj, ibl, iev, i_sample, nFEU[jj][ibl][iev][i_sample],
+											MVT_NBR_OF_FEU[currentBeuId], mFEU[jj][ibl][iev][i_sample]);
+	fflush(mvt_fptr_err_2);
+}
+
 									} 
 								}
 							}
@@ -751,7 +863,7 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 				current_event_number_low  =
 					((( datain[ ( iSMP[jj][0][iev][0] + 2 ) ] ) & 0x00000003) << 30) + 
 					((( datain[ ( iSMP[jj][0][iev][0] + 3 ) ] ) & 0x7FFF0000) >>  1) + 
-					(( datain[ ( iSMP[jj][0][iev][0] + 3 ) ] ) & 0x00007FFF);		
+					((  datain[ ( iSMP[jj][0][iev][0] + 3 ) ] ) & 0x00007FFF);		
 				for(ibl=0; ibl < MVT_NBR_OF_BEU ; ibl++)
 				{ 
 					for (i_sample=0; i_sample < MVT_NBR_SAMPLES_PER_EVENT ; i_sample ++)
@@ -760,11 +872,16 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 						local_event_number_low  =
 							((( datain[ ( iSMP[jj][ibl][iev][i_sample] + 2 ) ] ) & 0x00000003) << 30) + 
 							((( datain[ ( iSMP[jj][ibl][iev][i_sample] + 3 ) ] ) & 0x7FFF0000) >>  1) + 
-							(( datain[ ( iSMP[jj][ibl][iev][i_sample] + 3 ) ] ) & 0x00007FFF);		
+							((  datain[ ( iSMP[jj][ibl][iev][i_sample] + 3 ) ] ) & 0x00007FFF);		
 						if (( local_event_number_high != current_event_number_high) || ( local_event_number_low != current_event_number_low))
 						{
 							mvt_error_counter ++;
 							mvt_error_type |= MVT_ERROR_EVENT_NUM;
+printf("0xe118 : mvt error MVT_ERROR_EVENT_NUM counter 0x%8x %d mvt error type 0x%8x for buflen %d\n", mvt_error_counter, mvt_error_counter, mvt_error_type, lenin );
+printf("iev=%d   current_event_number_high=%d low=%d\n", iev, current_event_number_high, current_event_number_low );
+printf("smp=%d   event_number_high=%d low=%d\n", i_sample, local_event_number_high, local_event_number_low );
+printf("0x%08x 0x%08x 0x%08x 0x%08x \n", i_sample, local_event_number_high, local_event_number_low );
+//exit(1);
 						}      		
 					}
 				}
@@ -788,6 +905,8 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 					}
 					fprintf(mvt_fptr_err_2,"\n" );
 					fflush(mvt_fptr_err_2);
+//fclose(mvt_fptr_err_2);
+//exit(1);
 				}
 				else
 				{
@@ -884,7 +1003,7 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 						CPOPEN(0xe10A,1,banknum);
 						/* event header */
 						a_event_type = ((datain[ii]>>24)&0xFF);
-						if(((datain[ii]>>16)&0xFF)!=0x01) printf("ERROR in TI event header word (0x%02x)\n",((datain[ii]>>16)&0xFF));
+						if(((datain[ii]>>16)&0xFF)!=0x01) printf("%s: 2nd pass ERROR in TI event header word (0x%02x) != 0x01\n",__FUNCTION__, ((datain[ii]>>16)&0xFF));
 						a_nwords = datain[ii]&0xFF;
 #ifdef DEBUG1
 						printf("[%3d] EVENT HEADER, a_nwords = %d\n",ii,a_nwords);
@@ -928,6 +1047,65 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 							b08 += 4;
 							ii++;
 						}
+
+
+
+
+		    if(a_nwords>3)
+		    {
+		      a_bitpattern = datain[ii]&0xFF;
+#ifdef DEBUG1
+		      printf("[%3d] a_bitpattern = 0x%08x\n",ii,a_bitpattern);
+#endif
+              for(i=0; i<NTRIGBITS; i++) bitscalers[i] += ((a_bitpattern>>i)&0x1);
+              havebits = 1;
+
+              dataout[4] = datain[ii];
+              b08 += 4;
+			  
+		      ii++;
+		    }
+			
+		    if(a_nwords>4)
+		    {
+#ifdef DEBUG1
+		      printf("[%3d] TS word4 = 0x%08x\n",ii,datain[ii]);
+#endif
+		      ii++;
+		    }
+
+		    if(a_nwords>5)
+		    {
+#ifdef DEBUG1
+		      printf("[%3d] TS word5 = 0x%08x\n",ii,datain[ii]);
+#endif
+		      ii++;
+		    }
+
+		    if(a_nwords>6)
+		    {
+#ifdef DEBUG1
+		      printf("[%3d] TS word6 = 0x%08x\n",ii,datain[ii]);
+#endif
+		      ii++;
+		    }
+
+		    if(a_nwords>7)
+		    {
+		      printf("ERROR: TS has more then 7 data words - exit\n");
+		      exit(0);
+		    }
+
+
+#ifdef DEBUG1
+		    printf("[%3d] CPCLOSE b08=0x%08x\n",ii,b08);
+#endif
+
+
+
+
+
+
             			CPCLOSE;
 					} /* while(ii<rlen) */
 				} /* for(ibl=0; ibl<nB[jj]; ibl++)loop over blocks */
@@ -1031,10 +1209,10 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 #endif
 
 									// OUTPUT CURRENT TRIGGER/EVNET NUMBER
-									//current_event_number_high = (( datain[ ( iSMP[jj][0][iev][0] + 2 ) ] ) & 0x00007FFC) >> 2;								
+									//current_event_number_high =(( datain[ ( iSMP[jj][ibl][iev][0] + 2 ) ] ) & 0x00007FFC) >> 2;
 									current_event_number_low  = ((( datain[ ( iSMP[jj][ibl][iev][0] + 2 ) ] ) & 0x00000003) << 30) + 
-												((( datain[ ( iSMP[jj][ibl][iev][0] + 3 ) ] ) & 0x7FFF0000) >>  1) +
-												(( datain[ ( iSMP[jj][ibl][iev][0] + 3 ) ] ) & 0x00007FFF);
+												    ((( datain[ ( iSMP[jj][ibl][iev][0] + 3 ) ] ) & 0x7FFF0000) >>  1) +
+												     (( datain[ ( iSMP[jj][ibl][iev][0] + 3 ) ] ) & 0x00007FFF);
 
 									a_triggernumber = current_event_number_low;
 								
@@ -1046,15 +1224,15 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 }
 #endif
 									//OUTPUT CURRENT TIMESTAMP 
-									current_timestamp_low = ((( datain[ ( iSMP[jj][ibl][iev][0] + 2 ) ] ) & 0x7FFF0000) << 1) +
- 											(((~( datain[ ( iSMP[jj][ibl][iev][0]     ) ] )) & 0x00000800) << 5) ;
+									current_timestamp_low  = ((( datain[ ( iSMP[jj][ibl][iev][0] + 2 ) ] )  & 0x7FFF0000) << 1) +
+ 											       (((~( datain[ ( iSMP[jj][ibl][iev][0]     ) ] )) & 0x00000800) << 5) ;
 	
 									current_timestamp_high = ((( datain[ ( iSMP[jj][ibl][iev][0] + 1 ) ] ) & 0x7FFF0000) >>  1) + 
-											((( datain[ ( iSMP[jj][ibl][iev][0] + 1 ) ] ) & 0x00007FFF));		
+											         ((( datain[ ( iSMP[jj][ibl][iev][0] + 1 ) ] ) & 0x00007FFF));		
 
 									ii = iFEU[jj][ibl][iev][0][i_feu];
 									current_feu_tmstmp   = current_timestamp_low +
-											((( datain[ ii + 2] ) & 0x0FFF0000) >>  13 )+  (( datain[ ii + 2] ) & 0x00000007);
+											         ((( datain[ ii + 2] ) & 0x0FFF0000) >>  13 ) + (( datain[ ii + 2] ) & 0x00000007);
 									current_feu_tmstmp |= ((MVT_ZS_MODE &0x1)<<15);
 							        	a_trigtime[0] = current_timestamp_high;
              								a_trigtime[1] = current_feu_tmstmp;

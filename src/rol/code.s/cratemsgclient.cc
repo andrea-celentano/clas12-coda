@@ -413,6 +413,65 @@ bool CrateMsgClient::ReadScalers(int slot, unsigned int **val, int *len)
 }
 
 
+
+
+bool CrateMsgClient::ReadData(int slot, unsigned int **val, int *len)
+{
+  if(!CheckConnection(__FUNCTION__)) return kFALSE;
+
+  Msg.type = DATA_SERVER_READ_BOARD;
+  Msg.len = 8;
+  Msg.msg.m_Cmd_ReadScalers.cnt = 70; /* ignored by server */
+  Msg.msg.m_Cmd_ReadScalers.slot = slot;
+
+  /*printf("CrateMsgClient::ReadScalers: befor cnt %d %d\n",Msg.msg.m_Cmd_ReadScalers.cnt,Msg.msg.m_Cmd_ReadScalers_Rsp.cnt);*/
+  SendRaw(&Msg, Msg.len+8);
+
+  if(RcvRsp(Msg.type))
+  {
+    /*printf("CrateMsgClient::ReadScalers: after cnt %d %d\n",Msg.msg.m_Cmd_ReadScalers.cnt,Msg.msg.m_Cmd_ReadScalers_Rsp.cnt);*/
+	if(swap)
+	{
+	  Msg.msg.m_Cmd_ReadScalers_Rsp.cnt = LSWAP(Msg.msg.m_Cmd_ReadScalers_Rsp.cnt);
+	}
+
+	*val = new unsigned int[Msg.msg.m_Cmd_ReadScalers_Rsp.cnt];
+	if(!(*val))
+	{
+      printf("CrateMsgClient::ReadScalers ERROR: cannot allocate memory - return\n");
+      return kFALSE;
+	}
+
+    *len = Msg.msg.m_Cmd_ReadScalers_Rsp.cnt;
+    /*printf("CrateMsgClient::ReadScalers: *len=%d\n",*len);*/
+    if(swap)
+	{
+	  for(int i = 0; i < Msg.msg.m_Cmd_ReadScalers_Rsp.cnt; i++)
+	  {
+		(*val)[i] = LSWAP(Msg.msg.m_Cmd_ReadScalers_Rsp.vals[i]);
+	  }
+	}
+	else
+	{
+	  for(int i = 0; i < Msg.msg.m_Cmd_ReadScalers_Rsp.cnt; i++)
+	  {
+		(*val)[i] = Msg.msg.m_Cmd_ReadScalers_Rsp.vals[i];
+		/*printf("[%2d] 0x%08x\n",i,(*val)[i]);fflush(stdout);*/
+	  }
+	}
+	return kTRUE;
+  }
+  return kFALSE;
+}
+
+
+
+
+
+
+
+
+
 bool CrateMsgClient::GetCrateMap(unsigned int **val, int *len)
 {
   if(!CheckConnection(__FUNCTION__)) return kFALSE;

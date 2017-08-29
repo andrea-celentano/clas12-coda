@@ -57,6 +57,10 @@ extern void parse_line(char *s);
 #define DEF_MAX_NB_OF_FEU 64
 #endif
 
+#ifndef DEF_MAX_FEU_SN
+#define DEF_MAX_FEU_SN 255
+#endif
+
 #ifndef DEF_MAX_NB_OF_DREAM
 #define DEF_MAX_NB_OF_DREAM 8
 #endif

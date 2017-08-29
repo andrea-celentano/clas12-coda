@@ -63,5 +63,6 @@
 #include <TMath.h>
 #include <TPolyLine.h>
 #include <TGStatusBar.h>
+#include <TTimeStamp.h>
 
 #endif

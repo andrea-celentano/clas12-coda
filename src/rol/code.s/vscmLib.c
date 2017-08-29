@@ -2068,6 +2068,30 @@ vscmSetHitMask(int id, uint8_t mask, uint8_t trig_width)
   vmeWrite32(&VSCMpr[id]->FssrHitReg, val);
 }
 
+uint8_t
+vscmGetHitMask(int id)
+{
+ uint32_t val;
+  if (vscmIsNotInit(&id, __func__))
+    return;
+
+  val = vmeRead32(&VSCMpr[id]->FssrHitReg);
+
+  return val & 0xFF;
+}
+
+uint8_t
+vscmGetHitMaskWidth(int id)
+{
+ uint32_t val;
+  if (vscmIsNotInit(&id, __func__))
+    return;
+
+  val = vmeRead32(&VSCMpr[id]->FssrHitReg);
+
+  return (val>>8) & 0xFF;
+}
+
 /*
  * If id = 0 change id to first VSCM slot
  * Returns 1 if VSCM in slot id is not initalized
@@ -2742,6 +2766,8 @@ typedef struct
   int fssr_addr_reg_kill_mask[8][4];
   int fssr_addr_reg_inject_mask[8][4];
 
+  int fssr_gothit_en_mask;
+  int fssr_gothit_trig_width;
 } VSCM_CONFIG_STRUCT;
 
 static VSCM_CONFIG_STRUCT conf[VSCM_MAX_BOARDS+1]; /* index is slot number */
@@ -2773,6 +2799,9 @@ vscmInitGlobals()
   for(kk=0; kk<nvscm; kk++)
   {
     slot = vscmID[kk];
+
+    conf[slot].fssr_gothit_en_mask = 0xFF;
+    conf[slot].fssr_gothit_trig_width = 64;
 
     conf[slot].clock_int_ext = 0;
 
@@ -2967,6 +2996,18 @@ vscmReadConfigFile(char *filename)
 		}
       }
 
+      else if(active && (!strcmp(keyword,"VCSM_FSSR_GOTHIT_CFG")))
+      {
+        sscanf(str_tmp,"%*s %4s %4s",charval[0],charval[1]);
+        nval = 2;
+        VAL_DECODER;
+        for(slot=slot1; slot<slot2; slot++)
+                {
+          conf[slot].fssr_gothit_en_mask = val[0];
+          conf[slot].fssr_gothit_trig_width = val[1];
+                }
+      }
+
       else if(active && (!strcmp(keyword,"FSSR_ADDR_REG_DISC_THR")))
       {
         sscanf(str_tmp,"%*s %1s %1s %3s",charval[0], charval[1], charval[2]);
@@ -3045,6 +3086,8 @@ vscmDownloadAll()
     vscmSetBCOFreq(slot, conf[slot].bco_freq);
 
     vscmSetTriggerWindow(slot, conf[slot].window_width, conf[slot].window_offset, conf[slot].window_bco);
+
+    vscmSetHitMask(slot, conf[slot].fssr_gothit_en_mask, conf[slot].fssr_gothit_trig_width);
 
     for(ii=0;ii<8;ii++) for(jj=0;jj<8;jj++) fssrSetThreshold(slot,ii,jj,conf[slot].fssr_addr_reg_disc_threshold[ii][jj]);
 
@@ -3132,6 +3175,10 @@ vscmUploadAll(char *string, int length)
 
     conf[slot].bco_freq = vscmGetBCOFreq(slot);
 
+    conf[slot].fssr_gothit_en_mask = vscmGetHitMask(slot);
+
+    conf[slot].fssr_gothit_trig_width = vscmGetHitMaskWidth(slot);
+
     conf[slot].window_width = vscmGetTriggerWindowWidth(slot);
     conf[slot].window_offset = vscmGetTriggerWindowOffset(slot);
 /*    conf[slot].window_bco = remove this - not needed */
@@ -3165,6 +3212,8 @@ vscmUploadAll(char *string, int length)
       sprintf(sss,"VSCM_BCO_FREQ %d\n",conf[slot].bco_freq); ADD_TO_STRING;
 
       sprintf(sss,"VSCM_TRIG_WINDOW %d %d %d\n",conf[slot].window_width,conf[slot].window_offset,conf[slot].window_bco); ADD_TO_STRING;
+
+      sprintf(sss,"VCSM_FSSR_GOTHIT_CFG 0x%02X %d\n",conf[slot].fssr_gothit_en_mask,conf[slot].fssr_gothit_trig_width); ADD_TO_STRING;
 
       for(jj=0;jj<8;jj++)
 	  {

@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <execinfo.h>
 
 #include "ReturnCodes.h"
 #include "Parser.h"
@@ -107,11 +108,11 @@ int Beu_CheckFeuLink(int feu, int beu, int lnk)
 			if( timercmp(&dt,&to,>) )
 			{
 				fprintf( stderr, "%s: timeout\n\r", __FUNCTION__);
-printf("%s: timeout: t0 sec=%8d usec=%6d\n\r", __FUNCTION__, t0.tv_sec, t0.tv_usec);
-printf("%s: timeout: t1 sec=%8d usec=%6d\n\r", __FUNCTION__, t1.tv_sec, t1.tv_usec);
-printf("%s: timeout: dt sec=%8d usec=%6d\n\r", __FUNCTION__, dt.tv_sec, dt.tv_usec);
-printf("%s: timeout: to sec=%8d usec=%6d\n\r", __FUNCTION__, to.tv_sec, to.tv_usec);
-			return D_RetCode_Err_Timeout;
+fprintf( stderr, "%s: timeout: t0 sec=%8d usec=%6d\n\r", __FUNCTION__, t0.tv_sec, t0.tv_usec);
+fprintf( stderr, "%s: timeout: t1 sec=%8d usec=%6d\n\r", __FUNCTION__, t1.tv_sec, t1.tv_usec);
+fprintf( stderr, "%s: timeout: dt sec=%8d usec=%6d\n\r", __FUNCTION__, dt.tv_sec, dt.tv_usec);
+fprintf( stderr, "%s: timeout: to sec=%8d usec=%6d\n\r", __FUNCTION__, to.tv_sec, to.tv_usec);
+				return D_RetCode_Err_Timeout;
 			}
 			else
 				usleep(1000);
@@ -198,15 +199,34 @@ int PeekPoke_Lnk = -1;
 int PeekPoke_Err =  0;
 char  feu_msg_container[128];
 char *feu_msg = feu_msg_container;
+#define BT_BUF_SIZE 100
+void *bt_buffer[BT_BUF_SIZE];
 unsigned int Peek( unsigned int adr )
 {
 	int ret;
 	int data_out;
+	char **bt_strings;
+	int    bt_nptrs;
+	int    bt_index;
 	if( (ret=Beu_ReqResp( PeekPoke_Feu, PeekPoke_Beu, PeekPoke_Lnk, adr, 0, DEF_FEU_READ, &data_out)) != D_RetCode_Sucsess )
 	{
 		fprintf( stderr, "%s: adr=0x%08x for feu=%d beu=%d lnk=%d failed wirth %d\n",
 			__FUNCTION__, adr, PeekPoke_Feu, PeekPoke_Beu, PeekPoke_Lnk, ret );
 		PeekPoke_Err = ret;
+		// try to get the caller function
+		bt_nptrs = backtrace(bt_buffer, BT_BUF_SIZE);
+		fprintf( stderr, "%s: backtrace() returned %d adresses\n", __FUNCTION__, bt_nptrs );
+		bt_strings = backtrace_symbols(bt_buffer, bt_nptrs);
+		if( bt_strings == NULL )
+		{
+			fprintf( stderr, "%s: backtrace_symbols() failed with\n", __FUNCTION__, strerror(errno) );
+		}
+		else
+		{
+			for( bt_index=0; bt_index<bt_nptrs; bt_index++ )
+				fprintf( stderr, "%s: %s\n", __FUNCTION__, bt_strings[bt_index] );
+			free( bt_strings );
+		}
 		return ret;
 	}
 	return data_out;
@@ -215,11 +235,28 @@ int Poke( unsigned int adr, unsigned int dat )
 {
 	int ret;
 	int data_out;
+	char **bt_strings;
+	int    bt_nptrs;
+	int    bt_index;
 	if( (ret=Beu_ReqResp( PeekPoke_Feu, PeekPoke_Beu, PeekPoke_Lnk, adr, dat, DEF_FEU_WRITE, &data_out)) != D_RetCode_Sucsess )
 	{
 		fprintf( stderr, "%s: adr=0x%08x dat=0x%08x for feu=%d beu=%d lnk=%d failed wirth %d\n",
 			__FUNCTION__, adr, dat, PeekPoke_Feu, PeekPoke_Beu, PeekPoke_Lnk, ret );
 		PeekPoke_Err = ret;
+		// try to get the caller function
+		bt_nptrs = backtrace(bt_buffer, BT_BUF_SIZE);
+		fprintf( stderr, "%s: backtrace() returned %d adresses\n", __FUNCTION__, bt_nptrs );
+		bt_strings = backtrace_symbols(bt_buffer, bt_nptrs);
+		if( bt_strings == NULL )
+		{
+			fprintf( stderr, "%s: backtrace_symbols() failed with\n", __FUNCTION__, strerror(errno) );
+		}
+		else
+		{
+			for( bt_index=0; bt_index<bt_nptrs; bt_index++ )
+				fprintf( stderr, "%s: %s\n", __FUNCTION__, bt_strings[bt_index] );
+			free( bt_strings );
+		}
 		return ret;
 	}
 //fprintf( stdoutr, "%s: for feu=%d beu=%d lnk=%d adr=0x%68x data_in=0x%08x dataout=0x%08x\n,
@@ -296,6 +333,186 @@ int AdcConfig( AdcParams *adc_params, int feu_id, int beu_id, int beu_lnk_id )
 	return D_RetCode_Sucsess;
 }
 
+/*****************************************************************
+ ******************     EEPROM Config     ************************
+ *****************************************************************/
+int EePromConfig( short ee_prom[D_FeuPar_EeProm_Size], int feu_id, int beu_id, int beu_lnk_id )
+{
+	int ret;
+	int reg;
+	unsigned char rd_val;
+
+	// First Write to EE Prom
+	for( reg=0; reg<D_FeuPar_EeProm_Size; reg++ )
+	{
+		if( ee_prom[reg] >= 0 )
+		{
+			// Write in EE Prom
+			if( (ret = I2C_Eeprom_WriteByte( reg, ee_prom[reg] )) !=  D_RetCode_Sucsess )
+			{
+				fprintf( stderr,  "%s: I2C_Eeprom_WriteByte(0x%02x, 0x%02x) failed for feu=%d beu=%d lnk=%d with %d\n",
+					__FUNCTION__, reg, ee_prom[reg], feu_id, beu_id, beu_lnk_id, ret );
+				return ret;
+			}
+		} // if( ee_prom[reg] >= 0 )
+	} // for( reg=0; reg<D_FeuPar_EeProm_Size; reg++ )
+
+	// Now verify the Ee prom
+	for( reg=0; reg<D_FeuPar_EeProm_Size; reg++ )
+	{
+		if( ee_prom[reg] >= 0 )
+		{
+			if( (ret = I2C_Eeprom_ReadByte( reg, &rd_val )) !=  D_RetCode_Sucsess )
+			{
+				fprintf( stderr,  "%s: I2C_Eeprom_ReadByte(0x%02x) failed for feu=%d beu=%d lnk=%d with %d\n",
+					__FUNCTION__, reg, feu_id, beu_id, beu_lnk_id, ret );
+				return ret;
+			}
+			if( (ee_prom[reg]&0xFF) != rd_val )
+			{
+				fprintf( stderr, "%s: EePromRead failed for feu=%d beu=%d lnk=%d EeProm adr=0x%02x (%d) reg_val_exp=0x%02x != reg_val_rcv=0x%02x\n",
+					__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg, reg, ee_prom[reg], rd_val );
+				return D_RetCode_Err_WrRd_Missmatch;
+			}
+		} // if( ee_prom[reg] >= 0 )
+	} // for( reg=1; reg<D_FeuPar_EeProm_Size; reg++ )
+
+	return D_RetCode_Sucsess;
+}
+
+/*****************************************************************
+ *****************     Max16031 Config     ***********************
+ *****************************************************************/
+int Max16031Config( short max16031[D_FeuPar_Max16031_Size], int feu_id, int beu_id, int beu_lnk_id )
+{
+	int ret;
+	int reg;
+	unsigned char wr_val;
+	unsigned char rd_val;
+	int eeprom_unlocked;
+
+	// First Write to EE Prom
+	eeprom_unlocked = 0;
+	for( reg=0; reg<D_FeuPar_Max16031_Size; reg++ )
+	{
+		if( max16031[reg] >= 0 )
+		{
+			// Starting from the &ddress 128 (0x80) the range is EEPROM
+			// One first needs to unlock the EEPROM to allow writing
+			// For this check the Lock register 0x5F and if needed togle the lock bit
+			if( reg >= 128 )
+			{
+				if( eeprom_unlocked == 0 )
+				{
+					if( (ret = I2C_Max16031_ReadByte( 0x5F, &rd_val )) !=  D_RetCode_Sucsess )
+					{
+						fprintf( stderr,  "%s: I2C_Max16031_ReadByte(0x5F) failed for feu=%d beu=%d lnk=%d with %d\n",
+							__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
+						return ret;
+					}
+					if( rd_val & 0x1 )
+					{
+						// Write 1 to set the lock bit to 0
+						wr_val = 0x01;
+						if( (ret = I2C_Max16031_WriteByte( 0x5F, wr_val )) !=  D_RetCode_Sucsess )
+						{
+							fprintf( stderr,  "%s: I2C_Max16031_WriteByte(0x5F, 0x%02x) failed for feu=%d beu=%d lnk=%d with %d\n",
+								__FUNCTION__, wr_val, feu_id, beu_id, beu_lnk_id, ret );
+							return ret;
+						}
+						if( (ret = I2C_Max16031_ReadByte( 0x5F, &rd_val )) !=  D_RetCode_Sucsess )
+						{
+							fprintf( stderr,  "%s: I2C_Max16031_ReadByte(0x5F) failed for feu=%d beu=%d lnk=%d with %d\n",
+								__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
+							return ret;
+						}
+						if( rd_val & 0x1 )
+						{
+							fprintf( stderr, "%s: Max EEPROM Unlock failed for feu=%d beu=%d lnk=%d rd_val=0x%02x with bit 0 set\n",
+								__FUNCTION__, feu_id, beu_id, beu_lnk_id, rd_val );
+							return D_RetCode_Err_WrRd_Missmatch;
+						}
+						eeprom_unlocked = 1;
+					}
+				}
+			}
+			// Write in Max16031 register
+			wr_val = (unsigned char)(max16031[reg] & 0xFF);
+			if( (ret = I2C_Max16031_WriteByte( reg, wr_val )) !=  D_RetCode_Sucsess )
+			{
+				fprintf( stderr,  "%s: I2C_Max16031_WriteByte(0x%02x, 0x%02x) failed for feu=%d beu=%d lnk=%d with %d\n",
+					__FUNCTION__, reg, wr_val, feu_id, beu_id, beu_lnk_id, ret );
+				return ret;
+			}
+			// if the data was written in the EEPROM, whait for 15 ms to finish the write cycle
+			if( reg >= 128 )
+			{
+				usleep(15000);
+			}
+		} // if( max16031[reg] >= 0 )
+	} // for( reg=0; reg<D_FeuPar_Max16031_Size; reg++ )
+
+	// If the EEPROM has been unlocked, lock it again
+	if( eeprom_unlocked )
+	{
+		// Recheck the lock bit
+		if( (ret = I2C_Max16031_ReadByte( 0x5F, &rd_val )) !=  D_RetCode_Sucsess )
+		{
+			fprintf( stderr,  "%s: I2C_Max16031_ReadByte(0x5F) failed for feu=%d beu=%d lnk=%d with %d\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
+			return ret;
+		}
+		if( rd_val & 0x1 )
+		{
+			fprintf( stderr, "%s: Max EEPROM lock bit expected for feu=%d beu=%d lnk=%d reg_val=0x%02x with bit 1 set\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+		// Write 1 to set the lock bit to 1
+		wr_val = 0x01;
+		if( (ret = I2C_Max16031_WriteByte( 0x5F, wr_val )) !=  D_RetCode_Sucsess )
+		{
+			fprintf( stderr,  "%s: I2C_Max16031_WriteByte(0x5F, 0x%02x) failed for feu=%d beu=%d lnk=%d with %d\n",
+				__FUNCTION__, wr_val, feu_id, beu_id, beu_lnk_id, ret );
+			return ret;
+		}
+		if( (ret = I2C_Max16031_ReadByte( 0x5F, &rd_val )) !=  D_RetCode_Sucsess )
+		{
+			fprintf( stderr,  "%s: I2C_Max16031_ReadByte(0x5F) failed for feu=%d beu=%d lnk=%d with %d\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
+			return ret;
+		}
+		if( (rd_val & 0x1) == 0 )
+		{
+			fprintf( stderr, "%s: Max EEPROM Lock failed for feu=%d beu=%d lnk=%d reg_val=0x%02x with bit 0 set to 0\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+
+	// Now verify the max16031
+	for( reg=0; reg<D_FeuPar_Max16031_Size; reg++ )
+	{
+		if( max16031[reg] >= 0 )
+		{
+			if( (ret = I2C_Max16031_ReadByte( reg, &rd_val )) !=  D_RetCode_Sucsess )
+			{
+				fprintf( stderr,  "%s: I2C_Max16031_ReadByte(0x%2x) failed for feu=%d beu=%d lnk=%d with %d\n",
+					__FUNCTION__, reg, feu_id, beu_id, beu_lnk_id, ret );
+				return ret;
+			}
+			if( (max16031[reg]&0xFF) != rd_val )
+			{
+				fprintf( stderr, "%s: MaxRead failed for feu=%d beu=%d lnk=%d Max16031 adr=0x%02x (%d) reg_val_exp=0x%02x != reg_val_rcv=0x%02x\n",
+					__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg, reg, max16031[reg], rd_val );
+				return D_RetCode_Err_WrRd_Missmatch;
+			}
+		} // if( max16031[reg] >= 0 )
+	} // for( reg=1; reg<D_FeuPar_Max16031_Size; reg++ )
+
+	return D_RetCode_Sucsess;
+}
+
 /*******************************************************************
  ******************       Dream Write       ************************
  ****************** Dirty and Uglu quickfix ************************
@@ -344,6 +561,86 @@ int DreamRead( int id, unsigned char reg, int val[4] )
 /*******************************************************************
  ******************       Dream Config      ************************
  *******************************************************************/
+#define Def_DreamRegConfigRetry 5
+int DreamRegConfig( int dream, int reg, unsigned short reg_val[4], int feu_id, int beu_id, int beu_lnk_id )
+{
+	int ret;
+	unsigned int wr_val[4];
+	unsigned int rd_val[4];
+	int retry;
+
+	retry = 0;
+	do
+	{
+		// Write
+		wr_val[0] = reg_val[0];
+		wr_val[1] = reg_val[1];
+		wr_val[2] = reg_val[2];
+		wr_val[3] = reg_val[3];
+		if( (ret=DreamWrite( dream, reg, wr_val )) != D_RetCode_Sucsess )
+		{
+			fprintf( stderr,  "%s: DreamWrite failed for feu=%d beu=%d lnk=%d dream=%d reg=%d with %d\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, D_FeuPar_NumOfDreams-1, reg, ret );
+			return ret;
+		}
+		// Read
+		if( (ret=DreamRead( dream, reg, rd_val )) != D_RetCode_Sucsess )
+		{
+			fprintf( stderr,  "%s: DreamRead failed for feu=%d beu=%d lnk=%d dream=%d reg=%d with %d\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, D_FeuPar_NumOfDreams-1, reg, ret );
+			return ret;
+		}
+		// Compare
+		// all types of registers
+		if( reg_val[0] != (rd_val[0] & 0xFFFF) )
+		{
+			if( retry == Def_DreamRegConfigRetry )
+			{
+				fprintf( stderr, "%s: WrRd_Missmatch for feu=%d beu=%d lnk=%d dream=%d reg=%d wr0=0x%x != rd0=0x%x\n",
+					__FUNCTION__, feu_id, beu_id, beu_lnk_id, dream, reg, reg_val[0], rd_val[0] );
+				return D_RetCode_Err_WrRd_Missmatch;
+			}
+			retry++;
+		}
+		// > 16-bit registers
+		else if( (reg!=12) && ( reg_val[1] != (rd_val[1] & 0xFFFF) ) )
+		{
+			if( retry == Def_DreamRegConfigRetry )
+			{
+				fprintf( stderr, "%s: WrRd_Missmatch for feu=%d beu=%d lnk=%d dream=%d reg=%d wr1=0x%x != rd1=0x%x\n",
+					__FUNCTION__, feu_id, beu_id, beu_lnk_id, dream, reg, reg_val[1], rd_val[0] );
+				return D_RetCode_Err_WrRd_Missmatch;
+			}
+			retry++;
+		}
+		// 64-bit registers
+		else if( (6<=reg) && (reg<=7) && ( reg_val[2] != (rd_val[2] & 0xFFFF) ) )
+		{
+			if( retry == Def_DreamRegConfigRetry )
+			{
+				fprintf( stderr, "%s: DreamRead failed for feu=%d beu=%d lnk=%d dream=%d reg=%d wr1=0x%x != rd1=0x%x\n",
+					__FUNCTION__, feu_id, beu_id, beu_lnk_id, dream, reg, reg_val[2], rd_val[2] );
+				return D_RetCode_Err_WrRd_Missmatch;
+			}
+			retry++;
+		}
+		else if( (6<=reg) && (reg<=7) && ( reg_val[3] != (rd_val[3] & 0xFFFF) ) )
+		{
+			if( retry == Def_DreamRegConfigRetry )
+			{
+				fprintf( stderr, "%s: DreamRead failed for feu=%d beu=%d lnk=%d dream=%d reg=%d wr1=0x%x != rd1=0x%x\n",
+					__FUNCTION__, feu_id, beu_id, beu_lnk_id, dream, reg, reg_val[3], rd_val[3] );
+				return D_RetCode_Err_WrRd_Missmatch;
+			}
+			retry++;
+		}
+		else
+			retry = 0;
+	} while( retry > 0 );
+
+	return D_RetCode_Sucsess;
+}
+
 int DreamConfig( DreamParams dream_params[D_FeuPar_NumOfDreams], int feu_id, int beu_id, int beu_lnk_id, int msk )
 {
 	int ret;
@@ -412,7 +709,7 @@ int DreamConfig( DreamParams dream_params[D_FeuPar_NumOfDreams], int feu_id, int
 						if( dream_params[D_FeuPar_NumOfDreams-1].dream_reg[reg].reg[3] != rd_val[3] )
 						{
 							fprintf( stderr, "%s: DreamRead failed for feu=%d beu=%d lnk=%d dream=%d reg=%d wr1=0x%x != rd1=0x%x\n",
-								__FUNCTION__, feu_id, beu_id, beu_lnk_id, dream, reg, dream_params[D_FeuPar_NumOfDreams-1].dream_reg[reg].reg[2], rd_val[2] );
+								__FUNCTION__, feu_id, beu_id, beu_lnk_id, dream, reg, dream_params[D_FeuPar_NumOfDreams-1].dream_reg[reg].reg[3], rd_val[3] );
 							return D_RetCode_Err_WrRd_Missmatch;
 						}
 					}
@@ -473,7 +770,7 @@ int DreamConfig( DreamParams dream_params[D_FeuPar_NumOfDreams], int feu_id, int
 						if( dream_params[dream].dream_reg[reg].reg[3] != rd_val[3] )
 						{
 							fprintf( stderr, "%s: DreamRead failed for feu=%d beu=%d lnk=%d dream=%d reg=%d wr1=0x%x != rd1=0x%x\n",
-								__FUNCTION__, feu_id, beu_id, beu_lnk_id, dream, reg, dream_params[dream].dream_reg[reg].reg[2], rd_val[2] );
+								__FUNCTION__, feu_id, beu_id, beu_lnk_id, dream, reg, dream_params[dream].dream_reg[reg].reg[3], rd_val[3] );
 							return D_RetCode_Err_WrRd_Missmatch;
 						}
 					}
@@ -488,7 +785,146 @@ int DreamConfig( DreamParams dream_params[D_FeuPar_NumOfDreams], int feu_id, int
 /*******************************************************************
  ******************       Dream SPI Config      ********************
  *******************************************************************/
- #define Def_DreamRegConfigRetry 5
+
+/*****************************************************************
+ ******************     Dream Register SPI Config      ***********
+ *****************************************************************/
+int DreamSpiRegConfig( int dream, int reg, unsigned short reg_val[4], int feu_id, int beu_id, int beu_lnk_id )
+{
+	int ret;
+	int retry;
+
+	unsigned int reg_wr_val_31_00;
+	unsigned int reg_wr_val_63_32;
+
+	unsigned int reg_wr_adr_31_00;
+	unsigned int reg_wr_adr_63_32;
+
+	unsigned int reg_rd_val_31_00;
+	unsigned int reg_rd_val_63_32;
+
+	retry = 0;
+	do
+	{
+		// Write
+		reg_wr_adr_31_00 = 0x700000 + (dream << (8+2)) + (reg<<(2+1));
+		reg_wr_adr_63_32 = reg_wr_adr_31_00 + 4;
+		if( reg == 12 ) // 16-bit register
+		{
+			reg_wr_val_63_32 = 0;
+			reg_wr_val_31_00 = reg_val[0];
+		}
+		else if( (reg == 6) || (reg == 7) ) // 64-bit registers
+		{
+			reg_wr_val_63_32 = (reg_val[0] << 16) | reg_val[1];
+			reg_wr_val_31_00 = (reg_val[2] << 16) | reg_val[3];
+		}
+		else // 32-bit registers
+		{
+			reg_wr_val_63_32 = 0;
+			reg_wr_val_31_00 = (reg_val[0] << 16) | reg_val[1];
+		}
+
+		// Write LSB-s
+		if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_wr_adr_31_00, reg_wr_val_31_00, DEF_FEU_WRITE, &reg_rd_val_31_00 ) ) < 0 )
+		{
+			fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_wr_adr_31_00 );
+			return D_RetCode_Err_NetIO;
+		}
+		// Write MSB-s
+		if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_wr_adr_63_32, reg_wr_val_63_32, DEF_FEU_WRITE, &reg_rd_val_63_32 ) ) < 0 )
+		{
+			fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_wr_adr_63_32 );
+			return D_RetCode_Err_NetIO;
+		}
+		// Read MSB-s
+		if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_wr_adr_63_32, 0, DEF_FEU_READ, &reg_rd_val_63_32 ) ) < 0 )
+		{
+			fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_wr_adr_63_32 );
+			return D_RetCode_Err_NetIO;
+		}
+		// Read LSB-s
+		if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_wr_adr_31_00, 0, DEF_FEU_READ, &reg_rd_val_31_00 ) ) < 0 )
+		{
+			fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_wr_adr_31_00 );
+			return D_RetCode_Err_NetIO;
+		}
+
+	//fprintf( stdout, "%s: feu=%d beu=%d lnk=%d dream=%d reg=%d WR 63_32=0x%08x 31_00=0x%08x RD 63_32=0x%08x 31_00=0x%08x\n",
+	//__FUNCTION__, feu_id, beu_id, beu_lnk_id, dream, reg, reg_wr_val_63_32, reg_wr_val_31_00, reg_rd_val_63_32, reg_rd_val_31_00 );
+
+		// Compare
+		if( reg == 12 ) // 16-bit register
+		{
+			if( reg_wr_val_31_00 != ((reg_rd_val_63_32 >> 16) & 0xFFFF)  )
+			{
+				if( retry == Def_DreamRegConfigRetry )
+				{
+					fprintf( stderr, "%s: WrRd_Missmatch failed for feu=%d beu=%d lnk=%d dream=%d reg=%d wr0=0x%x != rd0=0x%x\n",
+						__FUNCTION__, feu_id, beu_id, beu_lnk_id, dream, reg, reg_wr_val_31_00, (reg_rd_val_63_32 >> 16) & 0xFFFF );
+					return D_RetCode_Err_WrRd_Missmatch;
+				}
+				retry++;
+			}
+			else
+				retry = 0;
+		}
+		else if( (reg == 6) || (reg == 7) ) // 64-bit registers
+		{
+			if( reg_wr_val_63_32 != reg_rd_val_63_32 )
+			{
+				if( retry == Def_DreamRegConfigRetry )
+				{
+					fprintf( stderr, "%s: WrRd_Missmatch failed for feu=%d beu=%d lnk=%d dream=%d reg=%d MSB wr0=0x%x != rd0=0x%x\n",
+						__FUNCTION__, feu_id, beu_id, beu_lnk_id, dream, reg, reg_wr_val_63_32, reg_rd_val_63_32 );
+					return D_RetCode_Err_WrRd_Missmatch;
+				}
+				retry++;
+			}
+			else if( reg_wr_val_31_00 != reg_rd_val_31_00 )
+			{
+				if( retry == Def_DreamRegConfigRetry )
+				{
+					fprintf( stderr, "%s: WrRd_Missmatch failed for feu=%d beu=%d lnk=%d dream=%d reg=%d LSB wr0=0x%x != rd0=0x%x\n",
+						__FUNCTION__, feu_id, beu_id, beu_lnk_id, dream, reg, reg_wr_val_31_00, reg_rd_val_31_00 );
+					return D_RetCode_Err_WrRd_Missmatch;
+				}
+				retry++;
+			}
+			else
+				retry = 0;
+		}
+		else // 32-bit registers
+		{
+			if( reg_wr_val_31_00 != reg_rd_val_63_32 )
+			{
+				if( retry == Def_DreamRegConfigRetry )
+				{
+					fprintf( stderr, "%s: WrRd_Missmatch failed for feu=%d beu=%d lnk=%d dream=%d reg=%d wr0=0x%x != rd0=0x%x\n",
+						__FUNCTION__, feu_id, beu_id, beu_lnk_id, dream, reg, reg_wr_val_31_00, reg_rd_val_63_32 );
+					return D_RetCode_Err_WrRd_Missmatch;
+				}
+				retry++;
+			}
+			else
+				retry = 0;
+		}
+/*
+if( retry )
+{
+fprintf( stderr, "%s: Retry %d for feu=%d beu=%d lnk=%d dream=%d reg=%d WR 63_32=0x%08x 31_00=0x%08x RD 63_32=0x%08x 31_00=0x%08x\n",
+__FUNCTION__, retry, feu_id, beu_id, beu_lnk_id, dream, reg, reg_wr_val_63_32, reg_wr_val_31_00, reg_rd_val_63_32, reg_rd_val_31_00 );
+}
+*/
+	} while( retry > 0 );
+
+	return D_RetCode_Sucsess;
+}
+
 int DreamSpiConfig( DreamParams dream_params[D_FeuPar_NumOfDreams], int feu_id, int beu_id, int beu_lnk_id, int msk )
 {
 	int ret;
@@ -626,8 +1062,10 @@ int DreamSpiConfig( DreamParams dream_params[D_FeuPar_NumOfDreams], int feu_id, 
 					}
 					if( retry )
 					{
-//fprintf( stderr, "%s: Retry %d for feu=%d beu=%d lnk=%d dream=%d reg=%d WR 63_32=0x%08x 31_00=0x%08x RD 63_32=0x%08x 31_00=0x%08x\n",
-//__FUNCTION__, retry, feu_id, beu_id, beu_lnk_id, dream, reg, reg_wr_val_63_32, reg_wr_val_31_00, reg_rd_val_63_32, reg_rd_val_31_00 );
+/*
+fprintf( stderr, "%s: Retry %d for feu=%d beu=%d lnk=%d dream=%d reg=%d WR 63_32=0x%08x 31_00=0x%08x RD 63_32=0x%08x 31_00=0x%08x\n",
+__FUNCTION__, retry, feu_id, beu_id, beu_lnk_id, dream, reg, reg_wr_val_63_32, reg_wr_val_31_00, reg_rd_val_63_32, reg_rd_val_31_00 );
+*/
 						reg--;
 					}
 				} // if( dream_params[dream].dream_reg[reg].reg[0] != -1 )
@@ -1287,6 +1725,47 @@ int _FeuReset( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 		return ret;
 	}
 
+	// Make sure the FEU is not in running state
+	// Set address 
+	reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Main );
+	reg_adr = D_MainAdr_Set( reg_adr, D_MainAdr_RegCommand );
+	wr_val = D_Main_Cmd_Run_Clr( 0 );
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Main_Cmd_Reset_Get(wr_val) != D_Main_Cmd_Reset_Get(rd_val) )
+		{
+			fprintf( stderr,  "%s: Main Command (Reset) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+	// Make sure the FEU is not in Idle state
+	// Set address 
+	wr_val = D_Main_Cmd_Config_Clr( 0 );
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Main_Cmd_Reset_Get(wr_val) != D_Main_Cmd_Reset_Get(rd_val) )
+		{
+			fprintf( stderr,  "%s: Main Command (Reset) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+
 	// Reset FEU
 	// Send reset command only once when the function is called first time with default parameters 
 	// Set address 
@@ -1404,6 +1883,12 @@ int FeuReset( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 			__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
 		return ret;
 	}
+	if( feu_sn != feu_params->Feu_RunCtrl_Id )
+	{
+		fprintf( stderr,  "%s: Unexpected Feu SN=%d for feu=%d beu=%d lnk=%d; SN=%d expected\n",
+			__FUNCTION__, feu_sn, feu_id, beu_id, beu_lnk_id, feu_params->Feu_RunCtrl_Id );
+		return D_RetCode_Err_Wrong_Param;
+	}
 
 	// Get exclussive access to the FEU
 	if( (ret = FeuConfig_Lock()) != D_RetCode_Sucsess )
@@ -1455,11 +1940,13 @@ int _FeuConfig( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 		( feu_params->Main_Conf_DreamMask >= 0 )
 		||
 		( feu_params->Main_Conf_Samples >= 0 )
+		||
+		( feu_params->Main_Conf_DataPipeLen >= 0 )
 	)
 	{
 		// Main module config parameters
 		// Only recovered clock is supported, this is even nonsence to setup 
-		wr_val = D_Main_Conf_Set( 0, feu_params->Main_Conf_Samples, (feu_params->Main_Conf_DreamMask&0xFF), 0, 0, RecClk );
+		wr_val = D_Main_Conf_Set( 0, feu_params->Main_Conf_Samples, (feu_params->Main_Conf_DreamMask&0xFF), feu_params->Main_Conf_DataPipeLen, 0, RecClk );
 		// Set address address 
 		reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Main );
 		reg_adr = D_MainAdr_Set( reg_adr, D_MainAdr_RegConfig );
@@ -1520,6 +2007,7 @@ int _FeuConfig( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 //printf("%s: Feu %d Main trigger done (beu %d lnk %d)\n", __FUNCTION__, feu_id, beu_id, beu_lnk_id);
 	}
 
+/*
 	// FEU PowerUp Register
 	if
 	(
@@ -1576,6 +2064,86 @@ int _FeuConfig( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 					}
 				}
 				usleep(50000);
+			} // if( feu_params->Feu_Pwr_Dream & (1 << dream_pair) )
+		} // for( dream_pair=0; dream_pair<4; dream_pair++ )
+//printf("%s: Feu %d power 0x%08x done (beu %d lnk %d)\n", __FUNCTION__, feu_id, rd_val, beu_id, beu_lnk_id);
+	}
+*/
+
+//printf("%s: Feu %d power flt 0x%04x drm =0x%01x (beu %d lnk %d)\n", __FUNCTION__, feu_id, feu_params->Feu_Pwr_PrtFlt, feu_params->Feu_Pwr_Dream, beu_id, beu_lnk_id);
+	// FEU PowerUp Register
+	if
+	(
+		( feu_params->Feu_Pwr_Dream >= 0 )
+		||
+		( feu_params->Feu_Pwr_PrtFlt >= 0 )
+	)
+	{
+		// Set address address
+		reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Feu );
+		reg_adr = D_MainAdr_Set( reg_adr, C_Feu_AdrReg_PwrUp );
+
+		// First read current content
+		if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+		{
+			fprintf( stderr,  "%s: Beu_ReqResp DEF_FEU_READ failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+			return D_RetCode_Err_NetIO;
+		}
+//printf("%s: Feu %d power rd_val 0x%08x (beu %d lnk %d)\n", __FUNCTION__, feu_id, rd_val, beu_id, beu_lnk_id);
+		wr_val = D_Feu_RegPwr_PrtFlt_Set( rd_val, feu_params->Feu_Pwr_PrtFlt );
+//printf("%s: Feu %d power wr_val 0x%08x (beu %d lnk %d)\n", __FUNCTION__, feu_id, wr_val, beu_id, beu_lnk_id);
+/*
+		if( feu_params->Feu_Pwr_PrtFlt == 0 )
+		{
+			// Write
+			if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+			{
+				fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x\n",
+					__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr );
+				return D_RetCode_Err_NetIO;
+			}
+			else
+			{
+				if( D_Feu_RegPwr_Get(wr_val) != D_Feu_RegPwr_Get(rd_val) )
+				{
+					fprintf( stderr,  "%s: FEU PowerUp WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+						__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+					return D_RetCode_Err_WrRd_Missmatch;
+				}
+			}
+		}
+*/
+		// Power dreams
+		for( dream_pair=0; dream_pair<4; dream_pair++ )
+		{
+			if( ((feu_params->Feu_Pwr_Dream) & (1 << dream_pair)) != (D_Feu_RegPwr_Get(wr_val) & (1 << dream_pair)) )
+			{
+				dream_power = D_Feu_RegPwr_Dream_Get( wr_val);
+				if( feu_params->Feu_Pwr_Dream & (1 << dream_pair) )
+					dream_power |= (1 << dream_pair);
+				else
+					dream_power &= ((~(1 << dream_pair))&0xF);
+				wr_val = D_Feu_RegPwr_Dream_Set( wr_val, dream_power );
+//printf("%s: Feu %d dream_pair=%d shift=0x%1x inf=0x%1x mask=0x%1x dream_power 0x%08x (beu %d lnk %d)\n", __FUNCTION__, feu_id, dream_pair, (1 << dream_pair), ~(1 << dream_pair), dream_power, beu_id, beu_lnk_id);
+//printf("%s: Feu %d dream_pair=%d power wr_val 0x%08x (beu %d lnk %d)\n", __FUNCTION__, feu_id, dream_pair, wr_val, beu_id, beu_lnk_id);
+				// Write
+				if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+				{
+					fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x\n",
+						__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr );
+					return D_RetCode_Err_NetIO;
+				}
+				else
+				{
+					if( D_Feu_RegPwr_Get(wr_val) != D_Feu_RegPwr_Get(rd_val) )
+					{
+						fprintf( stderr,  "%s: FEU PowerUp WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+							__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+						return D_RetCode_Err_WrRd_Missmatch;
+					}
+				}
+				usleep(500000);
 			} // if( feu_params->Feu_Pwr_Dream & (1 << dream_pair) )
 		} // for( dream_pair=0; dream_pair<4; dream_pair++ )
 //printf("%s: Feu %d power 0x%08x done (beu %d lnk %d)\n", __FUNCTION__, feu_id, rd_val, beu_id, beu_lnk_id);
@@ -1798,10 +2366,24 @@ int _FeuConfig( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 	}
 
 	// Self Trigger Interface parameters
+	if
+	(
+		(feu_params->SelfTrig_DreamMask >= 0)
+		||
+		(feu_params->SelfTrig_Mult >= 0)
+		||
+		(feu_params->SelfTrig_CmbHitPropOl >= 0)
+		||
+		(feu_params->SelfTrig_DrmHitWid >= 0)
+		||
+		(feu_params->SelfTrig_CmbHitWid >= 0)
+		||
+		(feu_params->SelfTrig_TrigTopo >= 0)
+	)
+	// Self Trigger parameters
 	{
-		// Mask Dreams: no self trigger
-		wr_val = D_SelfTrig_Csr_Conf_Set( 0, 0xFF, 7, 0, 63, 63, 0, 0 );
 		// Set configuration register address 
+		wr_val = D_SelfTrig_Csr_Conf_Set( 0, feu_params->SelfTrig_DreamMask, feu_params->SelfTrig_Mult, 0, feu_params->SelfTrig_DrmHitWid, feu_params->SelfTrig_CmbHitWid, feu_params->SelfTrig_TrigTopo, feu_params->SelfTrig_CmbHitPropOl );
 		reg_adr = D_CBus_SetModType(            0, D_CBus_Mod_SelfTrig );
 		reg_adr = D_SelfTrig_AdrZone_Set( reg_adr, D_SelfTrig_AdrZone_Reg );
 		reg_adr = D_SelfTrig_AdrReg_Set(  reg_adr, C_SelfTrig_AdrReg_Csr );
@@ -1816,14 +2398,40 @@ int _FeuConfig( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 		{
 			if( D_SelfTrig_Csr_Conf_Get(wr_val) != D_SelfTrig_Csr_Conf_Get(rd_val) )
 			{
-				fprintf( stderr,  "%s: Self Trigger WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				fprintf( stderr,  "%s: Self Trigger Csr WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
 					__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, rd_val );
 				return D_RetCode_Err_WrRd_Missmatch;
 			}
 		}
 //printf("%s: Feu %d trig slf (beu %d lnk %d)\n", __FUNCTION__, feu_id, beu_id, beu_lnk_id);
 	}
-	// No need to set Self Trigger topology parameters
+	// Self Trigger Interface parameters
+	if( feu_params->SelfTrig_Veto >= 0 )
+	{
+		// Set configuration register address 
+		wr_val  = D_SelfTrig_RegVeto_Veto_Put(     0, feu_params->SelfTrig_Veto );
+		reg_adr = D_CBus_SetModType(               0, D_CBus_Mod_SelfTrig );
+		reg_adr = D_SelfTrig_AdrZone_Set( reg_adr, D_SelfTrig_AdrZone_Reg );
+		reg_adr = D_SelfTrig_AdrReg_Set(  reg_adr, C_SelfTrig_AdrReg_Veto );
+		// Write
+		if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+		{
+			fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+			return D_RetCode_Err_NetIO;
+		}
+		else
+		{
+			if( D_SelfTrig_RegVeto_Veto_Get(wr_val) != D_SelfTrig_RegVeto_Veto_Get(rd_val) )
+			{
+				fprintf( stderr,  "%s: Self Trigger Veto WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+					__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, rd_val );
+				return D_RetCode_Err_WrRd_Missmatch;
+			}
+		}
+//printf("%s: Feu %d trig slf (beu %d lnk %d)\n", __FUNCTION__, feu_id, beu_id, beu_lnk_id);
+	}
+	// Self Trigger topology parameters : Not yet implemented
 
 	// FEU Communication parameters
 	// Do not touch the Optical link
@@ -1868,12 +2476,16 @@ int _FeuConfig( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 			}
 		}
 	}
-	
 
 	/*
 	 * EeProm configuration
 	 */
-	// Not yet supported
+	if( (ret=EePromConfig( feu_params->ee_prom, feu_id, beu_id, beu_lnk_id )) != D_RetCode_Sucsess )
+	{
+		fprintf( stderr,  "%s: EePromConfig failed for feu=%d beu=%d lnk=%d with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
+		return D_RetCode_Err_NetIO;
+	}
 
 	/*
 	 * Adc configuration
@@ -1886,13 +2498,29 @@ int _FeuConfig( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 	}
 
 	/*
+	 * Max16031 configuration
+	 */
+	if( (ret=Max16031Config( feu_params->max16031, feu_id, beu_id, beu_lnk_id )) != D_RetCode_Sucsess )
+	{
+		fprintf( stderr,  "%s: Max16031Config failed for feu=%d beu=%d lnk=%d with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
+		return D_RetCode_Err_NetIO;
+	}
+
+	/*
 	 * Dream configuration
 	 */
 	if( (ret=DreamSpiConfig( feu_params->dream_params, feu_id, beu_id, beu_lnk_id, feu_params->Main_Conf_DreamMask )) != D_RetCode_Sucsess )
 	{
 		fprintf( stderr,  "%s: DreamSpiConfig failed for feu=%d beu=%d lnk=%d with %d\n",
 			__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
-		return D_RetCode_Err_NetIO;
+		fprintf( stderr,  "%s: Attempt with DreamConfig\n" );
+		if( (ret=DreamConfig( feu_params->dream_params, feu_id, beu_id, beu_lnk_id, feu_params->Main_Conf_DreamMask )) != D_RetCode_Sucsess )
+		{
+			fprintf( stderr,  "%s: DreamConfig failed for feu=%d beu=%d lnk=%d with %d\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
+			return D_RetCode_Err_NetIO;
+		}
 	}
 
 	// Send config command
@@ -1982,6 +2610,12 @@ int FeuConfig( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 		fprintf( stderr,  "%s: _FeuGetSn failed for feu=%d beu=%d lnk=%d with %d\n",
 			__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
 		return D_RetCode_Err_NetIO;
+	}
+	if( feu_sn != feu_params->Feu_RunCtrl_Id )
+	{
+		fprintf( stderr,  "%s: Unexpected Feu SN=%d for feu=%d beu=%d lnk=%d; SN=%d expected\n",
+			__FUNCTION__, feu_sn, feu_id, beu_id, beu_lnk_id, feu_params->Feu_RunCtrl_Id );
+		return D_RetCode_Err_Wrong_Param;
 	}
 
 	// Get exclussive access to the FEU
@@ -2224,6 +2858,7 @@ int FeuToggleCommand( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk
 	/*
 	 *  Try to get FEU ID
 	 */
+/*
 	// Those are RO registers, so no semaphore is needed
 	// Set address 
 	reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Main );
@@ -2253,8 +2888,8 @@ int FeuToggleCommand( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk
 	// Complete with 4 MSB-s
 //	printf("%s: rd_val=0x%08x\n", __FUNCTION__, rd_val);
 	feu_sn = (D_Main_Rev_GetSrN(rd_val)<<4) + feu_sn;
-	printf("%s: Feu %d SN %d (beu %d lnk %d)\n", __FUNCTION__, feu_id, feu_sn, beu_id, beu_lnk_id);
-
+//	printf("%s: Feu %d SN %d (beu %d lnk %d)\n", __FUNCTION__, feu_id, feu_sn, beu_id, beu_lnk_id);
+*/
 	/*
 	 *  Try to get Exclusive access to FEU
 	 */
@@ -2322,7 +2957,8 @@ int FeuToggleCommand( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk
 			return D_RetCode_Err_WrRd_Missmatch;
 		}
 	}
-
+//printf("%s: command 0x%x should be set\n", __FUNCTION__, tog_cmd);
+//getchar();
 	/*
 	 *  Reset the command
 	 */
@@ -2359,6 +2995,8 @@ int FeuToggleCommand( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk
 			return D_RetCode_Err_WrRd_Missmatch;
 		}
 	}
+//printf("%s: command 0x%x should be cleared\n", __FUNCTION__, tog_cmd);
+//getchar();
 
 	/*
 	 *  Free exclusive access to FEU
@@ -2371,4 +3009,877 @@ int FeuToggleCommand( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk
 
 	return D_RetCode_Sucsess;
 }
+
+/***************************************************************************
+ ***************************************************************************
+            Trigger Scan Functions
+ ***************************************************************************
+ ***************************************************************************/
+FeuTrgScan feu_trg_scan[DEF_MAX_NB_OF_FEU];
+
+int FeuTrgScan_Init( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
+{
+	int dream;
+	int dream_reg;
+	unsigned short dream_reg_val[4];
+
+	unsigned int reg_adr;
+	unsigned int wr_val;
+	unsigned int rd_val;
+
+	int ret;
+
+	scan->drm_msk = feu_params->SelfTrig_DreamMask;
+	scan->running_drm  = -1;
+	scan->running_thr  = -1;
+	scan->nb_of_checks = -1;
+	scan->prev_cntr    = 0;
+
+
+	// First Fix the Peek/Poke global variables
+	PeekPoke_Feu = feu_id;
+	PeekPoke_Beu = beu_id;
+	PeekPoke_Lnk = beu_lnk_id;
+
+	// Reset
+	// Clear config command
+	// Set address 
+	reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Main );
+	reg_adr = D_MainAdr_Set( reg_adr, D_MainAdr_RegCommand );
+	// Read
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	wr_val = D_Main_Cmd_Config_Clr( rd_val );
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Main_Cmd_Config_Get(wr_val) != D_Main_Cmd_Config_Get(rd_val) )
+		{
+			fprintf( stderr,  "%s: Main Command (Config_Clr) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+//printf("%s: the system should be in Init state\n", __FUNCTION__ );
+//getchar();
+	// Programme High threshold
+	for( dream=0; dream<DEF_MAX_NB_OF_DREAM; dream++ )
+	{
+		scan->drm_thr[dream] = 0;
+
+		// Set Highest threshold
+		dream_reg = 1;
+		dream_reg_val[0] = 0x081F;
+		dream_reg_val[1] = 0xC000 | (feu_params->dream_params[dream].dream_reg[1].reg[1]&0x00FF);
+		dream_reg_val[2] = 0;
+		dream_reg_val[3] = 0;
+		if( DreamSpiRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+		{
+			if( DreamRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+			{
+				fprintf( stderr,  "%s: DreamSpiRegConfig & DreamRegConfig failed for drm=%d reg=%d feu=%d beu=%d lnk=%d\n\r",
+					__FUNCTION__, dream, dream_reg, feu_id, beu_id, beu_lnk_id );
+				return D_RetCode_Err_NetIO;
+			}
+		}
+
+		// Mask channels 0 to 31
+		dream_reg = 8;
+		dream_reg_val[0] = 0xFFFF;
+		dream_reg_val[1] = 0xFFFF;
+		dream_reg_val[2] = 0;
+		dream_reg_val[3] = 0;
+		if( DreamSpiRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+		{
+			if( DreamRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+			{
+				fprintf( stderr,  "%s: DreamSpiRegConfig & DreamRegConfig failed for drm=%d reg=%d feu=%d beu=%d lnk=%d\n\r",
+					__FUNCTION__, dream, dream_reg, feu_id, beu_id, beu_lnk_id );
+				return D_RetCode_Err_NetIO;
+			}
+		}
+		// Mask channels 32 to 63
+		dream_reg = 9;
+		dream_reg_val[0] = 0xFFFF;
+		dream_reg_val[1] = 0xFFFF;
+		dream_reg_val[2] = 0;
+		dream_reg_val[3] = 0;
+		if( DreamSpiRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+		{
+			if( DreamRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+			{
+				fprintf( stderr,  "%s: DreamSpiRegConfig & DreamRegConfig failed for drm=%d reg=%d feu=%d beu=%d lnk=%d\n\r",
+					__FUNCTION__, dream, dream_reg, feu_id, beu_id, beu_lnk_id );
+				return D_RetCode_Err_NetIO;
+			}
+		}
+	}
+
+	// Mask all Dreams out of self trigger
+	reg_adr = D_CBus_SetModType(            0, D_CBus_Mod_SelfTrig );
+	reg_adr = D_SelfTrig_AdrZone_Set( reg_adr, D_SelfTrig_AdrZone_Reg );
+	reg_adr = D_SelfTrig_AdrReg_Set(  reg_adr, C_SelfTrig_AdrReg_Csr );
+	// Read
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	wr_val = D_SelfTrig_Csr_DrmMsk_Set(rd_val);
+	wr_val = D_SelfTrig_Csr_Mult_Set(wr_val);
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Main_Cmd_Config_Get(wr_val) != D_Main_Cmd_Config_Get(rd_val) )
+		{
+			fprintf( stderr,  "%s: SelfTrig_AdrReg_Csr( Dream Mask) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+
+	// FEU Prescale parameters
+	// Set address address 
+	reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Feu );
+	reg_adr = D_Feu_AdrReg_Set( reg_adr, C_Feu_AdrReg_PreScale );
+	// Read
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	// Set large prescale
+	wr_val = D_Feu_RegPreScale_EvtData_Put( rd_val, 2047 );
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( wr_val != rd_val )
+		{
+			fprintf( stderr,  "%s: FEU Prescale WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+/*
+	// Switch trigger source to self trigger
+	// Set configuration register address 
+	reg_adr = D_CBus_SetModType(      0, D_CBus_Mod_TrigGen );
+	reg_adr = D_Tg_AdrZone_Set( reg_adr, D_Tg_AdrZone_Reg );
+	reg_adr = D_Tg_AdrReg_Set(  reg_adr, D_Tg_RegAdr_Conf );
+	// Write
+	// Only optical link trigger is supported 
+	wr_val = D_Tg_RegConf_Set( 0, 0, feu_params->Trig_Conf_TrigPipeLen, Tg_Src_PushButton, 0 );
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Tg_RegConf_GetConfig(wr_val) != D_Tg_RegConf_GetConfig(rd_val) )
+		{
+			fprintf( stderr,  "%s: Trigger generator WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+*/
+	// Initialize
+	// Set address 
+	reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Main );
+	reg_adr = D_MainAdr_Set( reg_adr, D_MainAdr_RegCommand );
+	// Read
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	wr_val = D_Main_Cmd_Config_Set( rd_val );
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Main_Cmd_Config_Get(wr_val) != D_Main_Cmd_Config_Get(rd_val) )
+		{
+			fprintf( stderr,  "%s: Main Command (Config_Set) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+//printf("%s: the system should be in IDLE state\n", __FUNCTION__ );
+//getchar();
+	return D_RetCode_Sucsess;
+}
+
+int FeuTrgScan_SetThr( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
+{
+	unsigned int reg_adr;
+	unsigned int wr_val;
+	unsigned int rd_val;
+
+	int dream;
+	int dream_reg;
+	unsigned short dream_reg_val[4];
+
+	int ret;
+
+	// Nothing to do
+	if( scan->drm_msk == 0xFF )
+		return( D_RetCode_Sucsess );
+
+	// First Fix the Peek/Poke global variables
+	PeekPoke_Feu = feu_id;
+	PeekPoke_Beu = beu_id;
+	PeekPoke_Lnk = beu_lnk_id;
+
+	// Stop run
+	// Set address 
+	reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Main );
+	reg_adr = D_MainAdr_Set( reg_adr, D_MainAdr_RegCommand );
+	// Read
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	wr_val = D_Main_Cmd_Run_Clr( rd_val );
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Main_Cmd_Config_Get(wr_val) != D_Main_Cmd_Config_Get(rd_val) )
+		{
+			fprintf( stderr,  "%s: Main Command (Run_Clr) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+
+	// Reset
+	// Clear config command
+	// Set address 
+	reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Main );
+	reg_adr = D_MainAdr_Set( reg_adr, D_MainAdr_RegCommand );
+	// Read
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	wr_val = D_Main_Cmd_Config_Clr( rd_val );
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Main_Cmd_Config_Get(wr_val) != D_Main_Cmd_Config_Get(rd_val) )
+		{
+			fprintf( stderr,  "%s: Main Command (Config_Clr) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+
+	// Check if scan of a new dream has to be initiated
+//fprintf(stderr, "%s: running_thr=%d\n\r", __FUNCTION__, scan->running_thr );
+	if( scan->running_thr < 0 )
+	{
+		do
+		{
+			scan->running_drm++;
+		} while( scan->drm_msk & (1<<scan->running_drm) );
+//fprintf(stderr, "%s: running_drm=%d drm_msk=0x%02x\n\r", __FUNCTION__, scan->running_drm, scan->drm_msk );
+//getchar();
+		// Unmask the found Dream for self trigger
+		// Mask all Dreams out of self trigger
+		reg_adr = D_CBus_SetModType(            0, D_CBus_Mod_SelfTrig );
+		reg_adr = D_SelfTrig_AdrZone_Set( reg_adr, D_SelfTrig_AdrZone_Reg );
+		reg_adr = D_SelfTrig_AdrReg_Set(  reg_adr, C_SelfTrig_AdrReg_Csr );
+		// Read
+		if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+		{
+			fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+			return D_RetCode_Err_NetIO;
+		}
+		reg_adr = D_CBus_SetModType(            0, D_CBus_Mod_SelfTrig );
+		reg_adr = D_SelfTrig_AdrZone_Set( reg_adr, D_SelfTrig_AdrZone_Reg );
+		reg_adr = D_SelfTrig_AdrReg_Set(  reg_adr, C_SelfTrig_AdrReg_Csr );
+		wr_val = (rd_val & 0xFFFFFF00) | ((~(1<<scan->running_drm)) & 0xFF);
+		wr_val = D_SelfTrig_Csr_Mult_Clr(wr_val);
+		// Write to register
+		if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+		{
+			fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+			return D_RetCode_Err_NetIO;
+		}
+		else
+		{
+			if( D_Main_Cmd_Config_Get(wr_val) != D_Main_Cmd_Config_Get(rd_val) )
+			{
+				fprintf( stderr,  "%s: SelfTrig_AdrReg_Csr( Dream Mask) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+					__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, rd_val );
+				return D_RetCode_Err_WrRd_Missmatch;
+			}
+		}
+
+		dream = scan->running_drm;
+		// Set channels 0 to 31
+		dream_reg = 8;
+		dream_reg_val[0] = feu_params->dream_params[dream].dream_reg[dream_reg].reg[0];
+		dream_reg_val[1] = feu_params->dream_params[dream].dream_reg[dream_reg].reg[1];
+		dream_reg_val[2] = 0;
+		dream_reg_val[3] = 0;
+		if( DreamSpiRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+		{
+			if( DreamRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+			{
+				fprintf( stderr,  "%s: DreamSpiRegConfig & DreamRegConfig failed for drm=%d reg=%d feu=%d beu=%d lnk=%d\n\r",
+					__FUNCTION__, dream, dream_reg, feu_id, beu_id, beu_lnk_id );
+				return D_RetCode_Err_NetIO;
+			}
+		}
+		// Set channels 32 to 63
+		dream_reg = 9;
+		dream_reg_val[0] = feu_params->dream_params[dream].dream_reg[dream_reg].reg[0];
+		dream_reg_val[1] = feu_params->dream_params[dream].dream_reg[dream_reg].reg[1];
+		dream_reg_val[2] = 0;
+		dream_reg_val[3] = 0;
+		if( DreamSpiRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+		{
+			if( DreamRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+			{
+				fprintf( stderr,  "%s: DreamSpiRegConfig & DreamRegConfig failed for drm=%d reg=%d feu=%d beu=%d lnk=%d\n\r",
+					__FUNCTION__, dream, dream_reg, feu_id, beu_id, beu_lnk_id );
+				return D_RetCode_Err_NetIO;
+			}
+		}
+		scan->running_thr = DEF_DRM_TRG_MIN_THR;
+	}
+	else
+		scan->running_thr++;
+
+	if( scan->running_thr <= DEF_DRM_TRG_MAX_THR )
+	{
+		// Set threshold
+		dream = scan->running_drm;
+		dream_reg = 1;
+		dream_reg_val[0] = (feu_params->dream_params[dream].dream_reg[dream_reg].reg[0] & 0xFFE0) | (( scan->running_thr >> 2 ) & 0x1F);
+		dream_reg_val[1] = ((scan->running_thr&0x3)<<14) | (feu_params->dream_params[dream].dream_reg[1].reg[1]&0x00FF);
+		dream_reg_val[2] = 0;
+		dream_reg_val[3] = 0;
+//fprintf( stderr,  "%s: feu=%d dream=%d reg_val 0x%04x 0x%04x\n\r", __FUNCTION__, feu_index, dream, dream_reg_val[0], dream_reg_val[1] );
+		if( DreamSpiRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+		{
+			if( DreamRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+			{
+				fprintf( stderr,  "%s: DreamSpiRegConfig & DreamRegConfig failed for drm=%d reg=%d feu=%d beu=%d lnk=%d\n\r",
+					__FUNCTION__, dream, dream_reg, feu_id, beu_id, beu_lnk_id );
+				return D_RetCode_Err_NetIO;
+			}
+		}
+	}
+
+	// Initialize
+	// Set address 
+	reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Main );
+	reg_adr = D_MainAdr_Set( reg_adr, D_MainAdr_RegCommand );
+	// Read
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	wr_val = D_Main_Cmd_Config_Set( rd_val );
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Main_Cmd_Config_Get(wr_val) != D_Main_Cmd_Config_Get(rd_val) )
+		{
+			fprintf( stderr,  "%s: Main Command (Config_Set) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+
+	// Enable run
+	// Set address 
+	reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Main );
+	reg_adr = D_MainAdr_Set( reg_adr, D_MainAdr_RegCommand );
+	// Read
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	wr_val = D_Main_Cmd_Run_Set( rd_val );
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Main_Cmd_Config_Get(wr_val) != D_Main_Cmd_Config_Get(rd_val) )
+		{
+			fprintf( stderr,  "%s: Main Command (Run_Set) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+
+	// Clear stat
+	if( (ret = FeuToggleCommand( feu_params, feu_id, beu_id, beu_lnk_id, ClearStat ) ) != D_RetCode_Sucsess )
+	{
+		fprintf( stderr,  "%s: FeuToggleCommand ClearStat failed for feu=%d beu=%d lnk=%d with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
+		return D_RetCode_Err_NetIO;
+	}
+
+	scan->nb_of_checks = 0;
+	scan->prev_cntr = 0;
+
+	return D_RetCode_Sucsess;
+}
+
+int FeuTrgScan_MskDrm( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
+{
+	unsigned int reg_adr;
+	unsigned int wr_val;
+	unsigned int rd_val;
+
+	int dream;
+	int dream_reg;
+	unsigned short dream_reg_val[4];
+
+	int ret;
+
+	// First Fix the Peek/Poke global variables
+	PeekPoke_Feu = feu_id;
+	PeekPoke_Beu = beu_id;
+	PeekPoke_Lnk = beu_lnk_id;
+
+	// Stop run
+	// Set address 
+	reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Main );
+	reg_adr = D_MainAdr_Set( reg_adr, D_MainAdr_RegCommand );
+	// Read
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	wr_val = D_Main_Cmd_Run_Clr( rd_val );
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Main_Cmd_Config_Get(wr_val) != D_Main_Cmd_Config_Get(rd_val) )
+		{
+			fprintf( stderr,  "%s: Main Command (Run_Clr) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+
+	// Reset
+	// Clear config command
+	// Set address 
+	reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Main );
+	reg_adr = D_MainAdr_Set( reg_adr, D_MainAdr_RegCommand );
+	// Read
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	wr_val = D_Main_Cmd_Config_Clr( rd_val );
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Main_Cmd_Config_Get(wr_val) != D_Main_Cmd_Config_Get(rd_val) )
+		{
+			fprintf( stderr,  "%s: Main Command (Config_Clr) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+
+	// Set threshold
+	dream = scan->running_drm;
+	dream_reg = 1;
+	dream_reg_val[0] = 0x081F;
+	dream_reg_val[1] = 0xC000 | (feu_params->dream_params[dream].dream_reg[1].reg[1]&0x00FF);
+	dream_reg_val[2] = 0;
+	dream_reg_val[3] = 0;
+//fprintf( stderr,  "%s: feu=%d dream=%d reg_val 0x%04x 0x%04x\n\r", __FUNCTION__, feu_index, dream, dream_reg_val[0], dream_reg_val[1] );
+	if( DreamSpiRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+	{
+		if( DreamRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+		{
+			fprintf( stderr,  "%s: DreamSpiRegConfig & DreamRegConfig failed for drm=%d reg=%d feu=%d beu=%d lnk=%d\n\r",
+				__FUNCTION__, dream, dream_reg, feu_id, beu_id, beu_lnk_id );
+			return D_RetCode_Err_NetIO;
+		}
+	}
+
+	// Mask channels 0 to 31
+	dream_reg = 8;
+	dream_reg_val[0] = 0xFFFF;
+	dream_reg_val[1] = 0xFFFF;
+	dream_reg_val[2] = 0;
+	dream_reg_val[3] = 0;
+	if( DreamSpiRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+	{
+		if( DreamRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+		{
+			fprintf( stderr,  "%s: DreamSpiRegConfig & DreamRegConfig failed for drm=%d reg=%d feu=%d beu=%d lnk=%d\n\r",
+				__FUNCTION__, dream, dream_reg, feu_id, beu_id, beu_lnk_id );
+			return D_RetCode_Err_NetIO;
+		}
+	}
+	// Mask channels 32 to 63
+	dream_reg = 9;
+	dream_reg_val[0] = 0xFFFF;
+	dream_reg_val[1] = 0xFFFF;
+	dream_reg_val[2] = 0;
+	dream_reg_val[3] = 0;
+	if( DreamSpiRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+	{
+		if( DreamRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+		{
+			fprintf( stderr,  "%s: DreamSpiRegConfig & DreamRegConfig failed for drm=%d reg=%d feu=%d beu=%d lnk=%d\n\r",
+				__FUNCTION__, dream, dream_reg, feu_id, beu_id, beu_lnk_id );
+			return D_RetCode_Err_NetIO;
+		}
+	}
+
+	// Mask all Dreams out of self trigger
+	reg_adr = D_CBus_SetModType(            0, D_CBus_Mod_SelfTrig );
+	reg_adr = D_SelfTrig_AdrZone_Set( reg_adr, D_SelfTrig_AdrZone_Reg );
+	reg_adr = D_SelfTrig_AdrReg_Set(  reg_adr, C_SelfTrig_AdrReg_Csr );
+	// Read
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+	{
+		if( DreamRegConfig( dream, dream_reg, dream_reg_val, feu_id, beu_id, beu_lnk_id ) != D_RetCode_Sucsess )
+		{
+			fprintf( stderr,  "%s: DreamSpiRegConfig & DreamRegConfig failed for drm=%d reg=%d feu=%d beu=%d lnk=%d\n\r",
+				__FUNCTION__, dream, dream_reg, feu_id, beu_id, beu_lnk_id );
+			return D_RetCode_Err_NetIO;
+		}
+	}
+	wr_val = D_SelfTrig_Csr_DrmMsk_Set(rd_val);
+	wr_val = D_SelfTrig_Csr_Mult_Set(wr_val);
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Main_Cmd_Config_Get(wr_val) != D_Main_Cmd_Config_Get(rd_val) )
+		{
+			fprintf( stderr,  "%s: SelfTrig_AdrReg_Csr( Dream Mask) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+
+	// Set running threshold negative
+	scan->running_thr = -1;
+	scan->nb_of_checks = -1;
+	scan->prev_cntr = 0;
+
+	// Mask in the flags also
+	scan->drm_msk |= (1<<scan->running_drm);
+	if( scan->drm_msk == 0xFF )
+	{
+		// looks like we've done with the FEU
+		// Restore trigger module config parameters
+		// Set configuration register address 
+		reg_adr = D_CBus_SetModType(      0, D_CBus_Mod_TrigGen );
+		reg_adr = D_Tg_AdrZone_Set( reg_adr, D_Tg_AdrZone_Reg );
+		reg_adr = D_Tg_AdrReg_Set(  reg_adr, D_Tg_RegAdr_Conf );
+		// Write
+		// Only optical link trigger is supported 
+		wr_val = D_Tg_RegConf_Set( 0, 0, feu_params->Trig_Conf_TrigPipeLen, Tg_Src_Int, 0 );
+		if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+		{
+			fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr );
+			return D_RetCode_Err_NetIO;
+		}
+		else
+		{
+			if( D_Tg_RegConf_GetConfig(wr_val) != D_Tg_RegConf_GetConfig(rd_val) )
+			{
+				fprintf( stderr,  "%s: Trigger generator WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+					__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+				return D_RetCode_Err_WrRd_Missmatch;
+			}
+		}
+
+		// FEU Prescale parameters
+		// Set address address 
+		reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Feu );
+		reg_adr = D_Feu_AdrReg_Set( reg_adr, C_Feu_AdrReg_PreScale );
+		// Read
+		if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+		{
+			fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+			return D_RetCode_Err_NetIO;
+		}
+		// Set large prescale
+		wr_val = D_Feu_RegPreScale_EvtData_Put( rd_val, feu_params->Feu_PreScale_EvtData );
+		// Write
+		if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+		{
+			fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr );
+			return D_RetCode_Err_NetIO;
+		}
+		else
+		{
+			if( wr_val != rd_val )
+			{
+				fprintf( stderr,  "%s: FEU Prescale WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+					__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+				return D_RetCode_Err_WrRd_Missmatch;
+			}
+		}
+	}
+
+	// Initialize
+	// Set address 
+	reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Main );
+	reg_adr = D_MainAdr_Set( reg_adr, D_MainAdr_RegCommand );
+	// Read
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	wr_val = D_Main_Cmd_Config_Set( rd_val );
+	// Write
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+	else
+	{
+		if( D_Main_Cmd_Config_Get(wr_val) != D_Main_Cmd_Config_Get(rd_val) )
+		{
+			fprintf( stderr,  "%s: Main Command (Config_Set) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
+			return D_RetCode_Err_WrRd_Missmatch;
+		}
+	}
+
+	if( scan->drm_msk == 0xFF )
+		return 1; // looks like we've done with the FEU
+
+	// Continue with other Dream
+	return 0;
+}
+
+int FeuTrgScan_ChkCoin( FeuTrgScan *scan, FeuParams *feu_params, int chk_cnt, int feu_id, int beu_id, int beu_lnk_id )
+{
+	unsigned int reg_adr;
+	unsigned int wr_val;
+	unsigned int rd_val;
+
+	int ret;
+
+	scan->nb_of_checks++;
+
+	// Latch stat
+	if( (ret = FeuToggleCommand( feu_params, feu_id, beu_id, beu_lnk_id, LatchStat ) ) != D_RetCode_Sucsess )
+	{
+		fprintf( stderr,  "%s: FeuToggleCommand LatchStat failed for feu=%d beu=%d lnk=%d with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
+		return D_RetCode_Err_NetIO;
+	}
+
+	// First Fix the Peek/Poke global variables
+	PeekPoke_Feu = feu_id;
+	PeekPoke_Beu = beu_id;
+	PeekPoke_Lnk = beu_lnk_id;
+
+	// Get Coin LSB register
+	reg_adr = D_CBus_SetModType(            0, D_CBus_Mod_SelfTrig );
+	reg_adr = D_SelfTrig_AdrZone_Set( reg_adr, D_SelfTrig_AdrZone_Reg );
+	reg_adr = D_SelfTrig_AdrReg_Set(  reg_adr, C_SelfTrig_AdrReg_CoinCntrLsb );
+	// Read
+	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_READ, &rd_val ) ) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ReqResp failed for feu=%d beu=%d lnk=%d reg=0x%06x with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
+		return D_RetCode_Err_NetIO;
+	}
+
+	// Compare counts
+	if( scan->nb_of_checks == 1 )
+		scan->prev_cntr = rd_val;
+
+	// Stop scanning threshold found
+	if( scan->prev_cntr == rd_val )
+		if( scan->nb_of_checks == chk_cnt )
+		{
+			scan->drm_thr[scan->running_drm] = scan->running_thr;
+			return 1;
+		}
+
+	if( scan->prev_cntr != rd_val )
+		if( scan->running_thr == DEF_DRM_TRG_MAX_THR )
+		{
+			// Stop scanning threshold not found
+			scan->drm_thr[scan->running_drm] = scan->running_thr;
+			return 1;
+		}
+		else
+		{
+			// Increase threshold, continue scan
+			scan->nb_of_checks = -1;
+			scan->prev_cntr = 0;
+			return 0; // Increase threshold
+		}
+
+	// Continue to check
+	return 0;
+}
+
+int FeuTrgScan_Sprintf( FeuTrgScan *scan, FeuParams *feu_params, int feu_index, char *buf )
+{
+	sprintf( buf, "# Feu %d Dream Trg Mask 0x%02x Thr 0=%3d 1=%3d 2=%3d 3=%3d 4=%3d 5=%3d 6=%3d 7=%3d\n\r",
+		feu_index,
+		feu_params->SelfTrig_DreamMask,
+		scan->drm_thr[0], scan->drm_thr[1], scan->drm_thr[2], scan->drm_thr[3],
+		scan->drm_thr[4], scan->drm_thr[5], scan->drm_thr[6], scan->drm_thr[7] );
+	return D_RetCode_Sucsess;
+}
+
+int FeuTrgScan_Fprintf( FeuTrgScan *scan, FeuParams *feu_params, int feu_index, FILE *fptr )
+{
+	char buf[256];
+	FeuTrgScan_Sprintf( scan, feu_params, feu_index, buf );
+	fprintf( fptr, "%s", buf );
+	fflush( fptr );
+	return D_RetCode_Sucsess;
+}
+
+int FeuTrgScan_DumpConfigInfo( FeuTrgScan *scan, FeuParams *feu_params, int feu_index, FILE *fptr )
+{
+	int dream;
+	fprintf( fptr, "# Feu %d Dream Trg Mask 0x%02x Thr 0=%3d 1=%3d 2=%3d 3=%3d 4=%3d 5=%3d 6=%3d 7=%3d\n\r",
+		feu_index,
+		feu_params->SelfTrig_DreamMask,
+		scan->drm_thr[0], scan->drm_thr[1], scan->drm_thr[2], scan->drm_thr[3],
+		scan->drm_thr[4], scan->drm_thr[5], scan->drm_thr[6], scan->drm_thr[7] );
+	// Programme High threshold
+	for( dream=0; dream<DEF_MAX_NB_OF_DREAM; dream++ )
+	{
+		if( ( feu_params->SelfTrig_DreamMask & (1<<dream) ) == 0 )
+			fprintf( fptr, "# Feu %d Dream %d 1 0x%04x 0x%04x 0x0000 0x0000 # thr=%d\n", feu_index, dream,
+				0x0940 | ((scan->drm_thr[dream] >> 2) & 0x1F),
+				((scan->drm_thr[dream]&0x3)<<14) | (feu_params->dream_params[dream].dream_reg[1].reg[1]&0x00FF),
+				scan->drm_thr[dream] );
+	}
+	fprintf( fptr, "#\n" );
+	return D_RetCode_Sucsess;
+}
+
+int FeuTrgScan_UpdateConfig( FeuTrgScan *scan, FeuParams *feu_params, int feu_index )
+{
+	int dream;
+	int dream_reg_val;
+	// Programme High threshold
+	for( dream=0; dream<DEF_MAX_NB_OF_DREAM; dream++ )
+	{
+		if( ( feu_params->SelfTrig_DreamMask & (1<<dream) ) == 0 )
+		{
+			dream_reg_val = feu_params->dream_params[dream].dream_reg[1].reg[0];
+			dream_reg_val = (dream_reg_val & 0xFFE0) | ((scan->drm_thr[dream]>>2) & 0x1F);
+			feu_params->dream_params[dream].dream_reg[1].reg[0] = dream_reg_val;
+
+			dream_reg_val = feu_params->dream_params[dream].dream_reg[1].reg[1];
+			dream_reg_val = (dream_reg_val & 0x3FFF) | ((scan->drm_thr[dream]&0x3)<<14);
+			feu_params->dream_params[dream].dream_reg[1].reg[1] = dream_reg_val;
+		}
+	}
+	return D_RetCode_Sucsess;
+}
+
+
 

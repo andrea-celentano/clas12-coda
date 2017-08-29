@@ -104,6 +104,7 @@ int main( int argc, char* *argv )
 
 	// Parameters
 	char conf_file_name[128];
+	int  scan_trg_thr;
 
 	int ret;
 
@@ -113,13 +114,15 @@ int main( int argc, char* *argv )
 
 	// Initialization
 	verbose =  0;
-	sprintf(conf_file_name, DEF_ConfFileName );
-	sprintf(progname, "%s", basename(argv[0]));
+	scan_trg_thr = 0;
+	sprintf(conf_file_name,            DEF_ConfFileName );
+	sprintf(progname,            "%s", basename(argv[0]));
+
 
 	/******************************/
 	/* Check for input parameters */
 	/******************************/
-	sprintf( optformat, "c:vh" );
+	sprintf( optformat, "c:svh" );
 	while( ( opt = getopt( argc, argv, optformat ) ) != -1 )
 	{
 		switch( opt )
@@ -127,6 +130,10 @@ int main( int argc, char* *argv )
 		break;
 			case 'c':
 				sprintf( conf_file_name, "%s", optarg );
+			break;
+
+			case 's':
+				scan_trg_thr = 1;
 			break;
 
 			case 'v':
@@ -142,6 +149,7 @@ int main( int argc, char* *argv )
 	if( verbose )
 	{
 		printf( "conf_file_name          = %s\n",    conf_file_name );
+		printf( "scan_trg_thr            = %d\n",    scan_trg_thr );
 		printf( "verbose                 = %d\n",    verbose );
 	}
 
@@ -175,14 +183,35 @@ int main( int argc, char* *argv )
 	gettimeofday(&t1, 0);
 	timersub(&t1,&t0,&dt);
 	printf("%s: The system has been configured in %d sec and %d usec\n", progname, dt.tv_sec, dt.tv_usec );
-	
+
+	/*
+	 * The following does not belong to configuration
+	 * This is an attempt to derive self trigger thresholds
+	 */
+	if( scan_trg_thr )
+	{
+		printf("%s: The system should be in Idle state; Press CR to go to Trigger Threshold Scan <-", progname );
+		getchar();
+		gettimeofday(&t0,0);
+		if( (ret=SysScanSlfTrgThresh( conf_file_name )) != D_RetCode_Sucsess )
+		{
+			fprintf( stderr, "%s: SysRun failed for file %s with %d\n", progname, conf_file_name, ret );
+			cleanup(ret);
+		}
+		gettimeofday(&t1, 0);
+		timersub(&t1,&t0,&dt);
+		printf("%s: The thresholds have been scanned in %d sec and %d usec\n", progname, dt.tv_sec, dt.tv_usec );
+	}
+
+	printf("%s: The system should be in Idle state; Press CR to go to Running state <-", progname );
+	getchar();
+
 	/*
 	 * The following does not belong to configuration
 	 * This is a test of bringing the system in running mode for data taking
 	 * This has to be added to the CODA rocPrestart()
 	 */
-	printf("%s: The system should be in Idle state; Press CR to go to Running state <-", progname );
-	getchar();
+
 	// Set system in Running state
 	if( (ret=SysRun()) != D_RetCode_Sucsess )
 	{

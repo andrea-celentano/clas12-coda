@@ -14,8 +14,8 @@
 #define DCRB_PULSER_FREQ_MAX		62.5E6
 #define DCRB_NS_PER_CLOCK           8
 
-#define DCRB_MAX_LOOKBACK     8191
-#define DCRB_MAX_WINDOW       8191
+#define DCRB_MAX_LOOKBACK     16383
+#define DCRB_MAX_WINDOW       16383
 #define DCRB_MAX_DEADTIME      (255*8)
 #define DCRB_DEFAULT_LOOKBACK 2000
 #define DCRB_DEFAULT_WINDOW   1000
@@ -78,10 +78,11 @@ typedef struct
 {
   /* 0x0000-0x0003 */ volatile unsigned int EnableN;
   /* 0x0004-0x0007 */ volatile unsigned int DeadCycles;
-  /* 0x0008-0x000B */ volatile unsigned int TriggerWidth;
-  /* 0x000C-0x00FF */          unsigned int Reserved0[(0x0100-0x000C)/4];
+  /* 0x0008-0x000B */          unsigned int Reserved0[(0x000C-0x0008)/4];
+  /* 0x000C-0x000F */ volatile unsigned int TriggerWidth;
+  /* 0x0010-0x00FF */          unsigned int Reserved1[(0x0100-0x0010)/4];
   /* 0x0100-0x013F */ volatile unsigned int Scalers[16];
-  /* 0x0140-0x01FF */          unsigned int Reserved1[(0x0200-0x0140)/4];
+  /* 0x0140-0x01FF */          unsigned int Reserved2[(0x0200-0x0140)/4];
 } dcrbTdc_regs;
 
 /* Config Peripheral: Board information, fpga flash update */
@@ -240,14 +241,8 @@ typedef struct
   /* 0x0020-0x0023 */ volatile unsigned int FifoBlockCnt;
   /* 0x0024-0x0027 */ volatile unsigned int FifoWordCnt;
   /* 0x0028-0x002B */ volatile unsigned int FifoEventCnt;
-  /* 0x002C-0x002F */ volatile unsigned int Reserved0[(0x0030-0x002C)/4];
-  /* 0x0030-0x0033 */ volatile unsigned int SramAddr;
-  /* 0x0034-0x0037 */ volatile unsigned int SramDinL;
-  /* 0x0038-0x003B */ volatile unsigned int SramDinH;
-  /* 0x003C-0x003F */ volatile unsigned int SramDoutL;
-  /* 0x0040-0x0043 */ volatile unsigned int SramDoutH;
-  /* 0x0044-0x0047 */ volatile unsigned int SramCtrl;
-  /* 0x0048-0x00FF */ volatile unsigned int Reserved1[(0x0100-0x0048)/4];
+  /* 0x002C-0x002F */ volatile unsigned int TrigCntBusyThr;
+  /* 0x0030-0x00FF */ volatile unsigned int Reserved0[(0x0100-0x0030)/4];
 } dcrbEB_regs;
 
 /* DCRB memory structure */
@@ -267,15 +262,15 @@ typedef struct
 
 // /* Function Prototypes */
 // 
-STATUS dcrbInit (UINT32 addr, UINT32 addr_inc, int ndcrb, int iFlag);
+int dcrbInit (unsigned int addr, unsigned int addr_inc, int ndcrb, int iFlag);
 int dcrbHardReset(int id);
 int dcrbSetClockSource(int id, int clkSrc);
 void dcrbStatus(int id, int sflag);
 void dcrbGStatus(int sflag);
 int dcrbSetProcMode(int id, unsigned int lookBack, unsigned int windowWidth, unsigned int deadTime);
 void dcrbGSetProcMode(unsigned int lookBack, unsigned int windowWidth, unsigned int deadTime);
-int dcrbReadBlock(int id, volatile UINT32 *data, int nwrds, int rflag);
-int dcrbReadBlockStatus(int id, volatile UINT32 *data, int nwrds, int rflag);
+int dcrbReadBlock(int id, volatile unsigned int *data, int nwrds, int rflag);
+int dcrbReadBlockStatus(int id, volatile unsigned int *data, int nwrds, int rflag);
 int dcrbPrintBlock(int id, int rflag);
 void dcrbClear(int id);
 void dcrbReset(int id, int iFlag);
@@ -297,5 +292,7 @@ void dcrbDataDecode(unsigned int data);
 void dcrbGFirmwareUpdateVerify(const char *filename);
 int dcrbSetDAC_Pulser(int id, int grp_mask, float freq, int offset_mV, int low_mV, int high_mV, int width);
 int dcrbPulserSetup(int id, float freq, float duty, unsigned int npulses);
+int dcrbSetTriggerPulseWidth(int id, unsigned int width);
+int dcrbGetTriggerPulseWidth(int id);
 
 #endif /* __DCRBLIB__ */

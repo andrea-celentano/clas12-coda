@@ -149,7 +149,7 @@ struct fadc_struct
   /* 0x0414 */ volatile unsigned int spare_adc_1[(0x500-0x414)>>2];
   /* 0x0500 */ volatile unsigned int gtx_ctrl;
   /* 0x0504 */ volatile unsigned int spare_gtx1;
-  /* 0x0508 */ volatile unsigned int spare_gtx2;
+  /* 0x0508 */ volatile unsigned int trx_ctrl;
   /* 0x050C */ volatile unsigned int spare_gtx3;
   /* 0x0510 */ volatile unsigned int gtx_status;
   /* 0x0514 */ volatile unsigned int spare_gtx4;
@@ -647,6 +647,7 @@ int faGetChannelPedestal(int id, unsigned int chan);
 int faLive(int id, int sflag);
 void faDataDecode(unsigned int data);
 
+int faSetMGTSettings(int id, int txpre, int txswing, int rxequ);
 int faSetMGTTestMode(int id, unsigned int mode);
 int faSyncResetMode(int id, unsigned int mode);
 /* FADC scaler routine prototypes */

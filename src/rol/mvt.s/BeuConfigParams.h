@@ -93,6 +93,14 @@ typedef struct _BeuSspConf
 	unsigned int feu_emu_msk;
 	int emu_data_size;
 
+	// Self trigger parameters
+	int SelfTrigMult;   // Multiplicity from 0 to 31 : trigger if active links > SelfTrigMult
+	// Derived from system and BEC parameters
+	int SelfTrigLnkEnb; // up to 32 FEUs - 1 bit per FEU : 0 - disable ; 1 - enable
+	int SelfTrigLat;    // equalisation latency ns (8ns steps from 750 to 1024 * 8 ns 10 bits)
+	int SelfTrigWin;    // coinsidence window in ns (8ns steps from 2 to 64 * 8 ns 6 bits)
+	int SelfTrigWid;    // width of the resulting trigger signal
+
 	// Synchronisation parameters
 	int ClkSrc;  // usually derived from System
 	int TrgSrc;

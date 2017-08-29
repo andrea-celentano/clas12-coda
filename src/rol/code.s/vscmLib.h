@@ -265,6 +265,11 @@ uint32_t vscmGetAcceptedTriggers(int id);
 void vscmFifoClear(int id);
 int vscmFifoStatus(int id);
 void vscmSetHitMask(int id, uint8_t mask, uint8_t trig_width);
+uint8_t vscmGetHitMask(int id);
+uint8_t vscmGetHitMaskWidth(int id);
+
+
+
 
 /* Pulser Functions */
 void vscmSetPulserRate(int id, uint32_t freq);

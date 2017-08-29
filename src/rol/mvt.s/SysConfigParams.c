@@ -111,7 +111,10 @@ int SysParams_Init( SysParams *params )
 	params->NbOfSmpPerEvt     = 0;
 	params->NbOfEvtPerBlk     = 0;
 	params->BlockPrescale     = 1;
+	params->EventLimit        = 0;
 	params->RepRawData        = 0;
+	params->SelfTrigLat       = 0;
+	params->SelfTrigWin       = 0;
 
 	// System topology
 	for( bec=0; bec<DEF_MAX_NB_OF_BEC; bec++ )
@@ -178,14 +181,17 @@ int SysParams_Sprintf( SysParams *params, char *buf  )
 	sprintf( buf, "############################\n" );
 	sprintf( buf, "%s# Global System parameters #\n", buf );
 	sprintf( buf, "%s############################\n", buf );
-	sprintf( buf, "%sSys Name           %s\n", buf, params->Name );
-	sprintf( buf, "%sSys RunMode        %s\n", buf, SysRunMode2Str( params->RunMode ) );
-	sprintf( buf, "%sSys NbOfSmpPerEvt  %d\n", buf, params->NbOfSmpPerEvt );
-	sprintf( buf, "%sSys NbOfEvtPerBlk  %d\n", buf, params->NbOfEvtPerBlk );
-	sprintf( buf, "%sSys ClkMode        %s\n", buf, SysClkMode2Str( params->ClkMode ) );
-	sprintf( buf, "%sSys SparseSmp      %d\n", buf, params->SparseSmp );
-	sprintf( buf, "%sSys BlockPrescale  %d\n", buf, params->BlockPrescale );
-	sprintf( buf, "%sSys BRepRawData    %d\n", buf, params->RepRawData );
+	sprintf( buf, "%sSys Name             %s\n", buf, params->Name );
+	sprintf( buf, "%sSys RunMode          %s\n", buf, SysRunMode2Str( params->RunMode ) );
+	sprintf( buf, "%sSys NbOfSmpPerEvt    %d\n", buf, params->NbOfSmpPerEvt );
+	sprintf( buf, "%sSys NbOfEvtPerBlk    %d\n", buf, params->NbOfEvtPerBlk );
+	sprintf( buf, "%sSys ClkMode          %s\n", buf, SysClkMode2Str( params->ClkMode ) );
+	sprintf( buf, "%sSys SparseSmp        %d\n", buf, params->SparseSmp );
+	sprintf( buf, "%sSys BlockPrescale    %d\n", buf, params->BlockPrescale );
+	sprintf( buf, "%sSys EventLimit       %d\n", buf, params->EventLimit );
+	sprintf( buf, "%sSys BRepRawData      %d\n", buf, params->RepRawData );
+	sprintf( buf, "%sSys SelfTrigLat      %d # ns\n", buf, params->SelfTrigLat );
+	sprintf( buf, "%sSys SelfTrigWin      %d # ns\n", buf, params->SelfTrigWin );
 
 //fprintf( stderr, "%s: Global parameters OK\n", __FUNCTION__ );
 
@@ -253,6 +259,7 @@ int SysParams_Sprintf( SysParams *params, char *buf  )
 		fprintf( stderr, "%s: BeuSspConfCol_Sprintf failed with %d\n", __FUNCTION__, ret );
 		return ret;
 	}
+	sprintf( buf, "%s\n", buf );
 //fprintf( stderr, "%s: BeuSspConfCol_Sprintf OK\n", __FUNCTION__ );
 
 	// Frontend unit configurations
@@ -274,7 +281,7 @@ int SysParams_Sprintf( SysParams *params, char *buf  )
 // Dump in ASCII the SysParams structure to a file
 int SysParams_Fprintf( SysParams *params, FILE *fptr )
 {
-	char buf[128*1024];
+	char buf[256*1024];
 	int ret;
 
 	// Check for Null pointer
@@ -360,11 +367,17 @@ int SysParams_Prop( SysParams *params )
 	unsigned int near_end_loop_enb;
 	unsigned int rol_enb;
 	unsigned int feu_emu_msk;
+	int Beu_TrgFifo_Hwm;
+	int Beu_TrgFifo_Lwm;
+	int drm_derand_buf;
+	int drm_evt_buf;
 	// For SD
 	int sd_act_slot_flg;
+	int sd_act_trig_flg;
 	// For TI
 	int trg_rule_0;
 	int drm_trg_dur;
+
 
 	// Check for Null pointer
 	if( params == (SysParams *)NULL )
@@ -380,6 +393,7 @@ int SysParams_Prop( SysParams *params )
 		if( bec_params->Config_Id > 0 )
 		{
 			sd_act_slot_flg = 0;
+			sd_act_trig_flg = 0;
 			// propagate parapeters to BEU-s
 			for( beu=1; beu<DEF_MAX_NB_OF_BEU; beu++ )
 			{
@@ -419,16 +433,29 @@ int SysParams_Prop( SysParams *params )
 						// Enabled channels
 						else
 						{
-							feu_id = bec_params->BeuFeuConnectivity[beu][feu];
-							params->FeuParams_Col.feu_params[feu_id].Feu_RunCtrl_Id = feu_id;
+//							feu_id = bec_params->BeuFeuConnectivity[beu][feu];
+//							params->FeuParams_Col.feu_params[feu_id].Feu_RunCtrl_Id = feu_id;
+
+							feu_id = ((beu-1)<<5) + feu + 1;
+							params->FeuParams_Col.feu_params[feu_id].Feu_RunCtrl_Id = bec_params->BeuFeuConnectivity[beu][feu];
+							if( bec_params->BeuFeuSlfTrigEn[beu] & (1<<feu) )
+								params->FeuParams_Col.feu_params[feu_id].SelfTrig_CmbHitPropOl = 1;
+							else
+								params->FeuParams_Col.feu_params[feu_id].SelfTrig_CmbHitPropOl = 0;
 						}
 					}
 					beu_conf->near_end_loop_enb = near_end_loop_enb;
 					beu_conf->rol_enb = rol_enb;
 					beu_conf->feu_emu_msk = feu_emu_msk;
 
+					beu_conf->SelfTrigLnkEnb   = bec_params->BeuFeuSlfTrigEn[beu];
+					beu_conf->SelfTrigLat      = params->SelfTrigLat;
+					beu_conf->SelfTrigWin      = params->SelfTrigWin;
+
 					// Construct SD active slot flags
 					sd_act_slot_flg |= (1<<beu_conf->Slot);
+					if( beu_conf->SelfTrigLnkEnb )
+						sd_act_trig_flg |= (1<<beu_conf->Slot);
 				}
 			} // for( beu=1; beu<DEF_MAX_NB_OF_BEU; beu++ )
 
@@ -447,6 +474,9 @@ int SysParams_Prop( SysParams *params )
 			sd_params->Id              = bec_params->Crate_Id;
 			sd_params->Slot            = DEF_SD_SLOT;
 			sd_params->ActiveSlotFlags = sd_act_slot_flg;
+			sd_params->ActiveTrigFlags = sd_act_trig_flg;
+			sd_params->TrigMult        = bec_params->SelfTrigMult;
+			sd_params->TrigWin         = bec_params->SelfTrigWin;
 
 			// and updaet SD entries in the bec
 			bec_params->Sd_Id   = sd_params->Id;
@@ -471,6 +501,7 @@ int SysParams_Prop( SysParams *params )
 	}
 
 	// propagate system wide configuration parameters
+	feu_params = &(params->FeuParams_Col.feu_params[0]);
 	for( beu=1; beu<DEF_MAX_NB_OF_BEU; beu++ )
 	{
 		beu_conf = &(params->BeuSspConf_Col.beu_conf[beu]);
@@ -478,6 +509,8 @@ int SysParams_Prop( SysParams *params )
 		{
 			beu_conf->NbOfSamples        = params->NbOfSmpPerEvt;
 			beu_conf->NbOfEventsPerBlock = params->NbOfEvtPerBlk;
+			beu_conf->SelfTrigLat        = params->SelfTrigLat;
+			beu_conf->SelfTrigWin        = params->SelfTrigWin;
 			if( (params->RunMode == Clas12) || (params->RunMode = Standalone) )
 			{
 				beu_conf->ClkSrc = BeuClkSrc_TiVxs;
@@ -489,7 +522,62 @@ int SysParams_Prop( SysParams *params )
 			else
 			{
 				fprintf( stderr, "%s: Unsupported run mode %d\n", __FUNCTION__, params->RunMode );
-				return D_RetCode_Err_Null_Pointer;
+				return D_RetCode_Err_Wrong_Param;
+			}
+			// Try to be smart and setup trigger fifo limits
+			// For the moment assume that all Dreams on all FEUs have the same pipeline
+			drm_derand_buf = 512 - feu_params->dream_params[D_FeuPar_NumOfDreams-1].dream_reg[12].reg[0];
+			drm_evt_buf = drm_derand_buf / params->NbOfSmpPerEvt;
+			if( drm_evt_buf > 20 )
+			{
+				Beu_TrgFifo_Hwm = drm_evt_buf - 4;
+				Beu_TrgFifo_Lwm = drm_evt_buf -16;
+			}
+			if( drm_evt_buf > 16 )
+			{
+				Beu_TrgFifo_Hwm = drm_evt_buf - 4;
+				Beu_TrgFifo_Lwm = drm_evt_buf - 8;
+			}
+			else if( drm_evt_buf > 8 )
+			{
+				Beu_TrgFifo_Hwm = drm_evt_buf - 4;
+				Beu_TrgFifo_Lwm = drm_evt_buf - 4;
+			}
+			else if( drm_evt_buf > 4 )
+			{
+				Beu_TrgFifo_Hwm = drm_evt_buf - 2;
+				Beu_TrgFifo_Lwm = drm_evt_buf - 4;
+			}
+			else if( drm_evt_buf > 2 )
+			{
+				Beu_TrgFifo_Hwm = 2;
+				Beu_TrgFifo_Lwm = 1;
+			}
+			else if( drm_evt_buf > 0 )
+			{
+				Beu_TrgFifo_Hwm = 1;
+				Beu_TrgFifo_Lwm = 0;
+			}
+			else
+			{
+				fprintf( stderr, "%s: Unebale to setup TRG FIFO thresholds for BEU %d with DrmPipeLine=%d and num of samples=%d; dream evt buffer=%d\n",
+					__FUNCTION__, beu_conf->Id,
+					feu_params->dream_params[D_FeuPar_NumOfDreams-1].dream_reg[12].reg[0],
+					params->NbOfSmpPerEvt,
+					drm_evt_buf ); 
+				return D_RetCode_Err_Wrong_Param;
+			}
+			if( beu_conf->TrgFifo_Hwm > Beu_TrgFifo_Hwm )
+			{
+				fprintf( stdout, "%s: Warning BEU %d TrgFifo_Hwm will be forced to %d instead of requested %d\n",
+					__FUNCTION__, beu_conf->Id, Beu_TrgFifo_Hwm, beu_conf->TrgFifo_Hwm );
+				beu_conf->TrgFifo_Hwm = Beu_TrgFifo_Hwm;
+			}
+			if( beu_conf->TrgFifo_Lwm > Beu_TrgFifo_Lwm )
+			{
+				fprintf( stdout, "%s: Warning BEU %d TrgFifo_Lwm will be forced to %d instead of requested %d\n",
+					__FUNCTION__, beu_conf->Id, Beu_TrgFifo_Lwm, beu_conf->TrgFifo_Lwm );
+				beu_conf->TrgFifo_Lwm = Beu_TrgFifo_Lwm;
 			}
 		}
 	}
@@ -501,6 +589,14 @@ int SysParams_Prop( SysParams *params )
 		if( ti_params->Id > 0 )
 		{
 			ti_params->NbOfEvtPerBlk = params->NbOfEvtPerBlk;
+			if( params->EventLimit )
+			{
+				ti_params->BlockLimit    = params->EventLimit/params->NbOfEvtPerBlk;
+				if( params->EventLimit%params->NbOfEvtPerBlk )
+					ti_params->BlockLimit++;
+			}
+			else
+				ti_params->BlockLimit = 0;
 			if( params->RunMode == Clas12 ) 
 			{
 				ti_params->ClkSrc = TiClkSrc_HFBR1;
@@ -523,7 +619,7 @@ int SysParams_Prop( SysParams *params )
 			  if( ti_params->TrgRules_TimeUnit[0] == 0 )
 			    trg_rule_0 = ti_params->TrgRules_UnitCount[0] * Def_Ti_TrgRules_TimeUnit_016ns;
 			  else if( ti_params->TrgRules_TimeUnit[0] == 1 )
-			    trg_rule_0 = ti_params->TrgRules_UnitCount[0] * Def_Ti_TrgRules_TimeUnit_500ns;
+			    trg_rule_0 = ti_params->TrgRules_UnitCount[0] * Def_Ti_TrgRules_TimeUnit_480ns;
 			  else
 			  {
 			    fprintf( stderr, "%s: Wrong trigger rule 0 time unit %d for ti=%d\n", __FUNCTION__, ti_params->TrgRules_TimeUnit[0], ti );
@@ -535,12 +631,12 @@ int SysParams_Prop( SysParams *params )
 			{
 				if( ( drm_trg_dur / Def_Ti_TrgRules_TimeUnit_016ns ) <= Def_Ti_TrgRules_MaxNumOfUnitCnt )
 				{
-					ti_params->TrgRules_UnitCount[0] = drm_trg_dur / Def_Ti_TrgRules_TimeUnit_016ns;
+					ti_params->TrgRules_UnitCount[0] = (drm_trg_dur+Def_Ti_TrgRules_TimeUnit_016ns) / Def_Ti_TrgRules_TimeUnit_016ns;
 					ti_params->TrgRules_TimeUnit[0]  = 0;
 				}
-				else if( ( drm_trg_dur / Def_Ti_TrgRules_TimeUnit_500ns ) <= Def_Ti_TrgRules_MaxNumOfUnitCnt )
+				else if( ( drm_trg_dur / Def_Ti_TrgRules_TimeUnit_480ns ) <= Def_Ti_TrgRules_MaxNumOfUnitCnt )
 				{
-					ti_params->TrgRules_UnitCount[0] = drm_trg_dur / Def_Ti_TrgRules_TimeUnit_500ns;
+					ti_params->TrgRules_UnitCount[0] = (drm_trg_dur + Def_Ti_TrgRules_TimeUnit_480ns) / Def_Ti_TrgRules_TimeUnit_480ns;
 					ti_params->TrgRules_TimeUnit[0]  = 1;
 				}
 				else
@@ -579,14 +675,17 @@ int SysParams_Prop( SysParams *params )
 			feu_params->TI_DcBal_Enc = 0;
 			feu_params->TI_DcBal_Dec = 0;
 			feu_params->TI_Bert = 0;
+			feu_params->SelfTrig_CmbHitPropFb = 0;
+			feu_params->SelfTrig_CmbHitPropOl = 0;
+/*
 			feu_params->SelfTrig_DreamMask = 0xFF;
 			feu_params->SelfTrig_Mult = 7;
-			feu_params->SelfTrig_CmbHitPropFb = 0;
 			feu_params->SelfTrig_CmbHitPropOl = 0;
 			feu_params->SelfTrig_TrigTopo = 0;
 			feu_params->SelfTrig_DrmHitWid = 0x3F;
 			feu_params->SelfTrig_CmbHitWid = 0x3F;
 			feu_params->SelfTrig_Veto = 0xFFFFFF;
+*/
 			feu_params->UdpChan_Enable = 0;
 			feu_params->ComChan_Enable = 1;
 			// Dream clock parameters
@@ -597,6 +696,23 @@ int SysParams_Prop( SysParams *params )
 			// Adc clock parameters
 			feu_params->adc_params.adc_reg[22].val = (unsigned char)(PredefinedSysClcParams[params->ClkMode].AdcOutClkPhase);
 			feu_params->adc_params.adc_reg[22].flg = AdcRegFlag_SetAndUpd;
+			// Make sure the ZS window is not bigger than number of samples
+			// ZS window: sample 0 never compared to threshold
+			// 0 compare samples 1 through 2  min nb of samples 4
+			// 1                 1 through 3                    5
+			// 2                 1 through 4                    6
+			// 3                 1 through 5                    7
+                        // 4                 1 through 6                    8
+			//
+			if( feu_params->Feu_RunCtrl_ZS == 1 )
+			{
+				if( feu_params->Feu_RunCtrl_ZsChkSmp > (params->NbOfSmpPerEvt-4) )
+				{
+					fprintf( stdout, "%s: Warning default value of Feu_RunCtrl_ZsChkSmp will be forced to %d instead of requested %d\n",
+						__FUNCTION__, params->NbOfSmpPerEvt-4, feu_params->Feu_RunCtrl_ZsChkSmp );
+					feu_params->Feu_RunCtrl_ZsChkSmp = params->NbOfSmpPerEvt-4;
+				}
+			}
 //		}
 //	}
 
@@ -722,6 +838,16 @@ int SysParams_Parse( SysParams *params, int line_num )
 					return D_RetCode_Err_Wrong_Param;
 				}
 			}
+			else if( strcmp( argv[1], "EventLimit" ) == 0 )
+			{
+				params->EventLimit = atoi( argv[2] );
+				if( (params->EventLimit < 0) )
+				{
+					params->EventLimit = 0;
+					fprintf( stderr, "%s: line %d: attempt to set negative EventLimit %s; must be >=\n", __FUNCTION__, line_num, argv[2] ); 
+					return D_RetCode_Err_Wrong_Param;
+				}
+			}
 			else if( strcmp( argv[1], "RepRawData" ) == 0 )
 			{
 				params->RepRawData = atoi( argv[2] );
@@ -729,6 +855,26 @@ int SysParams_Parse( SysParams *params, int line_num )
 				{
 					params->RepRawData = 0;
 					fprintf( stderr, "%s: line %d: attempt to set unsupported RepRawData %s; must be 0 or 1\n", __FUNCTION__, line_num, argv[2] ); 
+					return D_RetCode_Err_Wrong_Param;
+				}
+			}
+			else if( strcmp( argv[1], "SelfTrigLat" ) == 0 )
+			{
+				params->SelfTrigLat = atoi( argv[2] );
+				if( (params->SelfTrigLat < 0) || (8191 < params->SelfTrigLat) )
+				{
+					params->SelfTrigLat = 0;
+					fprintf( stderr, "%s: line %d: attempt to set unsupported SelfTrigLat %s; must be in [0;8191] ns range \n", __FUNCTION__, line_num, argv[2] ); 
+					return D_RetCode_Err_Wrong_Param;
+				}
+			}
+			else if( strcmp( argv[1], "SelfTrigWin" ) == 0 )
+			{
+				params->SelfTrigWin = atoi( argv[2] );
+				if( (params->SelfTrigWin < 0) || (511 < params->SelfTrigWin) )
+				{
+					params->SelfTrigWin = 0;
+					fprintf( stderr, "%s: line %d: attempt to set unsupported SelfTrigWin %s; must be in [0;511] ns range \n", __FUNCTION__, line_num, argv[2] ); 
 					return D_RetCode_Err_Wrong_Param;
 				}
 			}

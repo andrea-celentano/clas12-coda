@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <math.h>
 
 #include "ReturnCodes.h"
 #include "TiConfigParams.h"
@@ -144,62 +145,79 @@ fprintf( stdout, "%s: **** Standalone APPLICATION ****\n", __FUNCTION__ );
 		}
 	}
 	else if (params->TrgSrc == TiTrgSrc_IntCst)
-	{	int i_rate;	
-		i_rate = 1000000 /( 30.72 *(params->TrgRate));  
-		fprintf( stderr, "%s: PULSER RATE  %d, INCREMENT RATE = %d \n", __FUNCTION__, params->TrgRate, i_rate );
-
-	        if( (ret=tiSetTriggerPulse(1, 10, 10,0)) != OK )
+	{
+		// Until solved, repeat here the random trigger settings
+		int    i_rate_exp;
+		double d_rate_devider;
+		double d_rate_exp;
+		double d_exp_rate;
+		d_rate_devider = 500000. / ((double)params->TrgRate);
+		d_rate_exp = log(d_rate_devider)/log(2.);
+		i_rate_exp = (int)(d_rate_exp + 0.5);
+		if( i_rate_exp > 15 )
+			i_rate_exp = 15;
+		if( i_rate_exp < 0 )
+			i_rate_exp = 0;
+		d_exp_rate = 500000./((double)(1<<i_rate_exp));
+		fprintf( stdout, "%s: Setting random trigger on behalf of cinstant trigger: will be replaced in Go\n",
+			__FUNCTION__, params->TrgRate, d_exp_rate, d_rate_devider, d_rate_exp, i_rate_exp );
+		fprintf( stdout, "%s: Random trigger %d Hz requested; expected %f Hz (div=%f exp_d=%f exp_i=%d)\n",
+			__FUNCTION__, params->TrgRate, d_exp_rate, d_rate_devider, d_rate_exp, i_rate_exp );
+ 
+ 		tiSetRandomTrigger(1, i_rate_exp);
+                if( (ret=tiSetTriggerSource(TI_TRIGGER_PULSER)) != OK )
                 {
-                        fprintf( stderr, "%s: tiSetTriggerPulse failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
+			fprintf( stderr, "%s: tiSetTriggerSource(TI_TRIGGER_PULSER) failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
                         return ret;
                 }
+/* This part will be set in the Run() function 
+		int i_period_inc;
+		int i_range;
+		double d_period_ns;
+		d_period_ns = 1000000000. / ((double)params->TrgRate);
+		if( d_period_ns < 1000000. )
+		{
+			i_range = 0;
+			i_period_inc = (int)((d_period_ns - 120.) / 120. + 0.5);
+		}
+		else
+		{
+			i_range = 1;
+			i_period_inc = (int)((d_period_ns - 120.) / 120. / 2048. + 0.5);
+		}
 
-                if( (ret=tiSetTriggerPulse(2, 10, 10,0)) != OK )
+		fprintf( stderr, "%s: PULSER RATE=%d, INCREMENT=%d range=%d \n", __FUNCTION__, params->TrgRate, i_period_inc, i_range );
+                if( (ret=tiSoftTrig(1, 0xFFFF, i_period_inc, i_range)) != OK )
                 {
-                        fprintf( stderr, "%s: tiSetTriggerPulse failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
+                        fprintf( stderr, "%s: tiSoftTrig failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
                         return ret;
                 }
-                if( (ret=tiDisableTSInput(TI_TSINPUT_ALL) )!= OK )
-                {
-                        fprintf( stderr, "%s: tiDisableTSInput(TI_TSINPUT_ALL) failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
-                        return ret;
-                }
-
                 if( (ret=tiSetTriggerSource(TI_TRIGGER_PULSER)) != OK )
                 {
                         fprintf( stderr, "%s: tiSetTriggerSource(TI_TRIGGER_PULSER) failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
                         return ret;
                 }
-
-                //if( (ret=tiSoftTrig(1, 0xFFFF, i_rate , 1)) != OK )
-                if( (ret=tiSoftTrig(1, 0xFFFF,0x7FFF , 1)) != OK )
-                {
-                        fprintf( stderr, "%s: tiSoftTrig failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
-                        return ret;
-                }
-
-                //if( (ret=tiSoftTrig(2, 0xFFFF, i_rate , 1)) != OK )
-                if( (ret=tiSoftTrig(2, 0xFFFF, 0x7FFF , 1)) != OK )
-                {
-                        fprintf( stderr, "%s: tiSoftTrig failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
-                        return ret;
-                }
-
-                /*if( (ret= tiSetRandomTrigger(1, 0x7)) != OK )
-                {
-                        fprintf( stderr, "%s: tiSoftTrig failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
-                        return ret;
-                }*/
-                /*if( (ret= tiSetRandomTrigger(2, 0x7)) != OK )
-                {
-                        fprintf( stderr, "%s: tiSoftTrig failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
-                        return ret;
-                }*/
-	
+*/
 	}
         else if ( params->TrgSrc == TiTrgSrc_IntRnd )
         {
-		tiSetRandomTrigger(1, params->TrgPrescale);
+		int    i_rate_exp;
+		double d_rate_devider;
+		double d_rate_exp;
+		double d_exp_rate;
+		d_rate_devider = 500000. / ((double)params->TrgRate);
+		d_rate_exp = log(d_rate_devider)/log(2.);
+		i_rate_exp = (int)(d_rate_exp + 0.5);
+		if( i_rate_exp > 15 )
+			i_rate_exp = 15;
+		if( i_rate_exp < 0 )
+			i_rate_exp = 0;
+		d_exp_rate = 500000./((double)(1<<i_rate_exp));
+                fprintf( stdout, "%s: Random trigger %d Hz requested; expected %f Hz (div=%f exp_d=%f exp_i=%d)\n",
+			__FUNCTION__, params->TrgRate, d_exp_rate, d_rate_devider, d_rate_exp, i_rate_exp );
+ 
+//		tiSetRandomTrigger(1, params->TrgPrescale);
+ 		tiSetRandomTrigger(1, i_rate_exp);
                 if( (ret=tiSetTriggerSource(TI_TRIGGER_PULSER)) != OK )
                 {
                         fprintf( stderr, "%s: tiSetTriggerSource(TI_TRIGGER_PULSER) failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
@@ -294,26 +312,58 @@ fprintf( stdout, "%s: **** Standalone APPLICATION ****\n", __FUNCTION__ );
 
 	/* Set event format */
 	// This corresponds to Timing word enabled: two block placeholdr is disabled
-	// if ExtEidTstp is set higher 16 MSB-s are enabled for EiD and Tstp 
-	if( (ret=tiSetEventFormat(params->ExtEidTstp*2+1)) != OK )
+	// if ExtEidTstp is set higher 16 MSB-s are enabled for EiD and Tstp
+	if( params->TrgSrc == TiTrgSrc_HFBR1 )
 	{
-		fprintf( stderr, "%s: tiSetEventFormat(%d) failed for TI %d with %d\n", __FUNCTION__, params->ExtEidTstp*2+1, params->Id, ret );
-		return ret;
+		if( (ret=tiSetEventFormat(params->ExtEidTstp*2+1)) != OK )
+		{
+			fprintf( stderr, "%s: tiSetEventFormat(%d) failed for TI %d with %d\n", __FUNCTION__, params->ExtEidTstp*2+1, params->Id, ret );
+			return ret;
+		}
 	}
-	
+	else
+	{
+//		if( (ret=tiSetEventFormat(params->ExtEidTstp*2+1+0)) != OK )
+		if( (ret=tiSetEventFormat(params->ExtEidTstp*2+1+1)) != OK )
+		{
+			fprintf( stderr, "%s: tiSetEventFormat(%d) failed for TI %d with %d\n", __FUNCTION__, params->ExtEidTstp*2+1+1, params->Id, ret );
+			return ret;
+		}
+	}
+
+	// For test
+	tiSetBlockLimit(params->BlockLimit);
+
 	/* Get TI status */
 	// For some reason this function is void.
-	tiStatus(0);
+	tiStatus(1);
 
 	// All went fine
 	return D_RetCode_Sucsess;
 }
 
+// IM: Has to be moved to sdLib.h
+#ifndef SD_TRIGOUT_WIN_UPDATE
+#define SD_TRIGOUT_WIN_UPDATE    1
+#endif
+#ifndef SD_TRIGOUT_WIN_NO_UPDATE
+#define SD_TRIGOUT_WIN_NO_UPDATE 0
+#endif
+#ifndef SD_TRIGOUT_WIN_MIN
+#define SD_TRIGOUT_WIN_MIN 5
+#endif
+#ifndef SD_TRIGOUT_WIN_MAX
+#define SD_TRIGOUT_WIN_MAX (16*1024-1)
+#endif
+extern int sdSetTrigoutWin(int mode, int width);
 
 // Configure SD with parameters
 int SdConfig( SdParams *params )
 {
 	int ret;
+	int slot;
+	int trig_slot_flg;
+	int trig_slot_num;
 
 	// Check for Null pointer
 	if( params == (SdParams *)NULL )
@@ -342,7 +392,71 @@ int SdConfig( SdParams *params )
 		fprintf( stderr, "%s: sdSetActiveVmeSlots(0x%x) failed for SD %d with %d\n", __FUNCTION__, params->ActiveSlotFlags, params->Id, ret );
 		return ret;
 	}
-	
+
+	/* Set trigout lookuptable */
+	if( params->ActiveTrigFlags )
+	{
+		if( params->TrigMult == 0 )
+		{
+			if( (ret=sdSetTrigoutLogic(SD_TRIGOUT_LOGIC_OR, 0)) != OK )
+			{
+				fprintf( stderr, "%s: sdSetTrigoutLogic(SD_TRIGOUT_LOGIC_OR=%d, 0) failed for SD %d with %d\n", __FUNCTION__, SD_TRIGOUT_LOGIC_OR, params->Id, ret );
+				return ret;
+			}
+//fprintf( stderr, "%s: !!!!!!!!!!!!!!!!!!!!!! sdSetTrigoutLogic(SD_TRIGOUT_LOGIC_OR=%d, 0) OK for SD %d\n", __FUNCTION__, SD_TRIGOUT_LOGIC_OR, params->Id );
+		}
+		else
+		{
+			// count number of active trigger slots
+			trig_slot_flg = params->ActiveTrigFlags;
+			trig_slot_num = 0;
+			for( slot=0; slot<32; slot++ )
+			{
+				if( trig_slot_flg & 0x1 )
+					trig_slot_num++;
+				trig_slot_flg = (0x7FFFfff & (trig_slot_flg >> 1));
+				if( trig_slot_flg == 0 )
+					break;
+			}
+			if( trig_slot_num < (params->TrigMult+1) )
+			{
+				fprintf( stderr, "%s: WARNING: with ActiveTrigFlags=0x%08x the num of active trigger slots=%d < mult=%d for SD %d\n",
+					__FUNCTION__, params->ActiveTrigFlags, trig_slot_num, params->TrigMult+1, params->Id );
+			}
+			if( (ret=sdSetTrigoutLogic(SD_TRIGOUT_LOGIC_MULTIPLICITY, params->TrigMult+1 )) != OK )
+			{
+				fprintf( stderr, "%s: sdSetTrigoutLogic(SD_TRIGOUT_LOGIC_MULTIPLICITY=%d, MULT=%d) failed for SD %d with %d\n",
+					__FUNCTION__, SD_TRIGOUT_LOGIC_MULTIPLICITY, params->TrigMult+1, params->Id, ret );
+				return ret;
+			}
+//fprintf( stderr, "%s: !!!!!!!!!!!!!!!!!!!!! sdSetTrigoutLogic(SD_TRIGOUT_LOGIC_MULTIPLICITY=%d, MULT=%d) OK for SD %d with %d\n", __FUNCTION__, SD_TRIGOUT_LOGIC_MULTIPLICITY, params->TrigMult+1, params->Id );
+		}
+		// the max width of the window can be 4ns * 16*1024
+		// the min width of the window can be 4ns * 5
+		if( params->TrigWin >= 16*1024*4 )
+		{
+			fprintf( stderr, "%s: WARNING: wrong TrigWin =%d >= %d for SD %d; no action\n",
+				__FUNCTION__, params->TrigWin, 16*1024, params->Id );
+		}
+		else if( params->TrigWin > 20 )
+		{
+			fprintf( stderr, "%s: WARNING: The functionality is not yet supported by the current SD firmware\n", __FUNCTION__ );
+			/*
+			fprintf( stderr, "%s: WARNING: The support for trig window settingsd has been added to SD lib by MVT; needs to be accepted by JLAB\n", __FUNCTION__ );
+			if( (ret=sdSetTrigoutWin(SD_TRIGOUT_WIN_UPDATE, params->TrigWin/4 )) != OK )
+			{
+				fprintf( stderr, "%s: sdSetTrigoutWin(SD_TRIGOUT_WIN_UPDATE=%d, width=%d) failed for SD %d with %d\n",
+					__FUNCTION__, SD_TRIGOUT_WIN_UPDATE, params->TrigWin/4, params->Id, ret );
+				return ret;
+			}
+			*/
+		}
+		else
+		{
+			fprintf( stderr, "%s: LOG: Keep default 20ns trigger window for SD %d; no action\n", __FUNCTION__, params->Id );
+		}
+	}
+
 	/* Get SD status */
 	if( (ret=sdStatus()) != OK )
 	{
@@ -386,24 +500,18 @@ int TiRun( TiParams *params, int run )
 			// Do this only if the function is called from a standalone application
 			if( stand_alone_app == 1 )
 			{
-//fprintf( stdout, "%s: **** Standalone APPLICATION ****\n", __FUNCTION__, params->BsySrc, params->Id );
-//usleep(100000);
 				tiClockReset();
 				taskDelay(2);
 				tiTrigLinkReset();
 				tiSyncReset(0);
 				taskDelay(2);
 			}
-		}
-//		else
-//		{
 			if( (ret=tiSetBusySource(TI_BUSY_SWB, 0)) != OK )
 			{
 				fprintf( stderr, "%s: tiSetBusySource(TI_BUSY_SWB,0) failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
 				return ret;
 			}
-
-//		}
+		}
 	}
 	else
 	{
@@ -438,6 +546,39 @@ int TiGo( TiParams *params )
 		fprintf( stderr, "%s: params=0\n", __FUNCTION__ );
 		return D_RetCode_Err_Null_Pointer;
 	}
+
+	if( params->TrgSrc == TiTrgSrc_IntCst )
+	{
+		int i_period_inc;
+		int i_range;
+		double d_period_ns;
+
+// T = 120 + 30*i_period_inc(15 bits) * 2048^i_range(0 or 1) ns
+// Note, this different from from tiLib.c which is different from the TI doc
+// Calculate fine grain settings limit assuming i_range=0
+// DEF_CstTtg_FineGrainPeriod_Limit_ns 983130 corresponds to ~1 kHz
+#define DEF_CstTtg_FineGrainPeriod_Limit_ns (120.+30.*((1<<15)-1))
+
+		d_period_ns = 1000000000. / ((double)params->TrgRate);
+		if( d_period_ns <= DEF_CstTtg_FineGrainPeriod_Limit_ns )
+		{
+			i_range = 0;
+			i_period_inc = (int)((d_period_ns - 120.) / 30. + 0.5);
+		}
+		else
+		{
+			i_range = 1;
+			i_period_inc = (int)((d_period_ns - 120.) / 30. / 2048. + 0.5);
+		}
+
+		tiDisableRandomTrigger();
+       		if( (ret=tiSoftTrig(1, 0xFFFF, i_period_inc, i_range)) != OK )
+		{
+			fprintf( stderr, "%s: tiSoftTrig failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
+			return ret;
+		}
+	}
+
 /*
 	// Enable trigger and sync signals sent through the VXS
 	if( (ret=tiEnableVXSSignals()) != OK )

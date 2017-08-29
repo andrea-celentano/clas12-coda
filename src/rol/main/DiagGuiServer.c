@@ -18,6 +18,7 @@
 #include "dsc2Lib.h"
 #include "fadcLib.h"
 #include "vscmLib.h"
+#include "sspLib.h"
 #endif
 
 #ifdef Linux_armv7l
@@ -130,7 +131,7 @@ What have to be done:
 #define DIST_ADDR  0xEA00	  /*  base address of FADC signal distribution board  (A16)  */
 
 #define MAXBOARDS  21   /* max number od boards per crate */
-#define MAXWORDS  /*256*/4096   /* max number of scaler words per board */
+#define MAXWORDS  /*256*//*4096*/8192   /* max number of scaler words per board */
 
 #define MIN(a,b) ( (a) < (b) ? (a) : (b) )
 
@@ -142,15 +143,21 @@ static pthread_mutex_t vmescalers_lock;
 #endif
 
 
-static int nfadc, ndsc2_tcp, nvscm, rflag, rmode;
+static int nfadc, ndsc2_tcp, nvscm, nssp, rflag, rmode;
 static unsigned int  vmescalersmap[MAXBOARDS+1];  /* crate map */
+
 static unsigned int  vmescalerslen[MAXBOARDS];  /*scalers space (the number of words) */
 static unsigned int *vmescalers[MAXBOARDS];     /*scalers memory space address*/
+
+static unsigned int  vmedatalen[MAXBOARDS];  /*data space (the number of words) */
+static unsigned int *vmedata[MAXBOARDS];     /*data memory space address*/
+
 static unsigned int i2_from_rol1;
 
 static unsigned int *tdcbuf;
 static unsigned int adcbuf[400];
 static unsigned int vscmbuf[MAXWORDS];
+static unsigned int sspbuf[MAXWORDS];
 
 #ifdef Linux_armv7l
 #define MAXVTPWORDS 4096
@@ -191,7 +198,7 @@ static int ScalersReadoutStop();
 static int
 vmeScalersRead()
 {
-  int itype, id, ii, nw, slot;
+  int itype, id, ii, nw, nw_len, slot, fiber;
   unsigned int chmask = 0xFFFF;
 
   SCALER_LOCK;
@@ -237,12 +244,132 @@ vmeBusUnlock();
 		/*printf("vmeScalersRead: nw=%d, vmescalers[slot][nw-2]=%d, vmescalers[slot][nw-1]=%d\n",nw,vmescalers[slot][nw-2],vmescalers[slot][nw-1]);*/
       }
     }
+    else if(itype == SCALER_TYPE_SSP)    /* ssp scalers */
+	{
+      for(id=0; id<nssp; id++)
+      {
+        unsigned int fibermask;
+        slot = sspSlot(id);
+vmeBusLock();
+        if(sspGetFirmwareType(slot) == SSP_CFG_SSPTYPE_HALLBRICH)
+		{
+          sspRich_GetConnectedFibers(slot, &fibermask);
+          /* loop over fibers */
+          nw = 0;
+          for(fiber=0; fiber<32; fiber++)
+	      {
+            unsigned int ref;
+		    unsigned int maroc[RICH_CHAN_NUM];
+
+		    if(fibermask & (1<<fiber))
+		    {
+              sspRich_ReadScalers(slot, fiber, &ref, maroc);
+
+              nw_len = nw;
+              sspbuf[nw++] = 0; /*reserve space for length*/
+              sspbuf[nw++] = fiber;
+              sspbuf[nw++] = ref;
+              memcpy(&sspbuf[nw], maroc, RICH_CHAN_NUM*sizeof(int)); nw += RICH_CHAN_NUM;
+              sspbuf[nw_len] = nw - nw_len; /*inclusive length in words*/
+		    }
+	      }
+		}
+vmeBusUnlock();
+        vmescalerslen[slot] = nw;
+        for(ii=0; ii<nw; ii++) vmescalers[slot][ii] = sspbuf[ii];
+		/*printf("vmeScalersRead: nw=%d, vmescalers[slot][nw-2]=%d, vmescalers[slot][nw-1]=%d\n",nw,vmescalers[slot][nw-2],vmescalers[slot][nw-1]);*/
+      }
+    }
   }
 
   SCALER_UNLOCK;
 
   return(0);
 }
+
+
+
+
+
+
+
+
+
+static int
+vmeDataRead()
+{
+  int itype, id, ii, nw, nw_len, slot, fiber;
+  unsigned int chmask = 0xFFFF;
+
+  SCALER_LOCK;
+
+  for(itype=0; itype<SCALER_TYPE_MAX; itype++)
+  {
+    if(itype == SCALER_TYPE_SSP)    /* ssp board */
+	{
+      for(id=0; id<nssp; id++)
+      {
+        unsigned int fibermask;
+        slot = sspSlot(id);
+vmeBusLock();
+        if(sspGetFirmwareType(slot) == SSP_CFG_SSPTYPE_HALLBRICH)
+		{
+          sspRich_GetConnectedFibers(slot, &fibermask);
+          /* loop over fibers */
+          nw = 0;
+          for(fiber=0; fiber<32; fiber++)
+	      {
+            sspRich_Monitor mon;
+		    if(fibermask & (1<<fiber))
+		    {
+              sspRich_ReadMonitor(slot, fiber, &mon);
+
+              nw_len = nw;
+              sspbuf[nw++] = 0; /*reserve space for length*/
+              sspbuf[nw++] = fiber;
+              sspbuf[nw++] = mon.temps.fpga;
+              sspbuf[nw++] = mon.temps.regulator[0];
+              sspbuf[nw++] = mon.temps.regulator[1];
+              sspbuf[nw++] = mon.voltages.pcb_5v;
+              sspbuf[nw++] = mon.voltages.pcb_3_3v;
+              sspbuf[nw++] = mon.voltages.fpga_vccint_1v;
+              sspbuf[nw++] = mon.voltages.fpga_vccaux_1_8v;
+              sspbuf[nw++] = mon.voltages.fpga_mgt_1v;
+              sspbuf[nw++] = mon.voltages.fpga_mgt_1_2v;
+              sspbuf[nw_len] = nw - nw_len; /*inclusive length in words*/
+
+		    }
+	      }
+		}
+vmeBusUnlock();
+        vmedatalen[slot] = nw;
+        for(ii=0; ii<nw; ii++) vmedata[slot][ii] = sspbuf[ii];
+      }
+    }
+  }
+
+  SCALER_UNLOCK;
+
+  return(0);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -403,10 +530,17 @@ vmeReadTask()
   {
     if( (vmescalers[ii] = (unsigned int *) calloc(MAXWORDS,4)) <= 0)
     {
-      printf("ERROR in ScalerThread: cannot allocate memory\n");
+      printf("ERROR in ScalerThread: cannot allocate memory for vmescalers[]\n");
       return;
     }
-    printf("ScalerThread: Allocated 0x%08x words for slot %d at address 0x%08x\n",MAXWORDS,ii,vmescalers[ii]);
+    printf("ScalerThread: Allocated vmescalers[]: 0x%08x words for slot %d at address 0x%08x\n",MAXWORDS,ii,vmescalers[ii]);
+
+    if( (vmedata[ii] = (unsigned int *) calloc(MAXWORDS,4)) <= 0)
+    {
+      printf("ERROR in ScalerThread: cannot allocate memory for vmedata[]\n");
+      return;
+    }
+    printf("ScalerThread: Allocated vmedata[]: 0x%08x words for slot %d at address 0x%08x\n",MAXWORDS,ii,vmedata[ii]);
   }
 
   for(ii=0; ii<(MAXBOARDS+1); ii++)
@@ -484,6 +618,22 @@ faSetA32BaseAddress(fadcA32Address);
 
 
 
+  /************/
+  /* SSP INIT */
+
+  iFlag  = SSP_INIT_MODE_DISABLED; /* Disabled, initially */
+  iFlag |= SSP_INIT_SKIP_FIRMWARE_CHECK;
+  iFlag |= SSP_INIT_MODE_VXS;
+  nssp=0;
+
+  nssp = sspInit(0,0,0,iFlag);
+  sspConfig ("");
+
+  /* fill map array with FADC's found */
+  for(ii=0; ii<nssp; ii++) if( (slot=sspSlot(ii)) > 0) vmescalersmap[slot] = SCALER_TYPE_SSP;
+
+
+
 
   /* always clean up init flag ! */
   init_boards = 0;
@@ -509,6 +659,8 @@ faSetA32BaseAddress(fadcA32Address);
 #endif
       vmeScalersRead();
 	  /*printf("vmeReadTask: reading scalers ...\n");*/
+
+      vmeDataRead();
     }
   }
 
@@ -519,6 +671,9 @@ faSetA32BaseAddress(fadcA32Address);
 
 
 #endif /* VME section */
+
+
+
 
 
 
@@ -688,6 +843,7 @@ ScalersReadoutStop()
   /* TODO: END TASK HERE !!!!!!!!!!!!!!!!!!!!!!!! */
 
   free(vmescalers);
+  free(vmedata);
 
 #ifdef VXWORKS
   semGive(vmescalers_lock);
@@ -823,6 +979,7 @@ Vme_Write32(Cmd_Write32 *pCmd_Write32)
 /**************************/
 /* start scaler functions */
 
+
 int
 Vme_ReadScalers(Cmd_ReadScalers *pCmd_ReadScalers, Cmd_ReadScalers_Rsp *pCmd_ReadScalers_Rsp)
 {
@@ -842,6 +999,34 @@ Vme_ReadScalers(Cmd_ReadScalers *pCmd_ReadScalers, Cmd_ReadScalers_Rsp *pCmd_Rea
 
   for(ii=0; ii<pCmd_ReadScalers_Rsp->cnt; ii++) pWr[ii] = vmescalers[slot][ii];
   /*printf("Vme_ReadScalers: respond: cnt=%d (size=%d) 100=%d 120=%d\n",pCmd_ReadScalers_Rsp->cnt,size,pWr[100],pWr[120]);*/
+
+  size = pCmd_ReadScalers_Rsp->cnt*4 + 4; /* +4 because have to count 'cnt' in outgoing message */
+
+  SCALER_UNLOCK;
+
+  return(size); /* size of outgoing message in bytes ! */
+}
+
+
+int
+Vme_ReadData(Cmd_ReadScalers *pCmd_ReadScalers, Cmd_ReadScalers_Rsp *pCmd_ReadScalers_Rsp)
+{
+  int *pWr = pCmd_ReadScalers_Rsp->vals;
+  int c = pCmd_ReadScalers->cnt; /* count from input message - not used */
+  int size/* = 4+4*c*/;
+  int nw, slot, ii;
+
+  /*printf("Vme_ReadData reached\n");fflush(stdout);*/
+  nw = pCmd_ReadScalers->cnt;
+  slot = pCmd_ReadScalers->slot;
+  /*printf("Vme_ReadData: input: cnt=%d slot=%d\n",nw,slot);*/
+
+  SCALER_LOCK;
+
+  pCmd_ReadScalers_Rsp->cnt = vmedatalen[slot];
+
+  for(ii=0; ii<pCmd_ReadScalers_Rsp->cnt; ii++) pWr[ii] = vmedata[slot][ii];
+  /*printf("Vme_ReadData: respond: cnt=%d (size=%d) 100=%d 120=%d\n",pCmd_ReadScalers_Rsp->cnt,size,pWr[100],pWr[120]);*/
 
   size = pCmd_ReadScalers_Rsp->cnt*4 + 4; /* +4 because have to count 'cnt' in outgoing message */
 
@@ -964,15 +1149,15 @@ Vtp_ReadScalers(Cmd_ReadScalers *pCmd_ReadScalers, Cmd_ReadScalers_Rsp *pCmd_Rea
   int size/* = 4+4*c*/;
   int nw, slot, ii;
 
-  /*printf("Vme_ReadScalers reached\n");fflush(stdout);*/
+  /*printf("Vtp_ReadScalers reached\n");fflush(stdout);*/
   nw = pCmd_ReadScalers->cnt;
   slot = pCmd_ReadScalers->slot;
-  /*printf("Vme_ReadScalers: input: cnt=%d slot=%d\n",nw,slot);*/
+  /*printf("Vtp_ReadScalers: input: cnt=%d slot=%d\n",nw,slot);*/
 
   pCmd_ReadScalers_Rsp->cnt = vmescalerslen[slot];
 
   for(ii=0; ii<pCmd_ReadScalers_Rsp->cnt; ii++) pWr[ii] = vmescalers[slot][ii];
-  /*printf("Vme_ReadScalers: respond: cnt=%d (size=%d) 100=%d 120=%d\n",pCmd_ReadScalers_Rsp->cnt,size,pWr[100],pWr[120]);*/
+  /*printf("Vtp_ReadScalers: respond: cnt=%d (size=%d) 100=%d 120=%d\n",pCmd_ReadScalers_Rsp->cnt,size,pWr[100],pWr[120]);*/
 
   size = pCmd_ReadScalers_Rsp->cnt*4 + 4; /* +4 because have to count 'cnt' in outgoing message */
 
@@ -1063,6 +1248,7 @@ main(int argc, char *argv[])
   stat = vmeOpenDefaultWindows();
   if(stat != 0) goto CLOSE;
 #endif
+
 #ifdef Linux_armv7l
   stat = vtpOpen(VTP_FPGA_OPEN);
   if(stat != VTP_FPGA_OPEN) goto CLOSE;
@@ -1107,6 +1293,7 @@ main(int argc, char *argv[])
   gCrateServerCBFcn.Write32 = Vme_Write32;
   gCrateServerCBFcn.Delay = Vme_Delay;
   gCrateServerCBFcn.ReadScalers = Vme_ReadScalers;
+  gCrateServerCBFcn.ReadData = Vme_ReadData;
   gCrateServerCBFcn.GetCrateMap = Vme_GetCrateMap;
   gCrateServerCBFcn.GetBoardParams = Vme_GetBoardParams;
   gCrateServerCBFcn.GetChannelParams = Vme_GetChannelParams;
@@ -1120,6 +1307,7 @@ main(int argc, char *argv[])
   gCrateServerCBFcn.Write32 = Vtp_Write32;
   gCrateServerCBFcn.Delay = NULL;
   gCrateServerCBFcn.ReadScalers = Vtp_ReadScalers;
+  gCrateServerCBFcn.ReadData = NULL;
   gCrateServerCBFcn.GetCrateMap = Vme_GetCrateMap;
   gCrateServerCBFcn.GetBoardParams = NULL;
   gCrateServerCBFcn.GetChannelParams = NULL;

@@ -1,4 +1,4 @@
-
+//10 AOUT 2016
 /******************************************************************************
 *
 *  mvtLib.h  - Library implementation file for readout of the Clas12 MVT & FTT
@@ -32,7 +32,7 @@
 #include "BeuConfig.h"
 
 // For the moment an ugly declaration
-extern SysParams *sys_params_ptr;					// DEFINED IN SysConfig.h
+extern SysParams *sys_params_ptr;					// DEFINED IN SysConfig.c
 
 int static num_of_beu;
 int beu_id2slot[DEF_MAX_NB_OF_BEU];
@@ -162,7 +162,7 @@ int mvtGo()
 {
 	int ret;
 
-	fprintf(stdout, "%s: **** starting ****\n", __FUNCTION__);
+//	fprintf(stdout, "%s: **** starting ****\n", __FUNCTION__);
 
 	// Synchronize and Enable trigger processing
 	if( (ret=SysGo()) != D_RetCode_Sucsess )
@@ -171,7 +171,7 @@ int mvtGo()
 		SysConfig_CleanUp();
 		return(ret);		
 	}
-	fprintf(stdout, "%s: **** end ****\n", __FUNCTION__);
+//	fprintf(stdout, "%s: **** end ****\n", __FUNCTION__);
 
  	// If the multi board block transfer is requested
 	if( sys_params_ptr->Bec_Params[1].BaseAdr_A32m_Com_Enb )
@@ -241,7 +241,9 @@ int mvtGBReady(int id)
 					}
 					// Check if beu-s are ready
 					readme = beusspBReady(beu_reg_control[beu]);
-					if( readme & 0x00010000 )
+						
+					//if( readme & 0x00010000 )
+					if( readme )
 						slot_flag |= (1<<sys_params_ptr->Bec_Params[bec].Beu_Slot[beu]);
  				}
 			}
@@ -422,6 +424,8 @@ int mvtReadBlock(int id, unsigned int *data, int nwrds, int rflag)
 	unsigned int blocksize=0;
 //	int first_beu = -1;
 	int bec=0, beu=0;
+	int beu_block_size;
+	int beu_rd_iter;
 
 	// Go through back end crates
 	for( bec=1; bec<DEF_MAX_NB_OF_BEC; bec++ )
@@ -447,6 +451,8 @@ int mvtReadBlock(int id, unsigned int *data, int nwrds, int rflag)
 					fprintf(stderr, "%s: first_beu_in_token = %d in bec %d non valid\n", __FUNCTION__, first_beu_in_token, bec );
 					return(first_beu_in_token);
 				}
+
+				//SHOULD WE DO HERE SOMETHING SIMILAR TO WHAT WE DO BELOW WITH A MAXIMUM READ SIZE EQUAL TO THE FIFO DEPTH ?							
 				dCnt = beusspTokenReadBlock(beu_reg_control[first_beu_in_token], BEUSSPmblk, data, (MAX_EVENT_LENGTH>>2)-1024, 1);
 
 				// Forward: first board needs to take token 
@@ -465,7 +471,40 @@ int mvtReadBlock(int id, unsigned int *data, int nwrds, int rflag)
 				{
 					if( sys_params_ptr->Bec_Params[bec].Beu_Id[beu] > 0 )
 					{
-						beusspGetBlockSize(beu_reg_control[beu], &blocksize);		
+
+						blocksize = beusspGetVMEFIFOStatus(beu_reg_control[beu]);
+//fprintf(stderr, "%s: beusspGetVMEFIFOStatus for beu %d in bec %d  vmefifostatus %x\n", __FUNCTION__,beu, bec,blocksize);
+						beusspGetBlockSize(beu_reg_control[beu], &blocksize);
+						beu_block_size = blocksize;
+						beu_rd_iter = 0;
+
+
+//VME USER FIFO FULL THRESHOLD IS 0X7FF0 but thanks to the "if" below its OK to set DEF_BEU_READ_BUF_SIZE to 0X7FFF OR EVEN TO 0X8000
+#define DEF_BEU_READ_BUF_SIZE 32768
+
+						while( blocksize )
+						{
+
+							//SHOULD WE FIRST CHECK THAT THE FIFO IS FULL OR THAT A TRAILER IS PRESENT IN THE FIFO ??
+							//SHOULD WE DO THAT HERE OR IN BEUSSPREADBLOCK ? 
+							//SHOULD WE MOVE ALL THIS INTO BEUSSPLIB.C ?							
+
+							if( blocksize > DEF_BEU_READ_BUF_SIZE )
+								dCnt = beusspReadBlock(beu_reg_control[beu], beu_fifo[beu], data, DEF_BEU_READ_BUF_SIZE, 1);
+							else
+								dCnt = beusspReadBlock(beu_reg_control[beu], beu_fifo[beu], data, blocksize, 1);
+							if(dCnt<=0)
+							{
+								fprintf(stderr, "%s: beusspReadBlock failed for beu %d in bec %d with dCnt = %d reading beu_block_size=%d in iter=%d\n",
+									__FUNCTION__, beu, bec, dCnt, beu_block_size, beu_rd_iter);
+								return(dCnt);
+							}
+							beu_rd_iter++;
+							blocksize -= dCnt;
+							len  += dCnt;
+							data += dCnt;
+						}
+/*
 						dCnt = beusspReadBlock(beu_reg_control[beu], beu_fifo[beu], data, blocksize, 1);
 						if(dCnt<=0)
 						{
@@ -474,6 +513,7 @@ int mvtReadBlock(int id, unsigned int *data, int nwrds, int rflag)
 						}
 						len += dCnt;
 						data += dCnt;
+*/
 					}
 				} // for( beu=1; beu<DEF_MAX_NB_OF_BEU; beu++ )
  			}
@@ -508,15 +548,6 @@ int mvtCleanup()
 /*
  * 
  */
-
-static char *expid = NULL;
-
-void
-mvtSetExpid(char *string)
-{
-  expid = strdup(string);
-}
-
 int mvtConfig( char *sys_conf_params_filename, int run_number, int bec_id )
 {
 	// time variables
@@ -537,6 +568,7 @@ int mvtConfig( char *sys_conf_params_filename, int run_number, int bec_id )
 	int roc_detected;
 
 	char *clonparms;
+	char *expid;
 
 	char line[LINE_SIZE];
 	int line_num;
@@ -569,17 +601,7 @@ int mvtConfig( char *sys_conf_params_filename, int run_number, int bec_id )
 	 **********************/
 	gethostname( host_name, 128);
 	clonparms = getenv( "CLON_PARMS" );
-
-    if(expid==NULL)
-    {
-      expid = getenv("EXPID");
-      printf("\nNOTE: use EXPID=>%s< from environment\n",expid);
-    }
-    else
-    {
-      printf("\nNOTE: use EXPID=>%s< from CODA\n",expid);
-    }
-
+	expid = getenv( "EXPID" );
 	if( strlen(sys_conf_params_filename) !=0 ) /* filename specified */
 	{
 		if( (sys_conf_params_filename[0]=='/') || ( (sys_conf_params_filename[0]=='.') && (sys_conf_params_filename[1]=='/') ) )
@@ -734,7 +756,7 @@ fprintf(stdout, "%s: Using configuration file copy %s\n", __FUNCTION__, filename
 		fprintf( stderr, "%s: SysConfig failed for parameters from conf file %s with %d at first pass\nSecond attempt...\n", __FUNCTION__, sys_conf_params_filename, ret );
 		if( (ret=SysConfig( sys_params_ptr )) != D_RetCode_Sucsess )
 		  {
-		    fprintf( stderr, "%s: SysConfig failed for parameters from conf file %s with %d at firssecond pass\nAbandon...\n", __FUNCTION__, sys_conf_params_filename, ret );
+		    fprintf( stderr, "%s: SysConfig failed for parameters from conf file %s with %d at second pass\nAbandon...\n", __FUNCTION__, sys_conf_params_filename, ret );
 		    return ret;
 		  }
 	}
@@ -771,7 +793,7 @@ fprintf(stderr, "%s: first_beu_in_token = %d\n", __FUNCTION__, first_beu_in_toke
  */
 int mvtUploadAll( char *string, int length )
 {
-	char buf[128*1024];
+	char buf[256*1024];
 	int ret;
 
 	// Make sure a buffer was provided
@@ -805,5 +827,35 @@ int mvtUploadAll( char *string, int length )
 	sprintf( string, "%s", buf );
 	return( strlen(string) );
 }
+
+
+int mvtStatus(int numFeu)
+{
+ return mvtStatusDump(numFeu, stdout);  
+}
+
+int mvtStatusDump(int numFeu, FILE *fptr)
+{
+  int bec;
+  int beu;
+  // Go through back end crates
+  for( bec=1; bec<DEF_MAX_NB_OF_BEC; bec++ )
+    {
+      if( sys_params_ptr->Bec_Params[bec].Crate_Id > 0 )
+	{ 
+	  for( beu=1; beu<DEF_MAX_NB_OF_BEU; beu++ )
+	    {
+	      if( sys_params_ptr->Bec_Params[bec].Beu_Id[beu] > 0 )
+			{
+				//beusspSetTargetFeu(beu_reg_control[beu], numFeu); 				
+				//beusspDisplayAllReg(beu_reg_control[beu]);
+				beusspSetTargetFeuAndDumpAllReg(beu_reg_control[beu], numFeu, fptr);
+			}
+	    } 					
+	}
+    } 
+ return 0;  
+}
+
 
 #endif // #if defined(Linux_vme)

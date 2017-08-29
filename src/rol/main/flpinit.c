@@ -21,6 +21,12 @@ main(int argc, char *argv[])
   float freq = 6000;
   int nflp;
 
+  if(argc!=2)
+  {
+    printf("Usage: flpinit 0/1\n");
+    exit(0);
+  }
+
   /* Open the default VME windows */
   vmeOpenDefaultWindows();
  
@@ -28,24 +34,25 @@ main(int argc, char *argv[])
 
   flpInit(0x900000,20); /* 0x900000 - FLP in slot 18 */
   nflp = flpGetNflp();
-  printf ("Setting flp\n");
+  printf ("nflp=%d, setting flp(s)\n",nflp);
 
 
   if(nflp>0)
   {
     if (atoi(argv[1]) == 1)
-      {  flpEnableOutput(0);
-	flpEnableOutput(1);
-	flpEnableIntPulser(0);
-	flpEnableIntPulser(1);
+    {  flpEnableOutput(0);
+	 flpEnableOutput(1);
+	 flpEnableIntPulser(0);
+	 flpEnableIntPulser(1);
 	
-	flpConfig("");
+	 flpConfig("");
 	
-	flpStatus(0);
+	 flpStatus(0);
 	
-	flpUploadAllPrint();
-      }
-    if (atoi(argv[1]) == 0){
+	 flpUploadAllPrint();
+    }
+    if (atoi(argv[1]) == 0)
+    {
       flpDisableOutput(0);
       flpDisableOutput(1);
       flpDisableIntPulser(1);

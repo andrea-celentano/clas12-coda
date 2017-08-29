@@ -7,6 +7,8 @@
  * 
  */ 
 
+#include "sspLib_rich.h"
+
 /* Macros to help with register spacers */
 #define MERGE_(a,b)  a##b
 #define LABEL_(a) MERGE_(unsigned int sspblank, a)
@@ -47,8 +49,8 @@ typedef struct
 /* SD Peripheral: Internal signal muxing, scalers, pulser */
 typedef struct
 {
-  /* 0x0000-0x003B */ volatile unsigned int SrcSel[17];
-  /* 0x003C-0x007F */          unsigned int Reserved0[(0x0080-0x0044)/4];
+  /* 0x0000-0x0047 */ volatile unsigned int SrcSel[18];
+  /* 0x0048-0x007F */          unsigned int Reserved0[(0x0080-0x0048)/4];
   /* 0x0080-0x0083 */ volatile unsigned int PulserPeriod;
   /* 0x0084-0x0087 */ volatile unsigned int PulserLowCycles;
   /* 0x0088-0x008B */ volatile unsigned int PulserNPulses;
@@ -179,35 +181,49 @@ typedef struct
 #define GT_SSEC_DELAY_ESUM_MASK             0x000003FF
 #define GT_SSEC_DELAY_CLUSTER_MASK          0x000003FF
 #define GT_SSEC_WIDTHINT_ESUM_MASK          0x0000003F
+#define GT_SSEC_DELAY_COSMIC_MASK           0x000003FF
 
 /* GT ecal subsystem */
 typedef struct
 {
   /* 0x0000-0x0003 */ volatile unsigned int Delay_esum;
   /* 0x0004-0x0007 */ volatile unsigned int Delay_cluster;
-  /* 0x0008-0x000F */ BLANK[(0x0010-0x0008)/4];
+  /* 0x0008-0x000B */ volatile unsigned int Delay_cosmic;
+  /* 0x000C-0x000F */ BLANK[(0x0010-0x000C)/4];
   /* 0x0010-0x0013 */ volatile unsigned int WidthInt_esum;
   /* 0x0014-0x001F */ BLANK[(0x020-0x0014)/4];
   /* 0x0020-0x0023 */ volatile unsigned int Scaler_inner_cluster;
   /* 0x0024-0x0027 */ volatile unsigned int Scaler_outer_cluster;
-  /* 0x0028-0x00FF */ BLANK[(0x0100-0x0028)/4];
+  /* 0x0028-0x002B */ volatile unsigned int Scaler_inner_cosmic;
+  /* 0x002C-0x002F */ volatile unsigned int Scaler_outer_cosmic;
+  /* 0x0030-0x00FF */ BLANK[(0x0100-0x0030)/4];
 } GT_ssec_regs;
 
 #define GT_SSPC_DELAY_ESUM_MASK             0x000003FF
 #define GT_SSPC_DELAY_CLUSTER_MASK          0x000003FF
 #define GT_SSPC_WIDTHINT_ESUM_MASK          0x0000003F
+#define GT_SSPC_DELAY_COSMIC_MASK           0x000003FF
 
 /* GT pcal subsystem */
 typedef struct
 {
   /* 0x0000-0x0003 */ volatile unsigned int Delay_esum;
   /* 0x0004-0x0007 */ volatile unsigned int Delay_cluster;
-  /* 0x0008-0x000F */ BLANK[(0x0010-0x0008)/4];
+  /* 0x0008-0x000B */ volatile unsigned int Delay_cosmic;
+  /* 0x000C-0x000F */ BLANK[(0x0010-0x000C)/4];
   /* 0x0010-0x0013 */ volatile unsigned int WidthInt_esum;
   /* 0x0014-0x001F */ BLANK[(0x020-0x0014)/4];
   /* 0x0020-0x0023 */ volatile unsigned int Scaler_cluster;
-  /* 0x0024-0x00FF */ BLANK[(0x0100-0x0024)/4];
+  /* 0x0024-0x0027 */ volatile unsigned int Scaler_cosmic;
+  /* 0x0028-0x00FF */ BLANK[(0x0100-0x0028)/4];
 } GT_sspc_regs;
+
+/* GT drift chamber subsystem */
+typedef struct
+{
+  /* 0x0000-0x0003 */ volatile unsigned int Delay_seg;
+  /* 0x0004-0x00FF */ BLANK[(0x0100-0x0004)/4];
+} GT_ssdc_regs;
 
 #define GT_GTPIF_LATENCY_MASK               0x0000007FF
 
@@ -224,6 +240,10 @@ typedef struct
 #define GT_STRG_CTRL_ECICLUSTER_EMIN_EN     0x00000008
 #define GT_STRG_CTRL_PCESUM_EMIN_EN         0x00000010
 #define GT_STRG_CTRL_ECESUM_EMIN_EN         0x00000020
+#define GT_STRG_CTRL_DC_MULT_EN             0x00000040
+#define GT_STRG_CTRL_ECOCOSMIC_EN           0x00000080
+#define GT_STRG_CTRL_ECICOSMIC_EN           0x00000100
+#define GT_STRG_CTRL_PCCOSMIC_EN            0x00000200
 
 #define GT_STRG_ECCTRL_ESUM_EMIN_MASK       0x00003FFF
 #define GT_STRG_ECCTRL_ESUM_WIDTH_MASK      0x00FF0000
@@ -240,28 +260,37 @@ typedef struct
 #define GT_STRG_PCCTRL_CLUSTER_EMIN_MASK    0x00003FFF
 #define GT_STRG_PCCTRL_CLUSTER_WIDTH_MASK   0x00FF0000
 
+#define GT_STRG_COSMIC_WIDTH_MASK           0x00FF0000
+
+#define GT_STRG_DCCTRL_MULT_MIN_MASK        0x00000007
+#define GT_STRG_DCCTRL_MULT_WIDTH_MASK      0x01FF0000
+
 /* GT sector trigger */
 typedef struct
 {
   /* 0x0000-0x0003 */ volatile unsigned int Ctrl;
-  /* 0x0004-0x000F */ BLANK[(0x0010-0x0004)/4];
+  /* 0x0004-0x0007 */ volatile unsigned int Cosmic;
+  /* 0x0008-0x000F */ BLANK[(0x0010-0x0008)/4];
   /* 0x0010-0x0013 */ volatile unsigned int ECCtrl_esum;
   /* 0x0014-0x0017 */ volatile unsigned int PCCtrl_esum;
   /* 0x0018-0x001B */ volatile unsigned int ECInnerCtrl_cluster;
   /* 0x001C-0x001F */ volatile unsigned int ECOuterCtrl_cluster;
   /* 0x0020-0x0023 */ volatile unsigned int PCCtrl_cluster;
-  /* 0x0024-0x002F */ BLANK[(0x030-0x0024)/4];
+  /* 0x0024-0x0027 */ volatile unsigned int DCCtrl;
+  /* 0x0028-0x002F */ BLANK[(0x030-0x0028)/4];
   /* 0x0030-0x0033 */ volatile unsigned int Scaler_trigger;
   /* 0x0034-0x00FF */ BLANK[(0x0100-0x0034)/4];
 } GT_strg_regs;
 
+/************************/
 /* SSP memory structure */
+/************************/
 typedef struct
 {
   /* 0x0000-0x00FF */ SspCfg_regs       Cfg;
   /* 0x0100-0x01FF */ Clk_regs          Clk;
   /* 0x0200-0x03FF */ Sd_regs           Sd;
-  /* 0x0400-0x04FF */ unsigned int      Reserved0[(0x0500-0x0400)/4];
+  /* 0x0400-0x04FF */ BLANK[(0x0500-0x0400)/4];
   
   struct
   {
@@ -272,9 +301,9 @@ typedef struct
     /* 0x0B00-0x0BFF */ HpsCosmic_regs  HpsCosmic;
   } hps;
   
-  /* 0x0C00-0x0FFF */ unsigned int      Reserved1[(0x1000-0x0C00)/4];
+  /* 0x0C00-0x0FFF */ BLANK[(0x1000-0x0C00)/4];
   /* 0x1000-0x19FF */ Serdes_regs       Ser[10];
-  /* 0x1a00-0x1FFF */ unsigned int      Reserved2[(0x2000-0x1a00)/4];
+  /* 0x1a00-0x1FFF */ BLANK[(0x2000-0x1a00)/4];
   /* 0x2000-0x20FF */ EB_regs           EB;
   /* 0x2100-0x21FF */ Trigger_regs      Trigger;
   
@@ -283,11 +312,17 @@ typedef struct
   /* 0x2200-0x22FF */ GT_ssec_regs    ssec;
   /* 0x2300-0x23FF */ GT_sspc_regs    sspc;
   /* 0x2400-0x24FF */ GT_gtpif_regs   gtpif;
-  /* 0x2500-0x2FFF */ unsigned int    Reserved3[(0x3000-0x2500)/4];
+  /* 0x2500-0x27FF */ GT_ssdc_regs    ssdc[3];
+  /* 0x2800-0x2FFF */ BLANK[(0x3000-0x2800)/4];
   /* 0x3000-0x33FF */ GT_strg_regs    strigger[4];
   } gt;
+
+  /* 0x3400-0xFFFF */ BLANK[(0x10000-0x3400)/4];
   
-  /* 0x3400-0xFFFF */ unsigned int    Reserved4[(0x10000-0x3400)/4];
+  struct
+  {
+  /* 0x10000-0x2F000 */ RICH_regs     fiber[32];
+  } rich;
 } SSP_regs;
 
 
@@ -309,8 +344,9 @@ typedef struct
 #define SD_SRC_P2_LVDSOUT7		14
 #define SD_SRC_TRIG			15
 #define SD_SRC_SYNC			16
+#define SD_SRC_TRIG2    17
 
-#define SD_SRC_NUM			17
+#define SD_SRC_NUM			18
 
 /* Sd_regs->SrcSel[] values */
 #define SD_SRC_SEL_0		0
@@ -482,6 +518,7 @@ typedef struct
 #define SSP_CFG_SSPTYPE_HALLB     0x02
 #define SSP_CFG_SSPTYPE_HPS       0x03
 #define SSP_CFG_SSPTYPE_HALLBGT   0x04
+#define SSP_CFG_SSPTYPE_HALLBRICH 0x05
 
 #define SSP_CFG_FIRMWAREREV_MASK           0x0000FFFF
 #define SSP_CFG_FIRMWAREREV_MAJOR_MASK     0x0000FF00
@@ -557,6 +594,8 @@ int  sspSetIOSrc(int id, int ioport, int signal);
 void sspPrintIOSrc(int id, int pflag);
 int  sspTriggerSetup(int id, int fiber_mask, int gtp_src, int pflag);
 int  sspGetFirmwareType(int id);
+int  sspPrintEbStatus(int id);
+int  sspEbReset(int id, int reset);
 
 /* HPS routines */
 int  sspHps_SetLatency(int id, int latency);
@@ -596,12 +635,18 @@ int sspGt_SetEcal_ClusterDelay(int id, int delay);
 int sspGt_GetEcal_ClusterDelay(int id);
 int sspGt_SetEcal_EsumIntegrationWidth(int id, int width);
 int sspGt_GetEcal_EsumIntegrationWidth(int id);
+int sspGt_SetEcal_CosmicDelay(int id, int delay);
+int sspGt_GetEcal_CosmicDelay(int id);
 int sspGt_SetPcal_EsumDelay(int id, int delay);
 int sspGt_GetPcal_EsumDelay(int id);
 int sspGt_SetPcal_ClusterDelay(int id, int delay);
 int sspGt_GetPcal_ClusterDelay(int id);
 int sspGt_SetPcal_EsumIntegrationWidth(int id, int width);
 int sspGt_GetPcal_EsumIntegrationWidth(int id);
+int sspGt_SetPcal_CosmicDelay(int id, int delay);
+int sspGt_GetPcal_CosmicDelay(int id);
+int sspGt_SetDc_SegDelay(int id, int region, int delay);
+int sspGt_GetDc_SegDelay(int id, int region);
 int sspGt_SetTrigger_Enable(int id, int trg, int en_mask);
 int sspGt_GetTrigger_Enable(int id, int trg);
 int sspGt_SetTrigger_EcalEsumEmin(int id, int trg, int val);
@@ -624,6 +669,13 @@ int sspGt_SetTrigger_PcalClusterEmin(int id, int trg, int val);
 int sspGt_GetTrigger_PcalClusterEmin(int id, int trg);
 int sspGt_SetTrigger_PcalClusterWidth(int id, int trg, int val);
 int sspGt_GetTrigger_PcalClusterWidth(int id, int trg);
+int sspGt_SetTrigger_CosmicWidth(int id, int trg, int val);
+int sspGt_GetTrigger_CosmicWidth(int id, int trg);
+int sspGt_SetTrigger_DcMultMin(int id, int trg, int val);
+int sspGt_GetTrigger_DcMultMin(int id, int trig);
+int sspGt_SetTrigger_DcMultWidth(int id, int trg, int val);
+int sspGt_GetTrigger_DcMultWidth(int id, int trg);
+
 void sspPrintGtConfig(int id);
 
 /* Pulser routines */
@@ -650,6 +702,8 @@ int  sspFirmwareUpdateVerify(int id, const char *filename);
 int  sspFirmwareUpdate(int id, const char *filename);
 int  sspFirmwareRead(int id, const char *filename);
 int  sspFirmwareVerify(int id, const char *filename);
+int  sspGFirmwareUpdateVerify(const char *filename);
+
 
 /* Firmware update utility routines */
 int  sspGetSerialNumber(int id, char *mfg, int *sn);
@@ -671,5 +725,12 @@ int sspGetWindowOffset(int id);
 int sspBReady(int id);
 int sspGetNssp();
 unsigned int sspGBReady();
+
+
+int sspGetFirmwareType_Shadow(int id);
+unsigned int sspReadReg(volatile unsigned int *addr);
+void sspWriteReg(volatile unsigned int *addr, unsigned int val);
+void SSPLOCK();
+void SSPUNLOCK();
 
 #endif

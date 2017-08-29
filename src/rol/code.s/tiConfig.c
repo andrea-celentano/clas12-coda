@@ -65,7 +65,7 @@ static int random_enabled;
 static int random_prescale;
 static int holdoff_rules[4];
 static int holdoff_timescale[4];
-static int fiber_in;
+/*static int fiber_in;*/
 
 
 static char *expid = NULL;
@@ -128,7 +128,7 @@ tiInitGlobals()
   for(ii=0; ii<MAXSLAVES; ii++) slave_list[ii] = 0;
   for(ii=0; ii<6; ii++) input_prescale[ii] = 0;
   input_mask = 0x3f;
-  fiber_in = 1;
+  /*fiber_in = 1;*/
 
   return(0);
 }
@@ -314,13 +314,13 @@ tiReadConfigFile(char *filename)
         holdoff_rules[i1-1] = i2;
         holdoff_timescale[i1-1] = i3;
       }
-
+	  /*
       else if(active && (strcmp(keyword,"TI_FIBER_IN")==0))
       {
         sscanf (str_tmp, "%*s %d", &i1);
         fiber_in = i1;
       }
-
+	  */
       else
       {
         ; /* unknown key - do nothing */
@@ -379,11 +379,17 @@ tiDownloadAll()
   tiSetBlockBufferLevel(buffer_level);
 
   if(!random_enabled)
+  {
     tiDisableRandomTrigger();
+    tiSetTriggerSource(TI_TRIGGER_TSINPUTS);
+  }
   else
+  {
     tiSetRandomTrigger(1, random_prescale);
+    tiSetTriggerSource(TI_TRIGGER_RANDOM);
+  }
 
-  tiSetFiberIn_preInit(fiber_in);
+  /*tiSetFiberIn_preInit(fiber_in);*/
 
   return(0);
 }
@@ -446,7 +452,7 @@ tiUploadAll(char *string, int length)
   random_enabled = tiGetRandomTriggerEnable(1);
   random_prescale = tiGetRandomTriggerSetting(1);
 
-  fiber_in = tiGetSlavePort();
+  /*fiber_in = tiGetSlavePort();*/
 
   if(length)
   {
@@ -464,10 +470,10 @@ tiUploadAll(char *string, int length)
 
     sprintf(sss,"TI_BUFFER_LEVEL %d\n",buffer_level);
     ADD_TO_STRING;
-
+	/*
     sprintf(sss,"TI_FIBER_IN %d\n",fiber_in);
     ADD_TO_STRING;
-
+	*/
     for(ii=0; ii<4; ii++)
     {
       tmp = tiGetTriggerHoldoff(ii+1);
@@ -489,6 +495,7 @@ tiUploadAll(char *string, int length)
     }
 
     sprintf(sss,"TI_RANDOM_TRIGGER %d %d\n",random_enabled,random_prescale);
+    ADD_TO_STRING;
 
     CLOSE_STRING;
   }

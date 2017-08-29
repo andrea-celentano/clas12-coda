@@ -1,15 +1,20 @@
+//10 AOUT 2016
 #ifndef BEUSSPLIB_H
 #define BEUSSPLIB_H
 
 // ------------------------------------------------------------------------------------------------------------------
 // hardware desciption : the set of BEUSSP_VME_BASEADDR should match the values set by hardware on each BEUSSP board	
 // ------------------------------------------------------------------------------------------------------------------
+// VME base Addresses are given in the configuration file.
+// These definitions are no longer used.
 #define BEUSSP_VME_BASEADDR_0	0x00BE0000
 #define BEUSSP_VME_BASEADDR_1	0x00CE0000
+
 
 // -------------------------------------------------------------------------------------------------------------
 //BEUSSP parameters needing configuration : filled up by software and exported to BEUSSP hardware when requested 
 // -------------------------------------------------------------------------------------------------------------
+#include <stdio.h>
 #include "BeuConfigParams.h"
 
 /*struct BEUSSP_Config
@@ -112,13 +117,13 @@ struct BEUSSP_A24RegStruct
   /* 0x0007C */ volatile unsigned int regin_F;		//topbeussp_ctrl, timeout for data concentrator
  
   /* 0x00080 */ volatile unsigned int regout_0;		 //sig_error_flags(31 downto 0)
-  /* 0x00084 */ volatile unsigned int regout_1;		
-  /* 0x00088 */ volatile unsigned int regout_2;		
-  /* 0x0008C */ volatile unsigned int regout_3;		
-
-  /* 0x00090 */ volatile unsigned int regout_4;		
-  /* 0x00094 */ volatile unsigned int regout_5;		
-  /* 0x00098 */ volatile unsigned int regout_6;		
+  /* 0x00084 */ volatile unsigned int regout_1;		 //sig_error_flags(
+  /* 0x00088 */ volatile unsigned int regout_2;		 //sig_error_flags(
+  /* 0x0008C */ volatile unsigned int regout_3;		 //sig_error_flags(
+ 
+  /* 0x00090 */ volatile unsigned int regout_4;		 //sig_error_flags(
+  /* 0x00094 */ volatile unsigned int regout_5;		 //sig_error_flags(
+  /* 0x00098 */ volatile unsigned int regout_6;		 //sig_error_flags(
   /* 0x0009C */ volatile unsigned int regout_7;		 //sig_error_flags(255 downto 222)
  
   /* 0x000A0 */ volatile unsigned int regout_8;		//sig_trig_sent_counter(31 downto 0);
@@ -127,9 +132,9 @@ struct BEUSSP_A24RegStruct
   /* 0x000AC */ volatile unsigned int regout_B;		//slowcontrol and clkstatus register	
  
   /* 0x000B0 */ volatile unsigned int regout_C;		//slow control packets received ( 31 downto 16) data packets received (15 downto 0);
-  /* 0x000B4 */ volatile unsigned int regout_D;		
+  /* 0x000B4 */ volatile unsigned int regout_D;		//sig_ddr_status( 31 downto 0): counter_trailers_in_fifo ( 15 downto 0) -- counter_headers_in_fifo( 31 downto 16) 
   /* 0x000B8 */ volatile unsigned int regout_E;		//sig_slwctrl_valid_counter(31 downto 0);
-  /* 0x000BC */ volatile unsigned int regout_F;		//bram_info readme and page number
+  /* 0x000BC */ volatile unsigned int regout_F;		//bram_info readme (16) page number (6 downto 0) , VMEFIFOFULL ( 24) VMEFIFOEMPTY ( 28)		
 
   /* 0x000C0 */ volatile unsigned int regout_10;	//sig_multigtxstatus
   /* 0x000C4 */ volatile unsigned int regout_11;	//multigtxaligned
@@ -138,28 +143,28 @@ struct BEUSSP_A24RegStruct
  
   /* 0x000D0 */ volatile unsigned int regout_14;	//sig_topbeussp_error(31 downto  0);
   /* 0x000D4 */ volatile unsigned int regout_15;	//sig_topbeussp_status(31 downto  0);
-  /* 0x000D8 */ volatile unsigned int regout_16;	//sig_trg_fifo_max_occupancy(15 downto  0);
+  /* 0x000D8 */ volatile unsigned int regout_16;	//sig_trg_fifo_max_occupancy(15 downto  0) and MAX NB of HEADERS in VMEFIFO (31 downto 16)
   /* 0x000DC */ volatile unsigned int regout_17;	//sig_timedout_links;	
  
   /* 0x000E0 */ volatile unsigned int regout_18;	//sig_bram_error;	
-  /* 0x000E4 */ volatile unsigned int regout_19;
-  /* 0x000E8 */ volatile unsigned int regout_1A;
-  /* 0x000EC */ volatile unsigned int regout_1B;
+  /* 0x000E4 */ volatile unsigned int regout_19;	//selftrig error
+  /* 0x000E8 */ volatile unsigned int regout_1A;	//selftrig status
+  /* 0x000EC */ volatile unsigned int regout_1B;	//selftrig counter
  
   /* 0x000F0 */ volatile unsigned int regout_1C;	// 0: SPI DO
   /* 0x000F4 */ volatile unsigned int regout_1D;
   /* 0x000F8 */ volatile unsigned int regout_1E;
   /* 0x000FC */ volatile unsigned int regout_1F;
 
-  /* 0x00040 */ volatile unsigned int regin_10;		// trigger time stamp initialization	
+  /* 0x00040 */ volatile unsigned int regin_10;		// self trig pusle width 	
   /* 0x00044 */ volatile unsigned int regin_11;		// 14 downto 0 : soft ID
-  /* 0x00048 */ volatile unsigned int regin_12;		//
-  /* 0x0004C */ volatile unsigned int regin_13;		//
+  /* 0x00048 */ volatile unsigned int regin_12;		// 31 downto 16 : selftrig control ( bit 16 : selftrig enable) 13 downto 0 : selftrigger latency ( initial read adress given that initial write adress is 0)	
+  /* 0x0004C */ volatile unsigned int regin_13;		// 31 downto 0 : selftrig link control : 1 enable for each link
 
   /* 0x00050 */ volatile unsigned int regin_14;		// 0: SPI CSB
   /* 0x00054 */ volatile unsigned int regin_15;		// 0: SPI DI
   /* 0x00058 */ volatile unsigned int regin_16;		// 0: SPI CLK
-  /* 0x0005C */ volatile unsigned int regin_17;		//
+  /* 0x0005C */ volatile unsigned int regin_17;		// 
  
   /* 0x00060 */ volatile unsigned int regin_18;		//
   /* 0x00064 */ volatile unsigned int regin_19;		//
@@ -213,6 +218,9 @@ int beusspResetGClkPll(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg);
 int beusspResetMultiGTX(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg);
 int beusspFlushPipeline(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg);
 int beusspDisplayAllReg(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg);
+int beusspSetTargetFeuAndDisplayAllReg(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg, int numFeu);
+int beusspSetTargetFeuAndDumpAllReg(   volatile struct BEUSSP_A24RegStruct  * BEUSSPreg, int numFeu, FILE *fptr);
+
 int beusspGetBlockSize(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg, unsigned int * blocksize);
 int beusspSendSlowControl(volatile struct BEUSSP_A24RegStruct * BEUSSPreg, unsigned int numFeu, unsigned int * datain1, unsigned int * datain2, unsigned int * dataout1, unsigned int * dataout2);
 int beusspSetTargetFeu(volatile struct BEUSSP_A24RegStruct * BEUSSPreg, int numFeu);
@@ -240,23 +248,42 @@ int beusspBReady(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg);
 int beusspFlashSatusReg(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg);
 int beusspFlashSatus(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg);
 int beusspFlashID(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg);
+int beusspFlashLoadbuffer(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, int NumBuf, unsigned char data[1056] );
+int beusspFlashBufferToMemory(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, int NumBuf, int NumPage );
+int beusspFWU( volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, char *filename ) ;
+
+
 int beusspCheckFeuLink( volatile struct BEUSSP_A24RegStruct *BEUSSPreg, int numFeu);
 int beusspBZRDLow(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg);
 int beusspBZRDHigh(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg);
+int beusspGetVMEFIFOStatus(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg);
 
+int beusspSelfTrigSetLatency(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, int selftriglatency);
+int beusspSelfTrigSetMultiplicity(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg,  int selftrigmultiplicity);
+int beusspSelfTrigEnable(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg);
+int beusspSelfTrigDisable(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg);
+int beusspSelfTrigEnableLinks(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, unsigned int selftrigenabledlinks );
+int beusspSelfTrigSetWindow(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg,  int selftrigwindow );
+//int beusspSelfTrigSetPulseWidth(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg,  int selftrigpulsewidth );
 
 
 
 /* Supported firmware version */
-#define BEUSSP_SUPPORTED_FIRMWARE 0x100
+//#define BEUSSP_SUPPORTED_FIRMWARE 0x20160810
+//#define BEUSSP_SUPPORTED_FIRMWARE 0x20170210
+//#define BEUSSP_SUPPORTED_FIRMWARE 0x20170228
+//#define BEUSSP_SUPPORTED_FIRMWARE 0x20170310
+//#define BEUSSP_SUPPORTED_FIRMWARE 0x20170320
+//#define BEUSSP_SUPPORTED_FIRMWARE 0x20170509
+#define BEUSSP_SUPPORTED_FIRMWARE 0x20170607
+
 
 /* boardID bits and masks */
-#define BEUSSP_BOARDID_TYPE_MASK     0xFF000000
-#define BEUSSP_BOARDID_PROD_MASK     0x00FF0000
-#define BEUSSP_BOARDID_GEOADR_MASK   0x00001F00
-#define BEUSSP_BOARDID_CRATEID_MASK  0x000000FF
-#define BEUSSP_BOARDID_TYPE_BEUSSP	0x53535020
-
+//#define BEUSSP_BOARDID_TYPE_MASK     0xFF000000
+//#define BEUSSP_BOARDID_PROD_MASK     0x00FF0000
+//#define BEUSSP_BOARDID_GEOADR_MASK   0x00001F00
+//#define BEUSSP_BOARDID_CRATEID_MASK  0x000000FF
+#define BEUSSP_BOARDID_TYPE_BEUSSP	0xBE55FCEA
 
 /* adr32 bits and masks */
 #define BEUSSP_ADR32_MBLK_ADDR_MAX_MASK           0x01FF0000

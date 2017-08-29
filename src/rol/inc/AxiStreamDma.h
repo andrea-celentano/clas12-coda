@@ -78,7 +78,7 @@ struct AxiStreamDmaRead {
 #include <stdlib.h>
 
 // Get Write Buffer Count
-inline ssize_t axisGetWriteBufferCount(__s32 fd) {
+ssize_t axisGetWriteBufferCount(__s32 fd) {
    struct AxiStreamDmaWrite dmaWr;
 
    dmaWr.command = CMD_GET_BCOUNT;
@@ -87,7 +87,7 @@ inline ssize_t axisGetWriteBufferCount(__s32 fd) {
 }
 
 // Get Write Buffer Size 
-inline ssize_t axisGetWriteBufferSize(__s32 fd) {
+ssize_t axisGetWriteBufferSize(__s32 fd) {
    struct AxiStreamDmaWrite dmaWr;
 
    dmaWr.command = CMD_GET_BSIZE;
@@ -96,7 +96,7 @@ inline ssize_t axisGetWriteBufferSize(__s32 fd) {
 }
 
 // Write Data
-inline ssize_t axisWrite(__s32 fd, const void *buf, size_t size, __u32 fUser, __u32 lUser, __u32 dest ) {
+ssize_t axisWrite(__s32 fd, const void *buf, size_t size, __u32 fUser, __u32 lUser, __u32 dest ) {
    struct AxiStreamDmaWrite dmaWr;
 
    dmaWr.command = CMD_WRITE_DATA;
@@ -110,7 +110,7 @@ inline ssize_t axisWrite(__s32 fd, const void *buf, size_t size, __u32 fUser, __
 }
 
 // Read Data
-inline ssize_t axisRead(__s32 fd, void *buf, size_t size, __u32 *fUser, __u32 *lUser, __u32 *dest ) {
+ssize_t axisRead(__s32 fd, void *buf, size_t size, __u32 *fUser, __u32 *lUser, __u32 *dest ) {
    struct AxiStreamDmaRead dmaRd;
    ssize_t ret;
 
@@ -128,7 +128,7 @@ inline ssize_t axisRead(__s32 fd, void *buf, size_t size, __u32 *fUser, __u32 *l
 }
 
 // Read Index
-inline ssize_t axisReadUser(__s32 fd, __u32 *index,  __u32 *fUser, __u32 *lUser, __u32 *dest ) {
+ssize_t axisReadUser(__s32 fd, __u32 *index,  __u32 *fUser, __u32 *lUser, __u32 *dest ) {
    struct AxiStreamDmaRead dmaRd;
    ssize_t ret;
 
@@ -146,7 +146,7 @@ inline ssize_t axisReadUser(__s32 fd, __u32 *index,  __u32 *fUser, __u32 *lUser,
 }
 
 // Post Index
-inline ssize_t axisPostUser(__s32 fd, __u32 index ) {
+ssize_t axisPostUser(__s32 fd, __u32 index ) {
    struct AxiStreamDmaRead dmaRd;
 
    dmaRd.command = CMD_POST_USER;
@@ -156,7 +156,7 @@ inline ssize_t axisPostUser(__s32 fd, __u32 index ) {
 }
 
 // Get Read Buffer Count
-inline ssize_t axisGetReadBufferCount(__s32 fd) {
+ssize_t axisGetReadBufferCount(__s32 fd) {
    struct AxiStreamDmaRead dmaRd;
 
    dmaRd.command = CMD_GET_BCOUNT;
@@ -165,7 +165,7 @@ inline ssize_t axisGetReadBufferCount(__s32 fd) {
 }
 
 // Get Read Buffer Size 
-inline ssize_t axisGetReadBufferSize(__s32 fd) {
+ssize_t axisGetReadBufferSize(__s32 fd) {
    struct AxiStreamDmaRead dmaRd;
 
    dmaRd.command = CMD_GET_BSIZE;
@@ -174,7 +174,7 @@ inline ssize_t axisGetReadBufferSize(__s32 fd) {
 }
 
 // Read ACK
-inline void axisReadAck (__s32 fd) {
+void axisReadAck (__s32 fd) {
    struct AxiStreamDmaRead dmaRd;
 
    dmaRd.command = CMD_READ_ACK;
@@ -183,7 +183,7 @@ inline void axisReadAck (__s32 fd) {
 }
 
 // Read Ready
-inline ssize_t axisReadReady (__s32 fd) {
+ssize_t axisReadReady (__s32 fd) {
    struct AxiStreamDmaRead dmaRd;
 
    dmaRd.command = CMD_READ_READY;
@@ -192,7 +192,7 @@ inline ssize_t axisReadReady (__s32 fd) {
 }
 
 // Return user space mapping to dma buffers
-inline __u8 ** axisMapUser(__s32 fd, __u32 *count, __u32 *size) {
+__u8 ** axisMapUser(__s32 fd, __u32 *count, __u32 *size) {
    void *  temp;
    __u8 ** ret;
    __u32   bCount;
@@ -221,7 +221,7 @@ inline __u8 ** axisMapUser(__s32 fd, __u32 *count, __u32 *size) {
 }
 
 // Free space mapping to dma buffers
-inline void axisUnMapUser(__s32 fd, __u8 ** buffer) {
+void axisUnMapUser(__s32 fd, __u8 ** buffer) {
    __u32   bCount;
    __u32   bSize;
    __u32   x;;

@@ -1,3 +1,4 @@
+//10 AOUT 2016
 #ifdef Linux_vme
 
 #define _GNU_SOURCE
@@ -257,6 +258,18 @@ int  beusspInit(unsigned int vmebaseaddr, volatile struct BEUSSP_A24RegStruct  *
 	return ERROR ;
 	}   
 
+
+
+	/* Check if this board has a valid firmware version compatible with this software library */
+	BEUSSPLOCK;
+		rval = vmeRead32( &(* BEUSSPreg)->FWRevision     );
+	BEUSSPUNLOCK;
+	if(  rval != BEUSSP_SUPPORTED_FIRMWARE)
+		{
+		fprintf( stderr,"%s: ERROR: firmware version mismatch ! From beussplib.h 0x%08x  Read from board = 0x%08x \n",__FUNCTION__,BEUSSP_SUPPORTED_FIRMWARE,rval);
+		return ERROR ;
+	}  
+
 	/* Check if this board has a valid slot number */
 	BEUSSPLOCK;
 		rval = vmeRead32( &(* BEUSSPreg)->adrgeo     );
@@ -266,7 +279,7 @@ int  beusspInit(unsigned int vmebaseaddr, volatile struct BEUSSP_A24RegStruct  *
 		fprintf( stderr,"%s: ERROR: slot number mismatch ! From configuration  file %d  Read from board = %d \n",__FUNCTION__,BEUSSPconf->Slot,rval);
 		return ERROR ;
 	}   
-	
+
 
 	/*Make sure all control registers are in proper state */
 	beusspInitCtrlRegs(* BEUSSPreg);
@@ -324,7 +337,12 @@ int beusspSetTargetFeu(volatile struct BEUSSP_A24RegStruct * BEUSSPreg, int numF
      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
       return ERROR;
     }
-  	BEUSSPLOCK;   
+  	if((numFeu < 0)||(numFeu > 31))
+	{
+    	 fprintf( stderr,"%s: ERROR: specified link number %d is out of range (0--31).\n",__FUNCTION__, numFeu);
+      	return ERROR;
+   	 }
+	BEUSSPLOCK;   
 	vmeWrite32( &BEUSSPreg->regin_6,   (0x000000FF&numFeu)<< 8   );
 	BEUSSPUNLOCK;   
 	
@@ -468,7 +486,7 @@ int  beusspDisplayAllReg(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg)
 	
 	BEUSSPLOCK;
 	
-	for (reg_num = 0; reg_num < 20 ; reg_num ++)
+/*	for (reg_num = 0; reg_num < 20 ; reg_num ++)
 			{
 
 			printf("%08X %08x %08x %08x %08x \r\n",memadr, 
@@ -478,42 +496,212 @@ int  beusspDisplayAllReg(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg)
 							vmeRead32( (volatile unsigned int * )(memadr + 0xc))  ); 
 			memadr += 0x10;
 			}
+*/
 	
 	printf("------------------ BEUSSP REGISTERS ------------------------\r\n" );  
-	printf("board Soft ID   %08X board ID        %08X FWRevision   %08X \r\n",  vmeRead32( &BEUSSPreg->regin_11 ),  vmeRead32( &BEUSSPreg->boardID ),  vmeRead32( &BEUSSPreg->FWRevision ) );
+	printf("board Soft ID   %08X board ID        %08X FWRevision   %08X \r\n",  vmeRead32( &BEUSSPreg->regin_11 ),  vmeRead32( &BEUSSPreg->boardID ),  vmeRead32( &BEUSSPreg->FWRevision ) );	
 	printf("ADR32M          %08X ADR32           %08X ADRGEO       %08X \r\n",  vmeRead32( &BEUSSPreg->adr32m ),  vmeRead32( &BEUSSPreg->adr32 ), vmeRead32( &BEUSSPreg->adrgeo )  );
 	printf("Active links    %08X Masked FEU Emu  %08X NELoopback   %08X \r\n",  vmeRead32( &BEUSSPreg->regin_0 ),  vmeRead32( &BEUSSPreg->regin_1 ), vmeRead32( &BEUSSPreg->regin_C ) );
-	printf("Trigger Period  %08X \r\n",  vmeRead32( &BEUSSPreg->regin_2 ) );
-	printf("MGTX status     %08X MGTX aligned    %08X \r\n", vmeRead32( &BEUSSPreg->regout_10 ) , vmeRead32( &BEUSSPreg->regout_11 )  );
-	data = vmeRead32( &BEUSSPreg->regin_3 ) ;
-	printf("Samples         %08X Events/Block    %08X \r\n",  (data&0xFFFF0000)>>16 , (data&0x0000FFFF) );
+	printf("MGTX aligned    %08X MGTX status     %08X \r\n",  vmeRead32( &BEUSSPreg->regout_11 ),vmeRead32( &BEUSSPreg->regout_10 )   );
 	data = vmeRead32( &BEUSSPreg->regin_5 ) ;
 	printf("Busy Source     %08X Sync Source     %08X Trig Source  %08X \r\n",  (data&0xFF000000)>>24 , (data&0x00FF0000)>>16 , (data&0x0000FF00)>>8  );
+	printf("\r\n" );  
+	
+	data = vmeRead32( &BEUSSPreg->regin_3 ) ;
+	printf("Samples/Event   %d \r\n",  (data&0xFFFF0000)>>16 );
+	printf("Events/Block    %d \r\n",  (data&0x0000FFFF) );	
 	data = vmeRead32( &BEUSSPreg->regin_D) ;	
 	ddata = vmeRead32( &BEUSSPreg->regin_E) ;
-	printf("FEU High Thr    %08X FEU Low Thr     %08X FEU Full Thr %08X \r\n",  (data&0x0000FFFF) , (data&0xFFFF0000)>>16 , (ddata&0x0000FFFF)  );
-	printf("Trigger Fifo Maximum Occupancy       %08X \r\n",  vmeRead32( &BEUSSPreg->regout_16 ) );
-	printf("Timeout setting for concentrator     %08X \r\n", vmeRead32( &BEUSSPreg->regin_F )  );
-	data = vmeRead32( &BEUSSPreg->regout_C) ;	
+	printf("Trigger Fifo Low Thr	%d\r\n",  (data&0xFFFF0000)>>16 );
+	printf("Trigger Fifo High Thr	%d\r\n",  (data&0x0000FFFF)     );
+	printf("Trigger Fifo Full Thr	%d\r\n",  (ddata&0x0000FFFF)    );	
+	data = vmeRead32( &BEUSSPreg->regout_16) ;	
+	printf("Trigger Fifo Maximum Occupancy  %0d \r\n",  (data&0x0000FFFF) );
+	printf("VME  Fifo Maximum Occupancy     %0d \r\n",   (data&0xFFFF0000)>>16  );
+	data = vmeRead32( &BEUSSPreg->regout_F) ;
+	ddata = vmeRead32( &BEUSSPreg->regout_D) ;	
+	printf("VME Fifo status : \r\n");
+	printf("   - regoutF             : %08X  \r\n", data  );
+	printf("   - regoutD             : %08X  \r\n", ddata );	
+	printf("   - VME Fifo Full       : %d  \r\n", (data&0x01000000)>>24   );	
+	printf("   - VME Fifo empty      : %d  \r\n", (data&0x10000000)>>28   );
+	printf("   - Nb trailers in fifo : %d  \r\n", (ddata&0x0000FFFF)      );
+	printf("   - Nb headers in fifo  : %d  \r\n", (ddata&0xFFFF0000)>>16  );
+
+	printf("\r\n" );  
+	data = vmeRead32( &BEUSSPreg->regin_F) ;	
+	printf("Timeout setting for concentrator     %d in units of 128 ns \r\n", (data&0x00007FFF)  );
+	printf("HEAD BRAM Backpressure Threshold     %d  (16-bits words) \r\n", (data&0x0FFF0000)>>16  );
+	printf("Mask on timed out links 	     %d  \r\n", (data&0x00008000)>>15  );
+	printf("\r\n" );  	
 	ddata = vmeRead32( &BEUSSPreg->regin_6) ;
-	printf("Rx SlwCtrl Cntr %08X Rx Data Cntr    %08X Link number  %08X \r\n",(data&0xFFFF0000)>>16 , (data&0x0000FFFF), (ddata&0x0000FF00)>>8    );
-	printf("Tx SlwCtrl Cntr %08X Tx Trg Cntr     %08X SyncCmd Cntr %08X \r\n", vmeRead32( &BEUSSPreg->regout_A ) , vmeRead32( &BEUSSPreg->regout_8 ), vmeRead32( &BEUSSPreg->regout_9 )   );
-  	printf("Packet Errors (7:unexp. char. 6: EOP timeout 5: misp. IFG 4: crc mismatch 3-2: invalid data 1-0: invalid slwctrl) \r\n" );
-  	printf("(links 31 downto 0) : \r\n" );  
-  	printf("%08X  %08X %08X %08X  \r\n",vmeRead32( &BEUSSPreg->regout_7 ), vmeRead32( &BEUSSPreg->regout_6 ), vmeRead32( &BEUSSPreg->regout_5 ), vmeRead32( &BEUSSPreg->regout_4 ) );
-  	printf("%08X  %08X %08X %08X  \r\n",vmeRead32( &BEUSSPreg->regout_3 ), vmeRead32( &BEUSSPreg->regout_2 ), vmeRead32( &BEUSSPreg->regout_1 ), vmeRead32( &BEUSSPreg->regout_0 ) );
-	//printf("BEUSSP STATUS (23-trgfifoalmostfull 22-trgfifofull 21-ORBRAMBZRD 20-ORBRAMREADME 19-BRAMINFOBZRD 18:BRAMINFOREADME 17:TRGFIFOBZRD 16:TRGFIFOREADME 0:braminfowe 1:bramdatawe 2:braminfoweifspace %08X \r\n",  vmeRead32( &BEUSSPreg->regout_15 ) );
+	printf("Received on Link %d  \r\n", (ddata&0x0000FF00)>>8 );
+	data = vmeRead32( &BEUSSPreg->regout_C) ;		
+	ddata = vmeRead32( &BEUSSPreg->regout_E) ;
+	printf("   - SlwCtrl Packets      : %d  \r\n",(data&0xFFFF0000)>> 16 );	
+	printf("   - Data Packets         : %d  \r\n",(data&0x0000FFFF)     );	
+	printf("   - SelfTrig Packets     : %d  \r\n",(ddata&0xFFFF0000)>>16 );
+	printf("Received on all Links : \r\n" );
+	printf("   - SlwCtrl Packets      : %d  \r\n",(ddata&0x0000FFFF) );	
+	printf("Sent on all links\r\n");
+	printf("   - SlwCtrl Requests     : %d  \r\n", vmeRead32( &BEUSSPreg->regout_A )    );	
+	printf("   - Number of Triggers   : %d  \r\n", vmeRead32( &BEUSSPreg->regout_8 )    );
+	printf("   - Synchronous commands : 0x%08X  \r\n", vmeRead32( &BEUSSPreg->regout_9 )    );
+	printf("\r\n" );  
+  	//printf("Packet Errors (7:unexp. char. 6: EOP timeout 5: misp. IFG 4: crc mismatch 3-2: invalid data 1-0: invalid slwctrl) \r\n" );
+  	//printf("(links 31 downto 0) : \r\n" );  
+  	//printf("%08X  %08X %08X %08X  \r\n",vmeRead32( &BEUSSPreg->regout_7 ), vmeRead32( &BEUSSPreg->regout_6 ), vmeRead32( &BEUSSPreg->regout_5 ), vmeRead32( &BEUSSPreg->regout_4 ) );
+  	//printf("%08X  %08X %08X %08X  \r\n",vmeRead32( &BEUSSPreg->regout_3 ), vmeRead32( &BEUSSPreg->regout_2 ), vmeRead32( &BEUSSPreg->regout_1 ), vmeRead32( &BEUSSPreg->regout_0 ) );
 	data = vmeRead32( &BEUSSPreg->regout_14 );
-	printf("BEUSSP ERROR - TRIGGER FIFO OVERFLOW        %08X \r\n", (data&0x00020000)>>17 );
-	printf("BEUSSP ERROR - INFERRED FEU OVERFLOW        %08X \r\n", (data&0x00010000)>>16 );
-	printf("BEUSSP ERROR - OVERFLOW IN BRAM2DDR         %08X \r\n", (data&0x00000001) );
-	printf("BEUSSP ERROR - OVERFLOW IN BRAMINFO         %08X \r\n", (data&0x00000002)>>1 );	
-	printf("BEUSSP ERROR - OVERFLOW IN HEAD BRAM (31>0) %08X \r\n",  vmeRead32( &BEUSSPreg->regout_18 ) ); 
-	printf("BEUSSP ERROR - DATA CONCENTRATOR TIMEOUT    %08X ( counter : %08X) \r\n", (data&0x00000004)>>2, (data&0x000000F0)>>4  );	
+	printf("BEUSSP ERROR - TRIGGER FIFO OVERFLOW        %d \r\n", (data&0x00020000)>>17 );
+	printf("BEUSSP ERROR - INFERRED FEU OVERFLOW        %d \r\n", (data&0x00010000)>>16 );
+	printf("BEUSSP ERROR - OVERFLOW IN BRAM2DDR         %d \r\n", (data&0x00000001) );
+	printf("BEUSSP ERROR - OVERFLOW IN BRAMINFO         %d \r\n", (data&0x00000002)>>1 );	
+	printf("BEUSSP ERROR - DATA CONCENTRATOR TIMEOUT    %d ( counter : %d) \r\n", (data&0x00000004)>>2, (data&0x000000F0)>>4  );	
+	printf("BEUSSP ERROR - DATA SYNCHRONIZATION ERROR   %d ( counter : %d) \r\n", (data&0x00000008)>>3, (data&0x00000F00)>>8  );		
+	printf("\r\n" );  
 	printf("BEUSSP ERROR - TIMEDOUT LINKS (31>0)        %08X \r\n",  vmeRead32( &BEUSSPreg->regout_17 ) );	
-	printf("BEUSSP ERROR - DATA SYNCHRONIZATION ERROR   %08X ( counter : %08X) \r\n", (data&0x00000008)>>3, (data&0x00000F00)>>8  );		
+	printf("BEUSSP ERROR - OVERFLOW IN HEAD BRAM (31>0) %08X \r\n",  vmeRead32( &BEUSSPreg->regout_18 ) ); 
+  	printf("------------------------------------------------------------\r\n" );  
+	printf("selftrig reg in		%08X	%08X	%08X\r\n", vmeRead32( &BEUSSPreg->regin_10 ), vmeRead32( &BEUSSPreg->regin_12 ),  vmeRead32( &BEUSSPreg->regin_13 ));
+	printf("selftrig reg out	%08X	%08X	%08X\r\n", vmeRead32( &BEUSSPreg->regout_19 ), vmeRead32( &BEUSSPreg->regout_1A ), vmeRead32( &BEUSSPreg->regout_1B ) );
   	printf("------------------------------------------------------------\r\n" );  
 
+	BEUSSPUNLOCK;
+  return OK;
+}
+
+/*******************************************************************************
+ *
+ *  beusspSetTargetFeuAndDisplayAllReg - set specific target Feu ,display all beussp registers to screen, set target feu to what it was initially
+ *
+ *  ARGs: 
+ *    BEUSSPreg   - map of all beussp registers 
+ *
+ *  RETURNS: OK if successful, otherwise ERROR.
+ *
+*/
+int  beusspSetTargetFeuAndDisplayAllReg(volatile struct BEUSSP_A24RegStruct *BEUSSPreg, int numFeu)
+{
+	if( beusspSetTargetFeuAndDumpAllReg(BEUSSPreg, numFeu, stdout) != OK )
+	{
+		fprintf( stderr,"%s: beusspSetTargetFeuAndDumpAllReg failed for\n",__FUNCTION__, numFeu);
+		return ERROR;
+	}
+	return OK;
+}
+
+int  beusspSetTargetFeuAndDumpAllReg(volatile struct BEUSSP_A24RegStruct *BEUSSPreg, int numFeu, FILE *fptr)
+{
+  unsigned int reg_num=0;
+  unsigned int memadr;
+  unsigned int data, ddata;
+  int old_numFeu;	
+  
+	if(BEUSSPreg == NULL) 
+	{
+		fprintf( fptr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+		return ERROR;
+	}
+	
+	memadr =  ( unsigned int ) BEUSSPreg;
+	
+
+	if((numFeu < 0)||(numFeu > 31))
+	{
+		fprintf( fptr,"%s: ERROR: specified link number %d is out of range (0--31).\n",__FUNCTION__, numFeu);
+		return ERROR;
+	}
+
+	BEUSSPLOCK;
+
+	data = vmeRead32( &BEUSSPreg->regin_6) ;
+	old_numFeu = (0x0000FF00&data)>> 8 ;
+	vmeWrite32( &BEUSSPreg->regin_6,   (0x000000FF&numFeu)<< 8   );	
+
+/*	for (reg_num = 0; reg_num < 20 ; reg_num ++)
+			{
+
+			printf("%08X %08x %08x %08x %08x \r\n",memadr, 
+							vmeRead32( (volatile unsigned int * ) memadr    ), 
+							vmeRead32( (volatile unsigned int * )(memadr + 0x4)), 
+							vmeRead32( (volatile unsigned int * )(memadr + 0x8)),
+							vmeRead32( (volatile unsigned int * )(memadr + 0xc))  ); 
+			memadr += 0x10;
+			}
+*/
+	
+	fprintf(fptr, "------------------ BEUSSP REGISTERS ------------------------\r\n" );  
+	fprintf(fptr, "board Soft ID   %08X board ID        %08X FWRevision   %08X \r\n",  vmeRead32( &BEUSSPreg->regin_11 ),  vmeRead32( &BEUSSPreg->boardID ),  vmeRead32( &BEUSSPreg->FWRevision ) );
+	fprintf(fptr, "ADR32M          %08X ADR32           %08X ADRGEO       %08X \r\n",  vmeRead32( &BEUSSPreg->adr32m ),  vmeRead32( &BEUSSPreg->adr32 ), vmeRead32( &BEUSSPreg->adrgeo )  );
+	fprintf(fptr, "Active links    %08X Masked FEU Emu  %08X NELoopback   %08X \r\n",  vmeRead32( &BEUSSPreg->regin_0 ),  vmeRead32( &BEUSSPreg->regin_1 ), vmeRead32( &BEUSSPreg->regin_C ) );
+	fprintf(fptr, "MGTX aligned    %08X MGTX status     %08X \r\n",  vmeRead32( &BEUSSPreg->regout_11 ),vmeRead32( &BEUSSPreg->regout_10 )   );
+	data = vmeRead32( &BEUSSPreg->regin_5 ) ;
+	fprintf(fptr, "Busy Source     %08X Sync Source     %08X Trig Source  %08X \r\n",  (data&0xFF000000)>>24 , (data&0x00FF0000)>>16 , (data&0x0000FF00)>>8  );
+	fprintf(fptr, "\r\n" );  
+	
+	data = vmeRead32( &BEUSSPreg->regin_3 ) ;
+	fprintf(fptr, "Samples/Event   %d \r\n",  (data&0xFFFF0000)>>16 );
+	fprintf(fptr, "Events/Block    %d \r\n",  (data&0x0000FFFF) );	
+	data = vmeRead32( &BEUSSPreg->regin_D) ;	
+	ddata = vmeRead32( &BEUSSPreg->regin_E) ;
+	fprintf(fptr, "Trigger Fifo Low Thr	%d\r\n",  (data&0xFFFF0000)>>16 );
+	fprintf(fptr, "Trigger Fifo High Thr	%d\r\n",  (data&0x0000FFFF)     );
+	fprintf(fptr, "Trigger Fifo Full Thr	%d\r\n",  (ddata&0x0000FFFF)    );	
+	data = vmeRead32( &BEUSSPreg->regout_16) ;	
+	fprintf(fptr, "Trigger Fifo Maximum Occupancy  %0d \r\n",  (data&0x0000FFFF) );
+	fprintf(fptr, "VME  Fifo Maximum Occupancy     %0d \r\n",   (data&0xFFFF0000)>>16  );
+	data = vmeRead32( &BEUSSPreg->regout_F) ;
+	ddata = vmeRead32( &BEUSSPreg->regout_D) ;	
+	fprintf(fptr, "VME Fifo status : \r\n");
+	fprintf(fptr, "   - regoutF             : %08X  \r\n", data  );
+	fprintf(fptr, "   - regoutD             : %08X  \r\n", ddata );
+	fprintf(fptr, "   - VME Fifo Full       : %d  \r\n", (data&0x01000000)>>24   );	
+	fprintf(fptr, "   - VME Fifo empty      : %d  \r\n", (data&0x10000000)>>28   );
+	fprintf(fptr, "   - Nb trailers in fifo : %d  \r\n", (ddata&0x0000FFFF)      );
+	fprintf(fptr, "   - Nb headers in fifo  : %d  \r\n", (ddata&0xFFFF0000)>>16  );
+
+	fprintf(fptr, "\r\n" );  
+	data = vmeRead32( &BEUSSPreg->regin_F) ;	
+	fprintf(fptr, "Timeout setting for concentrator     %d in units of 128 ns \r\n", (data&0x00007FFF)  );
+	fprintf(fptr, "HEAD BRAM Backpressure Threshold     %d  (16-bits words) \r\n", (data&0x0FFF0000)>>16  );
+	fprintf(fptr, "Mask on timed out links 	     %d  \r\n", (data&0x00008000)>>15  );
+	fprintf(fptr, "\r\n" );  	
+	ddata = vmeRead32( &BEUSSPreg->regin_6) ;
+	printf("Received on Link %d  \r\n", (ddata&0x0000FF00)>>8 );
+	data = vmeRead32( &BEUSSPreg->regout_C) ;		
+	ddata = vmeRead32( &BEUSSPreg->regout_E) ;
+	fprintf(fptr, "   - SlwCtrl Packets      : %d  \r\n",(data&0xFFFF0000)>> 16 );	
+	fprintf(fptr, "   - Data Packets         : %d  \r\n",(data&0x0000FFFF)     );	
+	fprintf(fptr, "   - SelfTrig Packets     : %d  \r\n",(ddata&0xFFFF0000)>>16 );
+	fprintf(fptr, "Received on all Links : \r\n" );
+	fprintf(fptr, "   - SlwCtrl Packets      : %d  \r\n",(ddata&0x0000FFFF) );	
+	fprintf(fptr, "Sent on all links\r\n");
+	fprintf(fptr, "   - SlwCtrl Requests     : %d  \r\n", vmeRead32( &BEUSSPreg->regout_A )    );	
+	fprintf(fptr, "   - Number of Triggers   : %d  \r\n", vmeRead32( &BEUSSPreg->regout_8 )    );
+	fprintf(fptr, "   - Synchronous commands : 0x%08X  \r\n", vmeRead32( &BEUSSPreg->regout_9 )    );
+	fprintf(fptr, "\r\n" );  
+  	//printf("Packet Errors (7:unexp. char. 6: EOP timeout 5: misp. IFG 4: crc mismatch 3-2: invalid data 1-0: invalid slwctrl) \r\n" );
+  	//printf("(links 31 downto 0) : \r\n" );  
+  	//printf("%08X  %08X %08X %08X  \r\n",vmeRead32( &BEUSSPreg->regout_7 ), vmeRead32( &BEUSSPreg->regout_6 ), vmeRead32( &BEUSSPreg->regout_5 ), vmeRead32( &BEUSSPreg->regout_4 ) );
+  	//printf("%08X  %08X %08X %08X  \r\n",vmeRead32( &BEUSSPreg->regout_3 ), vmeRead32( &BEUSSPreg->regout_2 ), vmeRead32( &BEUSSPreg->regout_1 ), vmeRead32( &BEUSSPreg->regout_0 ) );
+	data = vmeRead32( &BEUSSPreg->regout_14 );
+	fprintf(fptr, "BEUSSP ERROR - TRIGGER FIFO OVERFLOW        %d \r\n", (data&0x00020000)>>17 );
+	fprintf(fptr, "BEUSSP ERROR - INFERRED FEU OVERFLOW        %d \r\n", (data&0x00010000)>>16 );
+	fprintf(fptr, "BEUSSP ERROR - OVERFLOW IN BRAM2DDR         %d \r\n", (data&0x00000001) );
+	fprintf(fptr, "BEUSSP ERROR - OVERFLOW IN BRAMINFO         %d \r\n", (data&0x00000002)>>1 );	
+	fprintf(fptr, "BEUSSP ERROR - DATA CONCENTRATOR TIMEOUT    %d ( counter : %d) \r\n", (data&0x00000004)>>2, (data&0x000000F0)>>4  );	
+	fprintf(fptr, "BEUSSP ERROR - DATA SYNCHRONIZATION ERROR   %d ( counter : %d) \r\n", (data&0x00000008)>>3, (data&0x00000F00)>>8  );		
+	fprintf(fptr, "\r\n" );  
+	fprintf(fptr, "BEUSSP ERROR - TIMEDOUT LINKS (31>0)        %08X \r\n",  vmeRead32( &BEUSSPreg->regout_17 ) );	
+	fprintf(fptr, "BEUSSP ERROR - OVERFLOW IN HEAD BRAM (31>0) %08X \r\n",  vmeRead32( &BEUSSPreg->regout_18 ) ); 
+  	fprintf(fptr, "------------------------------------------------------------\r\n" );  
+	fprintf(fptr, "selftrig reg in		%08X	%08X	%08X\r\n", vmeRead32( &BEUSSPreg->regin_10 ), vmeRead32( &BEUSSPreg->regin_12 ),  vmeRead32( &BEUSSPreg->regin_13 ));
+	fprintf(fptr, "selftrig reg out	%08X	%08X	%08X\r\n", vmeRead32( &BEUSSPreg->regout_19 ), vmeRead32( &BEUSSPreg->regout_1A ), vmeRead32( &BEUSSPreg->regout_1B ) );
+  	fprintf(fptr, "------------------------------------------------------------\r\n" );  
+
+
+	vmeWrite32( &BEUSSPreg->regin_6,   (0x000000FF&old_numFeu)<< 8   );	
 
 	BEUSSPUNLOCK;
   return OK;
@@ -540,18 +728,18 @@ int  beusspWriteConf(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg, volatile 
       return ERROR;
     }
 
-	timeout = BEUSSPconf->timeout;
+ 	timeout = ((BEUSSPconf->timeout)& (0x00007FFF)) ;
 	if( BEUSSPconf->InMemBusyThr ) {
-		timeout |= ( (BEUSSPconf->InMemBusyThr << 16) | 0x10000000 );
+                timeout |= (  (((BEUSSPconf->InMemBusyThr)&(0x00000FFF))  << 16 ) | (0x80000000) );
+		//timeout |= ( (BEUSSPconf->InMemBusyThr << 16) | 0x10000000 );
 	}
 	if( BEUSSPconf->MaskToInput ) {
-		timeout |= 0x8000;
+		timeout |= 0x00008000;
 	}
-
-
-
+	
+	//VMEBUSLOCK AND UNLOCK ARE CALLED IN EACH FUNCTION BELOW SEPARATELY
                beusspSetAdr32(BEUSSPreg,BEUSSPfifo,BEUSSPconf->base_adr_fifo );
- //        beusspSetSampleBlock(BEUSSPreg,BEUSSPconf->NbOfSamples,BEUSSPconf->NbOfEventsPerBlock);
+ //      beusspSetSampleBlock(BEUSSPreg,BEUSSPconf->NbOfSamples,BEUSSPconf->NbOfEventsPerBlock);
          beusspSetActiveLinks(BEUSSPreg,BEUSSPconf->rol_enb);
               beusspSetClkSrc(BEUSSPreg,BEUSSPconf->ClkSrc);           
      beusspSetNearEndLoopBack(BEUSSPreg,BEUSSPconf->near_end_loop_enb);
@@ -559,12 +747,19 @@ int  beusspWriteConf(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg, volatile 
          beusspSetEmuDatasize(BEUSSPreg,BEUSSPconf->emu_data_size);
        beusspSetTrgFifoThresh(BEUSSPreg,BEUSSPconf->TrgFifo_Lwm,BEUSSPconf->TrgFifo_Hwm,BEUSSPconf->TrgFifo_Full);
  beusspSetConcentratorTimeout(BEUSSPreg,timeout);
- 			//beusspSetConcentratorTimeout(BEUSSPreg,0x1AFF7FFF);
-         beusspSetSBTSource(BEUSSPreg,BEUSSPconf->TrgSrc,BEUSSPconf->BsySrc,BEUSSPconf->SyncSrc);
-           //beusspSetSBTSource(BEUSSPreg,BEUSSPconf->TrgSrc,6,BEUSSPconf->SyncSrc);
+           beusspSetSBTSource(BEUSSPreg,BEUSSPconf->TrgSrc,BEUSSPconf->BsySrc,BEUSSPconf->SyncSrc);
               beusspSetSoftId(BEUSSPreg,BEUSSPconf->Id);       
               beusspSetAdr32m(BEUSSPreg, BEUSSPconf->base_adr_com_min, BEUSSPconf->base_adr_com_max, BEUSSPconf->mblk_rank);
 
+			beusspSelfTrigDisable(BEUSSPreg);			  
+			beusspSelfTrigSetLatency(BEUSSPreg, BEUSSPconf->SelfTrigLat);
+			beusspSelfTrigSetMultiplicity(BEUSSPreg, BEUSSPconf->SelfTrigMult);
+			//beusspSelfTrigSetWindow(BEUSSPreg, 12);
+			beusspSelfTrigSetWindow(BEUSSPreg, BEUSSPconf->SelfTrigWin);		
+			beusspSelfTrigSetPulseWidth(BEUSSPreg, BEUSSPconf->SelfTrigWid);
+			beusspSelfTrigEnableLinks(BEUSSPreg, BEUSSPconf->SelfTrigLnkEnb);
+			beusspSelfTrigEnable(BEUSSPreg);
+		 
   return OK;
 }
 
@@ -699,7 +894,7 @@ int  beusspFlushPipeline(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg)
 
 				vmeWrite32( &BEUSSPreg->regin_7,  0x00040000);  //flush bit set high
 				printf("%s: Flushing pipeline ... \n\r",__FUNCTION__ );
-				usleep(100);
+				usleep(500);
 
 				vmeWrite32(&BEUSSPreg->regin_7,  0x00000000);  //flush bit set low
 				usleep(500);
@@ -1110,6 +1305,8 @@ int beusspSetActiveLinks(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, unsign
 
   return OK;
 }
+
+
 /*******************************************************************************
  *
  *  beusspSetNearEndLoopBack
@@ -1258,8 +1455,8 @@ int beusspSetTrgFifoThresh(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, unsi
 /*******************************************************************************
  *
  *  beusspSetConcentratorTimeout
- *  - Routine to set the value of the data concentrator time out register
- *	
+ *  - Routine to set the value of the data concentrator time out register and BRAM busy threshold 
+ *  - and the falg to mask timed out links	
  */
 int beusspSetConcentratorTimeout(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, unsigned int timeout)
 {
@@ -1268,14 +1465,16 @@ int beusspSetConcentratorTimeout(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg
       fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
       return ERROR;
     }
-    
- /* if(timeout<=0 || timeout>0x0000ffff)
-    {
-      fprintf( stderr,"%s: ERROR: timeout is out of range (0x%08x)\n",
-	     __FUNCTION__,timeout);
-      return ERROR;
-    }
-  */  
+//    	//ONLY 15 BITS USEFUL
+// 	timeout = ((BEUSSPconf->timeout)& (0x00007FFF)) ;
+//	if( BEUSSPconf->InMemBusyThr ) {
+//		//12 BITS DUE TO INPUT BRAM MEMORY DEPTH
+//		//MSB set to 1 to overwrite default threshold value in firmware
+//                timeout |= (  (((BEUSSPconf->InMemBusyThr)&(0x00000FFF))  << 16 ) | (0x80000000) );
+//	}
+//	if( BEUSSPconf->MaskToInput ) {
+//		timeout |= 0x00008000;		//MASK TIMED OUT INPUTS
+//	}
 
   BEUSSPLOCK;
 
@@ -1382,7 +1581,7 @@ int beusspDisableTriggerSource(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
 /*******************************************************************************
  *
  *  beusspVmeResyncRtsRec
- *  - Routine to configure the clock 4x4 cross switch 
+ *  - Routine resync and reset time stamp and reset event counter
  *	
  */
 int beusspVmeResyncRtsRec(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
@@ -1697,7 +1896,7 @@ int retval_bis = 0 ;
 				vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );  // CLK CYLCE
 				retval_bis = vmeRead32(&BEUSSPreg->regout_1C);
 				retval = (retval << 1 ) | ( retval_bis);
-				retval = (retval << 1 ) | ( retval_bis);
+
 
 
 				vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
@@ -1801,16 +2000,16 @@ int ii = 0 ;
 /*******************************************************************************
  *
  *  beusspFlashLoadbuffer
- *  - Routine to load one of the two 1056 byte buffers on the Flash
- *	
+ *  - Routine to fully load one of the two 1056 byte buffers on the Flash
+ *	- data is written starting at adresse 00 00 00 and the buffer is filled with 1056 bytes
  */
-int beusspFlashLoadbuffer(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, int NumBuf, int data[1056] )
+int beusspFlashLoadbuffer(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, int NumBuf, unsigned char data[1056] )
 {
 
 int cmd = 0 ;
 int ii = 0 ;
 int jj = 0 ;
-int tmpdata = 0; 
+unsigned char tmpdata = 0; 
 
   if(BEUSSPreg == NULL) 
     {
@@ -1829,16 +2028,24 @@ int tmpdata = 0;
   BEUSSPLOCK;
 				
 				vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );	 // CLK LOW
-				vmeWrite32( &BEUSSPreg->regin_14,  0xFFFFFFFF );	 // CSB HIGH - should be high already
+				vmeWrite32( &BEUSSPreg->regin_14,  0xFFFFFFFF );	 // CSB HIGH - should be high already	
 				vmeWrite32( &BEUSSPreg->regin_14,  0x00000000 );	 // CSB LOW
 	
+				//sending the buffer write command
 				for (ii = 1; ii <= 8; ii++){
 					vmeWrite32( &BEUSSPreg->regin_15, (cmd & 0x00000080) >> 7 );
 					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
 					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
 					cmd  = (cmd << 1 ); 
 					}
-				
+				//sending the start address for the buffer write
+				for (ii = 1; ii <= 24; ii++){
+					vmeWrite32( &BEUSSPreg->regin_15,  0x00000000 );
+					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+					}	
+					
+				//sending the 1056 data bytes
 				for (ii = 1; ii <= 1056; ii++){
 					
 					tmpdata = data[ii];
@@ -1866,20 +2073,22 @@ int tmpdata = 0;
  *
  *  beusspFlashBufferToMemory
  *  - Routine to send the command to transfer one of the two 1056 byte buffer contents 
- *  - to the  on the Flash
+ *  - to the Flash with built in erase
  *	
  */
-int beusspFlashBufferToMemory(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, int NumBuf, int data[1056] )
+int beusspFlashBufferToMemory(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, int NumBuf, int NumPage )
 {
 
 int cmd = 0 ;
 int ii = 0 ;
+int temppage = 0;
 
 
   if(BEUSSPreg == NULL) 
     {
       fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
       return ERROR;
+	  
     }
   
   if (NumBuf == 1) {cmd = 0x83;} 
@@ -1902,7 +2111,29 @@ int ii = 0 ;
 					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
 					cmd  = (cmd << 1 ); 
 					}
-				
+					
+				temppage = 	(NumPage>>5) & 0xFF ;
+				for (ii = 1; ii <= 8; ii++){
+					vmeWrite32( &BEUSSPreg->regin_15, (temppage & 0x00000080) >> 7 );
+					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+					temppage  = (temppage << 1 ); 
+					}
+				temppage = 	(NumPage<<3) & 0xFF ;
+				for (ii = 1; ii <= 8; ii++){
+					vmeWrite32( &BEUSSPreg->regin_15, (temppage & 0x00000080) >> 7 );
+					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+					temppage  = (temppage << 1 ); 
+					}
+				temppage = 	0x00000000 ;
+				for (ii = 1; ii <= 8; ii++){
+					vmeWrite32( &BEUSSPreg->regin_15, (temppage & 0x00000080) >> 7 );
+					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+					temppage  = (temppage << 1 ); 
+					}	
+
 				vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );  // CLK LOW
 				vmeWrite32( &BEUSSPreg->regin_14,  0xFFFFFFFF );  // CSB HIGH
 
@@ -1911,6 +2142,99 @@ int ii = 0 ;
 
   return OK;
 }
+
+
+/*******************************************************************************
+ *
+ *  beusspFWU
+ *  - Routine to update the beussp firmware in flash through VME 
+ *  - to the  on the Flash
+ *	
+ */
+beusspFWU( volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, char *filename ) 
+{ 
+  FILE *f; 
+  int i; 
+  unsigned int page = 0; 
+  unsigned char buf[1056]={0xFF};
+  int flashid = 0;
+  int flashstatus=0;
+ 
+  if(BEUSSPreg == NULL) 
+    {
+      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+	
+  //check flash component and print description
+  //already has its own LOCK and UNLOCK
+  flashstatus=beusspFlashSatusReg(BEUSSPreg);
+  printf("Flash status: 0x%08X \n", flashstatus ); 
+  flashid =   beusspFlashID( BEUSSPreg );
+  printf("Flash id: 0x%08X \n", flashid ); 
+  flashstatus=beusspFlashSatusReg(BEUSSPreg);
+  printf("Flash status: 0x%08X \n", flashstatus ); 
+
+  //compare to expected flash ID and print
+/*
+  printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X\n", rspId[0], rspId[1], rspId[2]); 
+ if( BEUSSP_FLASHID ~= flashid )
+	{
+	  printf("%s: ERROR: unexpected flash id, expecting %x read %x\n", __FUNCTION__, BEUSSP_FLASHID, flashid); 
+	  return ERROR; 
+	  BEUSSPUNLOCK; 
+	}
+*/
+  
+  //open firmware file, check that file existes, check type
+  f = fopen(filename, "rb"); 
+  if(!f) { 
+	  printf("%s: ERROR: invalid file %s\n", __FUNCTION__, filename); 
+     // fclose(f); 	  
+	  return ERROR; 
+	}
+  //check file type ???
+
+
+		
+  //at this stage, file and flash are hopefully compatible
+   
+   memset(buf, 0xff, 1056); 
+   while(fread(buf, 1, 1056, f) > 0) 
+	{ 
+
+	//Fill flash buffer 1 
+	//already has its Lock and unlock
+	beusspFlashLoadbuffer( BEUSSPreg , 1 ,  buf );
+	//dump the buffer to flash with page erase
+	//already has its Lock and unlock
+	beusspFlashBufferToMemory( BEUSSPreg, 1 , page);
+	//check page is loaded 	
+	  i = 0; 
+	  while(1) 
+	    { 
+		
+	  //already has its lock and unlock
+          flashstatus=beusspFlashSatusReg(BEUSSPreg);
+	      if( flashstatus & 0x80) 
+			break; 
+			if(i == 40000)	// 40ms maximum page program time 
+				{ 
+				fclose(f); 
+				printf("%s: ERROR: failed to program flash\n", __FUNCTION__); 
+				return ERROR; 
+				} 
+	      i++; 
+	    }			 
+	  memset(buf, 0xff, 1056); 
+	  page++; 
+	} 
+    fclose(f); 
+	
+  return OK; 
+} 
+ 
+
 
 
 //------------------------------------------------------------------------------------------------
@@ -2380,11 +2704,18 @@ int beusspCheckFeuLink( volatile struct BEUSSP_A24RegStruct *BEUSSPreg, int numF
  *
  *  beusspBReady
  *  - Routine to check if a block is ready for readout 
- *	
+ *  - Block should be completely inside the pipeline => readme 
+ *  - AND ( 	( vme fifo should contain at least one block header and one block trailer )	
+ *  - 	     OR ( vme fifo should be full and contain at least one block header  )  
+ *  -	  ) 
  */
 int beusspBReady(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
 {
   unsigned int readme = 0;
+  unsigned int headers=0;
+  unsigned int trailers = 0;
+  unsigned int fifofull= 0;
+  unsigned int retval = 0;
   if(BEUSSPreg == NULL) 
     {
       fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
@@ -2393,9 +2724,17 @@ int beusspBReady(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
     
   BEUSSPLOCK;
   readme = vmeRead32( &(BEUSSPreg->regout_F) );
+  trailers = vmeRead32( &(BEUSSPreg->regout_D) );
   BEUSSPUNLOCK;
+ 
+  fifofull = (readme&0x01000000)>>24; 
+  readme =  (readme&0x00010000)>>16; 
+  headers = (trailers&0xFFFF0000)>>16;
+  trailers = (trailers&0x0000FFFF);
+  if ( (readme == 1 ) && ( headers > 0) && (  ( trailers > 0) || ( fifofull==1) )  )
+	retval = 1 ;
 
-  return readme;
+  return retval;
 }
 /*******************************************************************************
  *
@@ -2454,6 +2793,244 @@ int beusspBZRDLow(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
   return bzrd;
 }
 
+//------------------------------------------------------------------------------------------------
+//  beusspGetVMEFIFOStatus - 
+//  ARGs: 
+//       - 
+//       - 
+//
+//  RETURNS: OK if successful, otherwise ERROR.
+//
+//------------------------------------------------------------------------------------------------
+int beusspGetVMEFIFOStatus(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg){
+ 
+ int status=0;
+
+  if(BEUSSPreg == NULL) 
+    {
+      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  BEUSSPLOCK;
+  	status = vmeRead32(&BEUSSPreg->regout_D);
+  BEUSSPUNLOCK;
+  return status;
+}
+
+/*******************************************************************************
+ *
+ *  beusspSelfTrigSetLatency
+ *  - Routine to set the self trigger latency between 256 and 7936
+ *	- Latency is expressed in ns
+ *  
+ */
+
+int beusspSelfTrigSetLatency(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg,  int selftriglatency)
+{
+  int reg12 = 0; 
+  int latency = 0;
+  if(BEUSSPreg == NULL) 
+    {
+      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if ( (selftriglatency >7936 ) || (selftriglatency <256 ) )  
+	{
+	fprintf( stderr,"%s: ERROR: specified self trigger latency %d ns is out of range [ 256 ns -- 7936 ns ].  \n",__FUNCTION__, selftriglatency );
+	return ERROR ;
+    }
+
+	latency =  selftriglatency >> 3; //divide by 8
+
+  /*if ( (selftriglatency >992 ) || (selftriglatency <256 ) )  
+	{
+	fprintf( stderr,"%s: ERROR: specified self trigger latency %d clock cycles is out of range [ 32  -- 992 ] clock cycles.  \n",__FUNCTION__, selftriglatency );
+	return ERROR ;
+    }
+  */   
+	latency = 1024 - latency;
+	
+  BEUSSPLOCK;
+  	reg12 = vmeRead32( &(BEUSSPreg->regin_12) );
+ 	reg12 =   ( ( 0xFFFF0000&reg12 )|(0x000003FF & latency) );	//10 bits used to code latency
+  	vmeWrite32(&BEUSSPreg->regin_12, reg12 );
+  BEUSSPUNLOCK;
+
+  return OK;
+}
+
+/*******************************************************************************
+ *
+ *  beusspSelfTrigSetMultiplicity
+ *  - Routine to set the self trigger multiplicity between 0 and 255  
+ */
+
+int beusspSelfTrigSetMultiplicity(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg,  int selftrigmultiplicity)
+{
+  int reg12 = 0; 
+  if(BEUSSPreg == NULL) 
+    {
+      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+	if ( (selftrigmultiplicity >31 ) || (selftrigmultiplicity <0) )  
+		{
+		fprintf( stderr,"%s: ERROR: specified self trigger multiplicity %d is out of range [ 0 -- 31 ].  \n",__FUNCTION__, selftrigmultiplicity );
+		return ERROR ;
+	}   
+	
+  BEUSSPLOCK;
+  reg12 = vmeRead32( &(BEUSSPreg->regin_12) );
+  reg12 =   ( ( 0x83FFFFFF&reg12 ) | ((0x0000001F & selftrigmultiplicity )<< 26)  );	
+  vmeWrite32(&BEUSSPreg->regin_12, reg12 );
+  BEUSSPUNLOCK;
+
+  return OK;
+}
+/*******************************************************************************
+ *
+ *  beusspSelfTrigSetWindow
+ *  - Routine to set the self trigger coincidence window
+ *  - input argument is in ns
+ *  - should be in range 0 -- 511 ns
+ */
+
+int beusspSelfTrigSetWindow(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg,  int selftrigwindow)
+{
+  int reg12 = 0; 
+  if(BEUSSPreg == NULL) 
+    {
+      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+	if ( (selftrigwindow > 511 ) || (selftrigwindow < 0) )  
+		{
+		fprintf( stderr,"%s: ERROR: specified self trigger window %d ns is out of range [ 0ns -- 511ns ].  \n",__FUNCTION__, selftrigwindow );
+		return ERROR ;
+	}   
+	
+ selftrigwindow = selftrigwindow >> 3; // divide by 8
+
+  BEUSSPLOCK;
+  reg12 = vmeRead32( &(BEUSSPreg->regin_12) );
+  reg12 =   ( ( 0xFC0FFFFF&reg12 ) | ((0x0000003F & selftrigwindow )<< 20)  );	
+  vmeWrite32(&BEUSSPreg->regin_12, reg12 );
+  BEUSSPUNLOCK;
+
+  return OK;
+}
+
+
+
+
+/*******************************************************************************
+ *
+ *  beusspSelfTrigSetPulseWidth
+ *  - Routine to set the self trigger pulse width
+ *  - input argument is in ns
+ *  - should be in range 0 -- 1023 ns
+ */
+
+
+int beusspSelfTrigSetPulseWidth(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg,  int selftrigpulsewidth)
+{
+  int reg10 = 0; 
+  if(BEUSSPreg == NULL) 
+    {
+      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+	if ( (selftrigpulsewidth > 1023 ) || (selftrigpulsewidth < 0) )  
+		{
+		fprintf( stderr,"%s: ERROR: specified self trigger pulse width %d ns is out of range [ 0ns -- 1023ns ].  \n",__FUNCTION__, selftrigpulsewidth );
+		return ERROR ;
+	}   
+	
+ selftrigpulsewidth = selftrigpulsewidth >> 3; // divide by 8
+
+  BEUSSPLOCK;
+  reg10 =   ( 0x000000FF & selftrigpulsewidth );	
+  vmeWrite32(&BEUSSPreg->regin_10, reg10 );
+  BEUSSPUNLOCK;
+
+  return OK;
+}
+
+
+/*******************************************************************************
+ *
+ *  beusspSelfTrigEnable
+ * 
+ */
+
+int beusspSelfTrigEnable(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
+{
+  int reg12 = 0; 
+  if(BEUSSPreg == NULL) 
+    {
+      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  BEUSSPLOCK;
+  reg12 = vmeRead32( &(BEUSSPreg->regin_12) );
+  reg12 =   ( ( 0xFFF0FFFF&reg12 )| 0x00010000 );
+  vmeWrite32(&BEUSSPreg->regin_12, reg12 );
+  BEUSSPUNLOCK;
+
+  return OK;
+}
+/*******************************************************************************
+ *
+ *  beusspSelfTrigDisable
+ * 
+ */
+
+int beusspSelfTrigDisable(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
+{
+  int reg12 = 0; 
+  if(BEUSSPreg == NULL) 
+    {
+      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  BEUSSPLOCK;
+  reg12 = vmeRead32( &(BEUSSPreg->regin_12) );
+  reg12 =   ( ( 0xFFF0FFFF&reg12 ) );
+  vmeWrite32(&BEUSSPreg->regin_12, reg12 );
+  BEUSSPUNLOCK;
+
+  return OK;
+}
+/*******************************************************************************
+ *
+ *  beusspSelfTrigEnableLinks
+ *  - Routine to enable individual links for self trigger 
+ *  
+ */
+
+int beusspSelfTrigEnableLinks(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, unsigned int selftrigenabledlinks)
+{
+  if(BEUSSPreg == NULL) 
+    {
+      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  BEUSSPLOCK;
+  vmeWrite32(&BEUSSPreg->regin_13, selftrigenabledlinks );
+  BEUSSPUNLOCK;
+
+  return OK;
+}
+
+
 #else
 
 void
@@ -2461,4 +3038,9 @@ beusspLib_dummy()
 {
 }
 
+
 #endif
+
+ 
+
+

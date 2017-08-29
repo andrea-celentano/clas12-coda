@@ -1,5 +1,4 @@
 
-
 /* rol2.c - second readout list for VXS crates with FADC250 boards */
 
 #include <math.h>
@@ -46,6 +45,7 @@ static char ssname[80];
 /*#define DEBUG6*/ /*MVT*/
 /*#define DEBUG7*/ /*VTP*/
 /*#define DEBUG8*/ /*DCRB*/
+/*#define DEBUG9*/ /*SSP_RICH*/
 
 
 #define ROL_NAME__ "ROL2"
@@ -165,6 +165,16 @@ int mynev; /*defined in tttrans.c */
 #define DCRB_TYPE_DCRBEVT   0x18
 #define DCRB_TYPE_DNV       0x1E
 #define DCRB_TYPE_FILLER    0x1F
+
+/* ssp-rich boards data type defs */
+#define RICH_TYPE_BLKHDR    0x10
+#define RICH_TYPE_BLKTLR    0x11
+#define RICH_TYPE_EVTHDR    0x12
+#define RICH_TYPE_TRGTIME   0x13
+#define RICH_TYPE_FIBER     0x17
+#define RICH_TYPE_TDC       0x18
+#define RICH_TYPE_DNV       0x1E
+#define RICH_TYPE_FILLER    0x1F
 
 /* mvt board data type defs */
 #define MVT_TYPE_BLKHDR    0xF3BB0000
@@ -345,7 +355,7 @@ rol2trig(int a, int b)
   int nr = 0;
   int ncol = 2;
   int a_channel, a_chan1, a_chan2, a_nevents, a_blocknumber, a_triggernumber, a_module_id;
-  int a_windowwidth, a_pulsenumber, a_firstsample, samplecount;
+  int a_windowwidth, a_pulsenumber, a_firstsample, samplecount, a_fiber;
   int a_adc1, a_adc2, a_valid1, a_valid2, a_nwords, a_slot, a_slot2, a_slot3;
   int a_hfcb_id, a_chip_id, a_chan;
   unsigned int a_bco, a_bco1;
@@ -1892,13 +1902,220 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
         }
         else
 		{
-          printf("VTP UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
+          printf("VTP UNKNOWN data1: [%3d] 0x%08x\n",ii,datain[ii]);
           ii++;
 		}
 
 	  } /* while() */
 
 	} /* else if(0xe122) */
+
+
+
+
+
+
+
+
+
+
+
+    else if(banktag[jj] == 0xe123) /* SSP-RICH hardware format */
+	{
+      banknum = rol->pid;
+
+#ifdef DEBUG9
+      printf("\nFIRST PASS SSP-RICH\n\n");
+#endif
+
+      error = 0;
+      ndnv = 0;
+      ii=0;
+      printing=1;
+      a_slot_prev = -1;
+      have_time_stamp = 1;
+      nB[jj]=0; /*cleanup block counter*/
+      while(ii<lenin)
+      {
+#ifdef DEBUG9
+        printf("[%5d] 0x%08x (lenin=%d)\n",ii,datain[ii],lenin);
+#endif
+        if( ((datain[ii]>>27)&0x1F) == 0x10) /*block header*/
+        {
+          a_slot_prev = a_slot;
+          a_slot = ((datain[ii]>>22)&0x1F);
+          a_module_id = ((datain[ii]>>18)&0xF);
+          a_blocknumber = ((datain[ii]>>8)&0x3FF);
+          a_nevents = (datain[ii]&0xFF);
+#ifdef DEBUG9
+	      printf("[%3d] BLOCK HEADER: slot %d, nevents %d, block number %d module id %d\n",ii,
+				 a_slot,a_nevents,a_blocknumber,a_module_id);
+          printf(">>> update iB and nB\n");
+#endif
+          nB[jj]++;                  /*increment block counter*/
+          iB[jj][nB[jj]-1] = ii;     /*remember block start index*/
+          sB[jj][nB[jj]-1] = a_slot; /*remember slot number*/
+          nE[jj][nB[jj]-1] = 0;      /*cleanup event counter in current block*/
+
+#ifdef DEBUG9
+		  printf("0xe123: jj=%d nB[jj]=%d\n",jj,nB[jj]);
+#endif
+
+	      ii++;
+        }
+        else if( ((datain[ii]>>27)&0x1F) == 0x11) /*block trailer*/
+        {
+          a_slot2 = ((datain[ii]>>22)&0x1F);
+          a_nwords = (datain[ii]&0x3FFFFF);
+#ifdef DEBUG9
+	      printf("[%3d] BLOCK TRAILER: slot %d, nwords %d\n",ii,
+				   a_slot2,a_nwords);
+          printf(">>> data check\n");
+#endif
+
+          /*"close" previous event if any*/
+          k = nB[jj]-1; /*current block index*/
+          if(nE[jj][k] > 0)
+	      {
+            m = nE[jj][k]-1; /*current event number*/
+            lenE[jj][k][m] = ii-iE[jj][k][m]; /*#words in current event*/
+	      }
+
+          if(a_slot2 != a_slot)
+	      {
+            error ++;
+            if(printing)
+            {
+              printf("[%3d][%3d] ERROR1 in SSP-RICH data: blockheader slot %d != blocktrailer slot %d\n",mynev,
+				 ii,a_slot,a_slot2);
+              printing=0;
+	        }
+	      }
+          if(a_nwords != ( (ii-iB[jj][nB[jj]-1]+1) - ndnv ) )
+          {
+            error ++;
+            if(printing)
+            {
+              printf("[%3d][%3d] ERROR2 in SSP-RICH data: trailer #words=%d != actual #words=%d - ndnv=%d)\n",
+					 mynev,ii,a_nwords,ii-iB[jj][nB[jj]-1]+1,ndnv);
+              printing=0;
+	        }
+          }
+          if(ndnv>0)
+          {
+            if(printing)
+            {
+              printf("[%3d] WARN in SSP-RICH data: ndnv=%d)\n",mynev,ndnv);
+              printing=0;
+	        }
+          }
+
+	      ii++;
+        }
+
+        else if( ((datain[ii]>>27)&0x1F) == 0x12) /*event header*/
+        {
+          /*a_slot = ((datain[ii]>>22)&0x1F);*/
+          a_triggernumber = (datain[ii]&0x1FFFFF);
+#ifdef DEBUG9
+	      printf("[%3d] EVENT HEADER: trigger number %d\n",ii,
+				 a_triggernumber);
+          printf(">>> update iE and nE\n");
+#endif
+
+          /*"close" previous event if any*/
+          k = nB[jj]-1; /*current block index*/
+          if(nE[jj][k] > 0)
+	      {
+            m = nE[jj][k]-1; /*current event number*/
+            lenE[jj][k][m] = ii-iE[jj][k][m]; /*#words in current event*/
+	      }
+
+          /*"open" next event*/
+          nE[jj][k]++; /*increment event counter in current block*/
+          m = nE[jj][k]-1; /*current event number*/
+          iE[jj][k][m]=ii; /*remember event start index*/
+
+	      ii++;
+        }
+        else if( ((datain[ii]>>27)&0x1F) == 0x13) /*trigger time: remember timestamp*/
+        {
+          a_trigtime[0] = (datain[ii]&0xFFFFFF);
+#ifdef DEBUG9
+	      printf("[%3d] TRIGGER TIME: 0x%06x\n",ii,a_trigtime[0]);
+#endif
+	      ii++;
+          iii=1;
+          while( ((datain[ii]>>31)&0x1) == 0 && ii<lenin ) /*must be one more word*/
+	      {
+            a_trigtime[iii] = (datain[ii]&0xFFFFFF);
+#ifdef DEBUG9
+            printf("   [%3d] TRIGGER TIME: 0x%06x\n",ii,a_trigtime[iii]);
+            printf(">>> remember timestamp 0x%06x 0x%06x\n",a_trigtime[0],a_trigtime[1]);
+#endif
+            iii++;
+            if(iii>2) printf("ERROR1 in SSP-RICH: iii=%d\n",iii); 
+            ii++;
+	      }
+        }
+
+
+
+
+        else if( ((datain[ii]>>27)&0x1F) == RICH_TYPE_FIBER) /*fiber number*/
+        {
+          a_fiber = ((datain[ii]>>22)&0x1F);
+		  /*a_triggernumber = (datain[ii]&0x1FFFFF);*/
+#ifdef DEBUG9
+	      printf("[%3d] FIBER %d\n",ii,a_fiber);
+#endif
+	      ii++;
+		}
+
+        else if( ((datain[ii]>>27)&0x1F) == RICH_TYPE_TDC) /*tdc*/
+        {
+          a_edge = ((datain[ii]>>26)&0x1);
+          a_chan = ((datain[ii]>>16)&0xFF);
+		  a_time = (datain[ii]&0x7FFF);
+#ifdef DEBUG9
+	      printf("[%3d] EDGE %d, CHAN %d, TIME %d\n",ii,a_edge,a_chan,a_time);
+#endif
+	      ii++;
+		}
+
+
+
+
+        else if( ((datain[ii]>>27)&0x1F) == 0x1F)
+        {
+#ifdef DEBUG9
+	      printf("[%3d] FILLER WORD\n",ii);
+          printf(">>> do nothing\n");
+#endif
+	      ii++;
+        }
+        else if( ((datain[ii]>>27)&0x1F) == 0x1E)
+        {
+          ndnv ++;
+#ifdef DEBUG9
+	      printf("[%3d] DNV\n",ii);
+          printf(">>> do nothing\n");
+#endif
+	      ii++;
+        }
+        else
+		{
+          printf("SSP-RICH UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
+          ii++;
+		}
+
+	  } /* while() */
+
+	} /* else if(0xe123) */
+
+
+
+
 
 
 
@@ -3825,14 +4042,15 @@ if(a_pulsenumber == 0)
             {
               a_instance = ((datain[ii]>>26)&0x1);
               a_view =     ((datain[ii]>>24)&0x3);
-		      a_coord =    ((datain[ii]>>15)&0x1FF);
-              a_energy =   ((datain[ii]>>2)&0x1FFF);
+              a_time =     ((datain[ii]>>16)&0xFF);
 
               *dataout ++ = datain[ii];
               b08 += 4;
 	          ii++;
 
-              a_time = (datain[ii]&0x7FF);
+
+		      a_coord =    ((datain[ii]>>16)&0x3FF);
+              a_energy =   ((datain[ii]>>0)&0xFFFF);
 
               *dataout ++ = datain[ii];
               b08 += 4;
@@ -3845,19 +4063,18 @@ if(a_pulsenumber == 0)
 
             else if( ((datain[ii]>>27)&0x1F) == 0x15) /*ECAL cluster*/
             {
-              uint32_t last_val;
               a_instance = ((datain[ii]>>26)&0x1);
-		      a_coordW =   ((datain[ii]>>17)&0x1FF);
-		      a_coordV =   ((datain[ii]>>8)&0x1FF);
-              last_val = datain[ii];
+              a_time =     ((datain[ii]>>16)&0xFF);
+		      a_energy =   ((datain[ii]>>0)&0xFFFF);
 
               *dataout ++ = datain[ii];
               b08 += 4;
 	          ii++;
 
-		      a_coordU = ((last_val<<1)&0x1FE) | ((datain[ii]>>30)&0x1);
-		      a_energy = ((datain[ii]>>17)&0x1FFF);
-              a_time =   (datain[ii]&0x7FF);
+
+		      a_coordW = ((datain[ii]>>20)&0x3FF);
+		      a_coordV = ((datain[ii]>>10)&0x3FF);
+		      a_coordU = ((datain[ii]>>0)&0x3FF);
 
               *dataout ++ = datain[ii];
               b08 += 4;
@@ -3904,7 +4121,7 @@ if(a_pulsenumber == 0)
             }
             else
 		    {
-              printf("VTP UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
+              printf("VTP UNKNOWN data2: [%3d] 0x%08x\n",ii,datain[ii]);
               ii++;
 		    }
 
@@ -4421,6 +4638,150 @@ if(a_pulsenumber == 0)
 
 
 	  } /* DCRB hardware format */
+
+
+
+
+
+
+
+
+      else if(banktag[jj] == 0xe123) /* RICH composite format */
+	  {
+
+        banknum = iev; /*rol->pid;*/
+
+#ifdef DEBUG9
+		printf("\n\nSECOND PASS RICH\n");
+#endif
+        a_slot_old = -1;
+        for(ibl=0; ibl<nB[jj]; ibl++) /*loop over blocks (actually over rich boards)*/
+        {
+          a_channel_old = -1;
+#ifdef DEBUG9
+          printf("\n\n\nRICH: Block %d, Event %2d, event index %2d, event lenght %2d\n",
+            ibl,iev,iE[jj][ibl][iev],lenE[jj][ibl][iev]);
+#endif
+
+          a_slot = sB[jj][ibl];
+          ii = iE[jj][ibl][iev];
+          rlen = ii + lenE[jj][ibl][iev];
+          while(ii<rlen)
+          {
+#ifdef DEBUG9
+            printf("[%5d] RICH 0x%08x (rlen=%d)\n",ii,datain[ii],rlen);
+#endif
+			
+            if( ((datain[ii]>>27)&0x1F) == RICH_TYPE_EVTHDR) /*event header*/
+			{
+              /*a_slot = ((datain[ii]>>22)&0x1F);*/
+              a_triggernumber = (datain[ii]&0x1FFFFF);
+#ifdef DEBUG9
+		      printf("[%3d] RICH EVENT HEADER, a_triggernumber = %d\n",ii,a_triggernumber);
+#endif
+		      ii++;
+			}
+
+            else if( ((datain[ii]>>27)&0x1F) == RICH_TYPE_TRGTIME) /*trigger time: remember timestamp*/
+            {
+              a_trigtime[0] = (datain[ii]&0xFFFFFF);
+	          ii++;
+
+              a_trigtime[1] = (datain[ii]&0xFFFFFF);
+              ii++;
+
+		      timestamp = (((unsigned long long)a_trigtime[0])<<24) | (a_trigtime[1]);
+
+#ifdef DEBUG9
+              printf(">>> RICH remember timestamp 0x%06x 0x%06x\n",a_trigtime[0],a_trigtime[1]);
+		      printf(">>> RICH timestamp=%lld\n",timestamp);
+#endif
+
+	        }
+
+            else if( ((datain[ii]>>27)&0x1F) == RICH_TYPE_FIBER) /*fiber number*/
+            {
+              a_fiber = ((datain[ii]>>22)&0x1F);
+		      /*a_triggernumber = (datain[ii]&0x1FFFFF);*/
+#ifdef DEBUG9
+	          printf("[%3d] FIBER %d\n",ii,a_fiber);
+#endif
+	          ii++;
+		    }
+
+            else if( ((datain[ii]>>27)&0x1F) == RICH_TYPE_TDC) /*tdc*/
+            {
+              a_edge = ((datain[ii]>>26)&0x1);
+              a_chan = ((datain[ii]>>16)&0xFF);
+		      a_time = (datain[ii]&0x7FFF);
+#ifdef DEBUG9
+	          printf("[%3d] EDGE %d, CHAN %d, TIME %d\n",ii,a_edge,a_chan,a_time);
+#endif
+
+
+              CCOPEN(0xe124,"c,i,l,N(c,c,s)",banknum);
+#ifdef DEBUG9
+              printf("0x%08x: CCOPEN(RICH), dataout=0x%08x\n",b08,dataout);
+#endif
+
+
+	          Nchan[0] ++; /* increment channel counter */
+#ifdef DEBUG9
+              printf("0x%08x: RICH increment Nchan[0]=%d\n",b08,Nchan[0]);
+#endif
+
+              *b08++ = a_fiber;
+
+              *b08++ = a_chan;
+
+              b16 = (unsigned short *)b08;
+              *b16++ = ((a_edge<<15)&0x8000) | (a_time&0x7FFF);
+              b08 += 2;
+
+
+	          ii++;
+		    }
+
+            else if( ((datain[ii]>>27)&0x1F) == RICH_TYPE_FILLER)
+            {
+#ifdef DEBUG9
+	          printf("[%3d] RICH FILLER WORD\n",ii);
+              printf(">>> RICH do nothing\n");
+#endif
+	          ii++;
+            }
+            else if( ((datain[ii]>>27)&0x1F) == RICH_TYPE_DNV)
+            {
+#ifdef DEBUG9
+	          printf("[%3d] RICH DNV\n",ii);
+              printf(">>> RICH do nothing\n");
+#endif
+	          ii++;
+            }
+            else
+		    {
+              printf("RICH UNKNOWN data: [%3d] 0x%08x\n",ii,datain[ii]);
+              ii++;
+		    }
+
+	      } /* while() */
+
+
+        } /* loop over blocks */
+
+
+        if(b08 != NULL) CCCLOSE; /*call CCCLOSE only if CCOPEN was called*/
+#ifdef DEBUG9
+        printf("0x%08x: CCCLOSE1, dataout=0x%08x\n",b08,dataout);
+        printf("0x%08x: CCCLOSE2, dataout=0x%08x\n",b08,(unsigned int *) ( ( ((unsigned int)b08+3)/4 ) * 4));
+        printf("-> 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+		    (unsigned int)b08+3,((unsigned int)b08+3),
+            ((unsigned int)b08+3) / 4,(((unsigned int)b08+3) / 4)*4, 
+		    (unsigned int *)((((unsigned int)b08+3) / 4)*4) );
+#endif
+
+
+	  } /* RICH composite format */
 
 
 

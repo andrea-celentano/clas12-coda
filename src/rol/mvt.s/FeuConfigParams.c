@@ -141,7 +141,7 @@ int FeuParams_Init( FeuParams *feu_params )
 	// Main module config parameters
 	feu_params->Main_Conf_ClkSel[0]      ='\0';
 	feu_params->Main_Conf_AdcDtp         =  0; // Depricated
-	feu_params->Main_Conf_DataPipeLen    =  0; // Use for sparce readout
+	feu_params->Main_Conf_DataPipeLen    = -1; // Use for sparce readout
 	feu_params->Main_Conf_DreamMask      = -1;
 	feu_params->Main_Conf_Samples        = -1;
 	// Main module Trigger logic parameters
@@ -848,7 +848,7 @@ int FeuParamsCol_Sprintf( FeuParamsCol *feu_params_col, char *buf  )
 }
 int FeuParamsCol_Fprintf( FeuParamsCol *feu_params_col, FILE *fptr )
 {
-	char buf[32*1024];
+	char buf[64*1024];
 	int ret;
 
 	if( fptr == (FILE *)NULL )
@@ -1398,6 +1398,19 @@ int FeuParamsCol_PropComParams( FeuParamsCol *feu_params_col )
 			feu_params_col->feu_params[feu].Feu_RunCtrl_RdDel = feu_params_col->feu_params[0].Feu_RunCtrl_RdDel;
 		if( feu_params_col->feu_params[feu].Feu_RunCtrl_CmOffset < 0 )
 			feu_params_col->feu_params[feu].Feu_RunCtrl_CmOffset = feu_params_col->feu_params[0].Feu_RunCtrl_CmOffset;
+		// Make sure the ZS window is not bigger than number of samples
+		// ZS window: sample 0 never compared to threshold
+		// 0 compare samples 1 through 2  min nb of samples 4
+		// 1                 1 through 3                    5
+		// 2                 1 through 4                    6
+		// 3                 1 through 5                    7
+                // 4                 1 through 6                    8
+		//
+		if( feu_params_col->feu_params[feu].Feu_RunCtrl_ZS == 1 )
+		{
+			if( feu_params_col->feu_params[feu].Feu_RunCtrl_ZsChkSmp > (feu_params_col->feu_params[feu].Main_Conf_Samples-4) )
+				feu_params_col->feu_params[feu].Feu_RunCtrl_ZsChkSmp = feu_params_col->feu_params[feu].Main_Conf_Samples-4;
+		}
 
 		// FEU Pedestal memory
 		if( feu_params_col->feu_params[feu].Feu_RunCtrl_PdFile[0]=='\0' )
@@ -1543,7 +1556,7 @@ int FeuParamsCol_PropComParams( FeuParamsCol *feu_params_col )
 			} // for( index=1; index<D_DreamPar_NumOfRegs; index++ )
 		} // for( dream=0; dream<D_FeuPar_NumOfDreams-1; dream++ )
 		
-				// Adc parameters
+		// Adc parameters
 		for( index=0; index<D_AdcPar_NumOfRegs; index++ )
 		{
 			if( feu_params_col->feu_params[feu].adc_params.adc_reg[index].flg == ((char)AdcRegFlag_Unset) )

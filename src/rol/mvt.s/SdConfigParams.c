@@ -46,6 +46,9 @@ int SdParams_Init( SdParams *params )
 	// Global parameters
 	// usually derived from BEC
 	params->ActiveSlotFlags = 0;
+	params->ActiveTrigFlags = 0;
+	params->TrigMult        = 0;
+	params->TrigWin         = 0;
 
 	return D_RetCode_Sucsess;
 }
@@ -79,7 +82,10 @@ int SdParams_Sprintf( SdParams *params, char *buf  )
 	sprintf( buf, "%s# Sd %d Slot %d\n", buf, params->Id, params->Slot );
 
 	// Global parameters: defived from global parameters
-	sprintf( buf, "%s# Sd %d ActiveSlotFlags 0x%08x\n", buf, params->Id, params->ActiveSlotFlags );
+	sprintf( buf, "%s# Sd %d ActiveSlotFlags 0x%08x\n",  buf, params->Id, params->ActiveSlotFlags );
+	sprintf( buf, "%s# Sd %d ActiveTrigFlags 0x%08x\n",  buf, params->Id, params->ActiveTrigFlags );
+	sprintf( buf, "%s# Sd %d TrigMult        %d\n",      buf, params->Id, params->TrigMult );
+	sprintf( buf, "%s# Sd %d TrigWin         %d # ns\n", buf, params->Id, params->TrigWin );
 
 	// All went fine
 	return D_RetCode_Sucsess;

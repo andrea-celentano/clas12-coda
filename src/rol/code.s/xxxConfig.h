@@ -1,4 +1,5 @@
-
+#ifndef xxxCONFIG_H
+#define xxxCONFIG_H
 /* xxxConfig.h - for all board's Config() procedures  */
 
 /* strlen() returns string length without 'end-of-string', so we add 1,
@@ -36,3 +37,5 @@
 #define CLOSE_STRING \
   len1 = strlen(str); \
   return(len1)
+  
+#endif

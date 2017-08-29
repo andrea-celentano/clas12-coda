@@ -23,7 +23,7 @@ coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 /* hps1test.c - first readout list for VXS crates with MVT and new TI */
 
 #define USE_MVT
-
+#undef DEBUG_MVT
 #undef DEBUG
 
 #include <stdio.h>
@@ -33,6 +33,7 @@ coda_roc_gef -s clasprod -o "adcecal1 ROC" -i
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include "circbuf.h"
 
 /* from fputil.h */
@@ -87,7 +88,8 @@ static char rcname[5];
 //#define MY_MAX_EVENT_LENGTH 3000/*3200*/ /* max words per board */
 static unsigned int *tdcbuf;
 
-extern int rocMask; /* defined in roc_component.c */
+extern int rocMask;  /* defined in roc_component.c */
+extern int tiMaster; /* defined in tiLib.c */
 
 
 /*temporary here: for time profiling */
@@ -147,6 +149,7 @@ tsleep(int n)
 }
 
 extern struct TI_A24RegStruct *TIp;
+static int ti_slave_fiber_port = 1;
 
 void
 titest1()
@@ -168,12 +171,38 @@ __download()
 	int ii, i1, i2, i3;
 	int id;
 
+	// Log file variables
+	char logfilename[128];
+	char logfilename_backup[128];
+	char log_file_perms[16];
+	struct stat log_stat;   
+	// time variables
+	time_t      cur_time;
+	struct tm  *time_struct;
+  char *ch, tmp[64];
+
+
 	rol->poll = 1;
 	printf("\n>>>>>>>>>>>>>>> ROCID=%d, CLASSID=%d <<<<<<<<<<<<<<<<\n",rol->pid,rol->classid);
 	printf("CONFFILE >%s<\n\n",rol->confFile);
 	printf("LAST COMPILED: %s %s\n", __DATE__, __TIME__);
 
-	char logfilename[128];
+  printf("USRSTRING >%s<\n\n",rol->usrString);
+
+  /* if slave, get fiber port number from user string */
+#ifdef TI_SLAVE
+  ti_slave_fiber_port = 1; /* default */
+
+  ch = strstr(rol->usrString,"fp=");
+  if(ch != NULL)
+  {
+    strcpy(tmp,ch+strlen("fp="));
+    printf("FP >>>>>>>>>>>>>>>>>>>>>%s<<<<<<<<<<<<<<<<<<<<<\n",tmp);
+    ti_slave_fiber_port = atoi(tmp);
+    printf("ti_slave_fiber_port =%d\n",ti_slave_fiber_port);
+    tiSetFiberIn_preInit(ti_slave_fiber_port);
+  }
+#endif
 
 	/**/
 	CTRIGINIT;
@@ -207,10 +236,10 @@ __download()
 	}
 	vmeBusUnlock();
 
-//	usrVmeDmaSetConfig(2,5,1); /*A32,2eSST,267MB/s*/
-	usrVmeDmaSetConfig(2,5,1); /*A32,2eSST,267MB/s*/
+//	usrVmeDmaSetConfig(2,3,0); /*A32,MBLT,  80MB/s*/
+//	usrVmeDmaSetConfig(2,4,0); /*A32,2eVME,160MB/s*/
 //	usrVmeDmaSetConfig(2,5,0); /*A32,2eSST,160MB/s*/
-//	usrVmeDmaSetConfig(2,3,0); /*A32,MBLT*/
+	usrVmeDmaSetConfig(2,5,1); /*A32,2eSST,267MB/s*/
 /*
 	usrVmeDmaSetChannel(1);
 	printf("===== Use DMA Channel %d\n\n\n",usrVmeDmaGetChannel());
@@ -220,15 +249,46 @@ __download()
   /******************/
   /* USER code here */
 #ifdef USE_MVT
+	// Get current time
+	cur_time = time(NULL);
+	time_struct = localtime(&cur_time);
 	if( mvt_fptr_err_1 == (FILE *)NULL )
 	{
 		sprintf(logfilename, "mvt_roc_%d_rol_1.log", rol->pid);
-		if( (mvt_fptr_err_1 = fopen(logfilename, "w")) == (FILE *)NULL )
+		sprintf(log_file_perms, "a+");
+		if( stat( logfilename, &log_stat ) == 0 )
 		{
-		  fprintf(stderr, "%s: fopen failed to open log file %s in write mode with %d\n", __FUNCTION__, logfilename, errno);
-		  perror("fopen failed");
+			// file exists, check its size
+			if( log_stat.st_size > 100000 )
+			{
+				// Too big, rename it
+				// form backup log file name
+				sprintf
+				(
+					logfilename_backup,
+					"mvt_roc_%02d%02d%02d_%02dH%02d.log",
+					time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
+					time_struct->tm_hour, time_struct->tm_min
+				);
+  				if( rename(logfilename, logfilename_backup) ) 
+				{
+					fprintf(stderr, "%s: rename failed from log file %s to %s with %d\n", __FUNCTION__, logfilename, logfilename_backup, errno);
+				 	perror("rename failed");
+				}
+				sprintf(log_file_perms, "w");
+			}
+		}
+
+		// Open file
+		if( (mvt_fptr_err_1 = fopen(logfilename, log_file_perms)) == (FILE *)NULL )
+		{
+			fprintf(stderr, "%s: fopen failed to open log file %s in %s mode with %d\n", __FUNCTION__, logfilename, log_file_perms, errno);
+		 	perror("fopen failed");
 		}
 	}
+	fprintf( mvt_fptr_err_1, "**************************************************\n" );
+	fprintf( mvt_fptr_err_1, "%s at %02d%02d%02d %02dH%02d\n", __FUNCTION__, time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday, time_struct->tm_hour, time_struct->tm_min );
+	fflush( mvt_fptr_err_1 );
 
 	printf("\nMVT: start\n\n");
 	printf("\nMVT: !!!!!!!!!!!!!!!!!!!!! confFile=%s, rolnum=%d, rolpid=%d\n\n", rol->confFile,rol->runNumber, rol->pid );
@@ -236,7 +296,6 @@ __download()
 
 vmeBusLock();
 	nmvt = mvtConfig("", rol->runNumber, rol->pid );
-		
 vmeBusUnlock();
 
 //	if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4))
@@ -252,7 +311,9 @@ vmeBusUnlock();
 	//	nmvt = mvtGetNbrOfBeu(rol->pid);
 	if( ( nmvt <= 0 ) || (3 <= nmvt) )
 	{
-		printf("%s: wrong number of BEUs %d in crate %d; must be in [1;3] range\n",__FUNCTION__, nmvt, rol->pid);
+		fprintf(stderr,         "%s: wrong number of BEUs %d in crate %d; must be in [1;3] range\n", __FUNCTION__, nmvt, rol->pid);
+		fprintf(mvt_fptr_err_1, "%s: wrong number of BEUs %d in crate %d; must be in [1;3] range\n", __FUNCTION__, nmvt, rol->pid);
+		fflush( mvt_fptr_err_1 );
 	}
 	printf("\nMVT: found %d boards\n\n",nmvt);
 	mvtSlotMask=0;
@@ -265,7 +326,7 @@ vmeBusUnlock();
 	vmeBusLock();
 //		sdInit(1);
 		sdSetActiveVmeSlots(mvtSlotMask);
-		sdStatus();
+		sdStatus(1);
 	vmeBusUnlock();
 
 #endif // #ifdef USE_MVT
@@ -289,6 +350,15 @@ __prestart()
 {
 	int ret;
 	int block_level;
+
+	// Log file variables
+	char logfilename[128];
+	char logfilename_backup[128];
+	char log_file_perms[16];
+	struct stat log_stat;   
+	// time variables
+	time_t      cur_time;
+	struct tm  *time_struct;
 
 	/* Clear some global variables etc for a clean start */
 	*(rol->nevents) = 0;
@@ -376,21 +446,51 @@ __prestart()
 
 	tiSetBusySource(TI_BUSY_SWB, 0);
 
+	// Get current time
+	cur_time = time(NULL);
+	time_struct = localtime(&cur_time);
+#ifdef USE_MVT
 	if( mvt_fptr_err_1 == (FILE *)NULL )
 	{
-		if( (mvt_fptr_err_1 = fopen("mvt_roc_err_1.txt", "w+")) == (FILE *)NULL )
+		sprintf(logfilename, "mvt_roc_%d_rol_1.log", rol->pid);
+		sprintf(log_file_perms, "a+");
+		if( stat( logfilename, &log_stat ) == 0 )
 		{
-			fprintf(stderr, "%s: fopen failed to open mvt_roc_err_1.txt in write mode with %d\n", __FUNCTION__, errno);
-			perror("fopen failed");
+			// file exists, check its size
+			if( log_stat.st_size > 100000 )
+			{
+				// Too big, rename it
+				// form backup log file name
+				sprintf
+				(
+					logfilename_backup,
+					"mvt_roc_%02d%02d%02d_%02dH%02d.log",
+					time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
+					time_struct->tm_hour, time_struct->tm_min
+				);
+  				if( rename(logfilename, logfilename_backup) ) 
+				{
+					fprintf(stderr, "%s: rename failed from log file %s to %s with %d\n", __FUNCTION__, logfilename, logfilename_backup, errno);
+				 	perror("rename failed");
+				}
+				sprintf(log_file_perms, "w");
+			}
+		}
+		// Open file
+		if( (mvt_fptr_err_1 = fopen(logfilename, log_file_perms)) == (FILE *)NULL )
+		{
+			fprintf(stderr, "%s: fopen failed to open log file %s in %s mode with %d\n", __FUNCTION__, logfilename, log_file_perms, errno);
+		 	perror("fopen failed");
 		}
 	}
 	if( mvt_fptr_err_1 != (FILE *)NULL )
 	{
-		fprintf(mvt_fptr_err_1,"%s : Information below concerns run %d\n", __FUNCTION__, rol->runNumber );
-		fflush( mvt_fptr_err_1 );
+		fprintf( mvt_fptr_err_1,"**************************************************\n" );
+		fprintf( mvt_fptr_err_1,"%s at %02d%02d%02d %02dH%02d\n", __FUNCTION__, time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday, time_struct->tm_hour, time_struct->tm_min );
+		fprintf( mvt_fptr_err_1,"%s : Information below concerns run %d tiMaster=%d\n", __FUNCTION__, rol->runNumber, tiMaster );
+		fflush(  mvt_fptr_err_1 );
 	}
 
-#ifdef USE_MVT
 	if(nmvt>0)
 	{
 		block_level = tiGetCurrentBlockLevel();
@@ -436,6 +536,7 @@ __prestart()
 
 	vmeBusLock();
 		tiStatus(1);
+		sdStatus(1);
 	vmeBusUnlock();
 	printf("INFO: Prestart1 Executed\n");fflush(stdout);
 
@@ -445,7 +546,6 @@ printf("INFO: Prestart1 as TI_MASRER\n");fflush(stdout);
 #ifdef TI_SLAVE
 printf("INFO: Prestart1 as TI_SLAVE\n");fflush(stdout);
 #else
-#define INIT_NAME hps1test__init
 printf("INFO: Prestart1 as TI_NONE\n");fflush(stdout);
 #endif
 #endif
@@ -465,10 +565,18 @@ __end()
 
 	printf("\n\nINFO: End1 Reached\n");fflush(stdout);
 
+	/* Before disconnecting... wait for blocks to be emptied */
+	vmeBusLock();
+		tiStatus(1);
+		sdStatus(1);
+	vmeBusUnlock();
+
 	CDODISABLE(TIPRIMARY,TIR_SOURCE,0);
 
 	/* Before disconnecting... wait for blocks to be emptied */
 	vmeBusLock();
+//		tiStatus(1);
+//		sdStatus(1);
 		blocksLeft = tiBReady();
 	vmeBusUnlock();
 	printf(">>>>>>>>>>>>>>>>>>>>>>> %d blocks left on the TI\n",blocksLeft);fflush(stdout);
@@ -507,6 +615,7 @@ __end()
 
 	vmeBusLock();
 		tiStatus(1);
+		sdStatus(1);
 	vmeBusUnlock();
 
 	printf("INFO: End1 Executed\n\n\n");fflush(stdout);
@@ -552,7 +661,7 @@ __go()
 	logMsg("INFO: Go 1 Executed\n",1,2,3,4,5,6);
 }
 
-
+//static int constant_set = 0;
 void
 usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 {
@@ -574,11 +683,30 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 
 	char *chptr, *chptr0;
 
+
+
 	// Software timeout for the MVT readout0
 	struct timeval mvt_t0;
 	struct timeval mvt_t1;
 	struct timeval mvt_dt;
-
+/*
+if( constant_set == 0 )
+{
+if(tiGetAckCount() > 0)
+{
+tiDisableRandomTrigger();
+tiSoftTrig(1, 0xFFFF, 270, 1);
+constant_set = 1;
+#ifdef USE_MVT
+		if( mvt_fptr_err_1 != (FILE *)NULL )
+		{
+			fprintf(mvt_fptr_err_1, "%s: Random trigger changed to constantd\n", __FUNCTION__);
+			fflush( mvt_fptr_err_1);
+		}
+#endif
+}
+}
+*/
 	/*printf("EVTYPE=%d syncFlag=%d\n",EVTYPE,syncFlag);*/
 	if(syncFlag)
 		printf("EVTYPE=%d syncFlag=%d\n",EVTYPE,syncFlag);
@@ -590,21 +718,49 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 	if((syncFlag<0)||(syncFlag>1))         /* illegal */
 	{
 		printf("Illegal1: syncFlag=%d EVTYPE=%d\n",syncFlag,EVTYPE);
+#ifdef USE_MVT
+		if( mvt_fptr_err_1 != (FILE *)NULL )
+		{
+			fprintf(mvt_fptr_err_1, "Illegal1: syncFlag=%d EVTYPE=%d\n",syncFlag,EVTYPE);
+			fflush( mvt_fptr_err_1);
+		}
+#endif
 	}
 	else if((syncFlag==0)&&(EVTYPE==0))    /* illegal */
 	{
 		printf("Illegal2: syncFlag=%d EVTYPE=%d\n",syncFlag,EVTYPE);
+#ifdef USE_MVT
+		if( mvt_fptr_err_1 != (FILE *)NULL )
+		{
+			fprintf(mvt_fptr_err_1, "Illegal2: syncFlag=%d EVTYPE=%d\n",syncFlag,EVTYPE);
+			fflush( mvt_fptr_err_1);
+		}
+#endif
 	}
 	else if((syncFlag==1)&&(EVTYPE==0))    /* force_sync (scaler) events */
 	{
-		;
+#ifdef USE_MVT
+		if( mvt_fptr_err_1 != (FILE *)NULL )
+		{
+			fprintf(mvt_fptr_err_1, "force_sync (scaler) events ?! we are geting here on End transition: syncFlag=1 EVTYPE=0 !!!\n");
+			fflush( mvt_fptr_err_1);
+		}
+#endif
+//		;
 /*
 !!! 	we are geting here on End transition: syncFlag=1 EVTYPE=0 !!!
 */
 	}
 	else if((syncFlag==0)&&(EVTYPE==15)) /* helicity strob events */
 	{
-		;
+#ifdef USE_MVT
+		if( mvt_fptr_err_1 != (FILE *)NULL )
+		{
+			fprintf(mvt_fptr_err_1, "helicity strob events ?!\n");
+			fflush( mvt_fptr_err_1);
+		}
+#endif
+//		;
 	}
 	else           /* physics and physics_sync events */
 	{
@@ -626,6 +782,13 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 		if(len<=0)
 		{
 			printf("ERROR in tiReadBlock : No data or error, len = %d\n",len);
+#ifdef USE_MVT
+			if( mvt_fptr_err_1 != (FILE *)NULL )
+			{
+				fprintf(mvt_fptr_err_1, "ERROR in tiReadBlock : No data or error, len = %d\n",len);
+				fflush( mvt_fptr_err_1);
+			}
+#endif
 			sleep(1);
 		}
  		else
@@ -639,7 +802,7 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 			for(jj=0; jj<len; jj++)
 				*rol->dabufp++ = tdcbuf[jj];
 			BANKCLOSE;
-    	}
+		}
 
 		/* Turn off all output ports 
 		tiSetOutputPort(0,0,0,0);
@@ -675,7 +838,11 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 				mvt_to_cntr++;
 				printf("MVT NOT READY: gbready=0x%08x, expect 0x%08x, to_cntr=%d EVENT_NUMBER=%d\n", mvtgbr, mvtSlotMask, mvt_to_cntr, EVENT_NUMBER);
 				if( mvt_fptr_err_1 != (FILE *)NULL )
+				{
 					fprintf(mvt_fptr_err_1, "MVT NOT READY: gbready=0x%08x, expect 0x%08x, to_cntr=%d EVENT_NUMBER=%d\n", mvtgbr, mvtSlotMask, mvt_to_cntr, EVENT_NUMBER);
+					mvtStatusDump(0, mvt_fptr_err_1);
+					fflush( mvt_fptr_err_1 );
+				}
 			}
 			else
 			{
@@ -692,11 +859,20 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 
 				vmeBusLock();
 					len = mvtReadBlock(rol->pid,tdcbuf,1000000,1);
+					//printf("ROL1: mvt len = %d words\n",len);
 				vmeBusUnlock();
 				if(len>0)
 				{
 					BANKOPEN(0xe118,1,rol->pid);
 	//				BANKOPEN(0xe1FF,1,rol->pid);
+#ifdef DEBUG_MVT
+					if( mvt_fptr_err_1 != (FILE *)NULL )
+					{
+						fprintf(mvt_fptr_err_1,"%s : mvt data len=%d to be copied to rol->dabufp=0x%08x first data=0x%08x\n",
+							__FUNCTION__, len, rol->dabufp, tdcbuf[00] );
+						fflush( mvt_fptr_err_1 );
+					}
+#endif
 					for(jj=0; jj<len; jj++) *rol->dabufp++ = tdcbuf[jj];
 					BANKCLOSE;
 				}
@@ -730,7 +906,7 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
 			{
 	//// For the moment no VME access
 ////vmeBusLock(); 
-				len = mvtUploadAll(chptr, 128*1024);
+				len = mvtUploadAll(chptr, 256*1024);
 ////vmeBusUnlock();
 				chptr += len;
 				nbytes += len;

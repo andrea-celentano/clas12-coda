@@ -4,13 +4,16 @@
 sspfirmware("ssp.bin",13)
 
 
-     cd $CLON_PARMS/firmwares
-     sspfirmware fe_ssp_hallb_gt.bin 3
-     sspfirmware fe_ssp_hallb_gt.bin 4
-     sspfirmware fe_ssp_hallb_gt.bin 5
-     sspfirmware fe_ssp_hallb_gt.bin 6
-     sspfirmware fe_ssp_hallb_gt.bin 7
-     sspfirmware fe_ssp_hallb_gt.bin 8
+cd $CLON_PARMS/firmwares
+sspfirmware fe_ssp_hallb_gt.bin
+(fails first time, run twice)
+
+#sspfirmware fe_ssp_hallb_gt.bin 3
+#sspfirmware fe_ssp_hallb_gt.bin 4
+#sspfirmware fe_ssp_hallb_gt.bin 5
+#sspfirmware fe_ssp_hallb_gt.bin 6
+#sspfirmware fe_ssp_hallb_gt.bin 7
+#sspfirmware fe_ssp_hallb_gt.bin 8
 
 */
 
@@ -58,11 +61,16 @@ main(int argc, char *argv[])
   vmeOpenDefaultWindows();
   printf("\n");
 
-  sspInit(slot<<19, 0, 1, SSP_INIT_NO_INIT | SSP_INIT_SKIP_FIRMWARE_CHECK);
-
-  /* update firmware */
-  sspFirmwareUpdateVerify(slot, myname);
-
+  if(slot)
+  {
+    sspInit(slot<<19, 0, 1, SSP_INIT_NO_INIT | SSP_INIT_SKIP_FIRMWARE_CHECK);
+    sspFirmwareUpdateVerify(slot, myname);
+  }
+  else
+  {
+    sspInit(0, 0, 0, SSP_INIT_NO_INIT | SSP_INIT_SKIP_FIRMWARE_CHECK);
+    sspGFirmwareUpdateVerify(myname);
+  }
 
   exit(0);
 }

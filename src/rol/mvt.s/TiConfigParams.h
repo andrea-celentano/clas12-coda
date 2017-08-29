@@ -82,6 +82,7 @@ typedef struct _TiParams
 	// Global parameters
 	// Derived from System
 	int NbOfEvtPerBlk;
+	int BlockLimit;
 
 	// Synchronisation parameters
 	TiClkSrc ClkSrc;
@@ -95,7 +96,7 @@ typedef struct _TiParams
 // The hardware supports 127
 #define Def_Ti_TrgRules_MaxNumOfUnitCnt     63
 #define Def_Ti_TrgRules_TimeUnit_016ns      16
-#define Def_Ti_TrgRules_TimeUnit_500ns     500
+#define Def_Ti_TrgRules_TimeUnit_480ns     480
 	int TrgRules_TimeUnit[Def_Ti_TrgRules_MaxNum];
 	int TrgRules_UnitCount[Def_Ti_TrgRules_MaxNum];
 	int TrgRate;

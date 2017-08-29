@@ -15,6 +15,7 @@ static int nusertrig, ndone;
 #define USE_DSC2
 #define USE_V1190
 #define USE_SSP
+#define USE_SSP_RICH
 #define USE_VSCM
 #define USE_DCRB
 #define USE_VETROC
@@ -26,6 +27,7 @@ around that problem temporary patches were applied - until fixed (Sergey) */
 #define SLOTWORKAROUND
 
 #undef DEBUG
+#define DEBUG
 
 
 #include <stdio.h>
@@ -633,6 +635,7 @@ vmeBusUnlock();
       /*trigger-related*/
 vmeBusLock();
       faResetMGT(FA_SLOT,1);
+      faSetTrigOut(FA_SLOT, 7);
 vmeBusUnlock();
 #endif
 
@@ -710,6 +713,7 @@ vmeBusLock();
   {
     sdSetActiveVmeSlots(fadcSlotMask); /* Use the fadcSlotMask to configure the SD */
     sdStatus();
+    sdSetTrigoutLogic(0, 2); /* Enable SD trigout as OR by default */
   }
   else
   {
@@ -1117,7 +1121,7 @@ vmeBusUnlock();
   {
     DCRB_SLOT = dcrbSlot(id);
 vmeBusLock();
-    dcrbTriggerPulseWidth(DCRB_SLOT, 8000);
+//    dcrbTriggerPulseWidth(DCRB_SLOT, 8000);
 	dcrbLinkReset(DCRB_SLOT);
 vmeBusUnlock();
 
@@ -1224,7 +1228,6 @@ vmeBusUnlock();
   nssp=0;
 vmeBusLock();
   nssp = sspInit(0, 0, 0, iFlag); /* Scan for, and initialize all SSPs in crate */
-  //nssp = sspInit(0x180000, 0, 1, iFlag); /* Scan for, and initialize slot 3 ssp */
 vmeBusUnlock();
   printf("rol1: found %d SSPs (using iFlag=0x%08x)\n",nssp,iFlag);
 
@@ -1239,12 +1242,7 @@ vmeBusUnlock();
       sspSlotMask |= (1<<SSP_SLOT); /* Add it to the mask */
       printf("=======================> sspSlotMask=0x%08x\n",sspSlotMask);
 
-
       printf("Setting SSP %d, slot %d\n",id,sspSlot(id));
-
-      /* SSP Status */
-      /*sspPrintHpsScalers(sspSlot(id));*/
-      //sspPrintHpsConfig(sspSlot(id));
     }
   }
 
@@ -1650,7 +1648,7 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   int *jw, ind, ind2, i, ii, jj, jjj, blen, len, rlen, itdcbuf, nbytes;
   unsigned int *tdcbuf_save, *tdc, utmp;
   unsigned int *dabufp1, *dabufp2;
-  int njjloops, slot;
+  int njjloops, slot, type;
   int nwords;
 #ifndef VXWORKS
   TIMERL_VAR;
@@ -1677,7 +1675,6 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   char *chptr, *chptr0;
 
   /*printf("EVTYPE=%d syncFlag=%d\n",EVTYPE,syncFlag);*/
-
 
   if(syncFlag) printf("EVTYPE=%d syncFlag=%d\n",EVTYPE,syncFlag);
 
@@ -1737,12 +1734,10 @@ vmeBusUnlock();
     }
     else
     {
-	  ;
 	  /*
       printf("ti: len=%d\n",len);
       for(jj=0; jj<len; jj++) printf("ti[%2d] 0x%08x\n",jj,LSWAP(tdcbuf[jj]));
 	  */
-
 	  
       BANKOPEN(0xe10A,1,rol->pid);
       for(jj=0; jj<len; jj++) *rol->dabufp++ = tdcbuf[jj];
@@ -1861,9 +1856,71 @@ vmeBusUnlock();
 
 #endif /* USE_V1190 */
 
+#ifdef USE_SSP_RICH
+    ///////////////////////////////////////
+    // SSP_CFG_SSPTYPE_HALLBRICH Readout //
+    ///////////////////////////////////////
+    dCnt=0;
+    for(ii=0; ii<nssp; ii++)
+    {
+      slot = sspSlot(ii);
+      type = sspGetFirmwareType_Shadow(slot);
+      
+      if(type == SSP_CFG_SSPTYPE_HALLBRICH)
+      {
+#ifdef DEBUG
+      printf("Calling sspBReady(%d) ...\n", slot); fflush(stdout);
+#endif
+        for(itime=0; itime<100000; itime++) 
+        {
+          vmeBusLock();
+          gbready = sspBReady(slot);
+          vmeBusUnlock();
+          
+          if(gbready)
+            break;
+#ifdef DEBUG
+          else
+            printf("SSP NOT READY (slot=%d)\n",slot);
+#endif
+        }
 
+        if(!gbready)
+          printf("SSP NOT READY (slot=%d)\n",slot);
+#ifdef DEBUG
+        else
+          printf("SSP IS READY (slot=%d)\n",slot);
+#endif
+/*
+        sspPrintEbStatus(slot);
+        printf(" ");
+*/
+        vmeBusLock();
+        len = sspReadBlock(slot,&tdcbuf[dCnt],0x10000,1);
+        vmeBusUnlock();
+      
+/*
+        printf("ssp tdcbuf[%2d]:", len);
+        for(jj=0;jj<(len>20?20:len);jj++)
+          printf(" 0x%08x",tdcbuf[jj]);
+        
+        printf(" ");
+        sspPrintEbStatus(slot);
+        printf("\n");
+*/
 
+        dCnt += len;
+      }
+    }
 
+    if(dCnt>0)
+    {
+      BANKOPEN(0xe123,1,rol->pid);
+      for(jj=0; jj<dCnt; jj++) *rol->dabufp++ = tdcbuf[jj];
+      BANKCLOSE;
+    }
+
+#endif /* USE_SSP_RICH */
 
 #if 0
 #ifdef USE_SSP
@@ -1873,22 +1930,22 @@ vmeBusUnlock();
       printf("Calling sspGBReady ...\n");fflush(stdout);
 #endif
       for(itime=0; itime<100000; itime++) 
-	  {
-vmeBusLock();
-	    gbready = sspGBReady();
-vmeBusUnlock();
-	    stat = (gbready == sspSlotMask);
-	    if (stat>0) 
 	    {
-	      break;
-	    }
+vmeBusLock();
+	      gbready = sspGBReady();
+vmeBusUnlock();
+	      stat = (gbready == sspSlotMask);
+	      if (stat>0) 
+	      {
+	        break;
+	      }
 #ifdef DEBUG
-		else
-		{
+		    else
+		    {
           printf("SSP NOT READY: gbready=0x%08x, expect 0x%08x\n",gbready,sspSlotMask);
-		}
+		    }
 #endif
-	  }
+	    }
 
 
 #ifdef DEBUG
@@ -1915,7 +1972,6 @@ vmeBusUnlock();
     }
 #endif /* USE_SSP */
 #endif
-
 
 #ifdef USE_FADC250
 

@@ -15,6 +15,7 @@
 //-----------------------------------------------------------------------------
 #ifndef __CONTROL_CMD_MEM_H__
 #define __CONTROL_CMD_MEM_H__
+
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>   
@@ -59,7 +60,9 @@ typedef struct {
 } ControlCmdMemory;
 
 // Open and map shared memory
-inline int controlCmdOpenAndMap ( ControlCmdMemory **ptr, const char *system, unsigned int id, int uid ) {
+int
+controlCmdOpenAndMap ( ControlCmdMemory **ptr, const char *system, unsigned int id, int uid )
+{
    int           smemFd;
    char          shmName[200];
    int           lid;
@@ -95,7 +98,9 @@ inline int controlCmdOpenAndMap ( ControlCmdMemory **ptr, const char *system, un
 }
 
 // Close shared memory
-inline void controlCmdClose ( ControlCmdMemory *ptr ) {
+void
+controlCmdClose ( ControlCmdMemory *ptr )
+{
    char shmName[200];
 
    // Get shared name
@@ -106,7 +111,9 @@ inline void controlCmdClose ( ControlCmdMemory *ptr ) {
 }
 
 // Init data structure, called by ControlServer
-inline void controlCmdInit ( ControlCmdMemory *ptr ) {
+void
+controlCmdInit ( ControlCmdMemory *ptr )
+{
    memset(ptr->cmdArgA,   0, CONTROL_CMD_STR_SIZE);
    memset(ptr->cmdArgB,   0, CONTROL_CMD_STR_SIZE);
    memset(ptr->cmdResult, 0, CONTROL_CMD_STR_SIZE);
@@ -120,7 +127,9 @@ inline void controlCmdInit ( ControlCmdMemory *ptr ) {
 }
 
 // Send command
-inline void controlCmdSetCommand ( ControlCmdMemory *ptr, char cmdType, const char *argA, const char *argB ) {
+void
+controlCmdSetCommand ( ControlCmdMemory *ptr, char cmdType, const char *argA, const char *argB )
+{
    if ( argA != NULL ) strcpy(ptr->cmdArgA,argA);
    if ( argB != NULL ) strcpy(ptr->cmdArgB,argB);
    strcpy(ptr->errorBuffer,"");
@@ -131,7 +140,9 @@ inline void controlCmdSetCommand ( ControlCmdMemory *ptr, char cmdType, const ch
 }
 
 // Check for pending command
-inline int controlCmdGetCommand ( ControlCmdMemory *ptr, char *cmdType, char **argA, char **argB ) {
+int
+controlCmdGetCommand ( ControlCmdMemory *ptr, char *cmdType, char **argA, char **argB )
+{
    if ( ptr->cmdRdyCount == ptr->cmdAckCount ) return(0);
    else {
       *cmdType = ptr->cmdType;
@@ -142,17 +153,23 @@ inline int controlCmdGetCommand ( ControlCmdMemory *ptr, char *cmdType, char **a
 }
 
 // Command Set Result
-inline void controlCmdSetResult ( ControlCmdMemory *ptr, const char *result ) {
+void
+controlCmdSetResult ( ControlCmdMemory *ptr, const char *result )
+{
    if ( result != NULL ) strcpy(ptr->cmdResult,result);
 }
 
 // Command ack
-inline void controlCmdAckCommand ( ControlCmdMemory *ptr ) {
+void
+controlCmdAckCommand ( ControlCmdMemory *ptr )
+{
    ptr->cmdAckCount = ptr->cmdRdyCount;
 }
 
 // Wait for command completion
-inline int controlCmdGetResult ( ControlCmdMemory *ptr, char *result ) {
+int
+controlCmdGetResult ( ControlCmdMemory *ptr, char *result )
+{
    if ( ptr->cmdRdyCount != ptr->cmdAckCount ) return(0);
    else { 
       if ( result != NULL ) strcpy(result,ptr->cmdResult);
@@ -161,7 +178,9 @@ inline int controlCmdGetResult ( ControlCmdMemory *ptr, char *result ) {
 }
 
 // Wait for command completion with timeout in milliseconds
-inline int controlCmdGetResultTimeout ( ControlCmdMemory *ptr, char *result, int timeout ) {
+int
+controlCmdGetResultTimeout ( ControlCmdMemory *ptr, char *result, int timeout )
+{
    struct timeval now;
    struct timeval sum;
    struct timeval add;
@@ -180,32 +199,44 @@ inline int controlCmdGetResultTimeout ( ControlCmdMemory *ptr, char *result, int
 }
 
 // Set Config
-inline void controlCmdSetConfig ( ControlCmdMemory *ptr, const char *config ) {
+void
+controlCmdSetConfig ( ControlCmdMemory *ptr, const char *config )
+{
    strcpy(ptr->xmlConfigBuffer,config);
 }
 
 // Get Config
-inline const char * controlCmdGetConfig ( ControlCmdMemory *ptr ) {
+const char *
+controlCmdGetConfig ( ControlCmdMemory *ptr )
+{
    return(ptr->xmlConfigBuffer);
 }
 
 // Set Status
-inline void controlCmdSetStatus ( ControlCmdMemory *ptr, const char *status ) {
+void
+controlCmdSetStatus ( ControlCmdMemory *ptr, const char *status )
+{
    strcpy(ptr->xmlStatusBuffer,status);
 }
 
 // Get Status
-inline const char * controlCmdGetStatus ( ControlCmdMemory *ptr ) {
+const char *
+controlCmdGetStatus ( ControlCmdMemory *ptr )
+{
    return(ptr->xmlStatusBuffer);
 }
 
 // Set Error 
-inline void controlCmdSetError ( ControlCmdMemory *ptr, const char *error ) {
+void
+controlCmdSetError ( ControlCmdMemory *ptr, const char *error )
+{
    strcpy(ptr->errorBuffer,error);
 }
 
 // Get Error
-inline const char * controlCmdGetError ( ControlCmdMemory *ptr ) {
+const char *
+controlCmdGetError ( ControlCmdMemory *ptr )
+{
    return(ptr->errorBuffer);
 }
 

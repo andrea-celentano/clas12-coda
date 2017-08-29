@@ -163,7 +163,7 @@ dcrbId(unsigned int slot)
  */
 
 int 
-dcrbInit(UINT32 addr, UINT32 addr_inc, int ndc, int iFlag)
+dcrbInit(unsigned int addr, unsigned int addr_inc, int ndc, int iFlag)
 {
   int ii, res, errFlag = 0;
   int boardID = 0;
@@ -751,7 +751,7 @@ dcrbStatus(int id, int sflag)
 
   printf("   Blocks in FIFO  = %u  (Block level = %d)\n", fifoBlockCnt, blockConfig & 0x7ff);
   printf("   Events in FIFO  = %u\n", fifoEventCnt);
-  printf("   Words in FIFO   = %u = %u\n", fifoWordCnt);
+  printf("   Words in FIFO   = %u\n", fifoWordCnt);
   
   printf("\n DAC Threshold: %dmV", dcrbGetDAC(id));
   printf("\n");
@@ -800,8 +800,8 @@ dcrbSetProcMode(int id, unsigned int lookBack, unsigned int windowWidth, unsigne
   }
 
   /* convert inputs from ns to ticks */
-  lookBack = lookBack / DCRB_NS_PER_CLOCK;
-  windowWidth = windowWidth / DCRB_NS_PER_CLOCK;
+  lookBack = lookBack;
+  windowWidth = windowWidth;
   deadTime = deadTime / DCRB_NS_PER_CLOCK;
 
   DCRBLOCK;
@@ -835,9 +835,6 @@ dcrbGetWindowOffset(int id)
   lookBack = vmeRead32(&DCRBp[id]->EB.Lookback);
   DCRBUNLOCK;
 
-  /* convert inputs from ticks to ns */
-  lookBack = lookBack * DCRB_NS_PER_CLOCK;
-
   return(lookBack);
 }
 
@@ -857,9 +854,6 @@ dcrbGetWindowWidth(int id)
   DCRBLOCK;
   windowWidth = vmeRead32(&DCRBp[id]->EB.WindowWidth);
   DCRBUNLOCK;
-
-  /* convert inputs from ticks to ns */
-  windowWidth = windowWidth * DCRB_NS_PER_CLOCK;
 
   return(windowWidth);
 }
@@ -913,7 +907,7 @@ dcrbGSetProcMode(unsigned int lookBack, unsigned int windowWidth, unsigned int d
  *                     and daisychain in place or SD being used)
  */
 int
-dcrbReadBlock(int id, volatile UINT32 *data, int nwrds, int rflag)
+dcrbReadBlock(int id, volatile unsigned int *data, int nwrds, int rflag)
 {
   int ii, blknum, evnum1;
   int stat, retVal, xferCount, rmode, async;
@@ -1155,7 +1149,7 @@ dcrbReadBlock(int id, volatile UINT32 *data, int nwrds, int rflag)
 }
 
 int
-dcrbReadBlockStatus(int id, volatile UINT32 *data, int nwrds, int rflag)
+dcrbReadBlockStatus(int id, volatile unsigned int *data, int nwrds, int rflag)
 {
 
   int stat, retVal, xferCount, rmode, async;
@@ -1855,7 +1849,7 @@ int dcrbFirmwareUpdateVerify(int id, const char *filename)
       return(ERROR);
     }
 
-	printf("Updating firmware...");
+	printf("Slot %d, Updating firmware...", id);
 	result = dcrbFirmwareUpdate(id, filename);
 	if(result != OK)
 	{
@@ -1906,7 +1900,7 @@ int dcrbFirmwareUpdate(int id, const char *filename)
 	dcrbSelectSpi(id,0);
 	rspId = dcrbFlashGetId(id);
 	
-	printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X\n", (rspId>>0)&0xFF, (rspId>>8)&0xFF, (rspId>>16)&0xFF);
+//	printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X\n", (rspId>>0)&0xFF, (rspId>>8)&0xFF, (rspId>>16)&0xFF);
 
 	if(rspId == FLASH_DEV_M25P64)
 	{
@@ -2064,7 +2058,7 @@ int dcrbFirmwareVerify(int id, const char *filename)
 	dcrbSelectSpi(id,0);
 	rspId = dcrbFlashGetId(id);
 	
-	printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X\n", (rspId>>0)&0xFF, (rspId>>8)&0xFF, (rspId>>16)&0xFF);
+//	printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X\n", (rspId>>0)&0xFF, (rspId>>8)&0xFF, (rspId>>16)&0xFF);
 
 	if(rspId == FLASH_DEV_M25P64)
 	{
@@ -2158,8 +2152,9 @@ dcrbDataDecode(unsigned int data)
 
 /* width in ns */
 int
-dcrbTriggerPulseWidth(int id, unsigned int width)
+dcrbSetTriggerPulseWidth(int id, unsigned int width)
 {
+  int i;
   if(id==0) id=dcrbID[0];
 
   if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
@@ -2170,13 +2165,34 @@ dcrbTriggerPulseWidth(int id, unsigned int width)
 
   width /= DCRB_NS_PER_CLOCK;
 
-  vmeWrite32(&(DCRBp[id]->Tdc[0].TriggerWidth),width);
-  vmeWrite32(&(DCRBp[id]->Tdc[1].TriggerWidth),width);
-  vmeWrite32(&(DCRBp[id]->Tdc[2].TriggerWidth),width);
+  for(i=0;i<6;i++)
+    vmeWrite32(&(DCRBp[id]->Tdc[i].TriggerWidth),width);
 
   return(width);
 }
 
+int
+dcrbGetTriggerPulseWidth(int id)
+{
+  unsigned int width;
+  
+  if(id==0) id=dcrbID[0];
+
+  if((id<=0) || (id>21) || (DCRBp[id] == NULL)) 
+  {
+    printf("dcrbSoftTrig: ERROR : DCRB in slot %d is not initialized \n",id);
+    return;
+  }
+
+  width = vmeRead32(&(DCRBp[id]->Tdc[0].TriggerWidth));
+  //vmeWrite32(&(DCRBp[id]->Tdc[1].TriggerWidth),width);
+  //vmeWrite32(&(DCRBp[id]->Tdc[2].TriggerWidth),width);
+  //vmeWrite32(&(DCRBp[id]->Tdc[3].TriggerWidth),width);
+  //vmeWrite32(&(DCRBp[id]->Tdc[4].TriggerWidth),width);
+  //vmeWrite32(&(DCRBp[id]->Tdc[5].TriggerWidth),width);
+  
+  return(width*DCRB_NS_PER_CLOCK);
+}
 
 /* returns 1 if link is UP, 0, otherwise */
 int
@@ -2231,6 +2247,7 @@ typedef struct
   int window_width[DCRB_MAX_BOARDS];
   int deadtime[DCRB_MAX_BOARDS];
   int threshold[DCRB_MAX_BOARDS];
+  int trig_hit_width[DCRB_MAX_BOARDS]
 
 } DCRB_CONFIG_STRUCT;
 
@@ -2250,7 +2267,14 @@ dcrbInitGlobals()
 {
   int ii;
 
-  for(ii=0; ii<DCRB_MAX_BOARDS; ii++) conf.threshold[ii] = 20;
+  for(ii=0; ii<DCRB_MAX_BOARDS; ii++)
+  {
+    conf.window_offset[ii] = 0;
+    conf.window_width[ii] = 0;
+    conf.deadtime[ii] = 0;
+    conf.threshold[ii] = 20;
+    conf.trig_hit_width[ii] = 2000;
+  }
  
   return;
 }
@@ -2344,27 +2368,25 @@ dcrbReadConfigFile(char *filename)
       fgets(str_tmp, STRLEN, fd);
       sscanf (str_tmp, "%s %s", keyword, ROC_name);
 
-
       /* Start parsing real config inputs */
       if(strcmp(keyword,"DCRB_CRATE") == 0)
       {
-	    if(strcmp(ROC_name,host) == 0)
+        if(strcmp(ROC_name,host) == 0)
         {
-	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+          printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
           active = 1;
         }
-	    else if(strcmp(ROC_name,"all") == 0)
-		{
-	      printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
+        else if(strcmp(ROC_name,"all") == 0)
+        {
+          printf("\nReadConfigFile: crate = %s  host = %s - activated\n",ROC_name,host);
           active = 1;
-		}
+        }
         else
-		{
-	      printf("\nReadConfigFile: crate = %s  host = %s - disactivated\n",ROC_name,host);
+        {
+          printf("\nReadConfigFile: crate = %s  host = %s - disactivated\n",ROC_name,host);
           active = 0;
-		}
+        }
       }
-
       else if(active && (strcmp(keyword,"DCRB_SLOT")==0))
       {
         sscanf (str_tmp, "%*s %s", str2);
@@ -2388,42 +2410,42 @@ dcrbReadConfigFile(char *filename)
           printf("\nReadConfigFile: Wrong slot >%s<, must be 'all' or actual slot number\n\n",str2);
           return(-1);
         }
-	  }
-
+      }
       else if(active && (strcmp(keyword,"DCRB_W_OFFSET")==0))
       {
         sscanf (str_tmp, "%*s %d", &i1);
-		for(slot=slot1; slot<slot2; slot++) conf.window_offset[slot] = i1;
+        for(slot=slot1; slot<slot2; slot++) conf.window_offset[slot] = i1;
       }
-
       else if(active && (strcmp(keyword,"DCRB_W_WIDTH")==0))
       {
         sscanf (str_tmp, "%*s %d", &i1);
-		for(slot=slot1; slot<slot2; slot++) conf.window_width[slot] = i1;
+        for(slot=slot1; slot<slot2; slot++) conf.window_width[slot] = i1;
       }
-
       else if(active && (strcmp(keyword,"DCRB_DEADTIME")==0))
       {
         sscanf (str_tmp, "%*s %d", &i1);
-		for(slot=slot1; slot<slot2; slot++) conf.deadtime[slot] = i1;
+        for(slot=slot1; slot<slot2; slot++) conf.deadtime[slot] = i1;
       }
-
       else if(active && (strcmp(keyword,"DCRB_THRESHOLD")==0))
       {
         sscanf (str_tmp, "%*s %d", &i1);
-		for(slot=slot1; slot<slot2; slot++) conf.threshold[slot] = i1;
+        for(slot=slot1; slot<slot2; slot++) conf.threshold[slot] = i1;
       }
-
+      else if(active && (strcmp(keyword,"DCRB_HIT_TRIG_WIDTH")==0))
+      {
+        sscanf (str_tmp, "%*s %d", &i1);
+        for(slot=slot1; slot<slot2; slot++) conf.trig_hit_width[slot] = i1;
+      }
       else
       {
         ; /* unknown key - do nothing */
-		/*
+        /*
         printf("dcrbReadConfigFile: Unknown Field or Missed Field in\n");
         printf("   %s \n", fname);
         printf("   str_tmp=%s", str_tmp);
         printf("   keyword=%s \n\n", keyword);
         return(-10);
-		*/
+        */
       }
 
     }
@@ -2445,6 +2467,7 @@ dcrbDownloadAll()
 
     dcrbSetProcMode(slot, conf.window_offset[slot], conf.window_width[slot], conf.deadtime[slot]);
     dcrbSetDAC(slot, conf.threshold[slot]);
+    dcrbSetTriggerPulseWidth(slot, conf.trig_hit_width[slot]);
   }
 
   return(0);
@@ -2498,10 +2521,12 @@ dcrbUploadAll(char *string, int length)
   for(id=0; id<ndcrb; id++)
   {
     slot = dcrbSlot(id);
-	conf.window_offset[slot] = dcrbGetWindowOffset(slot);
-	conf.window_width[slot]  = dcrbGetWindowWidth(slot);
-	conf.deadtime[slot]      = dcrbGetDeadtime(slot);
+    conf.window_offset[slot] = dcrbGetWindowOffset(slot);
+    conf.window_width[slot]  = dcrbGetWindowWidth(slot);
+    conf.deadtime[slot]      = dcrbGetDeadtime(slot);
     conf.threshold[slot]     = dcrbGetDAC(slot);
+    conf.trig_hit_width[slot] = dcrbGetTriggerPulseWidth(slot);
+    
     printf("DCRB slot=%d: w_offset=%d, w_width=%d, deadtime=%d, threshold=%d\n",
 		   slot,conf.window_offset[slot],conf.window_width[slot],conf.deadtime[slot],conf.threshold[slot]);
   }
@@ -2520,6 +2545,7 @@ dcrbUploadAll(char *string, int length)
       sprintf(sss,"DCRB_W_WIDTH %d\n", conf.window_width[slot]); ADD_TO_STRING;
       sprintf(sss,"DCRB_DEADTIME %d\n", conf.deadtime[slot]); ADD_TO_STRING;
       sprintf(sss,"DCRB_THRESHOLD %d\n", conf.threshold[slot]); ADD_TO_STRING;
+      sprintf(sss,"DCRB_HIT_TRIG_WIDTH %d\n", conf.trig_hit_width[slot]); ADD_TO_STRING;
     }
 
     CLOSE_STRING;

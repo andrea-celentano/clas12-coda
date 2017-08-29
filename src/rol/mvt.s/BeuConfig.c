@@ -129,8 +129,8 @@ int BeuGo( volatile struct BEUSSP_A24RegStruct *beu_regs, BeuSspConf *params )
 			fprintf( stderr, "%s: beusspVmeResyncRtsRec failed with %d for beu %d in slot %d\n", __FUNCTION__, ret, params->Id, params->Slot ); 
 			return D_RetCode_Err_NetIO;
 		}
-fprintf( stdout, "%s: beusspVmeResyncRtsRec ok for beu %d in slot %d\n", __FUNCTION__, params->Id, params->Slot ); 
+//fprintf( stdout, "%s: beusspVmeResyncRtsRec ok for beu %d in slot %d\n", __FUNCTION__, params->Id, params->Slot ); 
 	}
-beusspDisplayAllReg(beu_regs);
+//beusspDisplayAllReg(beu_regs);
 	return D_RetCode_Sucsess;
 }

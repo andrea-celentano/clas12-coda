@@ -21,14 +21,15 @@
 #define SCALER_SERVER_GET_BOARD_PARAMS	  0x102
 #define SCALER_SERVER_GET_CHANNEL_PARAMS  0x103
 #define SCALER_SERVER_SET_CHANNEL_PARAMS  0x104
-
+#define DATA_SERVER_READ_BOARD            0x105
 
 
 #define SCALER_TYPE_DSC2        0
 #define SCALER_TYPE_FADC250     1
 #define SCALER_TYPE_VSCM        2
 #define SCALER_TYPE_VTP         3
-#define SCALER_TYPE_MAX         4   /* the maximum number of different board types */
+#define SCALER_TYPE_SSP         4
+#define SCALER_TYPE_MAX         5   /* the maximum number of different board types */
 
 
 #define SCALER_PARTYPE_THRESHOLD    0
@@ -232,6 +233,7 @@ typedef struct
   int (*Write32)(Cmd_Write32 *pCmd_Write32);
   int (*Delay)(Cmd_Delay *pCmd_Delay);
   int (*ReadScalers)(Cmd_ReadScalers *pCmd, Cmd_ReadScalers_Rsp *pCmd_Rsp);
+  int (*ReadData)(Cmd_ReadScalers *pCmd, Cmd_ReadScalers_Rsp *pCmd_Rsp);
   int (*GetCrateMap)(Cmd_GetCrateMap *pCmd, Cmd_GetCrateMap_Rsp *pCmd_Rsp);
   int (*GetBoardParams)(Cmd_GetBoardParams *pCmd, Cmd_GetBoardParams_Rsp *pCmd_Rsp);
   int (*GetChannelParams)(Cmd_GetChannelParams *pCmd, Cmd_GetChannelParams_Rsp *pCmd_Rsp);

@@ -66,7 +66,7 @@ void my_tiIntAck()
 	
 	if(!tiReadoutEnabled)
 	{
-		/* Readout Acknowledge and decrease the number of available blocks by 1 */
+		// Readout Acknowledge and decrease the number of available blocks by 1
 		resetbits |= TI_RESET_BLOCK_READOUT;
 	}
     

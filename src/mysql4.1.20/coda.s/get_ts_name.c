@@ -40,13 +40,13 @@ get_ts_name(char *mysql_database, char *session)
   {
     printf("get_ts_name: ERROR in mysql_query 1\n");
     dbDisconnect(connNum);
-    return;
+    return(NULL);
   }
   if(!(result = mysql_store_result(connNum) ))
   {
     printf("get_ts_name: ERROR in mysql_store_result 1\n");
     dbDisconnect(connNum);
-    return;
+    return(NULL);
   }
   /* get 'row_out' and check it for null */
   row_out = mysql_fetch_row(result);
@@ -54,7 +54,7 @@ get_ts_name(char *mysql_database, char *session)
   {
     mysql_free_result(result);
     dbDisconnect(connNum);
-    return;
+    return(NULL);
   }
 #ifdef VXWORKS
   config = mystrdup(row_out[0]);
@@ -76,20 +76,20 @@ get_ts_name(char *mysql_database, char *session)
   {
     printf("get_ts_name: ERROR in mysql_query 2\n");
     dbDisconnect(connNum);
-    return;
+    return(NULL);
   }
   if(!(result = mysql_store_result(connNum) ))
   {
     printf("get_ts_name: ERROR in mysql_store_result 2\n");
     dbDisconnect(connNum);
-    return;
+    return(NULL);
   }
   nrows = mysql_num_rows(result);
   if(row_out==NULL)
   {
     mysql_free_result(result);
     dbDisconnect(connNum); 
-    return;
+    return(NULL);
   }
 
   /*printf("nrows=%d\n",nrows);*/
@@ -127,13 +127,13 @@ get_ts_name(char *mysql_database, char *session)
     {
       printf("get_ts_name: ERROR in mysql_query 3\n");
       dbDisconnect(connNum);
-      return;
+      return(NULL);
     }
     if(!(result = mysql_store_result(connNum) ))
     {
       printf("get_ts_name: ERROR in mysql_store_result 3\n");
       dbDisconnect(connNum);
-      return;
+      return(NULL);
     }
     row_out = mysql_fetch_row(result);
     if(row_out==NULL)

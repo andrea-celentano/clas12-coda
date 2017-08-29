@@ -72,11 +72,11 @@ char bin_data_file_name[128];
 int first_phy_blk;
 int last_phy_blk;
 int do_feu_bin_files = 0;
+int do_hst_file = 0;
 
 short feu_smp_val[512][256];
 short feu_chan_val[512];
 int   feu_chan_num;
-
 
 unsigned int *rd_buf = (unsigned int *)NULL;
 int rd_buf_len = 0;
@@ -133,7 +133,11 @@ typedef struct _TimingHistos
 	Histo phy_evt_blk_size_histo;
 	Histo vme_data_size_histo;
 	Histo mvt_evt_size_histo;
+	Histo mvt_evt_nb_of_chan_histo;
+	Histo mvt_evt_nb_of_feu_histo;
 	Histo feu_smp_size_histo[Def_MaxNbOfFeu];
+
+	int beu_ti_evid_lo_shift_cnt[Def_MaxNbOfBeu];
 } TimingHistos;
 int TimingHistos_Init( TimingHistos *tim_hist )
 {
@@ -151,6 +155,7 @@ int TimingHistos_Init( TimingHistos *tim_hist )
 			fprintf( stderr, "%s: Histo_Init failed for beu_ftstp_histo[%d]\n", __FUNCTION__, index );
 			return -1;
 		}
+		tim_hist->beu_ti_evid_lo_shift_cnt[index] = 0;
 	}
 	for( index=0; index<Def_MaxNbOfFeu; index++ )
 	{
@@ -195,6 +200,16 @@ int TimingHistos_Init( TimingHistos *tim_hist )
 		fprintf( stderr, "%s: Histo_Init failed for mvt_evt_size_histo\n", __FUNCTION__ );
 		return -1;
 	}
+	if( Histo_Init(&(tim_hist->mvt_evt_nb_of_chan_histo), 0, 48*512, 1) < 0 )
+	{
+		fprintf( stderr, "%s: Histo_Init failed for mvt_evt_nb_of_chan_histo\n", __FUNCTION__ );
+		return -1;
+	}
+	if( Histo_Init(&(tim_hist->mvt_evt_nb_of_feu_histo), 0, 48, 1) < 0 )
+	{
+		fprintf( stderr, "%s: Histo_Init failed for mvt_evt_nb_of_chan_histo\n", __FUNCTION__ );
+		return -1;
+	}
 	return 0;
 }
 void TimingHistos_Free( TimingHistos *tim_hist )
@@ -217,6 +232,8 @@ void TimingHistos_Free( TimingHistos *tim_hist )
 	Histo_Free(&(tim_hist->phy_evt_blk_size_histo));
 	Histo_Free(&(tim_hist->vme_data_size_histo));
 	Histo_Free(&(tim_hist->mvt_evt_size_histo));
+	Histo_Free(&(tim_hist->mvt_evt_nb_of_chan_histo));
+	Histo_Free(&(tim_hist->mvt_evt_nb_of_feu_histo));
 	for( index=0; index<Def_MaxNbOfFeu; index++ )
 	{
 		Histo_Free(&(tim_hist->feu_smp_size_histo[index]));
@@ -235,8 +252,10 @@ void TimingHistos_DumpStat(TimingHistos *tim_hist, FILE *fptr)
 	{
 		if( tim_hist->beu2ti_tstp_offset[index] != 0xFFFFffff )
 		{
-			fprintf( fptr, " beu[%1d]  to ti     tstp Offset = 0x%03x %4d (4ns) ",
-				index, tim_hist->beu2ti_tstp_offset[index], tim_hist->beu2ti_tstp_offset[index] );
+			fprintf( fptr, " beu[%1d]  to ti  shifts=%3d   tstp Offset = 0x%03x %4d (4ns) ",
+				index,
+				tim_hist->beu_ti_evid_lo_shift_cnt[index],
+				tim_hist->beu2ti_tstp_offset[index], tim_hist->beu2ti_tstp_offset[index] );
 			Histo_Stat( &(tim_hist->beu2ti_tstp_histo[index]), fptr );
 //fprintf( fptr, "\n" );
 		}
@@ -294,6 +313,16 @@ void TimingHistos_DumpStat(TimingHistos *tim_hist, FILE *fptr)
 	// Inter triggger delay
 	fprintf( fptr, " Ti ITD (1us) " );
 	Histo_Stat( &(tim_hist->ti_itd_histo), fptr );
+	fprintf( fptr, "\n" );
+
+	// Number of channels per event
+	fprintf( fptr, " Number of channels per MVT event " );
+	Histo_Stat( &(tim_hist->mvt_evt_nb_of_chan_histo), fptr );
+	fprintf( fptr, "\n" );
+
+	// Number of FEUs per event
+	fprintf( fptr, " Number of FEUs per MVT event " );
+	Histo_Stat( &(tim_hist->mvt_evt_nb_of_feu_histo), fptr );
 	fprintf( fptr, "\n" );
 
 	// Composite event size
@@ -406,6 +435,18 @@ void TimingHistos_DumpHistos(TimingHistos *tim_hist, FILE *fptr)
 	fprintf( fptr, " Ti ITD (1us)\n" );
 	Histo_Stat( &(tim_hist->ti_itd_histo), fptr );
 	Histo_Dump( &(tim_hist->ti_itd_histo), fptr );
+	fprintf( fptr, "\n" );
+
+	// Number of channels per event
+	fprintf( fptr, " Number of channels per MVT event " );
+	Histo_Stat( &(tim_hist->mvt_evt_nb_of_chan_histo), fptr );
+	Histo_Dump( &(tim_hist->mvt_evt_nb_of_chan_histo), fptr );
+	fprintf( fptr, "\n" );
+
+	// Number of FEUs per event
+	fprintf( fptr, " Number of FEUs per MVT event " );
+	Histo_Stat( &(tim_hist->mvt_evt_nb_of_feu_histo), fptr );
+	Histo_Dump( &(tim_hist->mvt_evt_nb_of_feu_histo), fptr );
 	fprintf( fptr, "\n" );
 
 	// Composite event size
@@ -602,9 +643,13 @@ int PhyEvtStat_Validate(PhyEvtStat *phy_evt_stat)
 		{
 			if( phy_evt_stat->beu_evid_lo[beu] != (phy_evt_stat->ti_evid_lo & 0x7FFF) )
 			{
-				fprintf( stderr, "%s: ERROR beu %d evid_lo = 0x%04x != ti_evid_lo[15:0] = 0x%04x\n",
-					__FUNCTION__, beu, phy_evt_stat->beu_evid_lo[beu], (phy_evt_stat->ti_evid_lo & 0xFFFF) );
-				error |= 4;
+				if( ((phy_evt_stat->ti_evid_lo & 0x7FFF) - phy_evt_stat->beu_evid_lo[beu]) != timing_histos_cmp.beu_ti_evid_lo_shift_cnt[beu] )
+				{
+					timing_histos_cmp.beu_ti_evid_lo_shift_cnt[beu] = ((phy_evt_stat->ti_evid_lo & 0x7FFF) - phy_evt_stat->beu_evid_lo[beu]);
+					fprintf( stderr, "%s: ERROR beu %d evid_lo = 0x%04x != ti_evid_lo[15:0] = 0x%04x\n",
+						__FUNCTION__, beu, phy_evt_stat->beu_evid_lo[beu], (phy_evt_stat->ti_evid_lo & 0xFFFF) );
+					error |= 4;
+				}
 			}
 			if( phy_evt_stat->beu_evid_mi[beu] != ((phy_evt_stat->ti_evid_lo >> 15)& 0x7FFF) )
 			{
@@ -850,6 +895,762 @@ int PhyEvtStat_SaveFdf(PhyEvtStat *phy_evt_stat, int feu_id, int zero_sup, char 
 	}
 	return wr_len;
 }
+
+
+#define DEF_BmtSecPlot_Width 53
+#define DEF_BmtSecPlot_Height 27
+typedef char BmtSecPlot_Det[DEF_BmtSecPlot_Height][DEF_BmtSecPlot_Width];
+const BmtSecPlot_Det bmt_sec_plot_det_init =
+{
+//          1         2         3         4         5  
+//01234567890123456789012345678901234567890123456789012
+ " 1              |                |                  \n", //  0
+ "10              +                +                  \n", //  1
+ " 9              |                |                  \n", //  2
+ " 8              |                |                  \n", //  3
+ " 7              |                |                  \n", //  4
+ " 6              |                |                  \n", //  5
+ " 5              +                +                  \n", //  6
+ " 4              |                |                  \n", //  7
+ " 3              |                |                  \n", //  8
+ " 2              |                |                  \n", //  9
+ " 1              |                |                  \n", // 10
+ " 0              +                +                  \n", //  1
+ "  12345678901234 1234567890123456 123456789012345678\n", //  2
+ "    4 C/Z   1   |  5 C/Z   1     |  6 C/Z   1       \n", //  3
+ "  012345678901   012345678901     012345678901      \n", //  4
+ "                                 1                  \n", //  5
+ " 1              1                2                  \n", //  6
+ " 2              2                3                  \n", //  7
+ " 3              3                4                  \n", //  8
+ " 4              4                5                  \n", //  9
+ " 5              5                6                  \n", // 20
+ " 6              6                7                  \n", //  1
+ " 7              7                8                  \n", //  2
+ " 8              8                9                  \n", //  3
+ " 9              9               10                  \n", //  4
+ "10             10                1                  \n", //  5
+ "                                 2                  \n"  //  6
+//0123456789012345678901234567890123456789012345678901
+//          1         2         3         4         5  
+};
+#define DEF_BmtSecNum 3
+
+typedef enum
+{
+	ValType_NotSet = 0,
+	ValType_MaxVal = 1,
+	ValType_MaxSmp = 2,
+	ValType_SigCnt = 3,
+} ValType;
+char *ValType2Str( ValType val_type )
+{
+	if( val_type == ValType_NotSet )
+		return "ValType_NotSet";
+	else if( val_type == ValType_MaxVal )
+		return "ValType_MaxVal";
+	else if( val_type == ValType_MaxSmp )
+		return "ValType_MaxSmp";
+	else if( val_type == ValType_SigCnt )
+		return "ValType_SigCnt";
+	else
+		return "ValType_Error";
+}
+
+int BmtSecPlot_Det_Update( BmtSecPlot_Det *bmt_sec_plot_det, int layer, char det_type, int det_con, int val, ValType val_type )
+{
+	int h, w;
+	char val_char;
+	char *ptr;
+
+	// Process value
+	val_char = '*';
+	if( val_type == ValType_MaxVal )
+	{
+		     if( val > 2048 )
+			val = 11;
+		else if( val > 1024 )
+			val = 10;
+		else if( val >  512 )
+			val =  9;
+		else if( val >  256 )
+			val =  8;
+		else if( val >  128 )
+			val =  7;
+		else if( val >   64 )
+			val =  6;
+		else if( val >   32 )
+			val =  5;
+		else if( val >   16 )
+			val =  4;
+		else if( val >    8 )
+			val =  3;
+		else if( val >    4 )
+			val =  2;
+		else if( val >    2 )
+			val =  1;
+		else if( val >    1 )
+			val =  0;
+		else if( val >    0 )
+			val =  0;
+		else if( val == 0 )
+			val_char = '0';
+	}
+	else if( val_type == ValType_SigCnt )
+	{
+		if( val > 11 )
+		{
+			val = 11;
+			val_char = 'o';
+		}
+		else if( val == 0 )
+			val_char = '0';
+	}
+
+	// determin h,w coordinates of the map
+	if( det_type == 'C' )
+	{
+		h = 11 - val;
+		if( layer == 4 )
+			w = 1 + det_con;
+		else if( layer == 5 )
+			w = 16 + det_con;
+		else if( layer == 6 )
+			w = 33 + det_con;
+		else
+			return -1;
+	}
+	else if( det_type == 'Z' )
+	{
+		if( layer == 4 )
+		{
+			h = 15 + det_con;
+			w = 2 + val;
+		}
+		else if( layer == 5 )
+		{
+			h = 15 + det_con;
+			w = 17 + val;
+		}
+		else if( layer == 6 )
+		{
+			h = 14 + det_con;
+			w = 34 + val;
+		}
+		else
+			return -1;
+	}
+	else
+		return -1;
+//fprintf( stderr, "%s: 0x%08x h=%d w=%d val_char=%c\n", __FUNCTION__, bmt_sec_plot_det, h, w, val_char );
+
+	// Update the map
+//#define DEF_BmtSecPlot_Width 53
+//#define DEF_BmtSecPlot_Height 27
+
+	ptr = (char *)bmt_sec_plot_det;
+	if( *(ptr+h*DEF_BmtSecPlot_Width + w) == ' ' )
+		*(ptr+h*DEF_BmtSecPlot_Width + w) = val_char;
+	else
+		*(ptr+h*DEF_BmtSecPlot_Width + w) = '+';
+//fprintf( stderr, "%s: 0x%08x h=%d w=%d val_char=%c\n", __FUNCTION__, bmt_sec_plot_det, h, w, *(ptr+h*DEF_BmtSecPlot_Width + w) );
+	return 0;
+}
+
+// Electronics to detectors mapping
+int FeuChanId2DetConId( int feu, int feu_chan, char *sec, int *layer, char *det_type, int *det_con )
+{
+	if( (feu_chan<0) || (511<feu_chan) )
+		return -1; // wrong FEU chan
+
+	     if( ( 3<=feu && feu<= 8) || (11<=feu && feu<=16) )
+		*sec = 'A';
+	else if( (19<=feu && feu<=24) || (35<=feu && feu<=40) )
+		*sec = 'B';
+	else if( (43<=feu && feu<=48) || (51<=feu && feu<=56) )
+		*sec = 'C';
+	else
+	{
+		if( (feu < 1) || ((24<feu) && (feu<33)) || (56<feu) )
+		{
+			// wrong FEU ID
+			return -1;
+		}
+		// FEU should be one of FMT
+		return 0;
+	}
+	switch( feu )
+	{
+		case 3:
+		case 19:
+		case 43:
+			*det_con = (feu_chan / 64) + 1;
+			*layer = 6;
+			*det_type = 'C';
+		break;
+		case 11:
+		case 35:
+		case 51:
+			*det_con = (feu_chan / 64) + 1 + 8 + 2;
+			*layer = 6;
+			*det_type = 'C';
+		break;
+
+		case 4:
+		case 20:
+		case 44:
+			if( feu_chan < 6*64 )
+			{
+				*det_con = (feu_chan / 64) + 1;
+				*det_type = 'Z';
+			}
+			else
+			{
+				*det_con = (feu_chan / 64) + 1 + 8;
+				*det_type = 'C';
+			}
+			*layer = 6;
+		break;
+		case 12:
+		case 36:
+		case 52:
+			if( feu_chan < 6*64 )
+			{
+				*det_con = (feu_chan / 64) + 1 + 6;
+				*det_type = 'Z';
+			}
+			else
+				return 0; // wrong channel
+			*layer = 6;
+		break;
+
+		case 5:
+		case 21:
+		case 45:
+			*det_con = (feu_chan / 64) + 1;
+			*layer = 5;
+			*det_type = 'C';
+		break;
+		case 13:
+		case 37:
+		case 53:
+			*det_con = (feu_chan / 64) + 1 + 8;
+			*layer = 5;
+			*det_type = 'C';
+		break;
+
+		case 6:
+		case 22:
+		case 46:
+			if( (2*64<=feu_chan) && (feu_chan<7*64) )
+				*det_con = (feu_chan / 64) - 2 + 1;
+			else
+				return 0; // wrong channel
+			*layer = 5;
+			*det_type = 'Z';
+		break;
+		case 14:
+		case 38:
+		case 54:
+			if( (1*64<=feu_chan) && (feu_chan<6*64) )
+				*det_con = (feu_chan / 64) - 1 + 1 + 5;
+			else
+				return 0; // wrong channel
+			*layer = 5;
+			*det_type = 'Z';
+		break;
+
+		case 7:
+		case 23:
+		case 47:
+			if( feu_chan<5*64 )
+				*det_con = (feu_chan / 64) + 1;
+			else
+				return 0; // wrong channel
+			*layer = 4;
+			*det_type = 'Z';
+		break;
+		case 15:
+		case 39:
+		case 55:
+			if( 3*64<=feu_chan )
+				*det_con = (feu_chan / 64) - 3 + 1 + 5;
+			else
+				return 0; // wrong channel
+			*layer = 4;
+			*det_type = 'Z';
+		break;
+
+		case 8:
+		case 24:
+		case 48:
+			if( feu_chan<7*64 )
+				*det_con = (feu_chan / 64) + 1;
+			else
+				return 0; // wrong channel
+			*layer = 4;
+			*det_type = 'C';
+		break;
+		case 16:
+		case 40:
+		case 56:
+			if( 1*64<=feu_chan )
+				*det_con = (feu_chan / 64) - 1 + 1 + 7;
+			else
+				return 0; // wrong channel
+			*layer = 4;
+			*det_type = 'C';
+		break;
+	}
+	return 1;
+}
+
+int FeuDreamId2DetConId( int feu, int dream, char *sec, int *layer, char *det_type, int *det_con )
+{
+	if( (dream<0) || (7<dream) )
+		return -1; // wrong dream
+
+	     if( ( 3<=feu && feu<= 8) || (11<=feu && feu<=16) )
+		*sec = 'A';
+	else if( (19<=feu && feu<=24) || (35<=feu && feu<=40) )
+		*sec = 'B';
+	else if( (43<=feu && feu<=48) || (51<=feu && feu<=56) )
+		*sec = 'C';
+	else
+	{
+		if( (feu < 1) || ((24<feu) && (feu<33)) || (56<feu) )
+		{
+			// wrong FEU ID
+			return -1;
+		}
+		// FEU should be one of FMT
+		return 0;
+	}
+	switch( feu )
+	{
+		case 3:
+		case 19:
+		case 43:
+			*det_con = dream + 1;
+			*layer = 6;
+			*det_type = 'C';
+		break;
+		case 11:
+		case 35:
+		case 51:
+			*det_con = dream + 1 + 8 + 2;
+			*layer = 6;
+			*det_type = 'C';
+		break;
+
+		case 4:
+		case 20:
+		case 44:
+			if( dream < 6 )
+			{
+				*det_con = dream + 1;
+				*det_type = 'Z';
+			}
+			else
+			{
+				*det_con = dream + 1 + 8;
+				*det_type = 'C';
+			}
+			*layer = 6;
+		break;
+		case 12:
+		case 36:
+		case 52:
+			if( dream < 6 )
+			{
+				*det_con = dream + 1 + 6;
+				*det_type = 'Z';
+			}
+			else
+				return -1; // wrong channel
+			*layer = 6;
+		break;
+
+		case 5:
+		case 21:
+		case 45:
+			*det_con = dream + 1;
+			*layer = 5;
+			*det_type = 'C';
+		break;
+		case 13:
+		case 37:
+		case 53:
+			*det_con = dream + 1 + 8;
+			*layer = 5;
+			*det_type = 'C';
+		break;
+
+		case 6:
+		case 22:
+		case 46:
+			if( (2<=dream) && (dream<7) )
+				*det_con = dream - 2 + 1;
+			else
+				return 0; // wrong channel
+			*layer = 5;
+			*det_type = 'Z';
+		break;
+		case 14:
+		case 38:
+		case 54:
+			if( (1<=dream) && (dream<6) )
+				*det_con = dream - 1 + 1 + 5;
+			else
+				return 0; // wrong channel
+			*layer = 5;
+			*det_type = 'Z';
+		break;
+
+		case 7:
+		case 23:
+		case 47:
+			if( dream<5 )
+				*det_con = dream + 1;
+			else
+				return 0; // wrong channel
+			*layer = 4;
+			*det_type = 'Z';
+		break;
+		case 15:
+		case 39:
+		case 55:
+			if( 3<=dream )
+				*det_con = dream - 3 + 1 + 5;
+			else
+				return 0; // wrong channel
+			*layer = 4;
+			*det_type = 'Z';
+		break;
+
+		case 8:
+		case 24:
+		case 48:
+			if( dream<7 )
+				*det_con = dream + 1;
+			else
+				return 0; // wrong channel
+			*layer = 4;
+			*det_type = 'C';
+		break;
+		case 16:
+		case 40:
+		case 56:
+			if( 1<=dream )
+				*det_con = dream - 1 + 1 + 7;
+			else
+				return 0; // wrong channel
+			*layer = 4;
+			*det_type = 'C';
+		break;
+	}
+	return 1;
+}
+
+typedef struct _MvtPlot
+{
+	// Type
+	ValType val_type;
+	// Ti stat
+	unsigned int ti_evid_hi;
+	unsigned int ti_evid_lo;
+	unsigned int ti_tstp_hi;
+	unsigned int ti_tstp_lo;
+
+	// Beu stat
+	int nb_of_beu;
+	int beu_evid_hi[Def_MaxNbOfBeu];
+	int beu_evid_mi[Def_MaxNbOfBeu];
+	int beu_evid_lo[Def_MaxNbOfBeu];
+	int beu_tstp_hi[Def_MaxNbOfBeu];
+	int beu_tstp_mi[Def_MaxNbOfBeu];
+	int beu_tstp_lo[Def_MaxNbOfBeu];
+	int beu_tstp_fn[Def_MaxNbOfBeu];
+	int beu_smp_num[Def_MaxNbOfBeu];
+	unsigned long long prev_tstp[Def_MaxNbOfBeu];
+	// Feu stat
+	int nb_of_feu;
+
+	// BMT sectors
+	BmtSecPlot_Det bmt_sec_plot_det[DEF_BmtSecNum];
+} MvtPlot;
+MvtPlot mvt_event_plot;
+int MvtPlot_Init( MvtPlot *mvt_plot )
+{
+	int index;
+
+	// type
+	mvt_plot->val_type = ValType_NotSet;
+
+	// Ti stat
+	mvt_plot->ti_evid_hi = 0xFFFFFFFF;
+	mvt_plot->ti_evid_lo = 0xFFFFFFFF;
+	mvt_plot->ti_tstp_hi = 0xFFFFFFFF;
+	mvt_plot->ti_tstp_lo = 0xFFFFFFFF;
+
+	// Beu stat
+	for( index=0; index<Def_MaxNbOfBeu; index++ )
+	{
+		mvt_plot->beu_evid_hi[index] = -1;
+		mvt_plot->beu_evid_mi[index] = -1;
+		mvt_plot->beu_evid_lo[index] = -1;
+		mvt_plot->beu_tstp_hi[index] = -1;
+		mvt_plot->beu_tstp_mi[index] = -1;
+		mvt_plot->beu_tstp_lo[index] = -1;
+		mvt_plot->beu_tstp_fn[index] = -1;
+		mvt_plot->beu_smp_num[index] =  0;
+//		mvt_plot->prev_tstp[index]    = 0;
+	}
+	mvt_plot->nb_of_feu = 0;
+
+	// BMT sectors
+/*fprintf( stderr, "%s: Sec plot A=0x%08x B=0x%08x C=0x%08x size=%d\n",
+		__FUNCTION__,
+		&(mvt_plot->bmt_sec_plot_det['A'-'A']),
+		&(mvt_plot->bmt_sec_plot_det['B'-'A']),
+		&(mvt_plot->bmt_sec_plot_det['C'-'A']),
+		sizeof(BmtSecPlot_Det) );
+*/
+	memcpy( &(mvt_plot->bmt_sec_plot_det['A'-'A']), &bmt_sec_plot_det_init, sizeof(BmtSecPlot_Det) );
+	memcpy( &(mvt_plot->bmt_sec_plot_det['B'-'A']), &bmt_sec_plot_det_init, sizeof(BmtSecPlot_Det) );
+	memcpy( &(mvt_plot->bmt_sec_plot_det['C'-'A']), &bmt_sec_plot_det_init, sizeof(BmtSecPlot_Det) );
+	return(0);
+}
+
+int MvtPlot_Update( MvtPlot *mvt_plot, ValType val_type, PhyEvtStat *phy_evt_stat, int feu_id, int zero_sup )
+{
+	int index;
+
+	short feu_chan;
+	short dream;
+	short cur_dream;
+	int samples;
+	int chan;
+
+	char sector;
+	int  layer;
+	char det_type;
+	int  det_con;
+	int  max_val;
+	int  max_smp;
+	int  nb_of_sig;
+	int ret;
+
+	mvt_plot->val_type = val_type;
+
+	mvt_plot->ti_evid_hi = phy_evt_stat->ti_evid_hi;
+	mvt_plot->ti_evid_lo = phy_evt_stat->ti_evid_lo;
+	mvt_plot->ti_tstp_hi = phy_evt_stat->ti_tstp_hi;
+	mvt_plot->ti_tstp_lo = phy_evt_stat->ti_tstp_lo;
+
+	// Beu stat
+	mvt_plot->nb_of_beu = phy_evt_stat->nb_of_beu;
+	if( phy_evt_stat->nb_of_beu > 0 )
+	{
+		for( index=0; index<Def_MaxNbOfBeu; index++ )
+		{
+			if( phy_evt_stat->beu_smp_num[index] > 0 )
+			{
+				mvt_plot->beu_evid_hi[index] = phy_evt_stat->beu_evid_hi[index];
+				mvt_plot->beu_evid_mi[index] = phy_evt_stat->beu_evid_mi[index];
+				mvt_plot->beu_evid_lo[index] = phy_evt_stat->beu_evid_lo[index];
+				mvt_plot->beu_tstp_hi[index] = phy_evt_stat->beu_tstp_hi[index];
+				mvt_plot->beu_tstp_mi[index] = phy_evt_stat->beu_tstp_mi[index];
+				mvt_plot->beu_tstp_lo[index] = phy_evt_stat->beu_tstp_lo[index];
+				mvt_plot->beu_tstp_fn[index] = phy_evt_stat->beu_tstp_fn[index];
+				mvt_plot->beu_smp_num[index] = phy_evt_stat->beu_smp_num[index];
+			}
+		}
+		mvt_plot->nb_of_feu = phy_evt_stat->nb_of_feu;
+	}
+
+	cur_dream = -1;
+	nb_of_sig = 0;
+	for( feu_chan=0; feu_chan<feu_chan_num; feu_chan++ )
+	{
+		chan = feu_chan_val[feu_chan]-1;
+		dream      = chan / 64;
+		if( dream != cur_dream )
+		{
+			if( (cur_dream >= 0) )
+			{
+				if( val_type == ValType_SigCnt )
+				{
+					// Get mapping information
+					if( (ret = FeuDreamId2DetConId( feu_id, cur_dream, &sector, &layer, &det_type, &det_con )) < 0 )
+					{
+						fprintf( stderr, "%s: FeuDreamId2DetConId failed for feu_id=%d cur_dream=%d\n",
+							__FUNCTION__, feu_id, cur_dream );
+						//return -1;
+//						return 0;
+					}
+					else if(ret == 1 )
+					{
+//fprintf( stderr, "%s: BmtSecPlot_Det_Update for feu_if=%d dream=%d with sector=%c layer=%d det_type=%c det_con=%d nb_of_sig=%d\n",
+//__FUNCTION__, feu_id, cur_dream, sector, layer, det_type, det_con, nb_of_sig );
+						BmtSecPlot_Det_Update( &(mvt_plot->bmt_sec_plot_det[sector-'A']), layer, det_type, det_con, nb_of_sig, ValType_SigCnt );
+					}
+				}
+			}
+			// write new dream header
+			cur_dream = dream;
+			nb_of_sig = 0;
+		}
+		nb_of_sig++;
+		max_val =  0;
+		max_smp = -1;
+		for( samples=0; samples<phy_evt_stat->feu_smp_num[feu_id]; samples++ )
+		{
+			if( max_val < (feu_smp_val[feu_chan][samples] & 0xFFF) )
+			{
+				max_val = feu_smp_val[feu_chan][samples] & 0xFFF;
+				max_smp = samples;
+			}
+		}
+		if( val_type == ValType_MaxVal )
+		{
+			// Get mapping information
+			if( (ret = FeuChanId2DetConId( feu_id, chan, &sector, &layer, &det_type, &det_con )) < 0 )
+			{
+				fprintf( stderr, "%s: FeuChanId2DetConId failed for feu_id=%d chan=%d\n",
+					__FUNCTION__, feu_id, chan );
+//				return -1;
+//				return 0;
+			}
+			else if(ret == 1 )
+			{
+//fprintf( stderr, "%s: BmtSecPlot_Det_Update for feu_if=%d dream=%d with sector=%c layer=%d det_type=%c det_con=%d max_val=%d\n",
+//__FUNCTION__, feu_id, cur_dream, sector, layer, det_type, det_con, max_val );
+				BmtSecPlot_Det_Update( &(mvt_plot->bmt_sec_plot_det[sector-'A']), layer, det_type, det_con, max_val, ValType_MaxVal );
+			}
+		}
+		if( val_type == ValType_MaxSmp )
+		{
+			// Get mapping information
+			if( (ret = FeuChanId2DetConId( feu_id, chan, &sector, &layer, &det_type, &det_con )) < 0 )
+			{
+				fprintf( stderr, "%s: FeuChanId2DetConId failed for feu_id=%d chan=%d\n",
+					__FUNCTION__, feu_id, chan );
+//				return -1;
+//				return 0;
+			}
+			else if(ret == 1 )
+			{
+//fprintf( stderr, "%s: BmtSecPlot_Det_Update for feu_if=%d dream=%d with sector=%c layer=%d det_type=%c det_con=%d max_val=%d\n",
+//__FUNCTION__, feu_id, cur_dream, sector, layer, det_type, det_con, max_val );
+				BmtSecPlot_Det_Update( &(mvt_plot->bmt_sec_plot_det[sector-'A']), layer, det_type, det_con, max_smp, ValType_MaxSmp );
+			}
+		}
+	}
+	if( (cur_dream >= 0) )
+	{
+		if( val_type == ValType_SigCnt )
+		{
+			// Get mapping information
+			if( (ret = FeuDreamId2DetConId( feu_id, cur_dream, &sector, &layer, &det_type, &det_con )) < 0 )
+			{
+				fprintf( stderr, "%s: FeuDreamId2DetConId failed for feu_id=%d cur_dream=%d\n",
+					__FUNCTION__, feu_id, cur_dream );
+				//return -1;
+//						return 0;
+			}
+			else if(ret == 1 )
+			{
+//fprintf( stderr, "%s: BmtSecPlot_Det_Update for feu_if=%d dream=%d with sector=%c layer=%d det_type=%c det_con=%d nb_of_sig=%d\n",
+//__FUNCTION__, feu_id, cur_dream, sector, layer, det_type, det_con, nb_of_sig );
+				BmtSecPlot_Det_Update( &(mvt_plot->bmt_sec_plot_det[sector-'A']), layer, det_type, det_con, nb_of_sig, ValType_SigCnt );
+			}
+		}
+	}
+	return nb_of_sig;
+}
+FILE *mvt_plot_fptr = (FILE *)NULL;
+int do_disp_file = 0;
+int disp_type = ValType_MaxVal;
+int MvtPlot_Dump( MvtPlot *mvt_plot, int evt_blk_cnt, char *base_file_name )
+{
+	int index;
+	unsigned long long beu_evid;
+	unsigned long long beu_tstp;
+	unsigned long long delta;
+	double delta_us;
+	char mvt_plot_file_name[128];
+
+	if( (mvt_plot->ti_evid_lo == 0xFFFFFFFF) && (mvt_plot->ti_tstp_lo == 0xFFFFFFFF) )
+	{
+		// Nothing to do
+		return 0;
+	}
+	// Open File if necessary
+	if( mvt_plot_fptr == (FILE *)NULL )
+	{
+		if( strcmp( base_file_name, "stdout" ) == 0 )
+			mvt_plot_fptr = stdout;
+		else
+		{
+			if( (first_phy_blk != 0) || (last_phy_blk != 0x7fffFFFF) )
+				sprintf( mvt_plot_file_name, "%s_%dTo%d.plt", base_file_name, first_phy_blk, last_phy_blk );
+			else
+				sprintf( mvt_plot_file_name, "%s.plt", base_file_name );
+//fprintf( stderr, "file=%s to be opend\n", mvt_plot_file_name);
+			if( (mvt_plot_fptr=fopen(mvt_plot_file_name, "w")) == ((FILE *)NULL) )
+			{
+				fprintf( stderr, "%s: fopen failed for file %s in ascii write mode with %s\n",
+					__FUNCTION__, mvt_plot_file_name, strerror(errno) );
+				return -1;
+			}
+			fprintf( mvt_plot_fptr, "# MVT plot file produced from %s\n\r", base_file_name );
+		}
+	}
+
+	fprintf( mvt_plot_fptr, "\n\nEvtBlkCnt=%d Event hi=%u lo=%u Tstp hi=%u lo=%u %s nbeu=%d nfeu=%d\n\r",
+		evt_blk_cnt, mvt_event_plot.ti_evid_hi, mvt_event_plot.ti_evid_lo, mvt_event_plot.ti_tstp_hi, mvt_event_plot.ti_tstp_lo, ValType2Str(mvt_plot->val_type), mvt_plot->nb_of_beu, mvt_plot->nb_of_feu );
+	if( mvt_plot->nb_of_beu > 0 )
+	{
+		for( index=0; index<Def_MaxNbOfBeu; index++ )
+		{
+			if( mvt_plot->beu_smp_num[index] > 0 )
+			{
+				beu_evid = (mvt_plot->beu_evid_hi[index] << 30) + (mvt_plot->beu_evid_hi[index] << 15) + mvt_plot->beu_evid_lo[index];
+				beu_tstp = (mvt_plot->beu_tstp_hi[index] << 30) + (mvt_plot->beu_tstp_mi[index] << 15) + mvt_plot->beu_tstp_lo[index];
+				beu_tstp = (beu_tstp << 1);
+				if( mvt_plot->beu_tstp_fn[index] == 0x0F00 )
+					beu_tstp += 1;
+				delta = beu_tstp - mvt_plot->prev_tstp[index];
+				delta_us = ((double)delta) * 4. / 1000.;
+				fprintf( mvt_plot_fptr, "Beu %d smp_num=%d evid=%llu tstp=%llu delta=%llu %f us\n", index, mvt_plot->beu_smp_num[index], beu_evid, beu_tstp, delta, delta_us );
+				mvt_plot->prev_tstp[index] = beu_tstp;
+/*
+				fprintf( mvt_plot_fptr, " hi = 0x%04x", mvt_plot->beu_evid_hi[index] );
+				fprintf( mvt_plot_fptr, " mi = 0x%04x", mvt_plot->beu_evid_mi[index] );
+				fprintf( mvt_plot_fptr, " lo = 0x%04x", mvt_plot->beu_evid_lo[index] );
+				fprintf( mvt_plot_fptr, " ac = 0x%04x %d tstp", mvt_plot->beu_evid_ac[index], mvt_plot->beu_evid_ac[index] );
+				fprintf( mvt_plot_fptr, " hi = 0x%04x ",   mvt_plot->beu_tstp_hi[index] );
+				fprintf( mvt_plot_fptr, " mi = 0x%04x ",   mvt_plot->beu_tstp_mi[index] );
+				fprintf( mvt_plot_fptr, " lo = 0x%04x ",   mvt_plot->beu_tstp_lo[index] );
+				fprintf( mvt_plot_fptr, " smp_num = %d\n", mvt_plot->beu_smp_num[index] );
+*/
+			}
+		}
+	}
+	else
+	{
+		fprintf( mvt_plot_fptr, "\n" );
+	}
+
+	fwrite( mvt_plot->bmt_sec_plot_det['A'-'A'], sizeof(BmtSecPlot_Det), 1, mvt_plot_fptr );
+//	fwrite( mvt_plot->bmt_sec_plot_det['B'-'A'], sizeof(BmtSecPlot_Det), 1, mvt_plot_fptr );
+//	fwrite( mvt_plot->bmt_sec_plot_det['C'-'A'], sizeof(BmtSecPlot_Det), 1, mvt_plot_fptr );
+//	fprintf( mvt_plot_fptr, "%s\n", mvt_plot->bmt_sec_plot_det['A'-'A'] );
+
+	return 0;
+}
+
 
 /***************
  Network Header
@@ -1125,6 +1926,7 @@ typedef struct _TiBank_Dis
 	unsigned int evid_lo;
 	unsigned int tstp_lo;
 	unsigned int evid_tstp_hi;
+	unsigned int bitpattern;
 } TiBank_Dis;
 TiBank_Dis ti_bank;
 int TiBank_Disent_Fill( TiBank_Dis *ti_bank, unsigned int *buf )
@@ -1149,6 +1951,11 @@ int TiBank_Disent_Fill( TiBank_Dis *ti_bank, unsigned int *buf )
 	ti_bank->evid_lo      = *ptr++;
 	ti_bank->tstp_lo      = *(int *)ptr++;
 	ti_bank->evid_tstp_hi = *(int *)ptr;
+	if( ti_bank->size == 6 )
+	{
+		ptr++;
+		ti_bank->bitpattern = *(int *)ptr;	
+	}
 	if( (ti_bank->header & 0xFFFFFF00) != 0xe10a0100 )
 	{
 		fprintf( stderr, "%s: Unxexpected TI bank header 0x%08x should be 0xe10a0100\n", __FUNCTION__, ti_bank->header );
@@ -1165,12 +1972,15 @@ int TiBank_Disent_Fill( TiBank_Dis *ti_bank, unsigned int *buf )
 		((ti_bank->type_count & 0xFFFFFF00) != 0X00010000)
 		&&
 		((ti_bank->type_count & 0xFFFFFF00) != 0Xfe010000)
+		&&
+		((ti_bank->type_count & 0xFFFFFF00) != 0Xfd010000)
 	)
 	{
 		fprintf( stderr, "%s: Unexpected TI banck type 0x%08x\n", __FUNCTION__, ti_bank->type_count );
 		return -3;
 	}
-	return( sizeof(TiBank_Dis) / sizeof(int) );
+	return( ti_bank->size + 1 );
+//	return( sizeof(TiBank_Dis) / sizeof(int) );
 }
 
 int TiBank_Disent_Printf( TiBank_Dis *ti_bank, FILE *fptr )
@@ -1194,6 +2004,10 @@ int TiBank_Disent_Printf( TiBank_Dis *ti_bank, FILE *fptr )
 	fprintf( fptr, "   evid_lo     =0x%08x %d\n",  ti_bank->evid_lo,  ti_bank->evid_lo );
 	fprintf( fptr, "   tstp_lo     =0x%08x\n",     ti_bank->tstp_lo );
 	fprintf( fptr, "   evid_tstp_hi=0x%08x eid=0x%04x tstp=0x%04x\n", ti_bank->evid_tstp_hi, ti_bank->evid_tstp_hi & 0xFFFF, (ti_bank->evid_tstp_hi >> 16) & 0xFFFF );
+	if( ti_bank->size == 6 )
+	{
+	fprintf( fptr, "   bitpattern  =0x%08x\n",     ti_bank->bitpattern );
+	}
 	return 0;
 }
 
@@ -1245,6 +2059,7 @@ int MvtCmpDataRead( unsigned int *buf, int buf_len )
 	unsigned short beu_tstp_mi;
 	unsigned short beu_tstp_hi;
 
+	int   total_nb_of_chan;
 	int   nb_of_chan;
 	short feu_chan;
 	int   nb_of_samples;
@@ -1270,6 +2085,8 @@ int MvtCmpDataRead( unsigned int *buf, int buf_len )
 	}
 
 //fprintf( stdout, "MvtCmpBuf =0x%08x size=%d\n",   (unsigned int)buf, buf_len );
+
+	total_nb_of_chan = 0;
 
 	ptr = buf;
 	size = (int)(*ptr++);
@@ -1307,6 +2124,7 @@ int MvtCmpDataRead( unsigned int *buf, int buf_len )
 	cmp_size = (int)(*ptr++);
 	cmp_type = *ptr++;
 //fprintf( stdout, " cmp_size          =0x%08x %d\n", cmp_size, cmp_size );
+//getchar();
 //fprintf( stdout, " cmp_size          =0x%08x\n",    cmp_type );
 	u08ptr = (unsigned char*)ptr;
 	cmp_size *= sizeof(unsigned int);
@@ -1318,6 +2136,9 @@ int MvtCmpDataRead( unsigned int *buf, int buf_len )
 
 		u32ptr = (unsigned int *)u08ptr;
 		evnt_id = *u32ptr++;
+//if( (evnt_id & 0x7FFF) == 0x27c1 )
+//fprintf( stdout, " evnt_id=0x%08x\n", evnt_id );
+
 		u08ptr += sizeof(unsigned int);
 		cmp_size -= sizeof(unsigned int);
 
@@ -1352,6 +2173,9 @@ int MvtCmpDataRead( unsigned int *buf, int buf_len )
 			cur_beu = beu_id;
 			phy_evt_stat_cmp.beu_evid_ac[beu_id] =   evnt_id & 0x0FFF;
 			phy_evt_stat_cmp.beu_evid_lo[beu_id] =   evnt_id & 0x7FFF;
+//if( phy_evt_stat_cmp.beu_evid_lo[beu_id] == 0x27c1 )
+//fprintf( stdout, " evnt_id=0x%08x\n", evnt_id );
+
 			phy_evt_stat_cmp.beu_evid_mi[beu_id] = ( evnt_id >> 15 ) & 0x7FFF;
 			phy_evt_stat_cmp.beu_evid_hi[beu_id] = ( evnt_id >> 30 ) & 0x3;
 			phy_evt_stat_cmp.beu_tstp_hi[beu_id] = beu_tstp_hi;
@@ -1377,6 +2201,7 @@ int MvtCmpDataRead( unsigned int *buf, int buf_len )
 		nb_of_chan = *u32ptr++;
 		u08ptr += sizeof(unsigned int);
 		cmp_size -= sizeof(unsigned int);
+		total_nb_of_chan += nb_of_chan;
 //fprintf( stdout, " nb_of_chan = %d\n", nb_of_chan );
 		u16ptr = (unsigned short *)u08ptr;
 		for( index=0; index<nb_of_chan; index++ )
@@ -1410,15 +2235,29 @@ int MvtCmpDataRead( unsigned int *buf, int buf_len )
 		feu_chan_num = nb_of_chan;
 		phy_evt_stat_cmp.feu_smp_num[crate] = nb_of_samples;
 		phy_evt_stat_cmp.beu_smp_num[phy_evt_stat_cmp.feu_beu_id[crate]] = nb_of_samples;
-		Histo_Add( &(timing_histos_cmp.feu_smp_size_histo[crate]), nb_of_chan*(1+2+nb_of_samples)+6);
-		if( do_feu_bin_files && ( cur_feu >= 0 ) )
+//if( nb_of_chan*(1+2+nb_of_samples)+6 == 6124 )
+//fprintf( stdout, " nb_of_chan=%d nb_of_samples=%d evnt_id=%d feu_tstp=%d feu_fine_tstp=%d\n",
+//		nb_of_chan, nb_of_samples, evnt_id, feu_tstp, feu_fine_tstp );
+
+		Histo_Add( &(timing_histos_cmp.feu_smp_size_histo[crate]), nb_of_chan*(1+2+nb_of_samples)+6 );
 			if( (first_phy_blk <= evt_blk_cnt) && (evt_blk_cnt <= last_phy_blk) )
-				if( (ret = PhyEvtStat_SaveFdf(&phy_evt_stat_cmp, cur_feu, zero_sup, rootfilename(bin_data_file_name))) < 0 )
-				{
-					fprintf( stderr, "%s: PhyEvtStat_SaveFdf failed for evt=%d feu=%d\n", __FUNCTION__, phy_evt_stat_cmp.id, cur_feu );
-					return -4;
-				}
+			{
+				if( do_feu_bin_files && ( cur_feu >= 0 ) )
+					if( (ret = PhyEvtStat_SaveFdf(&phy_evt_stat_cmp, cur_feu, zero_sup, rootfilename(bin_data_file_name))) < 0 )
+					{
+						fprintf( stderr, "%s: PhyEvtStat_SaveFdf failed for evt=%d feu=%d\n", __FUNCTION__, phy_evt_stat_cmp.id, cur_feu );
+						return -4;
+					}
+				if( do_disp_file && ( cur_feu >= 0 ) )
+					if( (ret = MvtPlot_Update( &mvt_event_plot, disp_type, &phy_evt_stat_cmp, cur_feu, zero_sup )) < 0 )
+					{
+						fprintf( stderr, "%s: MvtPlot_Update failed for evt=%d feu=%d\n", __FUNCTION__, phy_evt_stat_cmp.id, cur_feu );
+						return -4;
+					}
+			}
 	} // while( cmp_size )
+	Histo_Add( &(timing_histos_cmp.mvt_evt_nb_of_chan_histo), total_nb_of_chan );
+	Histo_Add( &(timing_histos_cmp.mvt_evt_nb_of_feu_histo), phy_evt_stat_cmp.nb_of_feu );
 /*
 	while( cmp_size )
 	{
@@ -1486,6 +2325,7 @@ void usage( char *name )
 	printf( " [-A]" );
 	printf( " [-a]" );
 	printf( " [-F]" );
+	printf( " [-D disp_type]" );
 	printf( " [-s]" );
 	printf( " [-p]" );
 	printf( " [-v [-v]]" );
@@ -1496,6 +2336,8 @@ void usage( char *name )
 	printf( "-b BinData_FileName     - Binary data file to process; default: %s\n", DEF_BinData_FileName );
 	printf( "-f first_phy_blk        - First physics event block to process\n" );
 	printf( "-l last_phy_blk         - Last physics event block to process\n" );
+	printf( "-D disp_type            - Produce event display according to type 1-max values, 2-max smp, 3-nb of sigals\n" );
+	printf( "-d disp_type            - Produce event display on stdout (-D overtakes) according to type (check -D option)\n" );
 	printf( "-F                      - Produce FEU binary data files\n" );
 	printf( "-A                      - Produce ASCII data file of headers\n" );
 	printf( "-a                      - Produce ASCII data on stdout (-A overtakes)\n" );
@@ -1545,12 +2387,16 @@ void cleanup(int param)
 		fprintf(stdout, "\nRAW data stat histos for %d events\n", mvt_raw_evt_cnt);
 		TimingHistos_DumpStat(&timing_histos_raw, stdout);
 		fprintf(stdout, "\n", mvt_raw_evt_cnt);
+		if( do_hst_file )
+			TimingHistos_DumpHistos(&timing_histos_raw, hst_data_fptr);
 	}
 	if( mvt_cmp_evt_cnt )
 	{
 		fprintf(stdout, "\nCMP data stat histos for %d events\n", mvt_cmp_evt_cnt);
 		TimingHistos_DumpStat(&timing_histos_cmp, stdout);
 		fprintf(stdout, "\n", mvt_raw_evt_cnt);
+		if( do_hst_file )
+			TimingHistos_DumpHistos(&timing_histos_cmp, hst_data_fptr);
 	}
 
 	// Close data files
@@ -1602,6 +2448,15 @@ void cleanup(int param)
 		}
 	}
 
+	if( (mvt_plot_fptr != (FILE *)NULL) && (mvt_plot_fptr != stdout) )
+	{
+		fflush( mvt_plot_fptr );
+		fclose( mvt_plot_fptr );
+		mvt_plot_fptr = (FILE *)NULL;
+		if( verbose > 1 )
+			printf( "cleanup: mvt_plot_fptr closed\n" );
+	}
+
 	// Free readout buffer allocated by malloc
 	if( rd_buf != (unsigned int *)NULL )
 	{
@@ -1651,11 +2506,11 @@ int main( int argc, char* *argv )
 	char feu_bin_data_file_name[128];
 	int do_asc_file;
 	char asc_data_file_name[128];
-	int do_hst_file;
 	char hst_data_file_name[128];
 	int do_cfg_file;
 	char cfg_data_file_name[128];
 	int pause;
+	char disp_data_file_name[128];
 
 	int ret;
 	int feu_wr_len;
@@ -1687,6 +2542,7 @@ int main( int argc, char* *argv )
 
 	int itd;
 	int prescale_event;
+	char character;
 
 	// Initialization
 	sprintf(progname, "%s", basename(argv[0]));
@@ -1699,16 +2555,18 @@ int main( int argc, char* *argv )
 		feu_data_fptr[index] = (FILE *)NULL;
 	}
 	feu_data_fptr_cntr = 0;
-	do_asc_file = 0;
-	do_hst_file = 0;
-	do_cfg_file = 0;
-	pause       = 0;
+	do_asc_file    = 0;
+	do_hst_file    = 0;
+	do_cfg_file    = 0;
+	do_disp_file   = 0;
+	disp_type      = ValType_MaxVal;
+	pause          = 0;
 	prescale_event = 0;
 
 	/******************************/
 	/* Check for input parameters */
 	/******************************/
-	sprintf( optformat, "b:f:l:saAcFvhTp" );
+	sprintf( optformat, "b:f:l:d:D:saAcFvhTp" );
 	while( ( opt = getopt( argc, argv, optformat ) ) != -1 )
 	{
 		switch( opt )
@@ -1737,6 +2595,20 @@ int main( int argc, char* *argv )
 			case 'a':
 				if( do_asc_file == 0 )
 					do_asc_file = 2;
+			break;
+
+			case 'D':
+				do_disp_file = 1;
+				disp_type = atoi( optarg );
+			break;
+
+			case 'd':
+				if( do_disp_file == 0 )
+				{
+					do_disp_file = 2;
+					disp_type = atoi( optarg );
+					pause = 1;
+				}
 			break;
 
 			case 's':
@@ -1774,6 +2646,8 @@ int main( int argc, char* *argv )
 		printf( " do_asc_file        = %d\n", do_asc_file );
 		printf( " do_hst_file        = %d\n", do_hst_file );
 		printf( " do_cfg_file        = %d\n", do_cfg_file );
+		printf( " do_disp_file       = %d\n", do_disp_file );
+		printf( " disp_type          = %d\n", disp_type );
 		printf( " pause              = %d\n", pause );
 		printf( " verbose            = %d\n", verbose );
 	}
@@ -1829,6 +2703,7 @@ int main( int argc, char* *argv )
 	else
 		asc_data_fptr = (FILE *)NULL;
 
+	// Open histogram file if requested
 	if( do_hst_file == 1 )
 	{
 		sprintf( hst_data_file_name, "%s.hst", rootfilename(bin_data_file_name) );
@@ -1840,6 +2715,25 @@ int main( int argc, char* *argv )
 		}
 	}
 	else hst_data_fptr = (FILE *)NULL;
+
+	// Open display file if requested
+	if( do_disp_file == 1 )
+	{
+		if( (first_phy_blk != 0) || (last_phy_blk != 0x7fffFFFF) )
+			sprintf( disp_data_file_name, "%s_%dTo%d.dsp", rootfilename(bin_data_file_name), first_phy_blk, last_phy_blk );
+		else
+			sprintf( disp_data_file_name, "%s.dsp", rootfilename(bin_data_file_name) );
+		if( (mvt_plot_fptr=fopen(disp_data_file_name, "w")) == NULL )
+		{
+			fprintf( stderr, "%s: fopen failed for file %s in ascii write mode with %s\n",
+				progname, disp_data_file_name, strerror(errno) );
+			cleanup(9);
+		}
+	}
+	else if ( do_disp_file == 2 )
+		mvt_plot_fptr = stdout;
+	else
+		mvt_plot_fptr = (FILE *)NULL;
 
 	// Allocated timing histos
 	TimingHistos_Init( &timing_histos_raw );
@@ -1997,12 +2891,33 @@ int main( int argc, char* *argv )
 			do
 			{
 				cur_ent_type = *(rd_buf_ptr+1);
-				if( asc_data_fptr != ((FILE *)NULL) )
-					EntryHdr_Printf(asc_data_fptr, (EntryHdr *)rd_buf_ptr);
+				if( (first_phy_blk <= evt_blk_cnt) && (evt_blk_cnt <= last_phy_blk) )
+				{
+					if( asc_data_fptr != ((FILE *)NULL) )
+						EntryHdr_Printf(asc_data_fptr, (EntryHdr *)rd_buf_ptr);
+				}
 				if( (DEF_GetEvioEntryDat(cur_ent_type) == DEF_ENTRY_DATA_BNK_0E) || (DEF_GetEvioEntryDat(cur_ent_type) == DEF_ENTRY_DATA_BNK_10) )
 				{
-					if( (cur_ent_type == 0x000010cc) || (cur_ent_type == 0x008210cc ) || (cur_ent_type == 0x008110cc) || (cur_ent_type == 0x00C110cc) || (cur_ent_type == 0x00C210cc) ||
-						(DEF_GetEvioEntryTag(cur_ent_type) == 0x45) || ((DEF_GetEvioEntryTag(cur_ent_type) == 0x4B)) )
+					if
+					( 
+						(cur_ent_type == 0x000010cc)
+						||
+						(cur_ent_type == 0x008210cc )
+						||
+						(cur_ent_type == 0x008110cc)
+						||
+						(cur_ent_type == 0x00C110cc)
+						||
+						(cur_ent_type == 0x00C210cc)
+						||
+						(cur_ent_type == 0x00fe10cc)
+						||
+						(DEF_GetEvioEntryTag(cur_ent_type) == 0x45)
+						||
+						((DEF_GetEvioEntryTag(cur_ent_type) == 0x4B))
+						||
+						((DEF_GetEvioEntryTag(cur_ent_type) == 0x01))
+					)
 					{
 //printf("%s: Physics header in cur_ent_type=0x%08x of len=%d\n", __FUNCTION__, cur_ent_type, *rd_buf_ptr);
 						// Looks to be Physics event header
@@ -2014,6 +2929,7 @@ int main( int argc, char* *argv )
 						// This is a bank of bank: skip the header
 						rd_buf_ptr = rd_buf_ptr + Def_EntryHdrSize;
 						rd_buf_ptr_len -= Def_EntryHdrSize;
+						MvtPlot_Init( &mvt_event_plot );
 					}
 					else if
 					(
@@ -2034,7 +2950,7 @@ int main( int argc, char* *argv )
 					}
 					else
 					{
-//						fprintf(stdout, "%s: Unknown cur_ent_type=0x%08x of size %d taf 0x%04x skipping!\n", __FUNCTION__, cur_ent_type, (*rd_buf_ptr+1), DEF_GetEvioEntryTag(cur_ent_type) );
+//fprintf(stdout, "%s: Unknown cur_ent_type=0x%08x of size %d taf 0x%04x skipping!\n", __FUNCTION__, cur_ent_type, (*rd_buf_ptr+1), DEF_GetEvioEntryTag(cur_ent_type) );
 						cur_ent_len = (*rd_buf_ptr + 1);
 						rd_buf_ptr = rd_buf_ptr + cur_ent_len;
 						rd_buf_ptr_len -= cur_ent_len;
@@ -2052,6 +2968,13 @@ int main( int argc, char* *argv )
 						}
 						phy_evt_stat_cmp.data_type = PHY_EVT_DATA_TYPE_CMP;
 						Histo_Add( &(timing_histos_cmp.phy_evt_blk_size_histo), phy_evt_stat_cmp.size);
+/*
+if( phy_evt_stat_cmp.size == 23609 )
+{
+fprintf(stdout, "%s: phy_evt_stat_cmp.size=%d evt_blk_cnt=%d phy_evt_stat_cmp.feu_evid[15]=%d\n", __FUNCTION__, phy_evt_stat_cmp.size, evt_blk_cnt, phy_evt_stat_cmp.feu_evid[15] );
+getchar();
+}
+*/
 						mvt_cmp_evt_cnt++;
 						if( prescale_event == 0 )
 						{
@@ -2061,9 +2984,14 @@ int main( int argc, char* *argv )
 							}
 						}
 
-						if( (first_phy_blk <= evt_blk_cnt) && (evt_blk_cnt <= last_phy_blk) && (asc_data_fptr != ((FILE *)NULL)) )
+						if( (first_phy_blk <= evt_blk_cnt) && (evt_blk_cnt <= last_phy_blk) )
 						{
-							PhyEvtStat_Dump( &phy_evt_stat_cmp, asc_data_fptr );
+							if( asc_data_fptr != (FILE *)NULL )
+								PhyEvtStat_Dump( &phy_evt_stat_cmp, asc_data_fptr );
+							if( do_disp_file )
+							{
+								MvtPlot_Dump( &mvt_event_plot, evt_blk_cnt, "stdout" );
+							}
 						}
 						if( verbose )
 							PhyEvtStat_Dump( &phy_evt_stat_cmp, stdout );
@@ -2075,7 +3003,7 @@ int main( int argc, char* *argv )
 					}
 					else
 					{
-//						fprintf(stdout, "%s: Unknown tag for rd_buf = 0x%08x of len=%d of composite type=0x%08x skipping!\n", __FUNCTION__, (unsigned int)rd_buf_ptr, *rd_buf_ptr, *(rd_buf_ptr+1) );
+fprintf(stdout, "%s: Unknown tag for rd_buf = 0x%08x of len=%d of composite type=0x%08x skipping!\n", __FUNCTION__, (unsigned int)rd_buf_ptr, *rd_buf_ptr, *(rd_buf_ptr+1) );
 						unknown_cmp_cnt++;
 						cur_ent_len = (*rd_buf_ptr + 1);
 						rd_buf_ptr = rd_buf_ptr + cur_ent_len;
@@ -2096,7 +3024,7 @@ int main( int argc, char* *argv )
 									progname, cfg_data_file_name, strerror(errno) );
 								cleanup(9);
 							}
-							if( ( feu_wr_len = fwrite((char *)(rd_buf_ptr+2), 1, (*rd_buf_ptr-2)*sizeof(int), cfg_data_fptr) ) != (*rd_buf_ptr-2)*sizeof(int) )
+							if( ( feu_wr_len = fwrite((char *)(rd_buf_ptr+2), 1, (*rd_buf_ptr-1)*sizeof(int), cfg_data_fptr) ) != (*rd_buf_ptr-1)*sizeof(int) )
 							{
 								if( ferror(cfg_data_fptr) )
 								{
@@ -2115,7 +3043,7 @@ int main( int argc, char* *argv )
 					}
 					else
 					{
-//						fprintf(stdout, "%s: Unknown tag for rd_buf = 0x%08x of len=%d of ascii type=0x%08x skipping!\n", __FUNCTION__, (unsigned int)rd_buf_ptr, *rd_buf_ptr, *(rd_buf_ptr+1) );
+						fprintf(stdout, "%s: Unknown tag for rd_buf = 0x%08x of len=%d of ascii type=0x%08x skipping!\n", __FUNCTION__, (unsigned int)rd_buf_ptr, *rd_buf_ptr, *(rd_buf_ptr+1) );
 						unknown_asc_cnt++;
 						cur_ent_len = (*rd_buf_ptr + 1);
 						rd_buf_ptr = rd_buf_ptr + cur_ent_len;
@@ -2190,18 +3118,21 @@ int main( int argc, char* *argv )
 							fprintf(stderr, "%s: TiBank_Disent_Fill failed with %d for event count %d\n", __FUNCTION__, ret, evt_blk_cnt);
 							break;
 						}
+//fprintf(stdout, "%s: TiBank_Disent_Fill OK with ret=%d\n", __FUNCTION__, ret);
 						ti_evt_cnt++;
 						if( (first_phy_blk <= evt_hdr_cnt) && (evt_hdr_cnt <= last_phy_blk) && (asc_data_fptr != ((FILE *)NULL)) )
 							TiBank_Disent_Printf( &ti_bank, asc_data_fptr );
+						if( verbose > 1 )
+							TiBank_Disent_Printf( &ti_bank, stdout );
 						// Fill Phy event stat
 						phy_evt_stat_raw.ti_evid_lo = ti_bank.evid_lo;
 						phy_evt_stat_raw.ti_tstp_lo = ti_bank.tstp_lo;
 						phy_evt_stat_raw.ti_evid_hi = ti_bank.evid_tstp_hi        & 0xFFFF;
 						phy_evt_stat_raw.ti_tstp_hi =(ti_bank.evid_tstp_hi >> 16) & 0xFFFF;
 						// Inter trigger delay
-						if( ti_bank.evid_lo > 1 || timing_histos_raw.ti_tstp_prev != 0xFFFFffff)
+						if( ti_bank.evid_lo > 1 && timing_histos_raw.ti_tstp_prev != 0xFFFFffff)
 						{
-							itd = (int)(((((ti_bank.tstp_lo & 0xFFffff) - (timing_histos_raw.ti_tstp_prev & 0xFFffff)) & 0xFFffff) * 4. / 1000.)+.5);
+							itd = (int)(((((ti_bank.tstp_lo & 0x7FFFffff) - (timing_histos_raw.ti_tstp_prev & 0x7FFFffff)) & 0x7FFFffff) * 4. / 1000.)+.5);
 							Histo_Add(&(timing_histos_raw.ti_itd_histo), itd );
 						}
 						timing_histos_raw.ti_tstp_prev = ti_bank.tstp_lo;
@@ -2213,9 +3144,9 @@ int main( int argc, char* *argv )
 						rd_buf_ptr = rd_buf_ptr + ret;
 						rd_buf_ptr_len -= ret;
 						// Inter trigger delay
-						if( ti_bank.evid_lo > 1 || timing_histos_cmp.ti_tstp_prev != 0xFFFFffff)
+						if( ti_bank.evid_lo > 1 && timing_histos_cmp.ti_tstp_prev != 0xFFFFffff)
 						{
-							itd = (int)(((((ti_bank.tstp_lo & 0xFFffff) - (timing_histos_cmp.ti_tstp_prev & 0xFFffff)) & 0xFFffff) * 4. / 1000.)+.5);
+							itd = (int)(((((ti_bank.tstp_lo & 0x7FFFffff) - (timing_histos_cmp.ti_tstp_prev & 0x7FFFffff)) & 0x7FFFffff) * 4. / 1000.)+.5);
 							Histo_Add(&(timing_histos_cmp.ti_itd_histo), itd );
 						}
 						timing_histos_cmp.ti_tstp_prev = ti_bank.tstp_lo;
@@ -2253,12 +3184,28 @@ int main( int argc, char* *argv )
 			ent_proc++;
 			free( (void *)rd_buf );
 			rd_buf = (unsigned int *)NULL;
-			if( (asc_data_fptr != ((FILE *)NULL)) || (ent_len == 4) || (ent_len == 6) || (evt_hdr_cnt % 100) == 0 )
+//			if( (asc_data_fptr != ((FILE *)NULL)) || (ent_len == 4) || (ent_len == 6) || (evt_hdr_cnt % 100) == 0 )
+			if
+			(
+				((ent_len == 4) || (ent_len == 6) || ((evt_hdr_cnt % 100) == 0))
+				||
+				((asc_data_fptr != ((FILE *)NULL)) && (first_phy_blk <= evt_blk_cnt) && (evt_blk_cnt <= last_phy_blk))
+			)
 				fprintf(stdout, "%s: ent %d of size %d processed\n\n", __FUNCTION__, ent_proc, ent_len);
 			ent_len = 0;
-			if( pause )
+			if( pause && (first_phy_blk <= evt_blk_cnt) && (evt_blk_cnt <= last_phy_blk) )
 			{
-				getchar();
+				fprintf(stdout, "\nEnter Q<CR>-quit; R<CR>-run (no pause-no display); D<CR>-run w/o pause; <CR> to continue <- ", __FUNCTION__, ent_proc, ent_len);
+				character = getchar();
+				if( character == 'Q' )
+					end = 1;
+				else if( character == 'R' )
+				{
+					pause = 0;
+					do_disp_file = 0;
+				}
+				else if( character == 'D' )
+					pause = 0;
 			}
 			// Do not go byond requested events
 			if( last_phy_blk <= evt_blk_cnt )

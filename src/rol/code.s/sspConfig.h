@@ -2,6 +2,7 @@
 #define SSPCONFIG_H
 
 #include "sspLib.h"
+#include "sspLib_rich.h"
 
 /****************************************************************************
  *
@@ -70,6 +71,15 @@ typedef struct
   int ecal_esum_en;
   int ecal_esum_emin;
   int ecal_esum_width;
+
+  int dc_mult_en;
+  int dc_mult_min;
+  int dc_mult_width;
+
+  int ecalin_cosmic_en;
+  int ecalout_cosmic_en;
+  int pcal_cosmic_en;
+  int cosmic_width;
 } strigger;
 
 typedef struct
@@ -77,15 +87,80 @@ typedef struct
   int esum_delay;
   int cluster_delay;
   int esum_intwidth;
+  int cosmic_delay;
 } ss_ecal;
+
+typedef struct
+{
+  int seg_delay;
+} ss_dc;
+
+typedef struct
+{
+  int cmd_fsu;
+  int cmd_ss;
+  int cmd_fsb;
+  int swb_buf_250f;
+  int swb_buf_500f;
+  int swb_buf_1p;
+  int swb_buf_2p;
+  int ONOFF_ss;
+  int sw_ss_300f;
+  int sw_ss_600f;
+  int sw_ss_1200f;
+  int EN_ADC;
+  int H1H2_choice;
+  int sw_fsu_20f;
+  int sw_fsu_40f;
+  int sw_fsu_25k;
+  int sw_fsu_50k;
+  int sw_fsu_100k;
+  int sw_fsb1_50k;
+  int sw_fsb1_100k;
+  int sw_fsb1_100f;
+  int sw_fsb1_50f;
+  int cmd_fsb_fsu;
+  int valid_dc_fs;
+  int sw_fsb2_50k;
+  int sw_fsb2_100k;
+  int sw_fsb2_100f;
+  int sw_fsb2_50f;
+  int valid_dc_fsb2;
+  int ENb_tristate;
+  int polar_discri;
+  int inv_discriADC;
+  int d1_d2;
+  int cmd_CK_mux;
+  int ONOFF_otabg;
+  int ONOFF_dac;
+  int small_dac;
+  int enb_outADC;
+  int inv_startCmptGray;
+  int ramp_8bit;
+  int ramp_10bit;
+  int DAC0;
+  int DAC1;
+  int Gain[64];
+  unsigned int Sum[2];
+  unsigned int CTest[2];
+  unsigned int MaskOr[2];
+} rich_maroc_reg;
+
+typedef struct
+{
+  rich_maroc_reg chip[3];
+  int ctest_dac;
+  int ctest_enable;
+  int tdc_enable_mask[6];
+  int window_width;
+  int window_offset;
+} rich_fiber;
 
 /** SSP configuration parameters **/
 typedef struct {
   int fw_rev;
   int fw_type;
   
-  int block_level;
-  int bus_error;
   int window_width;
   int window_offset;
 
@@ -106,8 +181,14 @@ typedef struct {
     strigger strg[4];
     ss_ecal ecal;
     ss_ecal pcal;
+    ss_dc dc[3];
     int gtpif_latency;
   } gt;
+  
+  struct
+  {
+    rich_fiber fiber[RICH_FIBER_NUM];
+  } rich;
   
 } SSP_CONF;
 

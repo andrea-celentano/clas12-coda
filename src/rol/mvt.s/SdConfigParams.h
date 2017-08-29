@@ -32,6 +32,9 @@ typedef struct _SdParams
 	// Global parameters
 	// Derived from BEC
 	int ActiveSlotFlags;
+	int ActiveTrigFlags;
+	int TrigMult;
+	int TrigWin;
 } SdParams;
 int SdParams_Init(    SdParams *params );
 int SdParams_Sprintf( SdParams *params, char *buf  );

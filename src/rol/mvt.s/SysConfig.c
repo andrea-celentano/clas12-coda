@@ -27,6 +27,8 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <errno.h>
+#include <termios.h>
+#include <unistd.h>
 
 #include "Platform.h"
 #include "ReturnCodes.h"
@@ -337,24 +339,14 @@ int SysConfig( SysParams *params )
 		/* First reset all FEU-s */
 		for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
 		{
-			if( params->Bec_Params[bec].FeuId2BeuId[feu] == 0 )
+			beu        = ((feu>>5)&0x07)+1;
+			beu_lnk    = ( feu    &0x1F)-1;
+			if( (1<=params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
 			{
-				fprintf( stderr, "%s: Usupported BeuId 0 for feu %d in bec %d\n", __FUNCTION__, feu, bec );
-				return D_RetCode_Err_Wrong_Param;
-			}
-			if( params->Bec_Params[bec].FeuId2BeuId[feu] > 0 )
-			{
-				if( (params->Bec_Params[bec].FeuId2BeuLnkId[feu]<0) || (DEF_MAX_NB_OF_FEU_PER_BEU<=params->Bec_Params[bec].FeuId2BeuLnkId[feu]) )
-				{
-					fprintf( stderr, "%s: Usupported beu %d link=%d for feu %d in bec %d, must be in [0;%d] range\n",
-						__FUNCTION__, params->Bec_Params[bec].FeuId2BeuId[feu], params->Bec_Params[bec].FeuId2BeuLnkId[feu], feu, bec, DEF_MAX_NB_OF_FEU_PER_BEU-1 );
-					return D_RetCode_Err_Wrong_Param;
-				}
-				beu        = params->Bec_Params[bec].FeuId2BeuId[feu];
-				beu_lnk    = params->Bec_Params[bec].FeuId2BeuLnkId[feu];
 				feu_cur_params = &(params->FeuParams_Col.feu_params[feu]);
 				// Reset the FEU
-				if( (ret=FeuReset( feu_cur_params, feu_cur_params->Feu_RunCtrl_Id, beu, beu_lnk )) != D_RetCode_Sucsess )
+//				if( (ret=FeuReset( feu_cur_params, feu_cur_params->Feu_RunCtrl_Id, beu, beu_lnk )) != D_RetCode_Sucsess )
+				if( (ret=FeuReset( feu_cur_params, feu, beu, beu_lnk )) != D_RetCode_Sucsess )
 				{
 					fprintf( stderr, "%s: FeuReset failed for feu %d beu %d link %d in bec %d with %d\n",
 						__FUNCTION__, feu, beu, beu_lnk, bec, ret );
@@ -370,24 +362,14 @@ int SysConfig( SysParams *params )
 		/* Configure FEU-s */
 		for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
 		{
-			if( params->Bec_Params[bec].FeuId2BeuId[feu] == 0 )
+			beu        = ((feu>>5)&0x07)+1;
+			beu_lnk    = ( feu    &0x1F)-1;
+			if( (1<=params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
 			{
-				fprintf( stderr, "%s: Usupported BeuId 0 for feu %d in bec %d\n", __FUNCTION__, feu, bec );
-				return D_RetCode_Err_Wrong_Param;
-			}
-			if( params->Bec_Params[bec].FeuId2BeuId[feu] > 0 )
-			{
-				if( (params->Bec_Params[bec].FeuId2BeuLnkId[feu]<0) || (DEF_MAX_NB_OF_FEU_PER_BEU<=params->Bec_Params[bec].FeuId2BeuLnkId[feu]) )
-				{
-					fprintf( stderr, "%s: Usupported beu %d link=%d for feu %d in bec %d, must be in [0;%d] range\n",
-						__FUNCTION__, params->Bec_Params[bec].FeuId2BeuId[feu], params->Bec_Params[bec].FeuId2BeuLnkId[feu], feu, bec, DEF_MAX_NB_OF_FEU_PER_BEU-1 );
-					return D_RetCode_Err_Wrong_Param;
-				}
-				beu        = params->Bec_Params[bec].FeuId2BeuId[feu];
-				beu_lnk    = params->Bec_Params[bec].FeuId2BeuLnkId[feu];
 				feu_cur_params = &(params->FeuParams_Col.feu_params[feu]);
 				// Configure the FEU
-				if( (ret=FeuConfig( feu_cur_params, feu_cur_params->Feu_RunCtrl_Id, beu, beu_lnk )) != D_RetCode_Sucsess )
+//				if( (ret=FeuConfig( feu_cur_params, feu_cur_params->Feu_RunCtrl_Id, beu, beu_lnk )) != D_RetCode_Sucsess )
+				if( (ret=FeuConfig( feu_cur_params, feu, beu, beu_lnk )) != D_RetCode_Sucsess )
 				{
 					fprintf( stderr, "%s: FeuConfig failed for feu %d beu %d link %d in bec %d with %d\n",
 						__FUNCTION__, feu, beu, beu_lnk, bec, ret );
@@ -449,24 +431,13 @@ int SysRun()
 		/* Configure FEU-s */
 		for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
 		{
-			if( sys_params_ptr->Bec_Params[bec].FeuId2BeuId[feu] == 0 )
+			beu        = ((feu>>5)&0x07)+1;
+			beu_lnk    = ( feu    &0x1F)-1;
+			if( (1<=sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
 			{
-				fprintf( stderr, "%s: Usupported BeuId 0 for feu %d in bec %d\n", __FUNCTION__, feu, bec );
-				return D_RetCode_Err_Wrong_Param;
-			}
-			if( sys_params_ptr->Bec_Params[bec].FeuId2BeuId[feu] > 0 )
-			{
-				if( (sys_params_ptr->Bec_Params[bec].FeuId2BeuLnkId[feu]<0) || (DEF_MAX_NB_OF_FEU_PER_BEU<=sys_params_ptr->Bec_Params[bec].FeuId2BeuLnkId[feu]) )
-				{
-					fprintf( stderr, "%s: Usupported beu %d link=%d for feu %d in bec %d, must be in [0;%d] range\n",
-						__FUNCTION__, sys_params_ptr->Bec_Params[bec].FeuId2BeuId[feu], sys_params_ptr->Bec_Params[bec].FeuId2BeuLnkId[feu], feu, bec, DEF_MAX_NB_OF_FEU_PER_BEU-1 );
-					return D_RetCode_Err_Wrong_Param;
-				}
-				beu        = sys_params_ptr->Bec_Params[bec].FeuId2BeuId[feu];
-				beu_lnk    = sys_params_ptr->Bec_Params[bec].FeuId2BeuLnkId[feu];
 				feu_cur_params = &(sys_params_ptr->FeuParams_Col.feu_params[feu]);
 				// Then set specific parameters
-				if( (ret=FeuRun( feu_cur_params, feu_cur_params->Feu_RunCtrl_Id, beu, beu_lnk, 1 )) != D_RetCode_Sucsess )
+				if( (ret=FeuRun( feu_cur_params, feu, beu, beu_lnk, 1 )) != D_RetCode_Sucsess )
 				{
 					fprintf( stderr, "%s: FeuRun(1) failed for feu %d beu %d link %d in bec %d with %d\n",
 						__FUNCTION__, feu, beu, beu_lnk, bec, ret );
@@ -568,24 +539,13 @@ int SysStop()
 		/* Configure FEU-s */
 		for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
 		{
-			if( sys_params_ptr->Bec_Params[bec].FeuId2BeuId[feu] == 0 )
+			beu        = ((feu>>5)&0x07)+1;
+			beu_lnk    = ( feu    &0x1F)-1;
+			if( (1<=sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
 			{
-				fprintf( stderr, "%s: Usupported BeuId 0 for feu %d in bec %d\n", __FUNCTION__, feu, bec );
-				return D_RetCode_Err_Wrong_Param;
-			}
-			if( sys_params_ptr->Bec_Params[bec].FeuId2BeuId[feu] > 0 )
-			{
-				if( (sys_params_ptr->Bec_Params[bec].FeuId2BeuLnkId[feu]<0) || (DEF_MAX_NB_OF_FEU_PER_BEU<=sys_params_ptr->Bec_Params[bec].FeuId2BeuLnkId[feu]) )
-				{
-					fprintf( stderr, "%s: Usupported beu %d link=%d for feu %d in bec %d, must be in [0;%d] range\n",
-						__FUNCTION__, sys_params_ptr->Bec_Params[bec].FeuId2BeuId[feu], sys_params_ptr->Bec_Params[bec].FeuId2BeuLnkId[feu], feu, bec, DEF_MAX_NB_OF_FEU_PER_BEU-1 );
-					return D_RetCode_Err_Wrong_Param;
-				}
-				beu        = sys_params_ptr->Bec_Params[bec].FeuId2BeuId[feu];
-				beu_lnk    = sys_params_ptr->Bec_Params[bec].FeuId2BeuLnkId[feu];
 				feu_cur_params = &(sys_params_ptr->FeuParams_Col.feu_params[feu]);
 				// Then set specific parameters
-				if( (ret=FeuRun( feu_cur_params, feu_cur_params->Feu_RunCtrl_Id, beu, beu_lnk, 0 )) != D_RetCode_Sucsess )
+				if( (ret=FeuRun( feu_cur_params, feu, beu, beu_lnk, 0 )) != D_RetCode_Sucsess )
 				{
 					fprintf( stderr, "%s: FeuRun(0) failed for feu %d beu %d link %d in bec %d with %d\n",
 						__FUNCTION__, feu, beu, beu_lnk, bec, ret );
@@ -649,6 +609,395 @@ int SysGo()
 			}
 		}
 	} // for( bec=1; bec<DEF_MAX_NB_OF_BEC; bec++ )
+
+	return D_RetCode_Sucsess;
+}
+
+/*
+ * Scan selftrigger thresholds
+ */
+// Timin loop definitions
+#define DEF_KBD_READ_DELAY_US 1000  //1ms
+#define DEF_REFRESH_TIME_SEC 0.1
+
+void changemode(int dir)
+{
+  static struct termios oldt, newt;
+ 
+  if ( dir == 1 )
+  {
+    tcgetattr( STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~( ICANON | ECHO );
+    tcsetattr( STDIN_FILENO, TCSANOW, &newt);
+  }
+  else
+    tcsetattr( STDIN_FILENO, TCSANOW, &oldt);
+}
+ 
+int kbhit (void)
+{
+  struct timeval tv;
+  fd_set rdfs;
+ 
+  tv.tv_sec = 0;
+  tv.tv_usec = 0;
+ 
+  FD_ZERO(&rdfs);
+  FD_SET (STDIN_FILENO, &rdfs);
+ 
+  select(STDIN_FILENO+1, &rdfs, NULL, NULL, &tv);
+  return FD_ISSET(STDIN_FILENO, &rdfs);
+ 
+}
+
+
+int SysScanSlfTrgThresh( char *sys_conf_params_filename )
+{
+	int ret;
+	int bec;
+	int feu;
+	int beu;
+	int beu_lnk;
+	FeuParams *feu_cur_params;
+
+	int do_scan_trg_thr = 1;
+	unsigned int  active_slf_trg_feu_lo = 0;
+	unsigned int  active_slf_trg_feu_hi = 0;
+	unsigned int  cp_active_slf_trg_feu_lo = 0;
+	unsigned int  cp_active_slf_trg_feu_hi = 0;
+	unsigned int *active_slf_trg_feu;
+	int nb_of_active_slf_trg_feu = 0;
+	int min_slf_trg_feu = -1;
+	int max_slf_trg_feu = -1;
+	unsigned int scanned_feu_lo;
+	unsigned int scanned_feu_hi;
+	unsigned int *scanned_feu;
+	int running_feu;
+	int slf_trg_chk_cnt;
+	int nb_of_scanned_feu;
+	int run;
+
+	FILE *conf_fptr;
+	char filename[256];
+
+	// time variables
+	time_t     cur_time;
+	struct tm *time_struct;
+	struct timeval t0;
+	struct timeval t1;
+	struct timeval dt;
+	struct timeval refresh_time;
+	float  f_refresh;
+	char character;
+
+	// Get execution time
+	cur_time = time(NULL);
+	time_struct = localtime(&cur_time);
+	f_refresh = DEF_REFRESH_TIME_SEC;
+	refresh_time.tv_sec = (int)f_refresh;
+	refresh_time.tv_usec = (int)(1.e6*(f_refresh - refresh_time.tv_sec));
+	if(f_refresh<0 || (refresh_time.tv_sec==0 && refresh_time.tv_usec<1)) {
+		refresh_time.tv_usec = 1;
+	}
+	gettimeofday(&t0,0);
+	gettimeofday(&t1,0);
+
+	// Check for Null pointer
+	if( sys_params_ptr == (SysParams *)NULL )
+	{
+		fprintf( stderr, "%s: params=0\n", __FUNCTION__ );
+		return D_RetCode_Err_Null_Pointer;
+	}
+
+	// First prevent all Dreams of all FEUs to generate triggers
+	if( do_scan_trg_thr == 1 )
+	{
+		printf("*** Scan trigger thresholds started\n\r");
+		active_slf_trg_feu = 0;
+		nb_of_active_slf_trg_feu = 0;
+		// Go through back end crates
+		for( bec=1; bec<DEF_MAX_NB_OF_BEC; bec++ )
+		{
+			/* Configure FEU-s */
+			for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+			{
+				beu        = ((feu>>5)&0x07)+1;
+				beu_lnk    = ( feu    &0x1F)-1;
+				if( (1<=sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
+				{
+					feu_cur_params = &(sys_params_ptr->FeuParams_Col.feu_params[feu]);
+					if( feu_cur_params->SelfTrig_DreamMask != 0xFF )
+					{
+						if( FeuTrgScan_Init( &feu_trg_scan[feu], feu_cur_params, feu, beu, beu_lnk ) != D_RetCode_Sucsess )
+						{
+							fprintf( stderr,  "%s: FeuTrgScan_Init failed for feu=%d beu=%d beu_lnk=%d\n\r", __FUNCTION__, feu, beu, beu_lnk );
+							do_scan_trg_thr = 6;
+							break;
+						}
+						if( feu < 32 )
+							active_slf_trg_feu_lo |= (1ULL<< feu    );
+						else
+							active_slf_trg_feu_hi |= (1ULL<<(feu-32));
+						nb_of_active_slf_trg_feu++;
+						if( min_slf_trg_feu < 0 )
+							min_slf_trg_feu = feu;
+						max_slf_trg_feu = feu;
+					}
+				}
+			} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+		} // for( bec=1; bec<DEF_MAX_NB_OF_BEC; bec++ )
+//		fprintf(stderr, "%s: nb_of_active_slf_trg_feu=%d active_slf_trg_feu lo=0x%08x hi=0x%08x min_slf_trg_feu=%d max_slf_trg_feu=%d\n\r",
+//			__FUNCTION__, nb_of_active_slf_trg_feu, active_slf_trg_feu_lo, active_slf_trg_feu_hi, min_slf_trg_feu, max_slf_trg_feu);
+//getchar();
+		if( (do_scan_trg_thr==1) && (nb_of_active_slf_trg_feu) )
+		{
+			cp_active_slf_trg_feu_lo = active_slf_trg_feu_lo;
+			cp_active_slf_trg_feu_hi = active_slf_trg_feu_hi;
+			scanned_feu_lo = 0;
+			scanned_feu_hi = 0;
+			running_feu = min_slf_trg_feu;
+			slf_trg_chk_cnt = (int)((double)DEF_DRM_TRG_CHK_NUM / (double)nb_of_active_slf_trg_feu + 0.5);
+			do_scan_trg_thr = 2;
+			nb_of_scanned_feu = 0;
+			run = 1;
+//fprintf(stderr, "slf_trg_chk_cnt=%d\n\r", slf_trg_chk_cnt);
+//getchar();
+		}
+		else
+			do_scan_trg_thr = 5;
+	}
+
+	if( do_scan_trg_thr == 2 )
+	{
+		changemode(1);
+		// Main loop
+		while(run)
+		{
+			if
+			(
+				( (running_feu  < 32) && (cp_active_slf_trg_feu_lo & (1ULL<< running_feu    ))  )
+				||
+				( (running_feu >= 32) && (cp_active_slf_trg_feu_hi & (1ULL<<(running_feu-32)))  )
+			)
+			{
+				beu        = ((running_feu>>5)&0x07)+1;
+				beu_lnk    = ( running_feu    &0x1F)-1;
+				feu_cur_params = &(sys_params_ptr->FeuParams_Col.feu_params[running_feu]);
+				if( feu_trg_scan[running_feu].nb_of_checks < 0 )
+				{
+					if( FeuTrgScan_SetThr( &feu_trg_scan[running_feu], feu_cur_params, running_feu, beu, beu_lnk ) != D_RetCode_Sucsess )
+					{
+						fprintf( stderr,  "%s: FeuTrgScan_SetThr failed for feu=%d beu=%d beu_lnk=%d\n\r", __FUNCTION__, running_feu, beu, beu_lnk  );
+						do_scan_trg_thr = 6;
+						run = 0;
+						changemode(0);
+						break;
+					}
+//printf( "%s: FeuTrgScan_SetThr sucseeded for feu=%d beu=%d beu_lnk=%d\n\r", __FUNCTION__, running_feu, beu, beu_lnk  );
+				}
+				else if( (ret=FeuTrgScan_ChkCoin( &feu_trg_scan[running_feu], feu_cur_params, slf_trg_chk_cnt, running_feu, beu, beu_lnk )) < 0 )
+				{
+					fprintf( stderr,  "%s: FeuTrgScan_ChkCoin failed for feu=%d beu=%d beu_lnk=%d\n\r", __FUNCTION__, running_feu, beu, beu_lnk  );
+					do_scan_trg_thr = 6;
+					run = 0;
+					changemode(0);
+					break;
+				}
+				else if( ret > 0 )
+				{
+					// Dream check finished
+					if( (ret = FeuTrgScan_MskDrm( &feu_trg_scan[running_feu], feu_cur_params, running_feu, beu, beu_lnk ) ) < 0 )
+					{
+						fprintf( stderr,  "%s: FeuTrgScan_MskDrm failed for feu=%d beu=%d beu_lnk=%d\n\r", __FUNCTION__, running_feu, beu, beu_lnk );
+						do_scan_trg_thr = 6;
+						run = 0;
+						changemode(0);
+						break;
+					}
+					else if( ret == 1 )
+					{
+						// Feu Check Finished
+						nb_of_scanned_feu++;
+						if( running_feu < 32 )
+							scanned_feu_lo |= (1ULL<< running_feu    );
+						else
+							scanned_feu_hi |= (1ULL<<(running_feu-32));
+						
+						if( running_feu < 32 )
+							cp_active_slf_trg_feu_lo &= (~( (1ULL<< running_feu    ) ));
+						else
+							cp_active_slf_trg_feu_hi &= (~( (1ULL<<(running_feu-32)) ));
+						
+//						if( (scanned_feu_lo == active_slf_trg_feu_lo ) && (scanned_feu_hi == active_slf_trg_feu_hi ) )
+						if( nb_of_scanned_feu == nb_of_active_slf_trg_feu )
+						{
+							do_scan_trg_thr = 3;
+							run = 0;
+							changemode(0);
+
+						}
+						else
+							slf_trg_chk_cnt = (int)((double)DEF_DRM_TRG_CHK_NUM / (double)((nb_of_active_slf_trg_feu-nb_of_scanned_feu)) + 0.5);
+					}
+				}
+			}
+
+			printf("*** Scan trigger thresholds in process ... running feu=%d\n\r", running_feu);
+			for( feu=min_slf_trg_feu; feu<=max_slf_trg_feu; feu++ )
+			{
+				if
+				(
+					( (feu <  32) && (active_slf_trg_feu_lo & (1ULL<< feu    )) )
+					||
+					( (feu >= 32) && (active_slf_trg_feu_hi & (1ULL<<(feu-32))) )
+				)
+				{
+					printf
+					(
+						"feu=%3d drm=%1d thr=%3d chk=%5d coin=%d \n\r",
+						feu,
+						feu_trg_scan[feu].running_drm,  feu_trg_scan[feu].running_thr,
+						feu_trg_scan[feu].nb_of_checks, feu_trg_scan[feu].prev_cntr
+					);
+				}
+			}
+
+			if( nb_of_scanned_feu != nb_of_active_slf_trg_feu )
+			{
+				while(1)
+				{
+					running_feu++;
+					if( running_feu>max_slf_trg_feu )
+						running_feu  = min_slf_trg_feu;
+					if
+					(
+						( (running_feu <  32) && (cp_active_slf_trg_feu_lo & (1ULL<< running_feu    )) )
+						||
+						( (running_feu >= 32) && (cp_active_slf_trg_feu_hi & (1ULL<<(running_feu-32))) )
+					)
+						break;
+				}
+			}
+
+			// Check for commands
+			printf("*** Press Q (shift-q) to quit\n\n\r");
+			character = 0;
+			do
+			{
+				// handle keyboard input
+				if( kbhit() )
+					character=getchar();
+
+				if( character == 0 )
+				{
+					usleep(DEF_KBD_READ_DELAY_US);
+					gettimeofday(&t1, 0);
+				}
+				timersub(&t1,&t0,&dt);
+			} while( timercmp(&dt,&refresh_time,<) && (character==0) );
+			t0 = t1;
+
+			// Decode keyboard input
+			if( character )
+			{
+				switch( character )
+				{
+					case 'Q' :
+						// Stop the scan
+						if( (ret = FeuTrgScan_MskDrm( &feu_trg_scan[running_feu], feu_cur_params, feu, beu, beu_lnk ) ) < 0 )
+						{
+							fprintf( stderr,  "%s: FeuTrgScan_MskDrm failed for feu=%d beu=%d beu_lnk=%d\n\r", running_feu, beu, beu_lnk );
+						}
+						do_scan_trg_thr = 4;
+						run = 0;
+						changemode(0);
+					break;
+					default : ;
+				}
+			}
+		}
+	}
+
+	if( (do_scan_trg_thr == 3) || (do_scan_trg_thr == 4) )
+	{
+		if( do_scan_trg_thr == 4 )
+			printf( "%s: stopped by user\n", __FUNCTION__ );
+		else
+			printf( "%s: *** Scan trigger thresholds done\n\r", __FUNCTION__ );
+		if( nb_of_active_slf_trg_feu )
+		{
+			for( feu=min_slf_trg_feu; feu<=max_slf_trg_feu; feu++ )
+			{
+				if
+				(
+					( (feu <  32) && (scanned_feu_lo & (1ULL<< feu    )) )
+					||
+					( (feu >= 32) && (scanned_feu_hi & (1ULL<<(feu-32))) )
+				)
+				{
+					feu_cur_params = &(sys_params_ptr->FeuParams_Col.feu_params[feu]);
+					FeuTrgScan_Fprintf( &feu_trg_scan[feu], feu_cur_params, feu, stdout );
+				}
+			}
+			// Prepare config copy filename
+			// Prepare filename for self trig thersholds
+			if( do_scan_trg_thr == 3 )
+				sprintf
+				(
+					filename,
+					"%s_%02d%02d%02d_%02dH%02d.slf",
+					rootfilename(sys_conf_params_filename),
+					time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
+					time_struct->tm_hour, time_struct->tm_min
+				);
+			else
+				sprintf
+				(
+					filename,
+					"%s_%02d%02d%02d_%02dH%02d_stopped.slf",
+					rootfilename(sys_conf_params_filename),
+					time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
+					time_struct->tm_hour, time_struct->tm_min
+				);
+			// Open config file to write
+			if( (conf_fptr=fopen(filename, "w")) == NULL )
+			{
+				fprintf( stderr, "%s: fopen failed for config file %s in write mode\n", __FUNCTION__, filename );
+				fprintf( stderr, "%s: fopen failed with %s\n", __FUNCTION__, strerror(errno) );
+				return D_RetCode_Err_FileIO;
+			}
+			printf( "%s: config file %s opend in write mode\n", __FUNCTION__, filename );
+			// Open config file to write
+			for( feu=min_slf_trg_feu; feu<=max_slf_trg_feu; feu++ )
+			{
+				if
+				(
+					( (feu <  32) && (scanned_feu_lo & (1ULL<< feu    )) )
+					||
+					( (feu >= 32) && (scanned_feu_hi & (1ULL<<(feu-32))) )
+				)
+				{
+					feu_cur_params = &(sys_params_ptr->FeuParams_Col.feu_params[feu]);
+					FeuTrgScan_DumpConfigInfo( &feu_trg_scan[feu], feu_cur_params, feu, conf_fptr );
+				}
+			}
+			// Close config file
+			fclose( conf_fptr );
+			conf_fptr = (FILE *)NULL;
+			printf( "%s: config file %s closed\n", __FUNCTION__, filename );
+		} // if( nb_of_active_slf_trg_feu )
+	}
+
+	if( do_scan_trg_thr == 5 )
+	{
+		printf( "%s: stopped as no active self trigger FEUs present\n", __FUNCTION__ );
+	}
+
+	if( do_scan_trg_thr == 6 )
+	{
+		printf( "%s: stopped as something went wrong with hardware\n", __FUNCTION__ );
+	}
 
 	return D_RetCode_Sucsess;
 }

@@ -23,7 +23,7 @@ install: install_lib
 	-mkdir -p $(globalbin)
 	cp $(localbin)/evio2xml $(globalbin)
 	cp $(localbin)/evio2xml4.0 $(globalbin)
-	cp $(localbin)/evioUtilGEMC $(globalbin)
+	cp $(localbin)/evioUtil* $(globalbin)
 #
 	rm -rf tmp
 	mkdir tmp

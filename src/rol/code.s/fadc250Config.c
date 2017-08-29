@@ -746,6 +746,14 @@ fadc250UploadAll(char *string, int length)
 
 }
 
+int
+fadc250UploadAllPrint()
+{
+  char str[16001];
+  fadc250UploadAll(str, 16000);
+  printf("%s",str);
+}
+
 
 
 /* print board registers; if slot is zero, print all boards */

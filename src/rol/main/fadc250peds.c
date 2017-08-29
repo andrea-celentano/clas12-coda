@@ -11,14 +11,16 @@
 
 HPS UNIX:
 
- cd $CLON_PARMS/peds
+ cd $CLON_PARMS/peds/clasrun/
  fadc250peds rocXX.ped
 */
 
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+#include <unistd.h>
+
 #ifdef Linux_vme
 #include "jvme.h"
 #endif
@@ -52,7 +54,10 @@ main(int argc, char *argv[])
   FILE *f;
   fa250Ped ped;
 
-  printf("\nJLAB fadc pedestal measurement\n");
+  char myhostname[128];
+  gethostname(myhostname, 128);
+
+  printf("\nJLAB fadc pedestal measurement on host %s\n",myhostname);
   printf("----------------------------\n");
 
   progName = argv[0];
@@ -98,22 +103,24 @@ main(int argc, char *argv[])
   f = fopen(filename, "wt");
 
 #ifdef NEWFORMAT  
+  if(f) fprintf(f, "FADC250_CRATE %s\n", myhostname);
   for(ifa=0; ifa<nfadc; ifa++)
   {
     if(f) fprintf(f, "FADC250_SLOT %d\nFADC250_ALLCH_PED", faSlot(ifa));
 
     for(ch=0; ch<16; ch++)
-	 {
+	{
       if(faMeasureChannelPedestal(faSlot(ifa), ch, &ped) != OK)
-		{
+	  {
         printf(" Unabled to measure pedestal on slot %d, ch %d...\n", faSlot(ifa), ch);
         fclose(f);
         goto CLOSE;
-		}
-		if(f) fprintf(f, " %8.3f", ped.avg);
+	  }
+	  if(f) fprintf(f, " %8.3f", ped.avg);
     }
     if(f) fprintf(f, "\n");
   }
+  if(f) fprintf(f, "FADC250_CRATE end\n");
 #else
   for(ifa=0; ifa<nfadc; ifa++)
   {

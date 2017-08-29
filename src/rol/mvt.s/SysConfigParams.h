@@ -64,7 +64,10 @@ typedef struct _SysParams
 	int  ClkMode;
 	int  SparseSmp;
 	int  BlockPrescale;
+	int  EventLimit;
 	int  RepRawData;
+	int  SelfTrigLat;
+	int  SelfTrigWin;
 
 	// Parameters for backend crates
 	BecParams Bec_Params[DEF_MAX_NB_OF_BEC];

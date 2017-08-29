@@ -119,6 +119,7 @@ int TiParams_Init( TiParams *params )
 	// Global parameters
 	// usually derived from BEC
 	params->NbOfEvtPerBlk = 0;
+	params->BlockLimit = 0;
 
 	// Synchronisation parameters
 	params->ClkSrc   = TiClkSrc_Undefined;
@@ -187,6 +188,7 @@ int TiParams_Sprintf( TiParams *params, char *buf  )
 
 	// Global parameters: defived from global parameters
 	sprintf( buf, "%s# Ti %s NbOfEvtPerBlk  %d\n",    buf, id_str, params->NbOfEvtPerBlk );
+	sprintf( buf, "%s# Ti %s BlockLilit     %d\n",    buf, id_str, params->BlockLimit );
 
 	// Clk source: defived from global parameters
 	sprintf( buf, "%s# Ti %s ClkSrc         %s\n",    buf, id_str, TiClkSrc2Str(params->ClkSrc) );

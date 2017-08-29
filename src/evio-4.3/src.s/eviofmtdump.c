@@ -271,7 +271,7 @@ eviofmtdump(int *iarr, int nwrd, unsigned char *ifmt, int nfmt, int nextrabytes,
       while(b16 < b16end)
 	  {
 #ifdef PRINT
-        xml += sprintf(xml," 0x%04x(%d)",*b16,*b16);
+        xml += sprintf(xml," 0x%04x(%d)",(unsigned short)*b16,*b16);
         /*printf(" 0x%04x(%d)",*b16,*b16);*/
 #endif
         *b16++ = SWAP16(*b16);

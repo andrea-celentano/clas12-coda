@@ -1055,7 +1055,7 @@ vmeBusUnlock();
   {
     DCRB_SLOT = dcrbSlot(id);
 vmeBusLock();
-    dcrbTriggerPulseWidth(DCRB_SLOT, 8000);
+//dcrbTriggerPulseWidth(DCRB_SLOT, 8000);
 	dcrbLinkReset(DCRB_SLOT);
 vmeBusUnlock();
 

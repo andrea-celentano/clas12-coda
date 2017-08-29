@@ -31,7 +31,11 @@
 #endif
 
 #ifndef DEF_MAX_NB_OF_FEU
-#define DEF_MAX_NB_OF_FEU 256
+#define DEF_MAX_NB_OF_FEU 64
+#endif
+
+#ifndef DEF_MAX_FEU_SN
+#define DEF_MAX_FEU_SN 256
 #endif
 
 #ifndef DEF_MAX_NB_OF_FEU_PER_BEU
@@ -106,8 +110,12 @@ typedef struct _BecParams
 
 	// System topology
 	int BeuFeuConnectivity[DEF_MAX_NB_OF_BEU][DEF_MAX_NB_OF_FEU_PER_BEU];
-	int FeuId2BeuId[DEF_MAX_NB_OF_FEU];
-	int FeuId2BeuLnkId[DEF_MAX_NB_OF_FEU];
+	int FeuSn2BeuLnkId[DEF_MAX_FEU_SN+1];
+
+	// Self trigger parameters & topology
+	int SelfTrigMult;
+	int SelfTrigWin;
+	int BeuFeuSlfTrigEn[DEF_MAX_NB_OF_BEU];
 } BecParams;
 int BecParams_Init(    BecParams *bec_params );
 int BecParams_Sprintf( BecParams *bec_params, char *buf  );

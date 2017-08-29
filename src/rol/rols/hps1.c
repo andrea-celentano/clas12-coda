@@ -37,9 +37,9 @@ static int nusertrig, ndone;
 #define USE_DSC2
 #define USE_V1190
 #define USE_SSP
-#define USE_VSCM
+/*#define USE_VSCM*/
 /*#define USE_DC*/
-#define USE_DCRB
+/*#define USE_DCRB*/
 #define USE_VETROC
 
 /* if event rate goes higher then 10kHz, with random triggers we have wrong
@@ -1039,7 +1039,7 @@ vmeBusUnlock();
   {
     DCRB_SLOT = dcrbSlot(id);
 vmeBusLock();
-    dcrbTriggerPulseWidth(DCRB_SLOT, 8000);
+//dcrbTriggerPulseWidth(DCRB_SLOT, 8000);
 	dcrbLinkReset(DCRB_SLOT);
 vmeBusUnlock();
 

@@ -105,16 +105,18 @@ int BecParams_Init( BecParams *params )
 	params->BaseAdr_A32m_Com_Min = 0;
 	params->BaseAdr_A32m_Com_Max = 0;
 
-	// System topology
+	// System and self trigger parameters and topology
+	params->SelfTrigMult = 0;
+	params->SelfTrigWin  = 0;
 	for( beu=0; beu<DEF_MAX_NB_OF_BEU; beu++ )
 	{
 		for( feu=0; feu<DEF_MAX_NB_OF_FEU_PER_BEU; feu++ )
 			params->BeuFeuConnectivity[beu][feu] = -1;
+		params->BeuFeuSlfTrigEn[beu] = 0;
 	}
 	for( feu=0; feu<DEF_MAX_NB_OF_FEU; feu++ )
 	{
-		params->FeuId2BeuId[feu]    = -1;
-		params->FeuId2BeuLnkId[feu] = -1;
+		params->FeuSn2BeuLnkId[feu] = 0;
 	}
 
 	return D_RetCode_Sucsess;
@@ -125,6 +127,7 @@ int BecParams_Sprintf( BecParams *params, char *buf  )
 {
 	int beu;
 	int feu;
+	int beu_lnk;
 
 	// Check for Null pointer
 	if( params == (BecParams *)NULL )
@@ -193,11 +196,16 @@ int BecParams_Sprintf( BecParams *params, char *buf  )
 					sprintf( buf, "%s  M", buf );
 				else if( params->BeuFeuConnectivity[beu][feu] == 0 )
 					sprintf( buf, "%s  E", buf );
-				else if( params->BeuFeuConnectivity[beu][feu] <= DEF_MAX_NB_OF_FEU )
-					sprintf( buf, "%s %2d", buf, params->BeuFeuConnectivity[beu][feu] );
+				else if( params->BeuFeuConnectivity[beu][feu] < DEF_MAX_FEU_SN )
+				{
+					if( params->BeuFeuSlfTrigEn[beu] & (1<<feu) )
+						sprintf( buf, "%s T%2d", buf, params->BeuFeuConnectivity[beu][feu] );
+					else
+						sprintf( buf, "%s  %2d", buf, params->BeuFeuConnectivity[beu][feu] );
+				}
 				else
 				{
-					fprintf( stderr, "%s: Usupported FeuId=%d (>%d) for beu %d connection %d\n",
+					fprintf( stderr, "%s: Unsupported FeuId=%d (>%d) for beu %d connection %d\n",
 						__FUNCTION__, params->BeuFeuConnectivity[beu][feu], DEF_MAX_NB_OF_FEU-1, beu, feu );
 					return D_RetCode_Err_Wrong_Param;
 				}
@@ -211,34 +219,32 @@ int BecParams_Sprintf( BecParams *params, char *buf  )
 		}
 		sprintf( buf, "%s\n", buf );
 	}
-	for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+	for( feu=1; feu<=DEF_MAX_NB_OF_FEU; feu++ )
 	{
-		if( params->FeuId2BeuId[feu] == 0 )
-		{
-			fprintf( stderr, "%s: Usupported BeuId 0 for feu %d\n", __FUNCTION__, feu );
-			return D_RetCode_Err_Wrong_Param;
-		}
 		if( ((feu-1) % 4) == 0 )
 			sprintf( buf, "%s#", buf );
-		sprintf( buf, "%s Feu %3d <-> ", buf, feu );
-		if( params->FeuId2BeuId[feu] > 0 )
+		sprintf( buf, "%s FeuId %3d <-> ", buf, feu );
+		beu        = ((feu>>5)&0x07)+1;
+		beu_lnk    = ( feu    &0x1F)-1;
+		if( (1<=params->BeuFeuConnectivity[beu][beu_lnk]) && (params->BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
 		{
-			if( (params->FeuId2BeuLnkId[feu]<0) || (DEF_MAX_NB_OF_FEU_PER_BEU<=params->FeuId2BeuLnkId[feu]) )
-			{
-				fprintf( stderr, "%s: Usupported beu %d link=%d for feu %d, must be in [0;%d] range\n",
-				__FUNCTION__, params->FeuId2BeuId[feu], params->FeuId2BeuId[feu], feu, DEF_MAX_NB_OF_FEU_PER_BEU-1 );
-				return D_RetCode_Err_Wrong_Param;
-			}
-			sprintf( buf, "%s Beu=%1d Lnk=%2d", buf, params->FeuId2BeuId[feu], params->FeuId2BeuLnkId[feu] );
+			if( params->BeuFeuSlfTrigEn[beu] & (1<<beu_lnk) )
+				sprintf( buf, "%s Beu=%1d Lnk=%2d Sn=%2d T", buf, beu, beu_lnk, params->BeuFeuConnectivity[beu][beu_lnk] );
+			else
+				sprintf( buf, "%s Beu=%1d Lnk=%2d Sn=%2d  ", buf, beu, beu_lnk, params->BeuFeuConnectivity[beu][beu_lnk] );
 		}
 		else
-			sprintf( buf, "%s  Inactive   ", buf );
+			sprintf( buf, "%s      Inactive       ", buf );
 		if( feu % 4 )
-			sprintf( buf, "%s   ", buf );
+			sprintf( buf, "%s     ", buf );
 		else
 			sprintf( buf, "%s\n", buf );
 	}
 	sprintf( buf, "%s\n", buf );
+
+	// Self trigger parameters
+	sprintf( buf, "%sBec %d SelfTrigMult %d\n",      buf, params->Config_Id, params->SelfTrigMult );
+	sprintf( buf, "%sBec %d SelfTrigWin  %d # ns\n", buf, params->Config_Id, params->SelfTrigWin );
 
 	// All went fine
 	return D_RetCode_Sucsess;
@@ -287,6 +293,7 @@ int BecParams_Fprintf( BecParams *params, FILE *fptr )
 int BecParams_Parse( BecParams *params, int line_num )
 {
 	char *end_ptr;
+	char *id_ptr;
 	int bec;
 	int slot;
 	int dev_id;
@@ -398,6 +405,14 @@ int BecParams_Parse( BecParams *params, int line_num )
 				params->BaseAdr_A32m_Com_Min = strtoul( argv[4], &end_ptr, 16 );
 				params->BaseAdr_A32m_Com_Max = strtoul( argv[5], &end_ptr, 16 );
 			}
+			else if( strcmp( argv[2], "SelfTrigMult" ) == 0 )
+			{
+				params->SelfTrigMult = atoi( argv[3] );
+			}
+			else if( strcmp( argv[2], "SelfTrigWin" ) == 0 )
+			{
+				params->SelfTrigWin = atoi( argv[3] );
+			}
 			else if( strcmp( argv[2], "Beu" ) == 0 )
 			{
 				beu = atoi( argv[3] );
@@ -424,6 +439,23 @@ int BecParams_Parse( BecParams *params, int line_num )
 					else if( ((char)argv[index][0] == 'M') || ((char)argv[index][0] == 'm') )
 					{
 						params->BeuFeuConnectivity[beu][beu_feu_con] = -1;
+						beu_feu_con++;
+					}
+					// Individual triggeringd
+					else if( ((char)argv[index][0] == 'T') || ((char)argv[index][0] == 't') )
+					{
+						id_ptr = (char *)&(argv[index][1]);
+						feu = atoi(id_ptr);
+						params->BeuFeuConnectivity[beu][beu_feu_con] = feu;
+						if( params->BeuFeuConnectivity[beu][beu_feu_con] >= DEF_MAX_FEU_SN )
+						{
+							fprintf( stderr, "%s: Unsupported feu %d (>%d) for beu %d connection %d\n",
+								__FUNCTION__, params->BeuFeuConnectivity[beu][beu_feu_con], DEF_MAX_NB_OF_FEU, beu, beu_feu_con );
+							params->BeuFeuConnectivity[beu][beu_feu_con] = -1;
+							return D_RetCode_Err_Wrong_Param;
+						}
+						params->FeuSn2BeuLnkId[feu] = ((beu-1)<<5) + beu_feu_con + 1;
+						params->BeuFeuSlfTrigEn[beu] |= (1<<beu_feu_con);
 						beu_feu_con++;
 					}
 					else 
@@ -457,15 +489,14 @@ int BecParams_Parse( BecParams *params, int line_num )
 						for( feu=feu_min; feu<=feu_max; feu++ )
 						{
 							params->BeuFeuConnectivity[beu][beu_feu_con] = feu;
-							if( params->BeuFeuConnectivity[beu][beu_feu_con] >= DEF_MAX_NB_OF_FEU )
+							if( params->BeuFeuConnectivity[beu][beu_feu_con] >= DEF_MAX_FEU_SN )
 							{
-								fprintf( stderr, "%s: Usupported feu %d (>%d) for beu %d connection %d\n",
+								fprintf( stderr, "%s: Unsupported feu %d (>%d) for beu %d connection %d\n",
 									__FUNCTION__, params->BeuFeuConnectivity[beu][beu_feu_con], DEF_MAX_NB_OF_FEU, beu, beu_feu_con );
 								params->BeuFeuConnectivity[beu][beu_feu_con] = -1;
 								return D_RetCode_Err_Wrong_Param;
 							}
-							params->FeuId2BeuId[feu]    = beu;
-							params->FeuId2BeuLnkId[feu] = beu_feu_con;
+							params->FeuSn2BeuLnkId[feu] = ((beu-1)<<5) + beu_feu_con + 1;
 							beu_feu_con++;
 						}
 					}

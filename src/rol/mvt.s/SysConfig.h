@@ -54,6 +54,27 @@ int  FeuConfig_Lock();
 int  FeuConfig_UnLock();
 void FeuConfig_CleanUp();
 
+/***************************************************************************
+ ***************************************************************************
+            Trigger Scan Functions
+ ***************************************************************************
+ ***************************************************************************/
+#define DEF_DRM_TRG_MIN_THR 0
+#define DEF_DRM_TRG_MAX_THR 127
+#define DEF_DRM_TRG_CHK_NUM 1000
+
+typedef struct _FeuTrgScan
+{
+	int drm_msk;
+	int running_drm;
+	int running_thr;
+	int drm_thr[D_FeuPar_NumOfDreams-1];
+	int nb_of_checks;
+	unsigned int prev_cntr;
+} FeuTrgScan;
+extern FeuTrgScan feu_trg_scan[DEF_MAX_NB_OF_FEU];
+
+
 int  SysConfig( SysParams *params );
 int  SysRun();
 int  SysStop();

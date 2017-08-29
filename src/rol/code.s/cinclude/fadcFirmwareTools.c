@@ -420,7 +420,7 @@ fadcFirmwareDownloadConfigData(int id)
 	  if(ByteIndex>MSC_MAX_SIZE)
 	    printf("**** TOO BIG! ****\n");
 	}
-	  
+
       /* write 32-bit data word to  mem1 data register */ 
       FALOCK;
       vmeWrite32(&FAp[id]->mem1_data, Word32Bits);

@@ -134,7 +134,7 @@ static void getValueFromConfig(char* confFile, const char* keyword, char* outVal
    FILE* file;
    const int debug = 0;
    //baseDir = getenv("CLON_PARMS");   
-   strcpy(baseDir,"/usr/clas12/release/0.2/parms");
+   strcpy(baseDir,"/mnt/clas12/release/0.2/parms");
    if(debug>0) printf("baseDir %s\n", baseDir);
    //gethostname(host,256);
    strcpy(host,"all");
@@ -146,7 +146,7 @@ static void getValueFromConfig(char* confFile, const char* keyword, char* outVal
    
    if(strlen(confFile)==0 || strcmp(confFile,"none")==0) {   
       if(debug>0) printf("Extract keyword \"%s\" from default conf file.\n", keyword);
-      sprintf(filename,"%s/dpm/dpm-default.cnf",baseDir);
+      sprintf(filename,"%s/dpm/dpm-default.trg",baseDir);
       
    } else {
       if(debug>0) printf("Extract keyword \"%s\" from conf file \"%s\".\n", keyword, confFile);

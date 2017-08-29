@@ -6,6 +6,7 @@
 cd $CLON_PARMS/firmwares
 
 v1495firmware 0x11980000 ECALTrigger.rbf
+v1495firmware 0x11980000 PCALTrigger.rbf
 
 v1495firmware 0x11A00000 ECALTrigger.rbf
 v1495firmware 0x11A00000 CTOFTrigger.rbf

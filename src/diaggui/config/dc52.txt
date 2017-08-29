@@ -19,7 +19,8 @@ HOSTNAME dc52
                 A24BaseAddr12                   0x00980000      #SLOT 19
                 A24BaseAddr13                   0x00A00000      #SLOT 20
                 Initialize
-                DacThreshold							10
+                DacThreshold							30
+                Deadtime                  255
 ENDHOST
 
 ###########################################################

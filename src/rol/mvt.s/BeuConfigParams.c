@@ -123,6 +123,14 @@ int BeuSspConf_Init( BeuSspConf *params )
 	params->NbOfSamples        = 0;
 	params->NbOfEventsPerBlock = 0;
 
+	// Self trigger parameters
+	params->SelfTrigMult   = -1;
+	params->SelfTrigWid    = -1;
+	// Derived from system and BEC parameters
+	params->SelfTrigLnkEnb = 0;
+	params->SelfTrigLat    = 0;
+	params->SelfTrigWin    = 0;
+
 	// Optical link parameters
 	params->near_end_loop_enb = 0;
 	params->rol_enb           = 0;
@@ -206,6 +214,13 @@ int BeuSspConf_Sprintf( BeuSspConf *params, char *buf  )
 	sprintf( buf, "%s# Beu %s NearLoopEnb    0x%08x\n",   buf, id_str, params->near_end_loop_enb );
 	sprintf( buf, "%s# Beu %s RolEnb         0x%08x\n",   buf, id_str, params->rol_enb );
 	sprintf( buf, "%s# Beu %s FeuEmuMsk      0x%08x\n",   buf, id_str, params->feu_emu_msk );
+
+	// Self trigger parameters: Derived from system and BEC parameters
+	sprintf( buf, "%s# Beu %s SelfTrigLnkEnb 0x%08x\n",  buf, id_str, params->SelfTrigLnkEnb );
+	sprintf( buf, "%s# Beu %s SelfTrigLat    %d # ns\n", buf, id_str, params->SelfTrigLat );
+	sprintf( buf, "%s# Beu %s SelfTrigWin    %d # ns\n", buf, id_str, params->SelfTrigWin );
+	sprintf( buf, "%sBeu %s SelfTrigMult     %d\n",      buf, id_str, params->SelfTrigMult );
+	sprintf( buf, "%sBeu %s SelfTrigWid      %d # ns\n", buf, id_str, params->SelfTrigWid );
 
 	// Clk source: defived from global parameters
 	sprintf( buf, "%sBeu %s ClkSrc           %s\n", buf, id_str, BeuClkSrc2Str(params->ClkSrc) );
@@ -306,7 +321,15 @@ int BeuSspConf_Parse( BeuSspConf *params, int line_num )
 			params->Id = beu;
 
 			// Check for keywords and assign parameters
-			if( strcmp( argv[2], "TrgFifo_Lwm" ) == 0 )
+			if( strcmp( argv[2], "SelfTrigMult" ) == 0 )
+			{
+				params->SelfTrigMult = atoi( argv[3] );
+			}
+			else if( strcmp( argv[2], "SelfTrigWid" ) == 0 )
+			{
+				params->SelfTrigWid = atoi( argv[3] );
+			}
+			else if( strcmp( argv[2], "TrgFifo_Lwm" ) == 0 )
 			{
 				params->TrgFifo_Lwm = atoi( argv[3] );
 			}
@@ -641,6 +664,10 @@ int BeuSspConfCol_Prop( BeuSspConfCol *col )
 		// Set only active BEU-s
 		if( beu_conf_cur->Id > 0 )
 		{
+			if( beu_conf_cur->SelfTrigMult == -1 )
+				beu_conf_cur->SelfTrigMult = beu_conf_com->SelfTrigMult;
+			if( beu_conf_cur->SelfTrigWid == -1 )
+				beu_conf_cur->SelfTrigWid = beu_conf_com->SelfTrigWid;
 			if( beu_conf_cur->TrgFifo_Lwm == 0 )
 				beu_conf_cur->TrgFifo_Lwm = beu_conf_com->TrgFifo_Lwm;
 			if( beu_conf_cur->TrgFifo_Hwm == 0 )

@@ -131,6 +131,18 @@ CrateMsg_ReadScalers(CrateMsgStruct *msg, int swap)
 
 
 int
+CrateMsg_ReadData(CrateMsgStruct *msg, int swap)
+{
+  if(gServerCBFunctions.ReadData)
+  {
+	return (*gServerCBFunctions.ReadData)(&msg->msg.m_Cmd_ReadScalers, &msg->msg.m_Cmd_ReadScalers_Rsp);
+  }
+  return(0);
+}
+
+
+
+int
 CrateMsg_GetCrateMap(CrateMsgStruct *msg, int swap)
 {
   if(gServerCBFunctions.GetCrateMap)
@@ -292,6 +304,10 @@ ConnectionThread(void *parm)
 	  result = CrateMsg_SetChannelParams(&pParm->msg, swap);
 	}
 
+	else if(pParm->msg.type == DATA_SERVER_READ_BOARD)
+	{
+	  result = CrateMsg_ReadData(&pParm->msg, swap);
+	}
 
 	else
 	{

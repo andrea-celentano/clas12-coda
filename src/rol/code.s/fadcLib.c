@@ -3957,6 +3957,8 @@ faResetMGT(int id, int reset)
       return(ERROR);
     }
 
+//  faSetMGTSettings(id, 0, 2, 2);
+    
   FALOCK;
   if(reset)
     vmeWrite32(&(FAp[id]->gtx_ctrl),0x203); /*put reset*/
@@ -3985,13 +3987,43 @@ faGetMGTChannelStatus(int id)
 
   FALOCK;
   status = vmeRead32(&(FAp[id]->gtx_status));
+//status = vmeRead32(&(FAp[id]->trx_ctrl));
   FAUNLOCK;
 
   if(status & 0x1)
+//  if(status & 0x1000)
     return(1);
 
   return(0);
 }
+
+int
+faSetMGTSettings(int id, int txpre, int txswing, int rxequ)
+{
+  int val;
+  
+  if(id==0) id=fadcID[0];
+
+  if((id<=0) || (id>21) || (FAp[id] == NULL)) 
+    {
+      printf("%s: ERROR : ADC in slot %d is not initialized \n",
+       __FUNCTION__,id);
+      return(ERROR);
+    }
+
+  val = ((txpre & 0x1F)<<0) |
+        ((txswing & 0xF)<<10) |
+        ((rxequ & 0x3)<<14);
+  
+  FALOCK;
+  vmeWrite32(&(FAp[id]->trx_ctrl),val);
+  FAUNLOCK;
+
+  taskDelay(2);
+
+  return(OK);
+}
+
 #endif
 
 
