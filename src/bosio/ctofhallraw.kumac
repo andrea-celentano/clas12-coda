@@ -1,0 +1,34 @@
+hi/file 66 ctofhist.his
+*
+opt stat
+*opt fit 1111111
+*
+***set stat 1111111
+meta 10 -111
+*
+***opt logy
+*
+*zone 1 1
+*hi/pl 12
+*wait
+*
+zone 3 2
+DO ID1 = 0,0
+DO ID2 = 0,5
+  IDN = 100 + [ID1]*16 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+zone 3 2
+DO ID1 = 0,0
+DO ID2 = 0,5
+  IDN = 200 + [ID1]*16 + [ID2]
+  hi/pl [IDN]
+ENDDO
+wait
+ENDDO
+*
+*
+*close 66
