@@ -12,7 +12,6 @@
 #define logMsg printf
 typedef struct semaphore *SEM_ID;
 
-
 static void __download ();
 static void __prestart ();
 static void __end ();

@@ -51,12 +51,16 @@ void usage( char *name )
 {
 	printf( "\nUsage: %s", name );
 	printf( " [-c Conf_FileName]" );
+	printf( " [-s]" );
+	printf( " [-m]" );
 	printf( " [-v [-v]]" );
 	printf( " [-h]" );
 	printf( "\n" );
 	
 	printf( "\n" );
 	printf( "-c Conf_FileName        - name for config file; default: %s; \"None\" no file consulted\n", DEF_ConfFileName );
+	printf( "-s                      - Scan system for self trigger thresholds\n" );
+	printf( "-m file_upd_per_sec     - Scan system for monitoring information and store in file every file_upd_per_sec; 0 - no file\n" );
 	printf( "-v [-v]                 - forces debug output\n" );
 	printf( "-h                      - help\n" );
 
@@ -105,6 +109,7 @@ int main( int argc, char* *argv )
 	// Parameters
 	char conf_file_name[128];
 	int  scan_trg_thr;
+	int  scan_monit;
 
 	int ret;
 
@@ -113,16 +118,16 @@ int main( int argc, char* *argv )
 	struct timeval dt;
 
 	// Initialization
-	verbose =  0;
-	scan_trg_thr = 0;
+	verbose      =  0;
+	scan_trg_thr =  0;
+	scan_monit   = -1;
 	sprintf(conf_file_name,            DEF_ConfFileName );
 	sprintf(progname,            "%s", basename(argv[0]));
-
 
 	/******************************/
 	/* Check for input parameters */
 	/******************************/
-	sprintf( optformat, "c:svh" );
+	sprintf( optformat, "c:m:svh" );
 	while( ( opt = getopt( argc, argv, optformat ) ) != -1 )
 	{
 		switch( opt )
@@ -134,6 +139,10 @@ int main( int argc, char* *argv )
 
 			case 's':
 				scan_trg_thr = 1;
+			break;
+
+			case 'm':
+				scan_monit = atoi(optarg);
 			break;
 
 			case 'v':
@@ -150,6 +159,7 @@ int main( int argc, char* *argv )
 	{
 		printf( "conf_file_name          = %s\n",    conf_file_name );
 		printf( "scan_trg_thr            = %d\n",    scan_trg_thr );
+		printf( "scan_monit              = %d\n",    scan_monit );
 		printf( "verbose                 = %d\n",    verbose );
 	}
 
@@ -195,12 +205,28 @@ int main( int argc, char* *argv )
 		gettimeofday(&t0,0);
 		if( (ret=SysScanSlfTrgThresh( conf_file_name )) != D_RetCode_Sucsess )
 		{
-			fprintf( stderr, "%s: SysRun failed for file %s with %d\n", progname, conf_file_name, ret );
+			fprintf( stderr, "%s: SysScanSlfTrgThresh failed for file %s with %d\n", progname, conf_file_name, ret );
 			cleanup(ret);
 		}
 		gettimeofday(&t1, 0);
 		timersub(&t1,&t0,&dt);
 		printf("%s: The thresholds have been scanned in %d sec and %d usec\n", progname, dt.tv_sec, dt.tv_usec );
+	}
+
+	/*
+	 * The following does not belong to configuration
+	 * This is an attempt to get monitoring information
+	 */
+	if( scan_monit >= 0 )
+	{
+		printf("%s: The system should be in Idle state; Press CR to go to Monotoring Scan <-", progname );
+		getchar();
+		if( (ret=SysScanFeuMonit( conf_file_name, scan_monit )) != D_RetCode_Sucsess )
+		{
+			fprintf( stderr, "%s: SysScanFeuMonit failed for file %s with %d\n", progname, conf_file_name, ret );
+			cleanup(ret);
+		}
+		printf("%s: Monitoring scan finished\n", progname );
 	}
 
 	printf("%s: The system should be in Idle state; Press CR to go to Running state <-", progname );

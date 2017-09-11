@@ -481,22 +481,27 @@ sspInit(unsigned int addr, unsigned int addr_inc, int nfind, int iFlag)
       sspDisableBusError(sspSlot(issp));
       if(sspFirmwareType[sspSlot(issp)] == SSP_CFG_SSPTYPE_HALLBGT)
       {
-        printf("SSP_CFG_SSPTYPE_HALLBGT\n");fflush(stdout);
+        printf("SSP_CFG_SSPTYPE_HALLBGT\n");
         sspPortEnable(sspSlot(issp), 0x2E3, 1);  // Enable serdes: VXS, Fiber0, Fiber 1, Fiber 5, Fiber 6, Fiber 7
+      }
+      else if(sspFirmwareType[sspSlot(issp)] == SSP_CFG_SSPTYPE_HALLBGTC)
+      {
+        printf("SSP_CFG_SSPTYPE_HALLBGTC\n");
+        sspPortEnable(sspSlot(issp), 0x207, 1); // Enable serdes: VXS, Fiber0 (HTCC), Fiber1 (ADCFT1), Fiber2 (ADCFT2)
       }
       else if(sspFirmwareType[sspSlot(issp)] == SSP_CFG_SSPTYPE_HPS)
       {
-        printf("SSP_CFG_SSPTYPE_HPS\n");fflush(stdout);
+        printf("SSP_CFG_SSPTYPE_HPS\n");
         sspPortEnable(sspSlot(issp), 0x003, 1);  // Enable serdes: Fiber0, Fiber1
       }
       else if(sspFirmwareType[sspSlot(issp)] == SSP_CFG_SSPTYPE_HALLBRICH)
       {
-        printf("SSP_CFG_SSPTYPE_HALLBRICH\n");fflush(stdout);
+        printf("SSP_CFG_SSPTYPE_HALLBRICH\n");
         sspEnableBusError(sspSlot(issp));
         sspRich_Init(sspSlot(issp));
       }
       else
-        printf("SSP_CFG_SSPTYPE_UNKNOWN\n");fflush(stdout);
+        printf("SSP_CFG_SSPTYPE_UNKNOWN\n");
       
       /* soft reset (resets EB and fifo) */
       vmeWrite32(&pSSP[sspSlot(issp)]->Cfg.Reset, 1);
@@ -506,7 +511,7 @@ sspInit(unsigned int addr, unsigned int addr_inc, int nfind, int iFlag)
     }	 
   } 
 
-  printf("sspInit: found %d SSPs\n",nSSP);fflush(stdout);
+  printf("sspInit: found %d SSPs\n",nSSP);
 
   return(nSSP);
 } 
@@ -709,7 +714,9 @@ sspSetMode(int id, int iFlag, int pflag)
   } 
 
   if(sspFirmwareType[id] == SSP_CFG_SSPTYPE_HALLBGT)
-    sspPortEnable(id, (iFlag & SSP_INIT_FIBER_ENABLE_MASK)>>16, pflag); 
+    sspPortEnable(id, (iFlag & SSP_INIT_FIBER_ENABLE_MASK)>>16, pflag);
+  else if(sspFirmwareType[id] == SSP_CFG_SSPTYPE_HALLBGTC)
+    sspPortEnable(id, (iFlag & SSP_INIT_FIBER_ENABLE_MASK)>>16, pflag);
   else if(sspFirmwareType[id] == SSP_CFG_SSPTYPE_HPS)
     sspPortEnable(id, (iFlag & SSP_INIT_FIBER_ENABLE_MASK)>>16, pflag); 
   else if(sspFirmwareType[id] == SSP_CFG_SSPTYPE_HALLBRICH)
@@ -1228,8 +1235,13 @@ sspPulserSetup(int id, float freq, float duty, unsigned int npulses)
   /* Hack to let npulses saturate in case burst mode is needed with no glitches */
   taskDelay(60);
   
-  // Setup period register... 
-  per = (int)( ((float)GCLK_FREQ) / freq ); 
+  // Setup period register...
+  //
+  if(sspFirmwareType[id] == SSP_CFG_SSPTYPE_HALLBRICH)
+    per = (int)( ((float)GCLK_FREQ/2.0) / freq );
+  else
+    per = (int)( ((float)GCLK_FREQ) / freq );
+
   if(!per) per = 1;
   printf("%s: per = GCLK_FREQ=%f / freq=%f = %d\n",__FUNCTION__,(float)GCLK_FREQ,freq,per);
   sspWriteReg(&pSSP[id]->Sd.PulserPeriod, per);
@@ -1259,7 +1271,11 @@ sspGetPulserFreq(int id)
   SSPUNLOCK();
   printf("sspGetPulserFreq: val=%d\n",val);
   if(!val) return(0);
-  fval = ((float)GCLK_FREQ)/((float)val);
+
+  if(sspFirmwareType[id] == SSP_CFG_SSPTYPE_HALLBRICH)
+    fval = ((float)GCLK_FREQ/2.0)/((float)val);
+  else
+    fval = ((float)GCLK_FREQ)/((float)val);
   printf("sspGetPulserFreq: val=%d -> fval = %f / %f = %f (%d)\n",val,(float)GCLK_FREQ,(float)val,fval,(int)fval);
   
   return((int)fval);
@@ -1565,6 +1581,8 @@ sspFlashGetId(int id, unsigned char *rsp)
   rsp[0] = sspTransferSpi(id,0xFF); 
   rsp[1] = sspTransferSpi(id,0xFF); 
   rsp[2] = sspTransferSpi(id,0xFF); 
+  rsp[3] = sspTransferSpi(id,0xFF);
+  rsp[4] = sspTransferSpi(id,0xFF); 
   sspSelectSpi(id,0); 
 } 
  
@@ -1665,8 +1683,8 @@ sspFirmwareUpdate(int id, const char *filename)
 { 
   FILE *f; 
   int i; 
-  unsigned int page = 0; 
-  unsigned char buf[1056], rspId[3]; 
+  unsigned int page = 0, page_size = 0; 
+  unsigned char buf[1056], rspId[5]; 
   if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_COMMON))
     return ERROR;
  
@@ -1676,12 +1694,22 @@ sspFirmwareUpdate(int id, const char *filename)
   sspSelectSpi(id,0); 
   sspFlashGetId(id, rspId); 
 	 
-  printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X\n", rspId[0], rspId[1], rspId[2]); 
+  printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X, EDI Len=0x%02X, EDI=0x%02X\n", rspId[0], rspId[1], rspId[2], rspId[3], rspId[4]); 
  
-  if( (rspId[0] == SPI_MFG_ATMEL) && 
-      (rspId[1] == (SPI_DEVID_AT45DB642D>>8)) && 
-      (rspId[2] == (SPI_DEVID_AT45DB642D&0xFF)) ) 
+  if( (rspId[0] == SPI_MFG_ATMEL) && (rspId[1] == (SPI_DEVID_AT45DB642D>>8)) && (rspId[2] == (SPI_DEVID_AT45DB642D&0xFF)) ) 
     { 
+    if(rspId[3] == 0x01)
+    {
+      printf("Found AT45DB641E ");
+      page_size = 264;
+    }
+    else
+    {
+      printf("Found AT45DB642D ");
+      page_size = 1056;
+    }
+    printf("page size set to: %d bytes\n", page_size);
+
       f = fopen(filename, "rb"); 
       if(!f) 
 	{ 
@@ -1690,23 +1718,32 @@ sspFirmwareUpdate(int id, const char *filename)
 	  SSPUNLOCK(); 
 	} 
 	 
-      memset(buf, 0xff, 1056); 
-      while(fread(buf, 1, 1056, f) > 0) 
+    memset(buf, 0xff, page_size); 
+    while(fread(buf, 1, page_size, f) > 0) 
 	{ 
 	  sspSelectSpi(id,1);	// write buffer 1 
 	  sspTransferSpi(id,SPI_CMD_WRBUF1); 
 	  sspTransferSpi(id,0x00); 
 	  sspTransferSpi(id,0x00); 
 	  sspTransferSpi(id,0x00); 
-	  for(i = 0; i < 1056; i++) 
+      for(i = 0; i < page_size; i++)
 	    sspTransferSpi(id,buf[i]); 
 	  sspSelectSpi(id,0); 
  
 	  sspSelectSpi(id,1);	// buffer 1 to flash w/page erase 
 	  sspTransferSpi(id,SPI_CMD_PGBUF1ERASE); 
+      if(page_size == 264)
+      { 
+        sspTransferSpi(id,(page>>7) & 0xFF); 
+        sspTransferSpi(id,(page<<1) & 0xFF); 
+        sspTransferSpi(id,0x00); 
+      }
+      else
+      {
 	  sspTransferSpi(id,(page>>5) & 0xFF); 
 	  sspTransferSpi(id,(page<<3) & 0xFF); 
 	  sspTransferSpi(id,0x00); 
+      }
 	  sspSelectSpi(id,0); 
 			 
 	  i = 0; 
@@ -1723,7 +1760,7 @@ sspFirmwareUpdate(int id, const char *filename)
 		} 
 	      i++; 
 	    }			 
-	  memset(buf, 0xff, 1056); 
+      memset(buf, 0xff, page_size); 
 	  page++; 
 	} 
       fclose(f); 
@@ -1745,7 +1782,7 @@ sspFirmwareRead(int id, const char *filename)
 { 
   FILE *f; 
   int i; 
-  unsigned char rspId[3]; 
+  unsigned char rspId[5]; 
   if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_COMMON))
     return ERROR;
  
@@ -1805,7 +1842,7 @@ sspFirmwareVerify(int id, const char *filename)
   int i,len; 
   unsigned int addr = 0; 
   unsigned char buf[256]; 
-  unsigned char rspId[3], val; 
+  unsigned char rspId[5], val; 
   if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_COMMON))
     return ERROR;
  
@@ -1911,7 +1948,7 @@ sspGetFirmwareVersion(int id)
 } 
 
 /***************************************
-     Global Trigger Crate Routines
+     GT Routines
 ***************************************/
 int sspGt_SetLatency(int id, int latency)
 {
@@ -2471,7 +2508,7 @@ int sspGt_SetTrigger_EcalInnerClusterEmin(int id, int trg, int val)
  
   SSPLOCK(); 
   rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster);
-  rval = val | (rval & ~GT_STRG_ECCTRL_ESUM_EMIN_MASK);
+  rval = val | (rval & ~GT_STRG_ECICTRL_CLUSTER_EMIN_MASK);
   sspWriteReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster, rval);
   SSPUNLOCK(); 
  
@@ -2485,7 +2522,7 @@ int sspGt_GetTrigger_EcalInnerClusterEmin(int id, int trg)
     return ERROR;
 
   SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster) & GT_STRG_ECCTRL_ESUM_EMIN_MASK;
+  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster) & GT_STRG_ECICTRL_CLUSTER_EMIN_MASK;
   SSPUNLOCK(); 
  
   return rval;
@@ -2507,7 +2544,7 @@ int sspGt_SetTrigger_EcalInnerClusterWidth(int id, int trg, int val)
   val/=4;
   SSPLOCK(); 
   rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster);
-  rval = (val<<16) | (rval & ~GT_STRG_ECCTRL_ESUM_WIDTH_MASK);
+  rval = (val<<16) | (rval & ~GT_STRG_ECICTRL_CLUSTER_WIDTH_MASK);
   sspWriteReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster, rval);
   SSPUNLOCK(); 
  
@@ -2521,7 +2558,7 @@ int sspGt_GetTrigger_EcalInnerClusterWidth(int id, int trg)
     return ERROR;
 
   SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster) & GT_STRG_ECCTRL_ESUM_WIDTH_MASK;
+  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster) & GT_STRG_ECICTRL_CLUSTER_WIDTH_MASK;
   rval = (rval>>16);
   SSPUNLOCK(); 
  
@@ -2543,7 +2580,7 @@ int sspGt_SetTrigger_EcalOuterClusterEmin(int id, int trg, int val)
  
   SSPLOCK(); 
   rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster);
-  rval = val | (rval & ~GT_STRG_ECCTRL_ESUM_EMIN_MASK);
+  rval = val | (rval & ~GT_STRG_ECOCTRL_CLUSTER_EMIN_MASK);
   sspWriteReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster, rval);
   SSPUNLOCK(); 
  
@@ -2557,7 +2594,7 @@ int sspGt_GetTrigger_EcalOuterClusterEmin(int id, int trg)
     return ERROR;
 
   SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster) & GT_STRG_ECCTRL_ESUM_EMIN_MASK;
+  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster) & GT_STRG_ECOCTRL_CLUSTER_EMIN_MASK;
   SSPUNLOCK(); 
  
   return rval;
@@ -2579,7 +2616,7 @@ int sspGt_SetTrigger_EcalOuterClusterWidth(int id, int trg, int val)
   val/=4;
   SSPLOCK(); 
   rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster);
-  rval = (val<<16) | (rval & ~GT_STRG_ECCTRL_ESUM_WIDTH_MASK);
+  rval = (val<<16) | (rval & ~GT_STRG_ECOCTRL_CLUSTER_WIDTH_MASK);
   sspWriteReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster, rval);
   SSPUNLOCK(); 
  
@@ -2593,7 +2630,7 @@ int sspGt_GetTrigger_EcalOuterClusterWidth(int id, int trg)
     return ERROR;
 
   SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster) & GT_STRG_ECCTRL_ESUM_WIDTH_MASK;
+  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster) & GT_STRG_ECOCTRL_CLUSTER_WIDTH_MASK;
   rval = (rval>>16);
   SSPUNLOCK(); 
  
@@ -2615,7 +2652,7 @@ int sspGt_SetTrigger_PcalClusterEmin(int id, int trg, int val)
  
   SSPLOCK(); 
   rval = sspReadReg(&pSSP[id]->gt.strigger[trg].PCCtrl_cluster);
-  rval = val | (rval & ~GT_STRG_PCCTRL_ESUM_EMIN_MASK);
+  rval = val | (rval & ~GT_STRG_PCCTRL_CLUSTER_EMIN_MASK);
   sspWriteReg(&pSSP[id]->gt.strigger[trg].PCCtrl_cluster, rval);
   SSPUNLOCK(); 
  
@@ -2629,7 +2666,7 @@ int sspGt_GetTrigger_PcalClusterEmin(int id, int trg)
     return ERROR;
 
   SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].PCCtrl_cluster) & GT_STRG_PCCTRL_ESUM_EMIN_MASK;
+  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].PCCtrl_cluster) & GT_STRG_PCCTRL_CLUSTER_EMIN_MASK;
   SSPUNLOCK(); 
  
   return rval;
@@ -2651,7 +2688,7 @@ int sspGt_SetTrigger_PcalClusterWidth(int id, int trg, int val)
   val/=4;
   SSPLOCK(); 
   rval = sspReadReg(&pSSP[id]->gt.strigger[trg].PCCtrl_cluster);
-  rval = (val<<16) | (rval & ~GT_STRG_PCCTRL_ESUM_WIDTH_MASK);
+  rval = (val<<16) | (rval & ~GT_STRG_PCCTRL_CLUSTER_WIDTH_MASK);
   sspWriteReg(&pSSP[id]->gt.strigger[trg].PCCtrl_cluster, rval);
   SSPUNLOCK(); 
  
@@ -2665,7 +2702,7 @@ int sspGt_GetTrigger_PcalClusterWidth(int id, int trg)
     return ERROR;
 
   SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].PCCtrl_cluster) & GT_STRG_PCCTRL_ESUM_WIDTH_MASK;
+  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].PCCtrl_cluster) & GT_STRG_PCCTRL_CLUSTER_WIDTH_MASK;
   rval = (rval>>16);
   SSPUNLOCK(); 
  
@@ -2743,6 +2780,536 @@ int sspGt_GetTrigger_DcMultWidth(int id, int trg)
 
   return rval*4;
 }
+
+
+
+/***************************************
+     GTC Routines
+***************************************/
+int sspGtc_SetLatency(int id, int latency)
+{
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (latency < 0) || (latency > 4*2047) )
+  {
+    printf("%s: ERROR: latency is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+ 
+  latency/=4;
+  SSPLOCK(); 
+  sspWriteReg(&pSSP[id]->gtc.gtpif.Latency, latency);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+int sspGtc_GetLatency(int id)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK();
+  rval = sspReadReg(&pSSP[id]->gtc.gtpif.Latency);
+  SSPUNLOCK();
+
+  return rval*4;
+}
+
+int sspGtc_SetFt_EsumDelay(int id, int delay)
+{
+  int rval;
+
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (delay < 0) || (delay > 4095) )
+  {
+    printf("%s: ERROR: delay is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  delay/=4;
+  SSPLOCK();
+  sspWriteReg(&pSSP[id]->gtc.ssft[0].Delay_esum, delay);
+  sspWriteReg(&pSSP[id]->gtc.ssft[1].Delay_esum, delay);
+  SSPUNLOCK();
+
+  return OK;
+}
+
+int sspGtc_GetFt_EsumDelay(int id)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK();
+  rval = sspReadReg(&pSSP[id]->gtc.ssft[0].Delay_esum);
+//  rval = sspReadReg(&pSSP[id]->gtc.ssft[1].Delay_esum);
+  SSPUNLOCK();
+
+  return rval*4;
+}
+
+int sspGtc_SetFt_ClusterDelay(int id, int delay)
+{
+  int rval;
+
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (delay < 0) || (delay > 4095) )
+  {
+    printf("%s: ERROR: delay is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  delay/=4;
+  SSPLOCK();
+  sspWriteReg(&pSSP[id]->gtc.ssft[0].Delay_cluster, delay);
+  sspWriteReg(&pSSP[id]->gtc.ssft[1].Delay_cluster, delay);
+  SSPUNLOCK();
+
+  return OK;
+}
+
+int sspGtc_GetFt_ClusterDelay(int id)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK();
+  rval = sspReadReg(&pSSP[id]->gtc.ssft[0].Delay_cluster);
+//  rval = sspReadReg(&pSSP[id]->gtc.ssft[1].Delay_cluster);
+  SSPUNLOCK();
+
+  return rval*4;
+}
+
+int sspGtc_SetFt_EsumIntegrationWidth(int id, int width)
+{
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (width < 0) || (width > 4*63) )
+  {
+    printf("%s: ERROR: width is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+  width/=4;
+  SSPLOCK(); 
+  sspWriteReg(&pSSP[id]->gtc.ssft[0].WidthInt_esum, width);
+  sspWriteReg(&pSSP[id]->gtc.ssft[1].WidthInt_esum, width);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+int sspGtc_GetFt_EsumIntegrationWidth(int id)
+{
+  int val;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK(); 
+  val = sspReadReg(&pSSP[id]->gtc.ssft[0].WidthInt_esum);
+//  val = sspReadReg(&pSSP[id]->gtc.ssft[1].WidthInt_esum);
+  SSPUNLOCK(); 
+ 
+  return val*4;
+}
+
+int sspGtc_SetHtcc_Delay(int id, int delay)
+{
+  int rval;
+
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (delay < 0) || (delay > 4095) )
+  {
+    printf("%s: ERROR: delay is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  delay/=4;
+  SSPLOCK();
+  sspWriteReg(&pSSP[id]->gtc.sshtcc.Delay_htcc, delay);
+  SSPUNLOCK();
+
+  return OK;
+}
+
+int sspGtc_GetHtcc_Delay(int id)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK();
+  rval = sspReadReg(&pSSP[id]->gtc.sshtcc.Delay_htcc);
+  SSPUNLOCK();
+
+  return rval*4;
+}
+
+int sspGtc_SetTrigger_Enable(int id, int trg, int en_mask)
+{
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (trg < 0) || (trg > 3) )
+  {
+    printf("%s: ERROR: trg is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+ 
+  SSPLOCK(); 
+  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].Ctrl, en_mask);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+int sspGtc_GetTrigger_Enable(int id, int trg)
+{
+  int val;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK(); 
+  val = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].Ctrl);
+  SSPUNLOCK(); 
+ 
+  return val;
+}
+
+int sspGtc_SetTrigger_FtEsumEmin(int id, int trg, int val)
+{
+  int rval;
+  
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (val < 0) || (val > 16383) )
+  {
+    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+ 
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_esum);
+  rval = val | (rval & ~GTC_CTRG_FT_ESUM_CTRL_EMIN_MASK);
+  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_esum, rval);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+int sspGtc_GetTrigger_FtEsumEmin(int id, int trg)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_esum) & GTC_CTRG_FT_ESUM_CTRL_EMIN_MASK;
+  SSPUNLOCK(); 
+ 
+  return rval;
+}
+
+int sspGtc_SetTrigger_FtEsumWidth(int id, int trg, int val)
+{
+  int rval;
+  
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (val < 0) || (val > 255) )
+  {
+    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+  val/=4;
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_esum);
+  rval = (val<<16) | (rval & ~GTC_CTRG_FT_ESUM_CTRL_WIDTH_MASK);
+  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_esum, rval);
+  SSPUNLOCK(); 
+ 
+  return OK; 
+}
+
+int sspGtc_GetTrigger_FtEsumWidth(int id, int trg)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_esum) & GTC_CTRG_FT_ESUM_CTRL_WIDTH_MASK;
+  rval = (rval>>16);
+  SSPUNLOCK(); 
+ 
+  return rval*4;
+}
+
+int sspGtc_SetTrigger_FtClusterEmin(int id, int trg, int val)
+{
+  int rval;
+  
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (val < 0) || (val > 16383) )
+  {
+    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+ 
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster0);
+  rval = val | (rval & ~GTC_CTRG_FT_CLUSTER_CTRL0_EMIN_MASK);
+  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster0, rval);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+int sspGtc_GetTrigger_FtClusterEmin(int id, int trg)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster0) & GTC_CTRG_FT_CLUSTER_CTRL0_EMIN_MASK;
+  SSPUNLOCK(); 
+ 
+  return rval;
+}
+
+int sspGtc_SetTrigger_FtClusterEmax(int id, int trg, int val)
+{
+  int rval;
+  
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (val < 0) || (val > 16383) )
+  {
+    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+ 
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster0);
+  rval = (val<<16) | (rval & ~GTC_CTRG_FT_CLUSTER_CTRL0_EMAX_MASK);
+  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster0, rval);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+int sspGtc_GetTrigger_FtClusterEmax(int id, int trg)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK(); 
+  rval = (sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster0) & GTC_CTRG_FT_CLUSTER_CTRL0_EMAX_MASK)>>16;
+  SSPUNLOCK(); 
+ 
+  return rval;
+}
+
+int sspGtc_SetTrigger_FtClusterHodoNmin(int id, int trg, int val)
+{
+  int rval;
+  
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (val < 0) || (val > 2) )
+  {
+    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+ 
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster1);
+  rval = val | (rval & ~GTC_CTRG_FT_CLUSTER_CTRL1_HODO_NMIN_MASK);
+  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster1, rval);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+int sspGtc_GetTrigger_FtClusterHodoNmin(int id, int trg)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster1) & GTC_CTRG_FT_CLUSTER_CTRL1_HODO_NMIN_MASK;
+  SSPUNLOCK(); 
+ 
+  return rval;
+}
+
+int sspGtc_SetTrigger_FtClusterNmin(int id, int trg, int val)
+{
+  int rval;
+  
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (val < 0) || (val > 9) )
+  {
+    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+ 
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster1);
+  rval = (val<<8) | (rval & ~GTC_CTRG_FT_CLUSTER_CTRL1_NMIN_MASK);
+  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster1, rval);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+int sspGtc_GetTrigger_FtClusterNmin(int id, int trg)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK(); 
+  rval = (sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster1) & GTC_CTRG_FT_CLUSTER_CTRL1_NMIN_MASK)>>8;
+  SSPUNLOCK(); 
+ 
+  return rval;
+}
+
+int sspGtc_SetTrigger_FtClusterWidth(int id, int trg, int val)
+{
+  int rval;
+  
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (val < 0) || (val > 255*4) )
+  {
+    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+ 
+  val/=4;
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster1);
+  rval = (val<<16) | (rval & ~GTC_CTRG_FT_CLUSTER_CTRL1_WIDTH_MASK);
+  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster1, rval);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+int sspGtc_GetTrigger_FtClusterWidth(int id, int trg)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK(); 
+  rval = (sspReadReg(&pSSP[id]->gtc.ctrigger[trg].FtCtrl_Cluster1) & GTC_CTRG_FT_CLUSTER_CTRL1_WIDTH_MASK)>>16;
+  SSPUNLOCK(); 
+ 
+  return rval*4;
+}
+
+int sspGtc_SetTrigger_HtccWidth(int id, int trg, int val)
+{
+  int rval;
+  
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (val < 0) || (val > 255*4) )
+  {
+    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+ 
+  val/=4;
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl2);
+  rval = (val<<16) | (rval & ~GTC_CTRG_HTCC_CTRL2_WIDTH_MASK);
+  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl2, rval);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+int sspGtc_GetTrigger_HtccWidth(int id, int trg)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  SSPLOCK(); 
+  rval = (sspReadReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl2) & GTC_CTRG_HTCC_CTRL2_WIDTH_MASK)>>16;
+  SSPUNLOCK(); 
+ 
+  return rval*4;
+}
+
+int sspGtc_SetTrigger_HtccMask(int id, int trg, int sector, long long mask)
+{
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (sector < 0) || (sector > 5) )
+  {
+    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+ 
+  SSPLOCK(); 
+  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl0[sector], (mask>>0)&GTC_CTRG_HTCC_CTRL0_MASK);
+  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl1[sector], (mask>>32)&GTC_CTRG_HTCC_CTRL1_MASK);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+long long sspGtc_GetTrigger_HtccMask(int id, int trg, int sector)
+{
+  long long rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return ERROR;
+
+  if( (sector < 0) || (sector > 5) )
+  {
+    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+ 
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl0[sector]);
+  rval |= ((long long)sspReadReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl1[sector]))<<32;
+  SSPUNLOCK(); 
+ 
+  return rval;
+}
+
 
 /* HPS Routines */
 

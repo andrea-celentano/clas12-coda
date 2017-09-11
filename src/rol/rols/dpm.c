@@ -659,6 +659,7 @@ __go()
 void
 usrtrig(unsigned long EVTYPE, unsigned long EVSOURCE)
 {
+
   int syncEventFlag;
   int len, ii;
   int nwords,nbytes;
@@ -693,7 +694,7 @@ usrtrig(unsigned long EVTYPE, unsigned long EVSOURCE)
 
      startOfSvtBank = rol->dabufp;
 
-     //if(usrTrigDebug>0) printf("nwords=%d dabufp=%p before dma \n",nwords, rol->dabufp);
+     if(usrTrigDebug>0) printf("nwords=%d dabufp=%p before dma \n",nwords, rol->dabufp);
 
     int ret = axisRead(myfd,rol->dabufp,1024*1024,0,0,0);
 
@@ -706,7 +707,7 @@ usrtrig(unsigned long EVTYPE, unsigned long EVSOURCE)
 #ifdef DUMP_TRIG_COUNT
     printf("[ usrtrig() ]: trigCount %ld ackCount %ld nwords=%d dabufp=%p after dma \n", trigCount, ackCount, nwords, rol->dabufp);
 #endif
-    //if(usrTrigDebug>0)  printf("nwords=%d dabufp=%p after dma \n",nwords, rol->dabufp);
+    if(usrTrigDebug>0)  printf("nwords=%d dabufp=%p after dma \n",nwords, rol->dabufp);
 
     /* Grab sync flag from the SVT data and find the last event in the block*/	
     pLastEv = NULL;

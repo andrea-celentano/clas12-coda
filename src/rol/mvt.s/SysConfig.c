@@ -34,6 +34,8 @@
 #include "ReturnCodes.h"
 #include "BecConfigParams.h"
 #include "FeuConfigParams.h"
+#include "SysConfigParams.h"
+#include "FeuConfig.h"
 #include "BeuConfig.h"
 #include "SysConfig.h"
 
@@ -42,15 +44,33 @@ SysParams *sys_params_ptr = &sys_params;
 
 // configuration file pointer
 static FILE *sys_conf_params_fptr = (FILE *)NULL;
+// monitoring file pointer
+static FILE *monit_fptr[DEF_MAX_NB_OF_FEU];
+static int   monit_fptr_init = 0;
+
 
 // Cleanup function
 void SysConfig_CleanUp()
 {
+	int index;
+
 	FeuConfig_CleanUp();
 	if(sys_conf_params_fptr != (FILE *)NULL)
 	{
 		fclose(sys_conf_params_fptr);
 		sys_conf_params_fptr = (FILE *)NULL;
+	}
+	if( monit_fptr_init == 1 )
+	{
+		for( index=1; index<DEF_MAX_NB_OF_FEU; index++ )
+		{
+			if(monit_fptr[index] != (FILE *)NULL)
+			{
+				fflush(monit_fptr[index]);
+				fclose(monit_fptr[index]);
+				monit_fptr[index] = (FILE *)NULL;
+			}
+		}
 	}
 }
 
@@ -796,7 +816,7 @@ int SysScanSlfTrgThresh( char *sys_conf_params_filename )
 					}
 //printf( "%s: FeuTrgScan_SetThr sucseeded for feu=%d beu=%d beu_lnk=%d\n\r", __FUNCTION__, running_feu, beu, beu_lnk  );
 				}
-				else if( (ret=FeuTrgScan_ChkCoin( &feu_trg_scan[running_feu], feu_cur_params, slf_trg_chk_cnt, running_feu, beu, beu_lnk )) < 0 )
+				else if( (ret=FeuTrgScan_ChkCoin( &feu_trg_scan[running_feu], feu_cur_params, running_feu, beu, beu_lnk, slf_trg_chk_cnt )) < 0 )
 				{
 					fprintf( stderr,  "%s: FeuTrgScan_ChkCoin failed for feu=%d beu=%d beu_lnk=%d\n\r", __FUNCTION__, running_feu, beu, beu_lnk  );
 					do_scan_trg_thr = 6;
@@ -813,6 +833,18 @@ int SysScanSlfTrgThresh( char *sys_conf_params_filename )
 						do_scan_trg_thr = 6;
 						run = 0;
 						changemode(0);
+
+						nb_of_scanned_feu++;
+						if( running_feu < 32 )
+							scanned_feu_lo |= (1ULL<< running_feu    );
+						else
+							scanned_feu_hi |= (1ULL<<(running_feu-32));
+						
+						if( running_feu < 32 )
+							cp_active_slf_trg_feu_lo &= (~( (1ULL<< running_feu    ) ));
+						else
+							cp_active_slf_trg_feu_hi &= (~( (1ULL<<(running_feu-32)) ));
+
 						break;
 					}
 					else if( ret == 1 )
@@ -919,10 +951,12 @@ int SysScanSlfTrgThresh( char *sys_conf_params_filename )
 		}
 	}
 
-	if( (do_scan_trg_thr == 3) || (do_scan_trg_thr == 4) )
+	if( (do_scan_trg_thr == 3) || (do_scan_trg_thr == 4) || (do_scan_trg_thr == 6) )
 	{
-		if( do_scan_trg_thr == 4 )
+		if( do_scan_trg_thr == 4 ) 
 			printf( "%s: stopped by user\n", __FUNCTION__ );
+		else if( do_scan_trg_thr == 6 ) 
+			printf( "%s: stopped as something went wrong with hardware\n", __FUNCTION__ );
 		else
 			printf( "%s: *** Scan trigger thresholds done\n\r", __FUNCTION__ );
 		if( nb_of_active_slf_trg_feu )
@@ -942,11 +976,20 @@ int SysScanSlfTrgThresh( char *sys_conf_params_filename )
 			}
 			// Prepare config copy filename
 			// Prepare filename for self trig thersholds
-			if( do_scan_trg_thr == 3 )
+			if( do_scan_trg_thr == 4 )
 				sprintf
 				(
 					filename,
-					"%s_%02d%02d%02d_%02dH%02d.slf",
+					"%s_%02d%02d%02d_%02dH%02d_stopped.slf",
+					rootfilename(sys_conf_params_filename),
+					time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
+					time_struct->tm_hour, time_struct->tm_min
+				);
+			else if( do_scan_trg_thr == 6 )
+				sprintf
+				(
+					filename,
+					"%s_%02d%02d%02d_%02dH%02d_error.slf",
 					rootfilename(sys_conf_params_filename),
 					time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
 					time_struct->tm_hour, time_struct->tm_min
@@ -955,7 +998,7 @@ int SysScanSlfTrgThresh( char *sys_conf_params_filename )
 				sprintf
 				(
 					filename,
-					"%s_%02d%02d%02d_%02dH%02d_stopped.slf",
+					"%s_%02d%02d%02d_%02dH%02d.slf",
 					rootfilename(sys_conf_params_filename),
 					time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
 					time_struct->tm_hour, time_struct->tm_min
@@ -994,10 +1037,186 @@ int SysScanSlfTrgThresh( char *sys_conf_params_filename )
 		printf( "%s: stopped as no active self trigger FEUs present\n", __FUNCTION__ );
 	}
 
-	if( do_scan_trg_thr == 6 )
-	{
-		printf( "%s: stopped as something went wrong with hardware\n", __FUNCTION__ );
+	return D_RetCode_Sucsess;
+}
+
+int SysScanFeuMonit( char *sys_conf_params_filename, int store_period_sec )
+{
+	int ret;
+	int bec;
+	int feu;
+	int beu;
+	int beu_lnk;
+	FeuParams *feu_params;
+	FeuMonit   feu_monit;
+	char       feu_monit_str[256];
+	int run;
+	int iter;
+
+	char filename[256];
+
+	// time variables
+	time_t     cur_time;
+	struct tm *time_struct;
+	struct timeval t0;
+	struct timeval t1;
+	struct timeval dt;
+	struct timeval refresh_time;
+	struct timeval tstart;
+	struct timeval tsince;
+	struct timeval store_last_time;
+	struct timeval store_period_time;
+	float  f_refresh;
+	char   character;
+	int    store;
+
+# define DEF_MONIT_REFRESH_TIME_SEC 1
+	// Get execution time
+	cur_time = time(NULL);
+	time_struct = localtime(&cur_time);
+	f_refresh = DEF_MONIT_REFRESH_TIME_SEC;
+	refresh_time.tv_sec = (int)f_refresh;
+	refresh_time.tv_usec = (int)(1.e6*(f_refresh - refresh_time.tv_sec));
+	if(f_refresh<0 || (refresh_time.tv_sec==0 && refresh_time.tv_usec<1)) {
+		refresh_time.tv_usec = 1;
 	}
+	gettimeofday(&t0,0);
+	gettimeofday(&t1,0);
+
+	// Check for Null pointer
+	if( sys_params_ptr == (SysParams *)NULL )
+	{
+		fprintf( stderr, "%s: params=0\n", __FUNCTION__ );
+		return D_RetCode_Err_Null_Pointer;
+	}
+
+	// Open monit files to write
+	if( store_period_sec > 0 )
+	{
+		/* Go through all FEU-s and open monitoring files for configured FEUs */
+		for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+		{
+			feu_params = &(sys_params_ptr->FeuParams_Col.feu_params[feu]);
+			if( feu_params->Feu_RunCtrl_Id > 0 )
+			{
+				sprintf
+				(
+					filename,
+					"%s_%02d%02d%02d_%02dH%02d_f%02d.mnt",
+					rootfilename(sys_conf_params_filename),
+					time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
+					time_struct->tm_hour, time_struct->tm_min, feu
+				);
+				if( (monit_fptr[feu]=fopen(filename, "w")) == NULL )
+				{
+					fprintf( stderr, "%s: fopen failed for monit file %s in write mode\n", __FUNCTION__, filename );
+					fprintf( stderr, "%s: fopen failed with %s\n", __FUNCTION__, strerror(errno) );
+					return D_RetCode_Err_FileIO;
+				}
+			}
+			else
+				monit_fptr[feu] = (FILE *)NULL;
+		} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+		monit_fptr_init = 1;
+		store_period_time.tv_sec  = store_period_sec;
+		store_period_time.tv_usec = 0;
+		store_last_time = t0;
+	}
+
+	changemode(1);
+	iter = 0;
+	gettimeofday(&tstart,0);
+	// Main loop
+	while(run)
+	{
+		iter++;
+		store = 0;
+		if( monit_fptr_init == 1 )
+		{
+			timersub(&t1,&store_last_time,&tsince);
+			if( (timercmp(&tsince,&store_period_time,>)) || (iter==1) )
+			{
+				store_last_time = t1;
+				store = 1;
+			}
+		}
+		// Go through back end crates
+		for( bec=1; bec<DEF_MAX_NB_OF_BEC; bec++ )
+		{
+			/* Configure FEU-s */
+			for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+			{
+				beu        = ((feu>>5)&0x07)+1;
+				beu_lnk    = ( feu    &0x1F)-1;
+				if( (1<=sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
+				{
+					feu_params = &(sys_params_ptr->FeuParams_Col.feu_params[feu]);
+					gettimeofday(&t1, 0);
+					timersub(&t1,&tstart,&tsince);
+					if( (ret=FeuMonit_Get( &feu_monit, feu_params, feu, beu, beu_lnk )) != D_RetCode_Sucsess )
+					{
+						fprintf( stderr,  "%s: FeuMonit failed for feu=%d beu=%d beu_lnk=%d with %d\n\r", __FUNCTION__, feu, beu, beu_lnk, ret  );
+						run = 0;
+						changemode(0);
+						return ret;
+					}
+					FeuMonit_Sprintf( &feu_monit, feu_monit_str );
+					fprintf
+					(
+						stdout,
+						"%6d %6d sec Feu %2d SN %3d (beu=%1d lnk=%2d): %s\n",
+						iter, tsince.tv_sec,
+						feu, sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk], beu, beu_lnk,
+						feu_monit_str
+					);
+					if( store )
+					{
+						fprintf
+						(
+							monit_fptr[feu],
+							"%6d %6d sec Feu %2d SN %3d (beu=%1d lnk=%2d): %s\n",
+							iter, tsince.tv_sec,
+							feu, sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk], beu, beu_lnk,
+							feu_monit_str
+						);
+						fflush( monit_fptr[feu] );
+					}
+				} // if( (1<=sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]
+			} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+		} // for( bec=1; bec<DEF_MAX_NB_OF_BEC; bec++ )
+
+		// Check for commands
+		printf("*** Press Q (shift-q) to quit\n\n\r");
+		character = 0;
+		do
+		{
+			// handle keyboard input
+			if( kbhit() )
+				character=getchar();
+
+			if( character == 0 )
+			{
+				usleep(DEF_KBD_READ_DELAY_US);
+				gettimeofday(&t1, 0);
+			}
+			timersub(&t1,&t0,&dt);
+		} while( timercmp(&dt,&refresh_time,<) && (character==0) );
+		t0 = t1;
+
+		// Decode keyboard input
+		if( character )
+		{
+			switch( character )
+			{
+				case 'Q' :
+					// Stop the scan
+					run = 0;
+					changemode(0);
+				break;
+				default : ;
+			}
+		}
+	} // while( run )
 
 	return D_RetCode_Sucsess;
 }

@@ -424,12 +424,12 @@ bool CrateMsgClient::ReadData(int slot, unsigned int **val, int *len)
   Msg.msg.m_Cmd_ReadScalers.cnt = 70; /* ignored by server */
   Msg.msg.m_Cmd_ReadScalers.slot = slot;
 
-  /*printf("CrateMsgClient::ReadScalers: befor cnt %d %d\n",Msg.msg.m_Cmd_ReadScalers.cnt,Msg.msg.m_Cmd_ReadScalers_Rsp.cnt);*/
+  /*printf("CrateMsgClient::ReadData: befor cnt %d %d\n",Msg.msg.m_Cmd_ReadScalers.cnt,Msg.msg.m_Cmd_ReadScalers_Rsp.cnt);*/
   SendRaw(&Msg, Msg.len+8);
 
   if(RcvRsp(Msg.type))
   {
-    /*printf("CrateMsgClient::ReadScalers: after cnt %d %d\n",Msg.msg.m_Cmd_ReadScalers.cnt,Msg.msg.m_Cmd_ReadScalers_Rsp.cnt);*/
+    /*printf("CrateMsgClient::ReadData: after cnt %d %d\n",Msg.msg.m_Cmd_ReadScalers.cnt,Msg.msg.m_Cmd_ReadScalers_Rsp.cnt);*/
 	if(swap)
 	{
 	  Msg.msg.m_Cmd_ReadScalers_Rsp.cnt = LSWAP(Msg.msg.m_Cmd_ReadScalers_Rsp.cnt);
@@ -443,7 +443,7 @@ bool CrateMsgClient::ReadData(int slot, unsigned int **val, int *len)
 	}
 
     *len = Msg.msg.m_Cmd_ReadScalers_Rsp.cnt;
-    /*printf("CrateMsgClient::ReadScalers: *len=%d\n",*len);*/
+    /*printf("CrateMsgClient::ReadData: *len=%d\n",*len);*/
     if(swap)
 	{
 	  for(int i = 0; i < Msg.msg.m_Cmd_ReadScalers_Rsp.cnt; i++)
@@ -463,7 +463,6 @@ bool CrateMsgClient::ReadData(int slot, unsigned int **val, int *len)
   }
   return kFALSE;
 }
-
 
 
 

@@ -27,7 +27,6 @@
 
 #include "ReturnCodes.h"
 #include "Parser.h"
-#include "BecConfigParams.h"
 
 #include "CBus.h"
 #include "CBus_Common.h"
@@ -44,10 +43,11 @@
 #include "DrmClk.h"
 #include "UdpChan.h"
 
-#include "BeuConfig.h"
-
+#include "BecConfigParams.h"
 #include "FeuConfigParams.h"
-#include "SysConfig.h"
+
+#include "BeuConfig.h"
+#include "FeuConfig.h"
 
 /*
  * Beu slow control interface
@@ -614,7 +614,7 @@ int DreamRegConfig( int dream, int reg, unsigned short reg_val[4], int feu_id, i
 			retry++;
 		}
 		// 64-bit registers
-		else if( (6<=reg) && (reg<=7) && ( reg_val[2] != (rd_val[2] & 0xFFFF) ) )
+		else if( ((6<=reg) || (reg<=7)) && ( reg_val[2] != (rd_val[2] & 0xFFFF) ) )
 		{
 			if( retry == Def_DreamRegConfigRetry )
 			{
@@ -624,7 +624,7 @@ int DreamRegConfig( int dream, int reg, unsigned short reg_val[4], int feu_id, i
 			}
 			retry++;
 		}
-		else if( (6<=reg) && (reg<=7) && ( reg_val[3] != (rd_val[3] & 0xFFFF) ) )
+		else if( ((6<=reg) || (reg<=7)) && ( reg_val[3] != (rd_val[3] & 0xFFFF) ) )
 		{
 			if( retry == Def_DreamRegConfigRetry )
 			{
@@ -2957,8 +2957,8 @@ int FeuToggleCommand( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk
 			return D_RetCode_Err_WrRd_Missmatch;
 		}
 	}
-//printf("%s: command 0x%x should be set\n", __FUNCTION__, tog_cmd);
-//getchar();
+//printf("%s: command 0x%x should be set in 0x%08x\n", __FUNCTION__, tog_cmd, rd_val);
+
 	/*
 	 *  Reset the command
 	 */
@@ -2995,8 +2995,8 @@ int FeuToggleCommand( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk
 			return D_RetCode_Err_WrRd_Missmatch;
 		}
 	}
-//printf("%s: command 0x%x should be cleared\n", __FUNCTION__, tog_cmd);
-//getchar();
+//printf("%s: command 0x%x should be set in 0x%08x\n", __FUNCTION__, tog_cmd, rd_val);
+
 
 	/*
 	 *  Free exclusive access to FEU
@@ -3016,6 +3016,7 @@ int FeuToggleCommand( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk
  ***************************************************************************
  ***************************************************************************/
 FeuTrgScan feu_trg_scan[DEF_MAX_NB_OF_FEU];
+struct timeval dream_scan_period;
 
 int FeuTrgScan_Init( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 {
@@ -3035,6 +3036,8 @@ int FeuTrgScan_Init( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int be
 	scan->nb_of_checks = -1;
 	scan->prev_cntr    = 0;
 
+	dream_scan_period.tv_sec = DEF_DRM_TRG_CHK_PER;
+	dream_scan_period.tv_usec = 0;
 
 	// First Fix the Peek/Poke global variables
 	PeekPoke_Feu = feu_id;
@@ -3166,8 +3169,9 @@ int FeuTrgScan_Init( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int be
 			__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
 		return D_RetCode_Err_NetIO;
 	}
-	// Set large prescale
-	wr_val = D_Feu_RegPreScale_EvtData_Put( rd_val, 2047 );
+	// Disable data packet transfer through prescale
+	wr_val = D_Feu_RegPreScale_EvtData_Clr( rd_val );
+//fprintf( stdout, "%s: Prescale before settings rd_val=0x%08x wr_val=0x%08x\n", __FUNCTION__, rd_val, wr_val);
 	// Write
 	if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
 	{
@@ -3184,7 +3188,9 @@ int FeuTrgScan_Init( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int be
 			return D_RetCode_Err_WrRd_Missmatch;
 		}
 	}
-/*
+//fprintf( stdout, "%s: Prescale after settings rd_val=0x%08x wr_val=0x%08x\n", __FUNCTION__, rd_val, wr_val);
+//getchar();
+
 	// Switch trigger source to self trigger
 	// Set configuration register address 
 	reg_adr = D_CBus_SetModType(      0, D_CBus_Mod_TrigGen );
@@ -3208,7 +3214,7 @@ int FeuTrgScan_Init( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int be
 			return D_RetCode_Err_WrRd_Missmatch;
 		}
 	}
-*/
+
 	// Initialize
 	// Set address 
 	reg_adr = D_CBus_SetModType( 0, D_CBus_Mod_Main );
@@ -3491,6 +3497,7 @@ int FeuTrgScan_SetThr( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int 
 
 	scan->nb_of_checks = 0;
 	scan->prev_cntr = 0;
+	gettimeofday(&(scan->tstart), 0);
 
 	return D_RetCode_Sucsess;
 }
@@ -3533,7 +3540,7 @@ int FeuTrgScan_MskDrm( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int 
 	}
 	else
 	{
-		if( D_Main_Cmd_Config_Get(wr_val) != D_Main_Cmd_Config_Get(rd_val) )
+		if( D_Main_Cmd_Run_Get(wr_val) != D_Main_Cmd_Run_Get(rd_val) )
 		{
 			fprintf( stderr,  "%s: Main Command (Run_Clr) WrRd_Missmatch for feu=%d beu=%d lnk=%d reg=0x%06x wr_val=0x%08x rd_val=0x%08x\n",
 				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr,  wr_val, rd_val );
@@ -3653,6 +3660,15 @@ int FeuTrgScan_MskDrm( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int 
 		}
 	}
 
+
+	// ReSync
+	if( (ret = FeuToggleCommand( feu_params, feu_id, beu_id, beu_lnk_id, ReSync ) ) != D_RetCode_Sucsess )
+	{
+		fprintf( stderr,  "%s: FeuToggleCommand ReSync failed for feu=%d beu=%d lnk=%d with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
+		return D_RetCode_Err_NetIO;
+	}
+
 	// Set running threshold negative
 	scan->running_thr = -1;
 	scan->nb_of_checks = -1;
@@ -3662,6 +3678,23 @@ int FeuTrgScan_MskDrm( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int 
 	scan->drm_msk |= (1<<scan->running_drm);
 	if( scan->drm_msk == 0xFF )
 	{
+/*
+		// Reset FEU
+		if( (ret = _FeuReset( feu_params, feu_id, beu_id, beu_lnk_id )) != D_RetCode_Sucsess )
+		{
+			fprintf( stderr, "%s: _FeuReset fail for feu=%d beu=%d lnk=%d with ret %d\n", __FUNCTION__, feu_id, beu_id, beu_lnk_id, ret ); 
+			return ret;
+		}
+		usleep(100000);
+*/
+		// Reset hardware
+		if( (ret = FeuToggleCommand( feu_params, feu_id, beu_id, beu_lnk_id, HwReset ) ) != D_RetCode_Sucsess )
+		{
+			fprintf( stderr,  "%s: FeuToggleCommand LatchStat failed for feu=%d beu=%d lnk=%d with %d\n",
+				__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
+			return D_RetCode_Err_NetIO;
+		}
+fprintf( stderr,  "%s: FeuToggleCommand HwReset for feu=%d beu=%d lnk=%d\n\r", __FUNCTION__, feu_id, beu_id, beu_lnk_id );
 		// looks like we've done with the FEU
 		// Restore trigger module config parameters
 		// Set configuration register address 
@@ -3698,7 +3731,7 @@ int FeuTrgScan_MskDrm( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int 
 				__FUNCTION__, feu_id, beu_id, beu_lnk_id, reg_adr, ret );
 			return D_RetCode_Err_NetIO;
 		}
-		// Set large prescale
+		// Restore prescale
 		wr_val = D_Feu_RegPreScale_EvtData_Put( rd_val, feu_params->Feu_PreScale_EvtData );
 		// Write
 		if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
@@ -3754,11 +3787,13 @@ int FeuTrgScan_MskDrm( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int 
 	return 0;
 }
 
-int FeuTrgScan_ChkCoin( FeuTrgScan *scan, FeuParams *feu_params, int chk_cnt, int feu_id, int beu_id, int beu_lnk_id )
+int FeuTrgScan_ChkCoin( FeuTrgScan *scan, FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id, int chk_cnt )
 {
 	unsigned int reg_adr;
 	unsigned int wr_val;
 	unsigned int rd_val;
+	struct timeval tcur;
+	struct timeval dt;
 
 	int ret;
 
@@ -3791,16 +3826,29 @@ int FeuTrgScan_ChkCoin( FeuTrgScan *scan, FeuParams *feu_params, int chk_cnt, in
 
 	// Compare counts
 	if( scan->nb_of_checks == 1 )
+	{
 		scan->prev_cntr = rd_val;
+		gettimeofday(&(scan->tstart), 0);
+	}
 
 	// Stop scanning threshold found
 	if( scan->prev_cntr == rd_val )
+	{
+		// Chek if scan count finished
 		if( scan->nb_of_checks == chk_cnt )
 		{
 			scan->drm_thr[scan->running_drm] = scan->running_thr;
 			return 1;
 		}
-
+		// Chek if scan period finished
+		gettimeofday(&tcur, 0);
+		timersub(&tcur,&(scan->tstart),&dt);
+		if( timercmp(&dt,&dream_scan_period,>) )
+		{
+			scan->drm_thr[scan->running_drm] = scan->running_thr;
+			return 1;
+		}
+	}
 	if( scan->prev_cntr != rd_val )
 		if( scan->running_thr == DEF_DRM_TRG_MAX_THR )
 		{
@@ -3880,6 +3928,119 @@ int FeuTrgScan_UpdateConfig( FeuTrgScan *scan, FeuParams *feu_params, int feu_in
 	}
 	return D_RetCode_Sucsess;
 }
+/***************************************************************************
+ ***************************************************************************
+            Monitoring Functions
+ ***************************************************************************
+ ***************************************************************************/
+int  FeuMonit_Sprintf( FeuMonit *feu_monit, char *buf  )
+{
+	char append_str[256];
+	sprintf(buf, "Ti=%4.1fC ", feu_monit->Temp_MaxIntSensor );
 
+	sprintf(append_str, "Tx=%4.1fC ", feu_monit->Temp_XilSideSensor );
+	strcat( buf, append_str);
 
+	sprintf(append_str, "Ta=%4.1fC ", feu_monit->Temp_AdcSideSensor );
+	strcat( buf, append_str);
 
+	sprintf(append_str, "I=%4.2fA ", feu_monit->Curent );
+	strcat( buf, append_str);
+
+	return D_RetCode_Sucsess;
+}
+int  FeuMonit_Fprintf( FeuMonit *feu_monit, FILE *fptr )
+{
+	char buf[256];
+	FeuMonit_Sprintf( feu_monit, buf );
+	fprintf( fptr, "%s", buf );
+	fflush( fptr );
+	return D_RetCode_Sucsess;
+}
+
+int FeuMonit_Get( FeuMonit *feu_monit, FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
+{
+	int ret;
+	int reg;
+	unsigned char rd_val;
+	unsigned char rd_val_prev;
+//	int feu_sn;
+
+	// First Fix the Peek/Poke global variables
+	PeekPoke_Feu = feu_id;
+	PeekPoke_Beu = beu_id;
+	PeekPoke_Lnk = beu_lnk_id;
+
+	// Make sure the Link is active
+	if( (ret = Beu_CheckFeuLink(feu_id, beu_id, beu_lnk_id)) < 0 )
+	{
+		fprintf( stderr,  "%s: Beu_ChekFeuLink failed with %d for %d %d %d\n",
+			__FUNCTION__, ret, feu_id, beu_id, beu_lnk_id );
+		return ret;
+	} 
+
+	/*
+	 *  Try to get FEU ID
+	 */
+/*
+	if( (ret = _FeuGetSn( feu_id, beu_id, beu_lnk_id, &feu_sn )) != D_RetCode_Sucsess )
+	{
+		fprintf( stderr,  "%s: _FeuGetSn failed for feu=%d beu=%d lnk=%d with %d\n",
+			__FUNCTION__, feu_id, beu_id, beu_lnk_id, ret );
+		return ret;
+	}
+	if( feu_sn != feu_params->Feu_RunCtrl_Id )
+	{
+		fprintf( stderr,  "%s: Unexpected Feu SN=%d for feu=%d beu=%d lnk=%d; SN=%d expected\n",
+			__FUNCTION__, feu_sn, feu_id, beu_id, beu_lnk_id, feu_params->Feu_RunCtrl_Id );
+		return D_RetCode_Err_Wrong_Param;
+	}
+*/
+	// Get exclussive access to the FEU
+	if( (ret = FeuConfig_Lock()) != D_RetCode_Sucsess )
+	{
+//		fprintf( stderr, "%s: Feu_Lock fail for feu=%d sn=%d beu=%d lnk=%d with ret %d\n", __FUNCTION__, feu_id, feu_sn, beu_id, beu_lnk_id, ret ); 
+		fprintf( stderr, "%s: Feu_Lock fail for feu=%d sn=%d beu=%d lnk=%d with ret %d\n", __FUNCTION__, feu_id, feu_params->Feu_RunCtrl_Id, beu_id, beu_lnk_id, ret ); 
+		return ret;
+	}
+
+	// Now verify the max16031
+	for( reg=16; reg<=22; reg++ )
+	{
+		if( (ret = I2C_Max16031_ReadByte( reg, &rd_val )) !=  D_RetCode_Sucsess )
+		{
+			fprintf( stderr,  "%s: I2C_Max16031_ReadByte(0x%2x) failed for feu=%d sn=%d beu=%d lnk=%d with %d\n",
+				__FUNCTION__, reg, feu_id, feu_params->Feu_RunCtrl_Id, beu_id, beu_lnk_id, ret );
+			FeuConfig_UnLock();
+			return ret;
+		}
+		if( (reg < 22) && (reg&0x1) )
+		{
+			// Check for MAX16031 manual for conversion
+			if( (reg & 0xFE) == 16 )
+				feu_monit->Temp_MaxIntSensor = ((double)((rd_val_prev<<2)+rd_val)-512)*0.5;
+			else if( (reg & 0xFE) == 18 )
+				feu_monit->Temp_XilSideSensor = ((double)((rd_val_prev<<2)+rd_val)-512)*0.5;
+			else
+				feu_monit->Temp_AdcSideSensor = ((double)((rd_val_prev<<2)+rd_val)-512)*0.5;
+		}
+		else if( reg == 22 )
+		{
+			// Check for MAX16031 manual for conversion
+			// The last 1.2 factor is due to FEU design
+			feu_monit->Curent = ((double)(rd_val))*1.4/6/255/0.01/1.2;
+		}
+		rd_val_prev = rd_val;
+	} // for( reg=16; reg<=23; reg++ )
+
+	/*
+	 *  Free exclusive access to FEU
+	 */
+	if( (ret = FeuConfig_UnLock()) != D_RetCode_Sucsess )
+	{
+		fprintf( stderr, "%s: Feu_Lock fail for feu=%d sn=%d beu=%d lnk=%d with ret %d\n", __FUNCTION__, feu_id, feu_params->Feu_RunCtrl_Id, beu_id, beu_lnk_id, ret ); 
+		return ret;
+	}
+
+	return D_RetCode_Sucsess;
+}

@@ -61,7 +61,7 @@ main(int argc, char *argv[])
   for(ii=0; ii<len; ii++) {printf("slot %2d, boardID 0x%08x\n",ii,buf[ii]);fflush(stdout);}
 
 
-  
+  /*  
   partype = SCALER_PARTYPE_THRESHOLD;
   slot = 3;
   for(ii=0; ii<16; ii++)
@@ -75,9 +75,8 @@ main(int argc, char *argv[])
   partype = SCALER_PARTYPE_THRESHOLD;
   ret = tcp->GetBoardParams(slot, partype, &buf, &len);
   for(ii=0; ii<len; ii++) {printf("ch[%2d] thres1=%d\n",ii,buf[ii]);fflush(stdout);}
+  */
 
-
-exit(0);
 
   /*
   partype = SCALER_PARTYPE_THRESHOLD2;
@@ -93,18 +92,18 @@ exit(0);
   */
 
 
-  sleep(3);
+  sleep(1);
 
 
   printf("-------------------------\n");
   while(1)
   {
 	
-    slot=8;
+    slot=4;
 
     ret = tcp->ReadScalers(slot, &buf, &len);
     printf("cratemsgclienttest: ret=%d, len=%d slot=%d\n",ret,len, slot);
-    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    //for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
 
 //    ii = 35;
 //    printf("lead glass sum: %10d \n",buf[ii]);fflush(stdout);
@@ -116,7 +115,7 @@ exit(0);
 
     ret = tcp->ReadData(slot, &buf, &len);
     printf("cratemsgclienttest: ret=%d, len=%d slot=%d\n",ret,len, slot);
-    for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    //for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
 
 //    ii = 35;
 //    printf("lead glass sum: %10d \n",buf[ii]);fflush(stdout);

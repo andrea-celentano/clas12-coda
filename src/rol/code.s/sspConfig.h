@@ -97,6 +97,38 @@ typedef struct
 
 typedef struct
 {
+  int en;
+
+  int ft_cluster_en;
+  int ft_cluster_emin;
+  int ft_cluster_emax;
+  int ft_cluster_hodo_nmin;
+  int ft_cluster_nmin;
+  int ft_cluster_width;
+
+  int ft_esum_en;
+  int ft_esum_emin;
+  int ft_esum_width;
+
+  int htcc_en;
+  long long htcc_mask[6];
+  int htcc_width;
+} ctrigger;
+
+typedef struct
+{
+  int esum_delay;
+  int cluster_delay;
+  int esum_intwidth;
+} ss_ft;
+
+typedef struct
+{
+  int htcc_delay;
+} ss_htcc;
+
+typedef struct
+{
   int cmd_fsu;
   int cmd_ss;
   int cmd_fsb;
@@ -179,12 +211,20 @@ typedef struct {
   struct
   {
     strigger strg[4];
-    ss_ecal ecal;
-    ss_ecal pcal;
-    ss_dc dc[3];
-    int gtpif_latency;
+    ss_ecal  ecal;
+    ss_ecal  pcal;
+    ss_dc    dc[3];
+    int      gtpif_latency;
   } gt;
-  
+
+  struct
+  {
+    ctrigger ctrg[4];
+    ss_ft    ft;
+    ss_htcc  htcc;
+    int      gtpif_latency;
+  } gtc; 
+ 
   struct
   {
     rich_fiber fiber[RICH_FIBER_NUM];

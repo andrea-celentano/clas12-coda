@@ -171,9 +171,9 @@ static int init_boards;
 static int
 vmeSetScalersReadInterval(int time)
 {
-  if(time < 0)        vmeScalersReadInterval = 0; /* 0 means no reads */
-  else if(time > 100) vmeScalersReadInterval = 100;
-  else                vmeScalersReadInterval = time;
+  if(time < 0)       vmeScalersReadInterval = 0; /* 0 means no reads */
+  else if(time > 10) vmeScalersReadInterval = 10;
+  else               vmeScalersReadInterval = time;
 
   printf("vmeSetScalersReadInterval: vmeScalersReadInterval set to %d\n",vmeScalersReadInterval);
 
@@ -250,10 +250,16 @@ vmeBusUnlock();
       {
         unsigned int fibermask;
         slot = sspSlot(id);
+		printf("slot=%d\n",slot);
+
 vmeBusLock();
+		sspRich_ScanFibers_NoInit(id);
+vmeBusUnlock();
+
         if(sspGetFirmwareType(slot) == SSP_CFG_SSPTYPE_HALLBRICH)
 		{
           sspRich_GetConnectedFibers(slot, &fibermask);
+          printf("fibermask=0x%08x\n",fibermask);
           /* loop over fibers */
           nw = 0;
           for(fiber=0; fiber<32; fiber++)
@@ -263,18 +269,24 @@ vmeBusLock();
 
 		    if(fibermask & (1<<fiber))
 		    {
+/*printf("befor lock\n");fflush(stdout);*/
+vmeBusLock();
+/*printf("in lock\n");fflush(stdout);*/
               sspRich_ReadScalers(slot, fiber, &ref, maroc);
-
+vmeBusUnlock();
+/*printf("after lock\n");fflush(stdout);*/
+			  /*printf("got fiber %d, nw=%d (%d)\n",fiber,nw,nw/(RICH_CHAN_NUM+3));*/
               nw_len = nw;
               sspbuf[nw++] = 0; /*reserve space for length*/
               sspbuf[nw++] = fiber;
               sspbuf[nw++] = ref;
+			  
               memcpy(&sspbuf[nw], maroc, RICH_CHAN_NUM*sizeof(int)); nw += RICH_CHAN_NUM;
               sspbuf[nw_len] = nw - nw_len; /*inclusive length in words*/
 		    }
 	      }
 		}
-vmeBusUnlock();
+
         vmescalerslen[slot] = nw;
         for(ii=0; ii<nw; ii++) vmescalers[slot][ii] = sspbuf[ii];
 		/*printf("vmeScalersRead: nw=%d, vmescalers[slot][nw-2]=%d, vmescalers[slot][nw-1]=%d\n",nw,vmescalers[slot][nw-2],vmescalers[slot][nw-1]);*/
@@ -299,7 +311,6 @@ static int
 vmeDataRead()
 {
   int itype, id, ii, nw, nw_len, slot, fiber;
-  unsigned int chmask = 0xFFFF;
 
   SCALER_LOCK;
 
@@ -311,10 +322,10 @@ vmeDataRead()
       {
         unsigned int fibermask;
         slot = sspSlot(id);
-vmeBusLock();
         if(sspGetFirmwareType(slot) == SSP_CFG_SSPTYPE_HALLBRICH)
 		{
           sspRich_GetConnectedFibers(slot, &fibermask);
+		  /*printf("data fibermask=0x%08x\n",fibermask);*/
           /* loop over fibers */
           nw = 0;
           for(fiber=0; fiber<32; fiber++)
@@ -322,8 +333,10 @@ vmeBusLock();
             sspRich_Monitor mon;
 		    if(fibermask & (1<<fiber))
 		    {
+vmeBusLock();
               sspRich_ReadMonitor(slot, fiber, &mon);
-
+vmeBusUnlock();
+              /*printf("fiber=%d nw=%d (%d)\n",fiber,nw,nw/11);*/
               nw_len = nw;
               sspbuf[nw++] = 0; /*reserve space for length*/
               sspbuf[nw++] = fiber;
@@ -341,7 +354,6 @@ vmeBusLock();
 		    }
 	      }
 		}
-vmeBusUnlock();
         vmedatalen[slot] = nw;
         for(ii=0; ii<nw; ii++) vmedata[slot][ii] = sspbuf[ii];
       }
@@ -621,6 +633,8 @@ faSetA32BaseAddress(fadcA32Address);
   /************/
   /* SSP INIT */
 
+  printf("Start SSP initialization\n");
+
   iFlag  = SSP_INIT_MODE_DISABLED; /* Disabled, initially */
   iFlag |= SSP_INIT_SKIP_FIRMWARE_CHECK;
   iFlag |= SSP_INIT_MODE_VXS;
@@ -632,6 +646,7 @@ faSetA32BaseAddress(fadcA32Address);
   /* fill map array with FADC's found */
   for(ii=0; ii<nssp; ii++) if( (slot=sspSlot(ii)) > 0) vmescalersmap[slot] = SCALER_TYPE_SSP;
 
+  printf("Finished SSP initialization, nssp=%d\n",nssp);
 
 
 
@@ -639,6 +654,8 @@ faSetA32BaseAddress(fadcA32Address);
   init_boards = 0;
 
 
+
+  printf("Starting readout loop, vmeScalersReadInterval=%d\n",vmeScalersReadInterval);
 
   while(1)
   {
@@ -657,10 +674,14 @@ faSetA32BaseAddress(fadcA32Address);
 #else
       sleep(vmeScalersReadInterval);
 #endif
-      vmeScalersRead();
-	  /*printf("vmeReadTask: reading scalers ...\n");*/
 
+	  //printf("vmeReadTask: reading scalers ...\n");
+      vmeScalersRead();
+	  //printf("vmeReadTask: ... scalers read\n");
+
+	  //printf("vmeReadTask: reading data ...\n");
       vmeDataRead();
+	  //printf("vmeReadTask: ... data read\n");
     }
   }
 
@@ -903,12 +924,12 @@ Vme_Read16(Cmd_Read16 *pCmd_Read16, Cmd_Read16_Rsp *pCmd_Read16_Rsp)
 
 	pCmd_Read16_Rsp->cnt = c;	
 	
-	vmeBusLock();
+vmeBusLock();
 	if(pCmd_Read16->flags & CRATE_MSG_FLAGS_ADRINC)
 		while(c--) *pWr++ = swap16(*pRd++);
 	else
 		while(c--) *pWr++ = swap16(*pRd);
-	vmeBusUnlock();
+vmeBusUnlock();
 
 	return size;
 }
@@ -998,9 +1019,9 @@ Vme_ReadScalers(Cmd_ReadScalers *pCmd_ReadScalers, Cmd_ReadScalers_Rsp *pCmd_Rea
   pCmd_ReadScalers_Rsp->cnt = vmescalerslen[slot];
 
   for(ii=0; ii<pCmd_ReadScalers_Rsp->cnt; ii++) pWr[ii] = vmescalers[slot][ii];
-  /*printf("Vme_ReadScalers: respond: cnt=%d (size=%d) 100=%d 120=%d\n",pCmd_ReadScalers_Rsp->cnt,size,pWr[100],pWr[120]);*/
 
   size = pCmd_ReadScalers_Rsp->cnt*4 + 4; /* +4 because have to count 'cnt' in outgoing message */
+  /*printf("Vme_ReadScalers: respond: cnt=%d (size=%d) 100=%d 120=%d\n",pCmd_ReadScalers_Rsp->cnt,size,pWr[100],pWr[120]);*/
 
   SCALER_UNLOCK;
 
@@ -1223,7 +1244,7 @@ main(int argc, char *argv[])
     if(!strncmp(argv[1],"init",4))
 	{
       init_boards = 1;
-      printf("NOTE: boards initialization will be performed, can be a problem if DAQ is running !!!\n");
+      printf("NOTE: boards initialization will be performed and mutex cleared, can be a problem if DAQ is running !!!\n");
 	}
     else
 	{
@@ -1247,6 +1268,9 @@ main(int argc, char *argv[])
   /*vmeSetQuietFlag(1);*/
   stat = vmeOpenDefaultWindows();
   if(stat != 0) goto CLOSE;
+
+  if(init_boards) vmeCheckMutexHealth(1); /* kiils mutex if exist */
+
 #endif
 
 #ifdef Linux_armv7l

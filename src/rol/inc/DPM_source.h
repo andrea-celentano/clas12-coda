@@ -17,6 +17,10 @@ static int myfd;
 
 #include<time.h>
 #include<AxiStreamDma.h>
+#include<rol.h>
+
+#define DUMP_TDISP
+
 
 static time_t lastTime;
 static time_t trigCount;
@@ -116,6 +120,10 @@ dpmttest(int code)
       printf("Poll. Trig Count %i, Rate %i, Size=%i, Bw=%i Bps\n",trigCount,(trigCount-lastCount),lastSize,((trigCount-lastCount)*lastSize));
       lastTime  = currTime;
       lastCount = trigCount;
+#ifdef DUMP_TDISP
+      tdispprint();
+#endif
+
    }
 
    if ( axisReadReady(myfd) ) {

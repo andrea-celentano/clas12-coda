@@ -5,7 +5,7 @@
 
 
 #define CRATEMSG_LISTEN_PORT			6102
-#define MAX_MSG_SIZE					10000
+#define MAX_MSG_SIZE					40000
 
 #define CRATEMSG_HDR_ID					0x12345678
 

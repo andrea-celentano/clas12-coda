@@ -122,9 +122,13 @@ CrateMsg_Delay(CrateMsgStruct *msg, int swap)
 int
 CrateMsg_ReadScalers(CrateMsgStruct *msg, int swap)
 {
+  int ret;
+
   if(gServerCBFunctions.ReadScalers)
   {
-	return (*gServerCBFunctions.ReadScalers)(&msg->msg.m_Cmd_ReadScalers, &msg->msg.m_Cmd_ReadScalers_Rsp);
+    ret = (*gServerCBFunctions.ReadScalers)(&msg->msg.m_Cmd_ReadScalers, &msg->msg.m_Cmd_ReadScalers_Rsp);
+	/*printf("CrateMsg_ReadScalers ret=%d\n",ret);*/
+	return (ret);
   }
   return(0);
 }
@@ -242,7 +246,9 @@ ConnectionThread(void *parm)
    	{
       printf("break 1: result=%d\n",result);
       if(result==0) printf("Probably client closed connection\n");
-   	  break;
+      printf("error %d >%s<\n",errno,strerror(errno));
+   	  /*break;*/
+      goto error_exit;
    	}
     /*printf("ConnectionThread after recv1, result=%d\n",result);*/
 
@@ -338,6 +344,8 @@ ConnectionThread_exit:
 	
   close(pParm->sock);
   free(pParm);
+
+error_exit:
 	
   pthread_exit(NULL);
 	

@@ -67,6 +67,8 @@
 #define D_Main_Cmd_ReSync_Ind      8
 #define D_Main_Cmd_EthRst_Ind      9
 #define D_Main_Cmd_DrmClkRst_Ind  10
+#define D_Main_Cmd_HwRst_Ind      11
+
 // Command register field manipulation macros
 #define D_Main_Cmd_Reset_Get( word )       GetBits(word, D_Main_Cmd_Reset_Ind, 1 )
 #define D_Main_Cmd_Reset_Clr( word )       ClrBits(word, D_Main_Cmd_Reset_Ind, 1 )
@@ -107,6 +109,15 @@
 #define D_Main_Cmd_DrmClkRst_Get( word ) GetBits(word, D_Main_Cmd_DrmClkRst_Ind, 1 )
 #define D_Main_Cmd_DrmClkRst_Clr( word ) ClrBits(word, D_Main_Cmd_DrmClkRst_Ind, 1 )
 #define D_Main_Cmd_DrmClkRst_Set( word ) SetBits(word, D_Main_Cmd_DrmClkRst_Ind, 1 )
+
+#define D_Main_Cmd_DrmClkRst_Get( word ) GetBits(word, D_Main_Cmd_DrmClkRst_Ind, 1 )
+#define D_Main_Cmd_DrmClkRst_Clr( word ) ClrBits(word, D_Main_Cmd_DrmClkRst_Ind, 1 )
+#define D_Main_Cmd_DrmClkRst_Set( word ) SetBits(word, D_Main_Cmd_DrmClkRst_Ind, 1 )
+
+#define D_Main_Cmd_HwRst_Get( word ) GetBits(word, D_Main_Cmd_HwRst_Ind, 1 )
+#define D_Main_Cmd_HwRst_Clr( word ) ClrBits(word, D_Main_Cmd_HwRst_Ind, 1 )
+#define D_Main_Cmd_HwRst_Set( word ) SetBits(word, D_Main_Cmd_HwRst_Ind, 1 )
+
 
 /*
 -- Configuration register
