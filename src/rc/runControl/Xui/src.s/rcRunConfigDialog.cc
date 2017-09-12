@@ -134,10 +134,11 @@ rcRunConfigDialog::popup (void)
 /* parse run config file *.trg resolving 'include' etc, and create new file in the same directory
 with name <fname>.cnf; 'fname' assumed to be full path name */
 int
-rcRunConfigDialog::parseConfigFile(char *fname)
+rcRunConfigDialog::parseConfigFile(char *fname, int iter)
 {
   FILE *fin, *fout, *fd;
   char fnameout[STRLEN];
+  char fntmp[STRLEN];
   char filename[STRLEN], filename_full[STRLEN];
   char str_tmp[STRLEN];
   char keyword[STRLEN];
@@ -159,7 +160,9 @@ rcRunConfigDialog::parseConfigFile(char *fname)
   if(ptr != NULL)
   {
     *ptr = '\0';
-    strcat(fnameout,".cnf");
+    if(iter>0) sprintf(fntmp,"%s.cnf_%d\0",fnameout,iter);
+    else       sprintf(fntmp,"%s.cnf\0",fnameout);
+    strcpy(fnameout,fntmp);
   }
   else
   {
@@ -185,6 +188,10 @@ rcRunConfigDialog::parseConfigFile(char *fname)
 	/*
     printf("keyword >%s<\n",keyword);
 	*/
+
+
+
+
 
     /* Start parsing real config inputs */
 	if(nargs==2 && (strcmp(keyword,"include")==0 || strcmp(keyword,"INCLUDE")==0) )
@@ -229,6 +236,8 @@ rcRunConfigDialog::parseConfigFile(char *fname)
           printf("Write >%s<\n",str_tmp);
 		}*/
 
+
+
         /* open and copy included file contents */
         while ((ch = fgets(str_tmp, STRLEN, fd)) != NULL)
 		{
@@ -242,8 +251,10 @@ rcRunConfigDialog::parseConfigFile(char *fname)
             printf("Write >%s<\n",str_tmp);
 		  }*/
 		}
-
 		fclose(fd);
+
+
+
 
       }
       else
@@ -251,6 +262,10 @@ rcRunConfigDialog::parseConfigFile(char *fname)
         printf("rcRunConfigDialog::ReadConfigFile: ERROR included file is not specified\n");
         return(-7);
 	  }
+
+
+
+
 
     }
     else /* just copy string 'as is' */
@@ -372,7 +387,7 @@ rcRunConfigDialog::downloadCallback (int status, void* arg, daqNetData* data)
 void
 rcRunConfigDialog::execute (void)
 {
-  char fname[256], *fn, *ptr;
+  char filename[256], fname[256], fnam1[256], fnam2[256], *fn, *ptr;
   int len, ret;
 
 #ifdef _CODA_DEBUG
@@ -380,59 +395,81 @@ rcRunConfigDialog::execute (void)
   printf("rcRunConfigDialog::execute: ------------> selected file name >%s<\n",XcodaFileSelDialog::selectedFileName());
 #endif
 
-  strcpy(fname,"none");
+  strcpy(filename,"none");
 
   /* get file name selected */
   fn = XcodaFileSelDialog::selectedFileName();
 
-  if(fn) strcpy(fname,fn);
-  else strcpy(fname,"none");
+  if(fn) strcpy(filename,fn);
+  else strcpy(filename,"none");
 
   /* cleanup filename so next popup returns 0 if file not selected - DOES NOT WORK !!!*/
   XcodaFileSelDialog::deleteFileName();
 
-  len = strlen(fname);
+  len = strlen(filename);
 #ifdef _CODA_DEBUG
-  printf("rcRunConfigDialog::execute:  >>%s<<\n",(char *)&fname[len-4]);
+  printf("rcRunConfigDialog::execute:  >>%s<<\n",(char *)&filename[len-4]);
 #endif
-  if( !strncmp((char *)&fname[len-4],"NONE",4) ) strcpy(fname,"none");
+  if( !strncmp((char *)&filename[len-4],"NONE",4) ) strcpy(filename,"none");
 
 
 #ifdef _CODA_DEBUG
-  printf("rcRunConfigDialog::execute: >>>>>>>>>>>>> FILE1 >%s<\n",fname);fflush(stdout);
+  printf("rcRunConfigDialog::execute: >>>>>>>>>>>>> FILE1 >%s<\n",filename);fflush(stdout);
 #endif
+
+
 
 
   /* resolve INCLUDE statements in the file */
-  if( (ret=parseConfigFile(fname)) < 0 )
+  strcpy(fname,filename);
+  ptr = strrchr(fname,'.');
+  if(ptr != NULL)
   {
-    printf("rcRunConfigDialog::execute: ERROR in parseRunConfigFile: ret=%d\n",ret);
-    strcpy(fname,"none");
+    *ptr = '\0'; /* remove extension from 'fname' */
+
+    strcpy(fnam1,filename);
+    for(int iter=5; iter>=0; iter--)
+    {
+      if( (ret=parseConfigFile(fnam1, iter)) < 0 )
+      {
+        printf("rcRunConfigDialog::execute: ERROR in parseRunConfigFile: ret=%d\n",ret);
+        strcpy(filename,"none");
+        break;
+      }
+      else /* change extension for next iteration, in last iteration it has to become '.cnf' */
+      {
+        if(iter>0) sprintf(fnam1,"%s.cnf_%d\0",fname,iter);
+        else       sprintf(fnam1,"%s.cnf\0",fname);
+      }
+    }
+
+    /* remove intermediate files */
+    for(int iter=5; iter>0; iter--)
+    {
+      sprintf(fnam1,"%s.cnf_%d\0",fname,iter);
+      remove(fnam1);
+    }
+
   }
-  else /* change extension from 'trg' to 'cnf' */
+  else
   {
-    ptr = strrchr(fname,'.');
-    if(ptr != NULL)
-    {
-      *ptr = '\0';
-      strcat(fname,".cnf");
-    }
-    else
-    {
-      printf("rcRunConfigDialog::execute: ERROR: there is no '.' in file name >%s<\n",fname);
-      strcpy(fname,"none");
-    }
+    printf("rcRunConfigDialog::execute: ERROR: there is no '.' in file name >%s<\n",fname);
+    strcpy(filename,"none");
   }
 
+
+
+
+
 #ifdef _CODA_DEBUG
-  printf("rcRunConfigDialog::execute: >>>>>>>>>>>>> FILE2 >%s<\n",fname);fflush(stdout);
+  printf("rcRunConfigDialog::execute: >>>>>>>>>>>>> FILE2 >%s<\n",filename);fflush(stdout);
 #endif
   
   /*update database*/
-  updateConfFile(fname);
+  updateConfFile(filename);
 
 #ifdef _CODA_DEBUG
-  printf("rcRunConfigDialog::execute: >>>>>>>>>>>>> FILE3 >%s<\n",fname);fflush(stdout);
+  printf("rcRunConfigDialog::execute: >>>>>>>>>>>>> FILE3 >%s<\n",filename);fflush(stdout);
 #endif
 
   download (); /* from inside 'download()' we'll send DADOWNLOAD command to daqRun.cc */

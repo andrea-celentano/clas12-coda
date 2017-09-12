@@ -300,6 +300,7 @@ main(int argc, char **argv)
 #endif
 
   // start new rcServer
+  udpPort = 49152+(rand()/4); /* sergey: was not defined at all .. should we scan if 'brdHandler.open()' returns -1 */
   printf("==> start new rcServer: session=>%s< udpPort=%d\n",session,udpPort);
   Reactor          reactor;
   rccAcceptor      rccManager (reactor);

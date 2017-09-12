@@ -194,6 +194,12 @@ endif
 			-ffixed-line-length-none -fno-second-underscore -DLinux
 #CC = gcc -rdynamic
     CC = gcc
+ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
+    CC = /apps/gcc/4.9.4/bin/gcc
+endif
+ifeq ("$(OSTYPE_PLATFORM)","Linux_i686")
+    CC = /apps/gcc/4.9.4/bin/gcc
+endif
 
     CPP = gcc -E
 
@@ -201,6 +207,15 @@ endif
 ### -D_CODA_DEBUG
 
     CXX = g++ -g
+ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
+    CXX = /apps/gcc/4.9.4/bin/g++ -g
+endif
+ifeq ("$(OSTYPE_PLATFORM)","Linux_i686")
+    CXX = /apps/gcc/4.9.4/bin/g++ -g
+endif
+
+
+
     CXXFLAGS = $(CFLAGS)
 
     LD = ld

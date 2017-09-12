@@ -1,4 +1,6 @@
 
+#ifdef Linux_vme
+
 /* mutexclean.c */
 
 #include <stdio.h>
@@ -7,8 +9,6 @@
 
 #include "jvme.h"
 
-
-#ifdef Linux_vme
 
 int
 main(int argc, char *argv[])

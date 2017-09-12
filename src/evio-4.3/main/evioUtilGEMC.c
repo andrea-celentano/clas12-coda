@@ -7,6 +7,8 @@
 
 #undef DEBUG
 
+#define USE_PCAL
+
 /*  misc macros, etc. */
 #define MAXEVIOBUF 10000000
 
@@ -17,8 +19,11 @@
 #include <evio.h>
 #include <evioBankUtil.h>
 
-#include "ectrans.h"
+#ifdef USE_PCAL
 #include "pctrans.h"
+#else
+#include "ectrans.h"
+#endif
 
 static unsigned int buf[MAXEVIOBUF];
 static char *input_filename;
@@ -138,7 +143,7 @@ main(int argc, char **argv)
 	/* evioBankUtil stuff */
 
 
-#if 1
+#ifdef USE_ECAL
 
     /********/
     /* ECAL */
@@ -320,7 +325,7 @@ main(int argc, char **argv)
 
 
 
-#if 0
+#ifdef USE_PCAL
 
     /********/
     /* PCAL */
@@ -422,15 +427,18 @@ main(int argc, char **argv)
 	  printf("\n");
 	}
 
+	fragtag1 = 9; /* 3 for sector 1, 9 for sector 2 */
+    fragnum1 = 1;
+
     if(ind > 0)
 	{
       trig ++;
       slot_old = 0;
 	  
-      i = evOpenFrag(buf, 8, 1);
+      i = evOpenFrag(buf, fragtag1, 1);
       printf("evOpenFrag returned %d\n",i);
 	  
-      ret = evOpenBank(buf, 8/*fragtag*/, 1/*fragnum*/, banktag, banknum, banktyp, fmt, &ind_data);
+      ret = evOpenBank(buf, fragtag1, fragnum1, banktag, banknum, banktyp, fmt, &ind_data);
       printf("evOpenBank returns = %d\n",ret);
 
       b08out = (unsigned char *)&buf[ind_data];
@@ -445,8 +453,8 @@ main(int argc, char **argv)
 		layer = (aBuf[i].io-1)*3+aBuf[i].view-1;
 		printf("+++++++++++++ %d %d -> %d\n",aBuf[i].io,aBuf[i].view,layer);
         strip = aBuf[i].strip-1;
-        slot = adcslotpcal [layer] [strip];
-		chan = adcchanpcal [layer] [strip];
+        slot = adcslotecal [layer] [strip];
+		chan = adcchanecal [layer] [strip] - 1;
         printf("### layer=%d strip=%d -> slot=%d chan=%d (nchan(so far)=%d)\n",layer,strip,slot,chan,nchan[slot]);
 
         if(slot != slot_old)
@@ -489,7 +497,7 @@ main(int argc, char **argv)
         }
       }
 	  /*printf("last b08out = 0x%08x\n",b08out);*/
-      evCloseBank(buf, 8/*fragtag*/, 1/*fragnum*/, banktag, banknum, b08out);
+      evCloseBank(buf, fragtag1, fragnum1, banktag, banknum, b08out);
 	}
 #endif
 

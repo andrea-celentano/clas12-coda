@@ -28,10 +28,6 @@ $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
 	./$(OSTYPE_MACHINE)/rol/fbrol1_slave.so \
 	./$(OSTYPE_MACHINE)/rol/srs1_master.so \
 	./$(OSTYPE_MACHINE)/rol/srs1_slave.so \
-	./$(OSTYPE_MACHINE)/rol/pgem1_master.so \
-	./$(OSTYPE_MACHINE)/rol/pgem1_slave.so \
-        ./$(OSTYPE_MACHINE)/rol/pgem2_master.so \
-        ./$(OSTYPE_MACHINE)/rol/pgem2_slave.so \
 	./$(OSTYPE_MACHINE)/rol/hps1test_master.so \
 	./$(OSTYPE_MACHINE)/rol/hps1test_slave.so \
 	./$(OSTYPE_MACHINE)/rol/hps1mvt_master.so \
@@ -43,6 +39,11 @@ $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
 	./$(OSTYPE_MACHINE)/rol/fadc1_master.so \
 	./$(OSTYPE_MACHINE)/rol/fadc1_slave.so \
 	./$(OSTYPE_MACHINE)/rol/fadc1_1182.so
+
+#	./$(OSTYPE_MACHINE)/rol/pgem1_master.so \
+#	./$(OSTYPE_MACHINE)/rol/pgem1_slave.so \
+#        ./$(OSTYPE_MACHINE)/rol/pgem2_master.so \
+#        ./$(OSTYPE_MACHINE)/rol/pgem2_slave.so \
 
 #	./$(OSTYPE_MACHINE)/rol/urol2_tt_testsetup.so \
 #	./$(OSTYPE_MACHINE)/rol/dcrb1_master.so \
@@ -191,7 +192,7 @@ else
 ##########  LIBNAMES += $(CODA)/src/codatt/$(OSTYPE_MACHINE)/lib/libcodatt.a
 ##########  LIBNAMES += $(CODA)/src/bosio/$(OSTYPE_MACHINE)/lib/libbosio.a
 
-  LIBNAMES += $(CODA)/src/gem/$(OSTYPE_MACHINE)/lib/libgem.a
+#################  LIBNAMES += $(CODA)/src/gem/$(OSTYPE_MACHINE)/lib/libgem.a
 
 ###  LIBNAMES += $(CODA)/src/dac/$(OSTYPE_MACHINE)/lib/libdac.a
 

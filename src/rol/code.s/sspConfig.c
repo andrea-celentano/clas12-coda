@@ -364,13 +364,12 @@ sspInitGlobals()
       ssp[jj].gtc.ctrg[ii].htcc_mask[5] = 0;
       ssp[jj].gtc.ctrg[ii].htcc_width = 0;
     }
-	/*
-    ssp[jj].gtc..esum_delay = 0;
-    ssp[jj].gtc..cluster_delay = 0;
-    ssp[jj].gtc..esum_intwidth = 0;
-    ssp[jj].gtc..htcc_delay = 0;
+    ssp[jj].gtc.ft.esum_delay = 0;
+    ssp[jj].gtc.ft.cluster_delay = 0;
+    ssp[jj].gtc.ft.esum_intwidth = 0;
+    ssp[jj].gtc.htcc.htcc_delay = 0;
     ssp[jj].gtc.gtpif_latency = 0;
-	*/
+
     // RICH
     for(ii=0; ii<RICH_FIBER_NUM; ii++)
     {
@@ -466,6 +465,7 @@ sspReadConfigFile(char *filename_in)
   int    slot, slot1, slot2, chan;
   int    fiber, fiber1, fiber2;
   int    asic, asic1, asic2;
+  int    strg_bit=0, ctrg_bit=0;
   unsigned int  ui[6];
   float f1, fmsk[16];
   char *getenv();
@@ -890,120 +890,129 @@ sspReadConfigFile(char *filename_in)
           sscanf (str_tmp, "%*s %d %d", &i1);
           for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.dc[i1].seg_delay = i2;
         }
+        else if(!strcmp(keyword,"SSP_GT_STRG"))
+        {
+          sscanf (str_tmp, "%*s %d", &strg_bit);
+          if(strg_bit<0 || strg_bit>4)
+          {
+            printf("\nReadConfigFile: Wrong strg bit  number %d\n\n",strg_bit);
+            return(-4);
+          }
+        }
         else if(!strcmp(keyword,"SSP_GT_STRG_EN"))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].en = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].en = i1;
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_PCAL_CLUSTER_EMIN_EN"))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].pcal_cluster_emin_en = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].pcal_cluster_emin_en = i1;
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_ECALOUT_CLUSTER_EMIN_EN"))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].ecalout_cluster_emin_en = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalout_cluster_emin_en = i1;
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_ECALIN_CLUSTER_EMIN_EN"))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].ecalin_cluster_emin_en = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalin_cluster_emin_en = i1;
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_PCAL_ESUM_EN"))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].pcal_esum_en = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].pcal_esum_en = i1;
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_ECAL_ESUM_EN"))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].ecal_esum_en = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecal_esum_en = i1;
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_DC_MULT_EN"))
         {
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].dc_mult_en = i2;
+          sscanf (str_tmp, "%*s %d", &i12);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].dc_mult_en = i1;
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_ECALIN_COSMIC_EN"))
         {
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].ecalin_cosmic_en = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalin_cosmic_en = i1;
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_ECALOUT_COSMIC_EN"))
         {
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].ecalout_cosmic_en = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalout_cosmic_en = i1;
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_PCAL_COSMIC_EN"))
         {
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].pcal_cosmic_en = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].pcal_cosmic_en = i1;
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_COSMIC_WIDTH"))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].cosmic_width = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].cosmic_width = i1;
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_ECAL_ESUM_MIN"))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].ecal_esum_emin = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecal_esum_emin = i1;
         }
         else if((strcmp(keyword,"SSP_GT_STRG_ECAL_ESUM_WIDTH")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].ecal_esum_width = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecal_esum_width = i1;
         }
         else if((strcmp(keyword,"SSP_GT_STRG_PCAL_ESUM_MIN")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].pcal_esum_emin = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].pcal_esum_emin = i1;
         }
         else if((strcmp(keyword,"SSP_GT_STRG_PCAL_ESUM_WIDTH")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].pcal_esum_width = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].pcal_esum_width = i1;
         }
         else if((strcmp(keyword,"SSP_GT_STRG_ECALIN_CLUSTER_EMIN")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].ecalin_cluster_emin = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalin_cluster_emin = i1;
         }
         else if((strcmp(keyword,"SSP_GT_STRG_ECALIN_CLUSTER_WIDTH")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].ecalin_cluster_width = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalin_cluster_width = i1;
         }
         else if((strcmp(keyword,"SSP_GT_STRG_ECALOUT_CLUSTER_EMIN")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].ecalout_cluster_emin = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalout_cluster_emin = i1;
         }
         else if((strcmp(keyword,"SSP_GT_STRG_ECALOUT_CLUSTER_WIDTH")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].ecalout_cluster_width = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalout_cluster_width = i1;
         }
         else if((strcmp(keyword,"SSP_GT_STRG_PCAL_CLUSTER_EMIN")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].pcal_cluster_emin = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].pcal_cluster_emin = i1;
         }
         else if((strcmp(keyword,"SSP_GT_STRG_PCAL_CLUSTER_WIDTH")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].pcal_cluster_width = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].pcal_cluster_width = i1;
         }
         else if((strcmp(keyword,"SSP_GT_STRG_DC_MULT_MIN")==0))
         {
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].dc_mult_min = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].dc_mult_min = i1;
         }
         else if((strcmp(keyword,"SSP_GT_STRG_DC_MULT_WIDTH")==0))
         {
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[i1].dc_mult_width = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].dc_mult_width = i1;
         }
        
 

@@ -2320,7 +2320,7 @@ int evioDOMTree::toEVIOBuffer(uint32_t *buf, const evioDOMNodeP pNode, int size)
         
         // data stored as uint32_t in bank
         buf[dataOffset+nfmtword+1] = ndata+1;
-        buf[dataOffset+nfmtword+2] = (leaf->dataTag<<16) | (0x1<<8) | leaf->dataNum;
+        buf[dataOffset+nfmtword+2] = (leaf->dataTag<<16) | (padding<<14) | (0x1<<8) | leaf->dataNum;
         uint32_t *d = &buf[dataOffset+3+nfmtword];
         for(i=0; i<ndata; i++) d[i]=leaf->data[i];
       }

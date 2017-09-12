@@ -177,7 +177,9 @@ evLinkBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum
   len = buf[ind]+1; /* fragment length */
   if(len<=2)
   {
+#ifdef DEBUG
     printf("evLinkBank: fragment len=%d - return\n",len);
+#endif
     return(0);
   }
 

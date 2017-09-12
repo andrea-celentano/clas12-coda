@@ -47,13 +47,13 @@ endif
 install: install_lib
 	rm -rf tmp
 	mkdir tmp
-	cp $(MAIN).s/tt.h tmp
-	cp $(MAIN).s/coda.h tmp
-	cp $(MAIN).s/ttbosio.h tmp
-	cp $(MAIN).s/ttutils.h tmp
+#	cp $(MAIN).s/tt.h tmp
+#	cp $(MAIN).s/coda.h tmp
+#	cp $(MAIN).s/ttbosio.h tmp
+#	cp $(MAIN).s/ttutils.h tmp
 	cp $(MAIN).s/uthbook.h tmp
 	cp $(MAIN).s/uthbook_fun.h tmp
-	cp $(MAIN).s/sgutil.h tmp
+#	cp $(MAIN).s/sgutil.h tmp
 	chmod 664 tmp/*
 	-mkdir -p $(CODA)/common/include
 	cp tmp/* $(CODA)/common/include

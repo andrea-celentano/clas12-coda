@@ -59,8 +59,8 @@ distclean:
 vxworks:
 	cd mysql4.1.20;                      $(MAKE) all     VXWORKS
 	- cd mysql4.1.20;                    $(MAKE) install VXWORKS
-	- cd codatt;                         $(MAKE) all     VXWORKS
-	- cd codatt;                         $(MAKE) install VXWORKS
+#	- cd codatt;                         $(MAKE) all     VXWORKS
+#	- cd codatt;                         $(MAKE) install VXWORKS
 	- cd dac;                            $(MAKE) all     VXWORKS
 	- cd dac;                            $(MAKE) install VXWORKS
 	- cd rol;                            $(MAKE) all     VXWORKS
@@ -69,7 +69,7 @@ vxworks:
 
 cleanvxworks:
 	cd mysql4.1.20;                      $(MAKE) clean   VXWORKS
-	- cd codatt;                         $(MAKE) clean   VXWORKS
+#	- cd codatt;                         $(MAKE) clean   VXWORKS
 	- cd dac;                            $(MAKE) clean   VXWORKS
 	- cd rol;                            $(MAKE) clean   VXWORKS
 
@@ -99,9 +99,9 @@ arm:
 	- cd et-14.0;                        make
 	- cd et-14.0;                        make ulib
 	- cd et-14.0;                        make install
-	- cd codatt;                         make lib
-	- cd codatt;                         make shlib
-	- cd codatt;                         make install 
+#	- cd codatt;                         make lib
+#	- cd codatt;                         make shlib
+#	- cd codatt;                         make install 
 	- cd dac;                            make     
 	- cd dac;                            make install 
 	- cd rol;                            make     
@@ -113,7 +113,7 @@ cleanarm:
 	cd mysql4.1.20;                      make clean   
 	- cd evio-4.3;                       make clean
 	- cd et-14.0;                        make clean
-	- cd codatt;                         make clean   
+#	- cd codatt;                         make clean   
 	- cd dac;                            make clean   
 	- cd rol;                            make clean   
 
