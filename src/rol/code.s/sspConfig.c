@@ -309,12 +309,9 @@ sspInitGlobals()
       ssp[jj].gt.strg[ii].pcal_cluster_emin_en = 0;
       ssp[jj].gt.strg[ii].pcal_cluster_emin = 0;
       ssp[jj].gt.strg[ii].pcal_cluster_width = 0;
-      ssp[jj].gt.strg[ii].ecalout_cluster_emin_en = 0;
-      ssp[jj].gt.strg[ii].ecalout_cluster_emin = 0;
-      ssp[jj].gt.strg[ii].ecalout_cluster_width = 0;
-      ssp[jj].gt.strg[ii].ecalin_cluster_emin_en = 0;
-      ssp[jj].gt.strg[ii].ecalin_cluster_emin = 0;
-      ssp[jj].gt.strg[ii].ecalin_cluster_width = 0;
+      ssp[jj].gt.strg[ii].ecal_cluster_emin_en = 0;
+      ssp[jj].gt.strg[ii].ecal_cluster_emin = 0;
+      ssp[jj].gt.strg[ii].ecal_cluster_width = 0;
       ssp[jj].gt.strg[ii].pcal_esum_en = 0;
       ssp[jj].gt.strg[ii].pcal_esum_emin = 0;
       ssp[jj].gt.strg[ii].pcal_esum_width = 0;
@@ -836,6 +833,7 @@ sspReadConfigFile(char *filename_in)
           }
           for(slot=slot1; slot<slot2; slot++) ssp[slot].ssp_io_mux[i1] = i2;
         }
+
         
         ///////////////////////////////////////////////////////////////////        
         // GT 
@@ -890,10 +888,11 @@ sspReadConfigFile(char *filename_in)
           sscanf (str_tmp, "%*s %d %d", &i1);
           for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.dc[i1].seg_delay = i2;
         }
+
         else if(!strcmp(keyword,"SSP_GT_STRG"))
         {
           sscanf (str_tmp, "%*s %d", &strg_bit);
-          if(strg_bit<0 || strg_bit>4)
+          if(strg_bit<0 || strg_bit>=4)
           {
             printf("\nReadConfigFile: Wrong strg bit  number %d\n\n",strg_bit);
             return(-4);
@@ -909,15 +908,10 @@ sspReadConfigFile(char *filename_in)
           sscanf (str_tmp, "%*s %d", &i1);
           for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].pcal_cluster_emin_en = i1;
         }
-        else if(!strcmp(keyword,"SSP_GT_STRG_ECALOUT_CLUSTER_EMIN_EN"))
+        else if(!strcmp(keyword,"SSP_GT_STRG_ECAL_CLUSTER_EMIN_EN"))
         {        
           sscanf (str_tmp, "%*s %d", &i1);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalout_cluster_emin_en = i1;
-        }
-        else if(!strcmp(keyword,"SSP_GT_STRG_ECALIN_CLUSTER_EMIN_EN"))
-        {        
-          sscanf (str_tmp, "%*s %d", &i1);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalin_cluster_emin_en = i1;
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecal_cluster_emin_en = i1;
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_PCAL_ESUM_EN"))
         {        
@@ -931,7 +925,7 @@ sspReadConfigFile(char *filename_in)
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_DC_MULT_EN"))
         {
-          sscanf (str_tmp, "%*s %d", &i12);
+          sscanf (str_tmp, "%*s %d", &i1);
           for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].dc_mult_en = i1;
         }
         else if(!strcmp(keyword,"SSP_GT_STRG_ECALIN_COSMIC_EN"))
@@ -974,25 +968,15 @@ sspReadConfigFile(char *filename_in)
           sscanf (str_tmp, "%*s %d", &i1);
           for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].pcal_esum_width = i1;
         }
-        else if((strcmp(keyword,"SSP_GT_STRG_ECALIN_CLUSTER_EMIN")==0))
+        else if((strcmp(keyword,"SSP_GT_STRG_ECAL_CLUSTER_EMIN")==0))
         {        
           sscanf (str_tmp, "%*s %d", &i1);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalin_cluster_emin = i1;
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecal_cluster_emin = i1;
         }
-        else if((strcmp(keyword,"SSP_GT_STRG_ECALIN_CLUSTER_WIDTH")==0))
+        else if((strcmp(keyword,"SSP_GT_STRG_ECAL_CLUSTER_WIDTH")==0))
         {        
           sscanf (str_tmp, "%*s %d", &i1);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalin_cluster_width = i1;
-        }
-        else if((strcmp(keyword,"SSP_GT_STRG_ECALOUT_CLUSTER_EMIN")==0))
-        {        
-          sscanf (str_tmp, "%*s %d", &i1);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalout_cluster_emin = i1;
-        }
-        else if((strcmp(keyword,"SSP_GT_STRG_ECALOUT_CLUSTER_WIDTH")==0))
-        {        
-          sscanf (str_tmp, "%*s %d", &i1);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecalout_cluster_width = i1;
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].ecal_cluster_width = i1;
         }
         else if((strcmp(keyword,"SSP_GT_STRG_PCAL_CLUSTER_EMIN")==0))
         {        
@@ -1015,6 +999,7 @@ sspReadConfigFile(char *filename_in)
           for(slot=slot1; slot<slot2; slot++) ssp[slot].gt.strg[strg_bit].dc_mult_width = i1;
         }
        
+
 
         ///////////////////////////////////////////////////////////////////        
         // GTC 
@@ -1044,73 +1029,85 @@ sspReadConfigFile(char *filename_in)
           sscanf (str_tmp, "%*s %d", &i1);
          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.htcc.htcc_delay = i1;
         }
+
+        else if(!strcmp(keyword,"SSP_GTC_CTRG"))
+        {
+          sscanf (str_tmp, "%*s %d", &ctrg_bit);
+          if(ctrg_bit<0 || ctrg_bit>4)
+          {
+            printf("\nReadConfigFile: Wrong ctrg bit  number %d\n\n",ctrg_bit);
+            return(-4);
+          }
+        }
         else if(!strcmp(keyword,"SSP_GTC_CTRG_EN"))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[i1].en = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[ctrg_bit].en = i1;
         }
         else if(!strcmp(keyword,"SSP_GTC_CTRG_FT_CLUSTER_EN"))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[i1].ft_cluster_en = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[ctrg_bit].ft_cluster_en = i1;
         }
         else if((strcmp(keyword,"SSP_GTC_CTRG_FT_CLUSTER_EMIN")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[i1].ft_cluster_emin = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[ctrg_bit].ft_cluster_emin = i1;
         }
         else if((strcmp(keyword,"SSP_GTC_CTRG_FT_CLUSTER_EMAX")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[i1].ft_cluster_emax = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[ctrg_bit].ft_cluster_emax = i1;
         }
         else if((strcmp(keyword,"SSP_GTC_CTRG_FT_CLUSTER_HODO_NMIN")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[i1].ft_cluster_hodo_nmin = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[ctrg_bit].ft_cluster_hodo_nmin = i1;
         }
         else if((strcmp(keyword,"SSP_GTC_CTRG_FT_CLUSTER_NMIN")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[i1].ft_cluster_nmin = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[ctrg_bit].ft_cluster_nmin = i1;
         }
         else if((strcmp(keyword,"SSP_GTC_CTRG_FT_CLUSTER_WIDTH")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[i1].ft_cluster_width = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[ctrg_bit].ft_cluster_width = i1;
         }
         else if(!strcmp(keyword,"SSP_GTC_CTRG_FT_ESUM_EN"))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[i1].ft_esum_en = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[ctrg_bit].ft_esum_en = i1;
         }
         else if((strcmp(keyword,"SSP_GTC_CTRG_FT_ESUM_EMIN")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[i1].ft_esum_emin = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[ctrg_bit].ft_esum_emin = i1;
         }
         else if((strcmp(keyword,"SSP_GTC_CTRG_FT_ESUM_WIDTH")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[i1].ft_esum_width = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[ctrg_bit].ft_esum_width = i1;
         }
         else if(!strcmp(keyword,"SSP_GTC_CTRG_HTCC_EN"))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[i1].htcc_en = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[ctrg_bit].htcc_en = i1;
         }
         else if((strcmp(keyword,"SSP_GTC_CTRG_FT_HTCC_MASK")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d 0x%llX", &i1, &i2, &ll1);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[i1].htcc_mask[i2] = ll1;
+          sscanf (str_tmp, "%*s %d 0x%llX", &i1, &ll1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[ctrg_bit].htcc_mask[i1] = ll1;
         }
         else if((strcmp(keyword,"SSP_GTC_CTRG_FT_HTCC_WIDTH")==0))
         {        
-          sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[i1].htcc_width = i2;
+          sscanf (str_tmp, "%*s %d", &i1);
+          for(slot=slot1; slot<slot2; slot++) ssp[slot].gtc.ctrg[ctrg_bit].htcc_width = i1;
         }
 
  
+
+
         ///////////////////////////////////////////////////////////////////        
         // RICH 
         ///////////////////////////////////////////////////////////////////
@@ -1802,17 +1799,27 @@ sspDownloadAll()
 
       for(jj=0; jj<4; jj++)
       {
+printf("trg bit %d: %d %d %d %d %d %d %d %d %d\n", jj,
+  ssp[slot].gt.strg[jj].en,
+  ssp[slot].gt.strg[jj].pcal_cluster_emin_en,
+  ssp[slot].gt.strg[jj].ecal_cluster_emin_en,
+  ssp[slot].gt.strg[jj].pcal_esum_en,
+  ssp[slot].gt.strg[jj].ecal_esum_en,
+  ssp[slot].gt.strg[jj].dc_mult_en,
+  ssp[slot].gt.strg[jj].ecalout_cosmic_en,
+  ssp[slot].gt.strg[jj].ecalin_cosmic_en,
+  ssp[slot].gt.strg[jj].pcal_cosmic_en);
+
         sspGt_SetTrigger_Enable(slot, jj,
                                 (ssp[slot].gt.strg[jj].en<<0) |
                                 (ssp[slot].gt.strg[jj].pcal_cluster_emin_en<<1) |
-                                (ssp[slot].gt.strg[jj].ecalout_cluster_emin_en<<2) |
-                                (ssp[slot].gt.strg[jj].ecalin_cluster_emin_en<<3) |
-                                (ssp[slot].gt.strg[jj].pcal_esum_en<<4) |
-                                (ssp[slot].gt.strg[jj].ecal_esum_en<<5) |
-                                (ssp[slot].gt.strg[jj].dc_mult_en<<6) |
-                                (ssp[slot].gt.strg[jj].ecalin_cosmic_en<<8) |
-                                (ssp[slot].gt.strg[jj].ecalout_cosmic_en<<7) |
-                                (ssp[slot].gt.strg[jj].pcal_cosmic_en<<9)
+                                (ssp[slot].gt.strg[jj].ecal_cluster_emin_en<<2) |
+                                (ssp[slot].gt.strg[jj].pcal_esum_en<<3) |
+                                (ssp[slot].gt.strg[jj].ecal_esum_en<<4) |
+                                (ssp[slot].gt.strg[jj].dc_mult_en<<5) |
+                                (ssp[slot].gt.strg[jj].ecalout_cosmic_en<<6) |
+                                (ssp[slot].gt.strg[jj].ecalin_cosmic_en<<7) |
+                                (ssp[slot].gt.strg[jj].pcal_cosmic_en<<8)
                                );
 
         sspGt_SetTrigger_EcalEsumEmin(slot, jj, ssp[slot].gt.strg[jj].ecal_esum_emin);
@@ -1820,10 +1827,8 @@ sspDownloadAll()
         sspGt_SetTrigger_CosmicWidth(slot, jj, ssp[slot].gt.strg[jj].cosmic_width);
         sspGt_SetTrigger_PcalEsumEmin(slot, jj, ssp[slot].gt.strg[jj].pcal_esum_emin);
         sspGt_SetTrigger_PcalEsumWidth(slot, jj, ssp[slot].gt.strg[jj].pcal_esum_width);
-        sspGt_SetTrigger_EcalInnerClusterEmin(slot, jj, ssp[slot].gt.strg[jj].ecalin_cluster_emin);
-        sspGt_SetTrigger_EcalInnerClusterWidth(slot, jj, ssp[slot].gt.strg[jj].ecalin_cluster_width);
-        sspGt_SetTrigger_EcalOuterClusterEmin(slot, jj, ssp[slot].gt.strg[jj].ecalout_cluster_emin);
-        sspGt_SetTrigger_EcalOuterClusterWidth(slot, jj, ssp[slot].gt.strg[jj].ecalout_cluster_width);
+        sspGt_SetTrigger_EcalClusterEmin(slot, jj, ssp[slot].gt.strg[jj].ecal_cluster_emin);
+        sspGt_SetTrigger_EcalClusterWidth(slot, jj, ssp[slot].gt.strg[jj].ecal_cluster_width);
         sspGt_SetTrigger_PcalClusterEmin(slot, jj, ssp[slot].gt.strg[jj].pcal_cluster_emin);
         sspGt_SetTrigger_PcalClusterWidth(slot, jj, ssp[slot].gt.strg[jj].pcal_cluster_width);
         sspGt_SetTrigger_DcMultMin(slot, jj, ssp[slot].gt.strg[jj].dc_mult_min);
@@ -2101,23 +2106,20 @@ sspUploadAll(char *string, int length)
         ival = sspGt_GetTrigger_Enable(slot, jj);
         ssp[slot].gt.strg[jj].en                      = (ival & 0x001) ? 1 : 0;
         ssp[slot].gt.strg[jj].pcal_cluster_emin_en    = (ival & 0x002) ? 1 : 0;
-        ssp[slot].gt.strg[jj].ecalout_cluster_emin_en = (ival & 0x004) ? 1 : 0;
-        ssp[slot].gt.strg[jj].ecalin_cluster_emin_en  = (ival & 0x008) ? 1 : 0;
-        ssp[slot].gt.strg[jj].pcal_esum_en            = (ival & 0x010) ? 1 : 0;
-        ssp[slot].gt.strg[jj].ecal_esum_en            = (ival & 0x020) ? 1 : 0;
-        ssp[slot].gt.strg[jj].dc_mult_en              = (ival & 0x040) ? 1 : 0;
-        ssp[slot].gt.strg[jj].ecalin_cosmic_en        = (ival & 0x100) ? 1 : 0;
-        ssp[slot].gt.strg[jj].ecalout_cosmic_en       = (ival & 0x080) ? 1 : 0;
-        ssp[slot].gt.strg[jj].pcal_cosmic_en          = (ival & 0x200) ? 1 : 0;
+        ssp[slot].gt.strg[jj].ecal_cluster_emin_en    = (ival & 0x004) ? 1 : 0;
+        ssp[slot].gt.strg[jj].pcal_esum_en            = (ival & 0x008) ? 1 : 0;
+        ssp[slot].gt.strg[jj].ecal_esum_en            = (ival & 0x010) ? 1 : 0;
+        ssp[slot].gt.strg[jj].dc_mult_en              = (ival & 0x020) ? 1 : 0;
+        ssp[slot].gt.strg[jj].ecalout_cosmic_en       = (ival & 0x040) ? 1 : 0;
+        ssp[slot].gt.strg[jj].ecalin_cosmic_en        = (ival & 0x080) ? 1 : 0;
+        ssp[slot].gt.strg[jj].pcal_cosmic_en          = (ival & 0x100) ? 1 : 0;
         
         ssp[slot].gt.strg[jj].ecal_esum_emin = sspGt_GetTrigger_EcalEsumEmin(slot, jj);
         ssp[slot].gt.strg[jj].ecal_esum_width = sspGt_GetTrigger_EcalEsumWidth(slot, jj);
         ssp[slot].gt.strg[jj].pcal_esum_emin = sspGt_GetTrigger_PcalEsumEmin(slot, jj);
         ssp[slot].gt.strg[jj].pcal_esum_width = sspGt_GetTrigger_PcalEsumWidth(slot, jj);
-        ssp[slot].gt.strg[jj].ecalin_cluster_emin = sspGt_GetTrigger_EcalInnerClusterEmin(slot, jj);
-        ssp[slot].gt.strg[jj].ecalin_cluster_width = sspGt_GetTrigger_EcalInnerClusterWidth(slot, jj);
-        ssp[slot].gt.strg[jj].ecalout_cluster_emin = sspGt_GetTrigger_EcalOuterClusterEmin(slot, jj);
-        ssp[slot].gt.strg[jj].ecalout_cluster_width = sspGt_GetTrigger_EcalOuterClusterWidth(slot, jj);
+        ssp[slot].gt.strg[jj].ecal_cluster_emin = sspGt_GetTrigger_EcalClusterEmin(slot, jj);
+        ssp[slot].gt.strg[jj].ecal_cluster_width = sspGt_GetTrigger_EcalClusterWidth(slot, jj);
         ssp[slot].gt.strg[jj].pcal_cluster_emin = sspGt_GetTrigger_PcalClusterEmin(slot, jj);
         ssp[slot].gt.strg[jj].pcal_cluster_width = sspGt_GetTrigger_PcalClusterWidth(slot, jj);
         ssp[slot].gt.strg[jj].dc_mult_min = sspGt_GetTrigger_DcMultMin(slot, jj);
@@ -2387,30 +2389,28 @@ sspUploadAll(char *string, int length)
         
         for(i=0; i<4; i++)
         {
-          sprintf(sss,"SSP_GT_STRG_EN %d %d\n",                       i, ssp[slot].gt.strg[i].en);                       ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_PCAL_CLUSTER_EMIN_EN %d %d\n",     i, ssp[slot].gt.strg[i].pcal_cluster_emin_en);     ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_ECALOUT_CLUSTER_EMIN_EN %d %d\n",  i, ssp[slot].gt.strg[i].ecalout_cluster_emin_en);  ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_ECALIN_CLUSTER_EMIN_EN %d %d\n",   i, ssp[slot].gt.strg[i].ecalin_cluster_emin_en);   ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_PCAL_ESUM_EN %d %d\n",             i, ssp[slot].gt.strg[i].pcal_esum_en);             ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_ECAL_ESUM_EN %d %d\n",             i, ssp[slot].gt.strg[i].ecal_esum_en);             ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_DC_MULT_EN %d %d\n",               i, ssp[slot].gt.strg[i].dc_mult_en);               ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_ECALIN_COSMIC_EN %d %d\n",         i, ssp[slot].gt.strg[i].ecalin_cosmic_en);         ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_ECALOUT_COSMIC_EN %d %d\n",        i, ssp[slot].gt.strg[i].ecalout_cosmic_en);        ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_PCAL_COSMIC_EN %d %d\n",           i, ssp[slot].gt.strg[i].pcal_cosmic_en);           ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG %d\n",                          i);                                                ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_EN %d\n",                       ssp[slot].gt.strg[i].en);                       ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_PCAL_CLUSTER_EMIN_EN %d\n",     ssp[slot].gt.strg[i].pcal_cluster_emin_en);     ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_ECAL_CLUSTER_EMIN_EN %d\n",     ssp[slot].gt.strg[i].ecal_cluster_emin_en);     ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_PCAL_ESUM_EN %d\n",             ssp[slot].gt.strg[i].pcal_esum_en);             ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_ECAL_ESUM_EN %d\n",             ssp[slot].gt.strg[i].ecal_esum_en);             ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_DC_MULT_EN %d\n",               ssp[slot].gt.strg[i].dc_mult_en);               ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_ECALIN_COSMIC_EN %d\n",         ssp[slot].gt.strg[i].ecalin_cosmic_en);         ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_ECALOUT_COSMIC_EN %d\n",        ssp[slot].gt.strg[i].ecalout_cosmic_en);        ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_PCAL_COSMIC_EN %d\n",           ssp[slot].gt.strg[i].pcal_cosmic_en);           ADD_TO_STRING;
           
-          sprintf(sss,"SSP_GT_STRG_ECAL_ESUM_MIN %d %d\n",            i, ssp[slot].gt.strg[i].ecal_esum_emin);           ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_ECAL_ESUM_WIDTH %d %d\n",          i, ssp[slot].gt.strg[i].ecal_esum_width);          ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_PCAL_ESUM_MIN %d %d\n",            i, ssp[slot].gt.strg[i].pcal_esum_emin);           ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_PCAL_ESUM_WIDTH %d %d\n",          i, ssp[slot].gt.strg[i].pcal_esum_width);          ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_ECALIN_CLUSTER_EMIN %d %d\n",      i, ssp[slot].gt.strg[i].ecalin_cluster_emin);      ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_ECALIN_CLUSTER_WIDTH %d %d\n",     i, ssp[slot].gt.strg[i].ecalin_cluster_width);     ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_ECALOUT_CLUSTER_EMIN %d %d\n",     i, ssp[slot].gt.strg[i].ecalout_cluster_emin);     ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_ECALOUT_CLUSTER_WIDTH %d %d\n",    i, ssp[slot].gt.strg[i].ecalout_cluster_width);    ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_PCAL_CLUSTER_EMIN %d %d\n",        i, ssp[slot].gt.strg[i].pcal_cluster_emin);        ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_PCAL_CLUSTER_WIDTH %d %d\n",       i, ssp[slot].gt.strg[i].pcal_cluster_width);       ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_DC_MULT_MIN %d %d\n",              i, ssp[slot].gt.strg[i].dc_mult_min);              ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_DC_MULT_WIDTH %d %d\n",            i, ssp[slot].gt.strg[i].dc_mult_width);            ADD_TO_STRING;
-          sprintf(sss,"SSP_GT_STRG_COSMIC_WIDTH %d %d\n",             i, ssp[slot].gt.strg[i].cosmic_width);             ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_ECAL_ESUM_MIN %d\n",            ssp[slot].gt.strg[i].ecal_esum_emin);           ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_ECAL_ESUM_WIDTH %d\n",          ssp[slot].gt.strg[i].ecal_esum_width);          ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_PCAL_ESUM_MIN %d\n",            ssp[slot].gt.strg[i].pcal_esum_emin);           ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_PCAL_ESUM_WIDTH %d\n",          ssp[slot].gt.strg[i].pcal_esum_width);          ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_ECAL_CLUSTER_EMIN %d\n",        ssp[slot].gt.strg[i].ecal_cluster_emin);        ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_ECAL_CLUSTER_WIDTH %d\n",       ssp[slot].gt.strg[i].ecal_cluster_width);       ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_PCAL_CLUSTER_EMIN %d\n",        ssp[slot].gt.strg[i].pcal_cluster_emin);        ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_PCAL_CLUSTER_WIDTH %d\n",       ssp[slot].gt.strg[i].pcal_cluster_width);       ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_DC_MULT_MIN %d\n",              ssp[slot].gt.strg[i].dc_mult_min);              ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_DC_MULT_WIDTH %d\n",            ssp[slot].gt.strg[i].dc_mult_width);            ADD_TO_STRING;
+          sprintf(sss,"SSP_GT_STRG_COSMIC_WIDTH %d\n",             ssp[slot].gt.strg[i].cosmic_width);             ADD_TO_STRING;
         }
       }
       /******************************************/

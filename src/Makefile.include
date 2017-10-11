@@ -190,33 +190,30 @@ ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
     FC = gfortran
 endif
 
-    FFLAGS += -fno-automatic -finit-local-zero \
-			-ffixed-line-length-none -fno-second-underscore -DLinux
-#CC = gcc -rdynamic
-    CC = gcc
-ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
-    CC = /apps/gcc/4.9.4/bin/gcc
-endif
-ifeq ("$(OSTYPE_PLATFORM)","Linux_i686")
-    CC = /apps/gcc/4.9.4/bin/gcc
-endif
-
-    CPP = gcc -E
-
     CFLAGS += -fPIC -DLinux -DLINUX
 ### -D_CODA_DEBUG
 
+    CXXFLAGS = $(CFLAGS)
+
+    FFLAGS += -fno-automatic -finit-local-zero \
+			-ffixed-line-length-none -fno-second-underscore -DLinux
+
+#CC = gcc -rdynamic
+    CC = gcc
     CXX = g++ -g
 ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
+    CC = /apps/gcc/4.9.4/bin/gcc
     CXX = /apps/gcc/4.9.4/bin/g++ -g
 endif
 ifeq ("$(OSTYPE_PLATFORM)","Linux_i686")
+    CC = /apps/gcc/4.9.4/bin/gcc
     CXX = /apps/gcc/4.9.4/bin/g++ -g
+    CFLAGS += -gdwarf-2
+    CXXFLAGS += -gdwarf-2
 endif
 
+    CPP = $(CC) -E
 
-
-    CXXFLAGS = $(CFLAGS)
 
     LD = ld
     LDCXX = $(CXX)

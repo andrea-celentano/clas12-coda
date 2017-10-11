@@ -24,6 +24,7 @@ cd $CLON_PARMS/firmwares
    * Slot 19:  tdc1190firmware 0x11980000 v1190core0.6.rbf
    * Slot 20:  tdc1190firmware 0x11A00000 v1190core0.6.rbf
 
+   * Slot 16:  tdc1190firmware 0x11800000 v1190core_1.1.rbf
 */
 
 

@@ -524,6 +524,7 @@ dabufp[0] = 0; /*cleanup first word (will be CODA fragment length), otherwise fo
     dabufp[BBIBUFNUM] = ++ rocp_recNb;      /* buffer number */ \
     dabufp[BBIROCID]  = this_roc_id/*object->codaid*/;     /* ROC id */ \
     dabufp[BBIEVENTS] = g_events_in_buffer; /* the number of events */ \
+	if(dabufp[BBIEVENTS]<=0) {printf("ERROR(rol.h): nev=%d\n",dabufp[BBIEVENTS]);exit(0);} \
     dabufp[BBIFD]     = rocp_primefd; \
     dabufp[BBIEND]    = 0; \
 	/*bb_check(dabufp);*/												\

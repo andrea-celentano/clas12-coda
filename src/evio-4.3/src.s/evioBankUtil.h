@@ -8,7 +8,9 @@
   unsigned char *b08, *b08out, *b08save; \
   unsigned short *b16, *b16out; \
   unsigned int *b32, *b32out; \
-  unsigned long long *b64, *b64out
+  unsigned long long *b64, *b64out; \
+  float *f32, *f32out; \
+  double *f64, *f64out
 
 #define GET8(ret_val) \
   ret_val = *b08++
@@ -28,6 +30,16 @@
   ret_val = *b64; \
   b08+=8
 
+#define GETF32(ret_val) \
+  f32 = (float *)b08; \
+  ret_val = *f32; \
+  b08+=4
+
+#define GETF64(ret_val) \
+  f64 = (double *)b08; \
+  ret_val = *f64; \
+  b08+=8
+
 #define PUT8(ret_val) \
   *b08out++ = ret_val 
 
@@ -44,6 +56,16 @@
 #define PUT64(ret_val) \
   b64 = (unsigned long long *)b08out; \
   *b64 = ret_val; \
+  b08out+=8
+
+#define PUTF32(ret_val) \
+  f32 = (float *)b08out; \
+  *f32 = ret_val; \
+  b08out+=4
+
+#define PUTF64(ret_val) \
+  f64 = (double *)b08out; \
+  *f64 = ret_val; \
   b08out+=8
 
 #define PRINT_BUFFER(start_ptr_val, end_ptr_val) \

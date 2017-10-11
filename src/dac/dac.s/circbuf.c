@@ -181,8 +181,8 @@ if(cbp <100000)
 #ifdef DEBUG
   printf("[%2d] PUT: 22\n",fd);
   fflush(stdout);
-  printf("[%2d] PUT:: icb etc  -> %d %d %d\n",fd,
-      icb,cbp->read,cbp->write);
+  printf("[%2d] PUT:: current icb=%d (obtained from cbp->write=%d; cbp->read=%d)\n",fd,
+      icb,cbp->write,cbp->read);
   fflush(stdout);
 #endif
 
@@ -219,6 +219,21 @@ if(cbp <100000)
     lll = buf[BBIWORDS]<<2;
     cbp->rocid = buf[BBIROCID];         /* ROC id */
     cbp->nevents[icb] = buf[BBIEVENTS]; /* the number of events in buffer */
+
+	/* some basic checks */
+	if(buf[BBIEVENTS]<=0)
+	{
+      printf("[%2d] PUT: DATA ERROR: nev=%d (rocid=%d); beginning of the buffer:\n",fd,buf[BBIEVENTS],buf[BBIROCID]);
+      {
+        int i;
+        unsigned int *buff = (unsigned int *)data;
+        for(i=0; i<32; i+=8)
+          printf("[%2d] PUT: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",fd,
+            buff[i],buff[i+1],buff[i+2],buff[i+3],buff[i+4],buff[i+5],buff[i+6],buff[i+7]);
+      }
+      fflush(stdout);
+	}
+
     /* &buf[BBHEAD] - start of first event, contains event length in words */
     buf += BBHEAD;
     cbp->evptr1[icb] = buf; /* pointer to the first event in buffer */
@@ -242,6 +257,9 @@ if(cbp <100000)
 
     /*************************************************************/
     /* check if next buffer has been read already; if not - wait */
+#ifdef DEBUG
+    printf("[%2d] PUT: read_locking, icb=%d, will increment it\n",fd,icb);fflush(stdout);
+#endif
     READ_LOCK;
     icb = (icb + 1) % QSIZE;
     while(icb == cbp->read)
@@ -253,14 +271,14 @@ if(cbp <100000)
     }
     READ_UNLOCK;
 #ifdef DEBUG
-    printf("[%2d] PUT: locking .. (icb=%d)\n",fd,icb);fflush(stdout);
+    printf("[%2d] PUT: read_unlocked for previous icb, write_locking icb=%d\n",fd,icb);fflush(stdout);
 #endif
 
     /***************************************************************************/
     /* now we know that next buffer was read out, so set 'write' pointer to it */
     WRITE_LOCK;
 #ifdef DEBUG
-    printf("[%2d] PUT: locked (icb=%d)\n",fd,icb);fflush(stdout);
+    printf("[%2d] PUT: inside write_lock, icb=%d\n",fd,icb);fflush(stdout);
 #endif
 	cbp->write = icb;
 
@@ -269,7 +287,7 @@ if(cbp <100000)
     WRITE_SIGNAL;
     WRITE_UNLOCK;
 #ifdef DEBUG
-    printf("[%2d] PUT: unlock (icb=%d)\n",fd,icb);fflush(stdout);
+    printf("[%2d] PUT: came from write_unlock, icb=%d\n",fd,icb);fflush(stdout);
 #endif
   }
   else

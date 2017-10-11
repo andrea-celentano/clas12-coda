@@ -2072,6 +2072,7 @@ rols_loop()
     dabufp[BBIBUFNUM] = ++ rocp_recNb;      /* buffer number */ \
     dabufp[BBIROCID]  = this_roc_id/*object->codaid*/;     /* ROC id */ \
     dabufp[BBIEVENTS] = g_events_in_buffer; /* the number of events */ \
+	if(dabufp[BBIEVENTS]<=0) {printf("ERROR(coda_roc.c): nev=%d\n",dabufp[BBIEVENTS]);exit(0);} \
     dabufp[BBIFD]     = rocp_primefd; \
     dabufp[BBIEND]    = 0; \
     /*printf("ROC: %d %d %d %d 0x%08x\n",dabufp[0],dabufp[1],dabufp[2],dabufp[3],dabufp[4]);*/ \

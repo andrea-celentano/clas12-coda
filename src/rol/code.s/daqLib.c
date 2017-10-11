@@ -1,7 +1,7 @@
 
 /* daqLib.c - data aquisition-related library */
 
-#if defined(VXWORKS) || defined(Linux_vme) || defined(Linux_armv7l)
+/*#if defined(VXWORKS) || defined(Linux_vme) || defined(Linux_armv7l)*/
 
 
 #include <stdio.h>
@@ -278,8 +278,8 @@ daqUploadAllPrint()
 
 
 
-
-#else /* dummy version*/
+/*
+#else
 
 void
 daqConfig_dummy()
@@ -288,3 +288,4 @@ daqConfig_dummy()
 }
 
 #endif
+*/

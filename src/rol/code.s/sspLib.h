@@ -197,11 +197,10 @@ typedef struct
   /* 0x000C-0x000F */ BLANK[(0x0010-0x000C)/4];
   /* 0x0010-0x0013 */ volatile unsigned int WidthInt_esum;
   /* 0x0014-0x001F */ BLANK[(0x020-0x0014)/4];
-  /* 0x0020-0x0023 */ volatile unsigned int Scaler_inner_cluster;
-  /* 0x0024-0x0027 */ volatile unsigned int Scaler_outer_cluster;
-  /* 0x0028-0x002B */ volatile unsigned int Scaler_inner_cosmic;
-  /* 0x002C-0x002F */ volatile unsigned int Scaler_outer_cosmic;
-  /* 0x0030-0x00FF */ BLANK[(0x0100-0x0030)/4];
+  /* 0x0020-0x0023 */ volatile unsigned int Scaler_cluster;
+  /* 0x0024-0x0028 */ volatile unsigned int Scaler_inner_cosmic;
+  /* 0x0028-0x002B */ volatile unsigned int Scaler_outer_cosmic;
+  /* 0x002C-0x00FF */ BLANK[(0x0100-0x002C)/4];
 } GT_ssec_regs;
 
 #define GT_SSPC_DELAY_ESUM_MASK             0x000003FF
@@ -241,14 +240,13 @@ typedef struct
 
 #define GT_STRG_CTRL_EN                     0x00000001
 #define GT_STRG_CTRL_PCCLUSTER_EMIN_EN      0x00000002
-#define GT_STRG_CTRL_ECOCLUSTER_EMIN_EN     0x00000004
-#define GT_STRG_CTRL_ECICLUSTER_EMIN_EN     0x00000008
-#define GT_STRG_CTRL_PCESUM_EMIN_EN         0x00000010
-#define GT_STRG_CTRL_ECESUM_EMIN_EN         0x00000020
-#define GT_STRG_CTRL_DC_MULT_EN             0x00000040
-#define GT_STRG_CTRL_ECOCOSMIC_EN           0x00000080
-#define GT_STRG_CTRL_ECICOSMIC_EN           0x00000100
-#define GT_STRG_CTRL_PCCOSMIC_EN            0x00000200
+#define GT_STRG_CTRL_ECCLUSTER_EMIN_EN      0x00000004
+#define GT_STRG_CTRL_PCESUM_EMIN_EN         0x00000008
+#define GT_STRG_CTRL_ECESUM_EMIN_EN         0x00000010
+#define GT_STRG_CTRL_DC_MULT_EN             0x00000020
+#define GT_STRG_CTRL_ECOCOSMIC_EN           0x00000040
+#define GT_STRG_CTRL_ECICOSMIC_EN           0x00000080
+#define GT_STRG_CTRL_PCCOSMIC_EN            0x00000100
 
 #define GT_STRG_ECCTRL_ESUM_EMIN_MASK       0x00003FFF
 #define GT_STRG_ECCTRL_ESUM_WIDTH_MASK      0x00FF0000
@@ -256,11 +254,8 @@ typedef struct
 #define GT_STRG_PCCTRL_ESUM_EMIN_MASK       0x00003FFF
 #define GT_STRG_PCCTRL_ESUM_WIDTH_MASK      0x00FF0000
 
-#define GT_STRG_ECICTRL_CLUSTER_EMIN_MASK   0x00003FFF
-#define GT_STRG_ECICTRL_CLUSTER_WIDTH_MASK  0x00FF0000
-
-#define GT_STRG_ECOCTRL_CLUSTER_EMIN_MASK   0x00003FFF
-#define GT_STRG_ECOCTRL_CLUSTER_WIDTH_MASK  0x00FF0000
+#define GT_STRG_ECCTRL_CLUSTER_EMIN_MASK    0x00003FFF
+#define GT_STRG_ECCTRL_CLUSTER_WIDTH_MASK   0x00FF0000
 
 #define GT_STRG_PCCTRL_CLUSTER_EMIN_MASK    0x00003FFF
 #define GT_STRG_PCCTRL_CLUSTER_WIDTH_MASK   0x00FF0000
@@ -278,11 +273,11 @@ typedef struct
   /* 0x0008-0x000F */ BLANK[(0x0010-0x0008)/4];
   /* 0x0010-0x0013 */ volatile unsigned int ECCtrl_esum;
   /* 0x0014-0x0017 */ volatile unsigned int PCCtrl_esum;
-  /* 0x0018-0x001B */ volatile unsigned int ECInnerCtrl_cluster;
-  /* 0x001C-0x001F */ volatile unsigned int ECOuterCtrl_cluster;
+  /* 0x0018-0x001B */ volatile unsigned int ECCtrl_cluster;
+  /* 0x001C-0x001F */ BLANK[(0x0020-0x001C)/4];
   /* 0x0020-0x0023 */ volatile unsigned int PCCtrl_cluster;
   /* 0x0024-0x0027 */ volatile unsigned int DCCtrl;
-  /* 0x0028-0x002F */ BLANK[(0x030-0x0028)/4];
+  /* 0x0028-0x002F */ BLANK[(0x0030-0x0028)/4];
   /* 0x0030-0x0033 */ volatile unsigned int Scaler_trigger;
   /* 0x0034-0x00FF */ BLANK[(0x0100-0x0034)/4];
 } GT_strg_regs;
@@ -749,14 +744,10 @@ int sspGt_SetTrigger_PcalEsumEmin(int id, int trg, int val);
 int sspGt_GetTrigger_PcalEsumEmin(int id, int trg);
 int sspGt_SetTrigger_PcalEsumWidth(int id, int trg, int val);
 int sspGt_GetTrigger_PcalEsumWidth(int id, int trg);
-int sspGt_SetTrigger_EcalInnerClusterEmin(int id, int trg, int val);
-int sspGt_GetTrigger_EcalInnerClusterEmin(int id, int trg);
-int sspGt_SetTrigger_EcalInnerClusterWidth(int id, int trg, int val);
-int sspGt_GetTrigger_EcalInnerClusterWidth(int id, int trg);
-int sspGt_SetTrigger_EcalOuterClusterEmin(int id, int trg, int val);
-int sspGt_GetTrigger_EcalOuterClusterEmin(int id, int trg);
-int sspGt_SetTrigger_EcalOuterClusterWidth(int id, int trg, int val);
-int sspGt_GetTrigger_EcalOuterClusterWidth(int id, int trg);
+int sspGt_SetTrigger_EcalClusterEmin(int id, int trg, int val);
+int sspGt_GetTrigger_EcalClusterEmin(int id, int trg);
+int sspGt_SetTrigger_EcalClusterWidth(int id, int trg, int val);
+int sspGt_GetTrigger_EcalClusterWidth(int id, int trg);
 int sspGt_SetTrigger_PcalClusterEmin(int id, int trg, int val);
 int sspGt_GetTrigger_PcalClusterEmin(int id, int trg);
 int sspGt_SetTrigger_PcalClusterWidth(int id, int trg, int val);

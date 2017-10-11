@@ -963,9 +963,17 @@ printf("!!!coda_ebc: roc=%d desc1->evnb=%d\n",roc,desc1->evnb);
       {
         current_evty = typ;
         current_evnb = desc1->evnb;
+#ifdef DEBUG
+        printf("[%1d] INFO: Event (Num %d type %d) from FIRST rocid=%d\n",
+			   id,current_evnb,current_evty,desc1->rocid);
+#endif
       }
       else
       {
+#ifdef DEBUG
+        printf("[%1d] INFO: Event (Num %d type %d) from rocid=%d\n",
+			   id,desc1->evnb,typ,desc1->rocid);
+#endif
         /* we are already building so we can check some things... */
         if((current_evnb != desc1->evnb) && (in_error == 0))
         {
@@ -984,6 +992,9 @@ exit(0);
         }
         else if((current_evty != desc1->type) && (in_error == 0))
         {
+#ifdef DEBUG
+		  printf("[%1d] INFO: event type ???\n",id);
+#endif
           current_evtyerr ++;   /* Count type mismatches from first fragment */
 
           /*type_mask |= (1<<desc1->rocid);*/ /* Get mask of ROC IDs with mismatched types */

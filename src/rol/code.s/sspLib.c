@@ -2493,7 +2493,7 @@ int sspGt_GetTrigger_PcalEsumWidth(int id, int trg)
   return rval*4;
 }
 
-int sspGt_SetTrigger_EcalInnerClusterEmin(int id, int trg, int val)
+int sspGt_SetTrigger_EcalClusterEmin(int id, int trg, int val)
 {
   int rval;
   
@@ -2507,28 +2507,28 @@ int sspGt_SetTrigger_EcalInnerClusterEmin(int id, int trg, int val)
   }
  
   SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster);
-  rval = val | (rval & ~GT_STRG_ECICTRL_CLUSTER_EMIN_MASK);
-  sspWriteReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster, rval);
+  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECCtrl_cluster);
+  rval = val | (rval & ~GT_STRG_ECCTRL_CLUSTER_EMIN_MASK);
+  sspWriteReg(&pSSP[id]->gt.strigger[trg].ECCtrl_cluster, rval);
   SSPUNLOCK(); 
  
   return OK; 
 }
 
-int sspGt_GetTrigger_EcalInnerClusterEmin(int id, int trg)
+int sspGt_GetTrigger_EcalClusterEmin(int id, int trg)
 {
   int rval;
   if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
     return ERROR;
 
   SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster) & GT_STRG_ECICTRL_CLUSTER_EMIN_MASK;
+  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECCtrl_cluster) & GT_STRG_ECCTRL_CLUSTER_EMIN_MASK;
   SSPUNLOCK(); 
  
   return rval;
 }
 
-int sspGt_SetTrigger_EcalInnerClusterWidth(int id, int trg, int val)
+int sspGt_SetTrigger_EcalClusterWidth(int id, int trg, int val)
 {
   int rval;
   
@@ -2543,94 +2543,22 @@ int sspGt_SetTrigger_EcalInnerClusterWidth(int id, int trg, int val)
  
   val/=4;
   SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster);
-  rval = (val<<16) | (rval & ~GT_STRG_ECICTRL_CLUSTER_WIDTH_MASK);
-  sspWriteReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster, rval);
+  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECCtrl_cluster);
+  rval = (val<<16) | (rval & ~GT_STRG_ECCTRL_CLUSTER_WIDTH_MASK);
+  sspWriteReg(&pSSP[id]->gt.strigger[trg].ECCtrl_cluster, rval);
   SSPUNLOCK(); 
  
   return OK; 
 }
 
-int sspGt_GetTrigger_EcalInnerClusterWidth(int id, int trg)
+int sspGt_GetTrigger_EcalClusterWidth(int id, int trg)
 {
   int rval;
   if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
     return ERROR;
 
   SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECInnerCtrl_cluster) & GT_STRG_ECICTRL_CLUSTER_WIDTH_MASK;
-  rval = (rval>>16);
-  SSPUNLOCK(); 
- 
-  return rval*4;
-}
-
-int sspGt_SetTrigger_EcalOuterClusterEmin(int id, int trg, int val)
-{
-  int rval;
-  
-  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
-    return ERROR;
-
-  if( (val < 0) || (val > 16383) )
-  {
-    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
-    return ERROR;
-  }
- 
-  SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster);
-  rval = val | (rval & ~GT_STRG_ECOCTRL_CLUSTER_EMIN_MASK);
-  sspWriteReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster, rval);
-  SSPUNLOCK(); 
- 
-  return OK; 
-}
-
-int sspGt_GetTrigger_EcalOuterClusterEmin(int id, int trg)
-{
-  int rval;
-  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
-    return ERROR;
-
-  SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster) & GT_STRG_ECOCTRL_CLUSTER_EMIN_MASK;
-  SSPUNLOCK(); 
- 
-  return rval;
-}
-
-int sspGt_SetTrigger_EcalOuterClusterWidth(int id, int trg, int val)
-{
-  int rval;
-  
-  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
-    return ERROR;
-
-  if( (val < 0) || (val > 255) )
-  {
-    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
-    return ERROR;
-  }
- 
-  val/=4;
-  SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster);
-  rval = (val<<16) | (rval & ~GT_STRG_ECOCTRL_CLUSTER_WIDTH_MASK);
-  sspWriteReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster, rval);
-  SSPUNLOCK(); 
- 
-  return OK; 
-}
-
-int sspGt_GetTrigger_EcalOuterClusterWidth(int id, int trg)
-{
-  int rval;
-  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
-    return ERROR;
-
-  SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECOuterCtrl_cluster) & GT_STRG_ECOCTRL_CLUSTER_WIDTH_MASK;
+  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].ECCtrl_cluster) & GT_STRG_ECCTRL_CLUSTER_WIDTH_MASK;
   rval = (rval>>16);
   SSPUNLOCK(); 
  
@@ -4702,14 +4630,10 @@ void sspPrintGtConfig(int id)
   printf("         Require                   = %d\n", (val&GT_STRG_CTRL_PCESUM_EMIN_EN) ? 1:0);
   printf("         Emin                      = %d\n", sspGt_GetTrigger_PcalEsumEmin(id, trg));
   printf("         Coindicende Width         = %dns\n", sspGt_GetTrigger_PcalEsumWidth(id, trg));
-  printf("      *** Ecal Inner Cluster ***\n");
-  printf("         Require                   = %d\n", (val&GT_STRG_CTRL_ECICLUSTER_EMIN_EN) ? 1:0);
-  printf("         Emin                      = %d\n", sspGt_GetTrigger_EcalInnerClusterEmin(id, trg));
-  printf("         Coindidence Width         = %dns\n", sspGt_GetTrigger_EcalInnerClusterWidth(id, trg));
-  printf("      *** Ecal Outer Cluster ***\n");
-  printf("         Require                   = %d\n", (val&GT_STRG_CTRL_ECOCLUSTER_EMIN_EN) ? 1:0);
-  printf("         Emin                      = %d\n", sspGt_GetTrigger_EcalOuterClusterEmin(id, trg));
-  printf("         Coincidence Width         = %dns\n", sspGt_GetTrigger_EcalOuterClusterWidth(id, trg));
+  printf("      *** Ecal Cluster ***\n");
+  printf("         Require                   = %d\n", (val&GT_STRG_CTRL_ECCLUSTER_EMIN_EN) ? 1:0);
+  printf("         Emin                      = %d\n", sspGt_GetTrigger_EcalClusterEmin(id, trg));
+  printf("         Coindidence Width         = %dns\n", sspGt_GetTrigger_EcalClusterWidth(id, trg));
   printf("      *** Pcal Cluster ***\n");
   printf("         Require                   = %d\n", (val&GT_STRG_CTRL_PCCLUSTER_EMIN_EN) ? 1:0);
   printf("         Emin                      = %d\n", sspGt_GetTrigger_PcalClusterEmin(id, trg));
@@ -4732,11 +4656,10 @@ void sspPrintGtScalers(int id)
   double ref, rate; 
   int i; 
   unsigned int scalers[SD_SCALER_NUM];
-  unsigned int gtscalers[10];
-  const char *scalers_name[10] = {
-    "ssec.inner_cluster",
+  unsigned int gtscalers[9];
+  const char *scalers_name[9] = {
+    "ssec.cluster",
     "ssec.inner_cosmic",
-    "ssec.outer_cluster",
     "ssec.outer_cosmic",
     "sspc.cluster",
     "sspc.cosmic",
@@ -4755,16 +4678,15 @@ void sspPrintGtScalers(int id)
   for(i = 0; i < SD_SCALER_NUM; i++) 
     scalers[i] = sspReadReg(&pSSP[id]->Sd.Scalers[i]); 
 
-  gtscalers[0] = sspReadReg(&pSSP[id]->gt.ssec.Scaler_inner_cluster);
+  gtscalers[0] = sspReadReg(&pSSP[id]->gt.ssec.Scaler_cluster);
   gtscalers[1] = sspReadReg(&pSSP[id]->gt.ssec.Scaler_inner_cosmic);
-  gtscalers[2] = sspReadReg(&pSSP[id]->gt.ssec.Scaler_outer_cluster);
-  gtscalers[3] = sspReadReg(&pSSP[id]->gt.ssec.Scaler_outer_cosmic);
-  gtscalers[4] = sspReadReg(&pSSP[id]->gt.sspc.Scaler_cluster);
-  gtscalers[5] = sspReadReg(&pSSP[id]->gt.sspc.Scaler_cosmic);
-  gtscalers[6] = sspReadReg(&pSSP[id]->gt.strigger[0].Scaler_trigger);
-  gtscalers[7] = sspReadReg(&pSSP[id]->gt.strigger[1].Scaler_trigger);
-  gtscalers[8] = sspReadReg(&pSSP[id]->gt.strigger[2].Scaler_trigger);
-  gtscalers[9] = sspReadReg(&pSSP[id]->gt.strigger[3].Scaler_trigger);
+  gtscalers[2] = sspReadReg(&pSSP[id]->gt.ssec.Scaler_outer_cosmic);
+  gtscalers[3] = sspReadReg(&pSSP[id]->gt.sspc.Scaler_cluster);
+  gtscalers[4] = sspReadReg(&pSSP[id]->gt.sspc.Scaler_cosmic);
+  gtscalers[5] = sspReadReg(&pSSP[id]->gt.strigger[0].Scaler_trigger);
+  gtscalers[6] = sspReadReg(&pSSP[id]->gt.strigger[1].Scaler_trigger);
+  gtscalers[7] = sspReadReg(&pSSP[id]->gt.strigger[2].Scaler_trigger);
+  gtscalers[8] = sspReadReg(&pSSP[id]->gt.strigger[3].Scaler_trigger);
 
   sspWriteReg(&pSSP[id]->Sd.ScalerLatch, 0); 
   SSPUNLOCK(); 
@@ -4790,7 +4712,7 @@ void sspPrintGtScalers(int id)
      printf("   %-25s %10u,%.3fHz\n", ssp_scaler_name[i], scalers[i], rate); 
   }
 
-  for(i = 0; i < 10; i++) 
+  for(i = 0; i < 9; i++) 
   { 
     rate = (double)gtscalers[i]; 
     rate = rate / ref; 

@@ -77,7 +77,7 @@ protected:
   static void confFileCallback (int status, void* arg, daqNetData* );
 
   /*sergey*/
-  int parseConfigFile(char *fname, int iter);
+  int parseConfigFile(char *fname, int iter, char *);
   void updateConfFile (char *fname);
 
 

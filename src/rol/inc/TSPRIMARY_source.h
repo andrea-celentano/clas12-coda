@@ -99,7 +99,7 @@ static void
 tsprimarytinit(int code)
 {
   int ii, i1, i2, i3, ret;
-  unsigned int slavemask, connectmask;
+  unsigned int slavemask=0, connectmask=0;
 
   /*int overall_offset=0x80;*/
 

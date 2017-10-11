@@ -2818,6 +2818,11 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
   printing=1;
 
   nnE = nE[0][0];
+  if(nnE<=0)
+  {
+    printf("rol2: ERROR: nnE=%d\n",nnE);
+    exit(0);
+  }
 #ifdef DEBUG
   printf("nnE=%d\n",nnE);
 #endif

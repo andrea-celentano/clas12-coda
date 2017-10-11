@@ -500,7 +500,10 @@ createOptionTable (char* config)
 #endif
     sprintf (queryString, "create table %s_option(\n", config);
     strcat  (queryString, "name char(32) not null,\n");
-    strcat  (queryString, "value  char(80) not null\n");
+
+    /*strcat  (queryString, "value  char(80) not null\n");sergey*/
+    strcat  (queryString, "value text not null\n");
+
     strcat  (queryString, ")");
     if (mysql_query (mysql, queryString) != 0)
     {
@@ -1069,7 +1072,14 @@ insertValToOptionTable (char* config, char* name, char* value)
     /* insert the new one */
     sprintf (queryString, "insert into %s_option\n",config);
     if (value != 0) 
+	{
       sprintf (valString, "values ('%s', '%s')", name, value);
+      if(strlen(value)>255)
+	  {
+        printf("ERROR: value string is too long to be inserted into _option table, must be <256 ('%s')\n",value);
+        exit(1);
+	  }
+	}
     else
       sprintf (valString, "values ('%s', '')", name, value);
     strcat  (queryString, valString);

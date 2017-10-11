@@ -8,7 +8,7 @@
 #include "evioBankUtil.h"
 
 
-#undef DEBUG
+//#define DEBUG
 
 /*
   in following functions 'buf' is the buffer filled by evRead, for example:
@@ -70,6 +70,11 @@ evOpenBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknum
     /* 'internal' bank header */
     *ptr++ = 1;  /*set 'internal' bank length to 1 - we have header only*/
     *ptr++ = (0<<16) + (0x0<<8) + 0; /*internal bank header*/
+  }
+  else /* 'norman' bank with 2-word header */
+  {
+    *ptr++ = 1;  /*set 'internal' bank length to 1 - we have header only*/
+    *ptr++ = (banktag<<16) + (banktyp<<8) + banknum; /*bank header*/
   }
 
   /* update event, fragment and bank length */
@@ -153,6 +158,9 @@ evCloseBank(unsigned int *buf, int fragtag, int fragnum, int banktag, int banknu
 
   return(ind);
 }
+
+
+
 
 /* return index of the bank header; WILL SKIP BANK_OF_BANKS inside BANK_OF_BANKS !!?? */
 int
@@ -320,7 +328,7 @@ evLinkFrag(unsigned int *buf, int fragtag, int fragnum)
 	  if(tag1==fragtag && (num1==fragnum || fragnum<0))
       {
 #ifdef DEBUG
-        printf("evLinkFrag: right frag\n");
+        printf("evLinkFrag: right frag, return ind=%d\n",ind);
 #endif
         return(ind);
       }

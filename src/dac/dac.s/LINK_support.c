@@ -920,7 +920,7 @@ end4 = gethrtime();
       printf("[%2d] handle_link(): LINK_sized_read() returns %d\n",fd,numRead);fflush(stdout);
       printf("[%2d] handle_link(): put_cb_data calling ...\n",fd);fflush(stdout);
 	  usleep(USLEEP);
-      put_cb_data(fd,&theLink->roc_queue, (void *) -1);
+      put_cb_data(fd, &theLink->roc_queue, (void *) -1);
       printf("[%2d] handle_link(): put_cb_data called\n",fd);fflush(stdout);
       break;
     }
@@ -984,7 +984,7 @@ bigbuf[0],bigbuf[1],bigbuf[2],bigbuf[3],bigbuf[4],bigbuf[5],
 bigbuf[6],bigbuf[7],bigbuf[8],bigbuf[9],bigbuf[10],bigbuf[11]);
 }
 #endif
-    if(put_cb_data(fd,&theLink->roc_queue, (void *) buf) < 0)
+    if(put_cb_data(fd, &theLink->roc_queue, (void *) buf) < 0)
     {
       printf("[%2d] handle_link(): put_cb_data returns < 0 - break.\n",fd);
       fflush(stdout);

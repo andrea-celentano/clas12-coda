@@ -22,6 +22,7 @@
 */
 
 /* uncomment following line if do not want to malloc for every buffer */
+/* KEEP 'NOALLOC 1' !!! OTHERWISE DOES NOT WORK ANYMORE, EB crashes on event number mismatch !!!*/
 #define NOALLOC 1
 
 

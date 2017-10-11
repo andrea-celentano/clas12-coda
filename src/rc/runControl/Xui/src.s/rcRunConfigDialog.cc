@@ -60,6 +60,7 @@
 #include "rcRunConfigDialog.h"
 #include "rcXpmComdButton.h"
 
+
 /*
 #define _TRACE_OBJECTS
 */
@@ -134,7 +135,7 @@ rcRunConfigDialog::popup (void)
 /* parse run config file *.trg resolving 'include' etc, and create new file in the same directory
 with name <fname>.cnf; 'fname' assumed to be full path name */
 int
-rcRunConfigDialog::parseConfigFile(char *fname, int iter)
+rcRunConfigDialog::parseConfigFile(char *fname, int iter, char errmsg[STRLEN])
 {
   FILE *fin, *fout, *fd;
   char fnameout[STRLEN];
@@ -146,12 +147,13 @@ rcRunConfigDialog::parseConfigFile(char *fname, int iter)
   char *expid;
   char *ch, *ptr;
   int nargs;
+  mode_t mode;
 
   clonparms = getenv("CLON_PARMS");
 
   if((fin=fopen(fname,"r")) == NULL)
   {
-    printf("\nrcRunConfigDialog::parseConfigFile: ERROR: Can't open input run config file >%s<\n",fname);
+    sprintf(errmsg,"\nrcRunConfigDialog::parseConfigFile: ERROR: Can't open input run config file >%s<\n",fname);
     return(-1);
   }
 
@@ -166,13 +168,13 @@ rcRunConfigDialog::parseConfigFile(char *fname, int iter)
   }
   else
   {
-    printf("rcRunConfigDialog::parseConfigFile: ERROR: there is no '.' in file name >%s<\n",fnameout);
+    sprintf(errmsg, "rcRunConfigDialog::parseConfigFile: ERROR: there is no '.' in file name >%s<\n",fnameout);
     return(-2);
   }
 
   if((fout=fopen(fnameout,"w")) == NULL)
   {
-    printf("\nrcRunConfigDialog::parseConfigFile: ERROR: Can't open output run config file >%s<\n",fnameout);
+    sprintf(errmsg, "\nrcRunConfigDialog::parseConfigFile: ERROR: Can't open output run config file >%s<\n",fnameout);
     return(-3);
   }
 
@@ -208,9 +210,9 @@ rcRunConfigDialog::parseConfigFile(char *fname, int iter)
           sprintf(filename_full, "%s/%s", clonparms, filename);
 	    }
 
-        if((fd=fopen(filename_full,"r")) == NULL)
+        if((fd = fopen(filename_full,"r")) == NULL)
         {
-          printf("\nrcRunConfigDialog::ReadConfigFile: Can't open config file >%s<\n",filename_full);
+          sprintf(errmsg, "\nrcRunConfigDialog::ReadConfigFile: Can't open config file >%s<\n",filename_full);
           return(-4);
         }
 #ifdef _TRACE_OBJECTS
@@ -228,7 +230,7 @@ rcRunConfigDialog::parseConfigFile(char *fname, int iter)
         strcat(str_tmp,"\n\n");
         if( fputs(str_tmp, fout) == EOF)
 	    {
-          printf("rcRunConfigDialog::ReadConfigFile: ERROR writing %s\n",fnameout);
+          sprintf(errmsg, "rcRunConfigDialog::ReadConfigFile: ERROR writing %s\n",fnameout);
           return(-5);
 	    }
         /*else
@@ -243,7 +245,7 @@ rcRunConfigDialog::parseConfigFile(char *fname, int iter)
 		{
           if( fputs(str_tmp, fout) == EOF)
 	      {
-            printf("rcRunConfigDialog::ReadConfigFile: ERROR writing %s\n",fnameout);
+            sprintf(errmsg, "rcRunConfigDialog::ReadConfigFile: ERROR writing %s\n",fnameout);
             return(-6);
 	      }
           /*else
@@ -259,7 +261,7 @@ rcRunConfigDialog::parseConfigFile(char *fname, int iter)
       }
       else
 	  {
-        printf("rcRunConfigDialog::ReadConfigFile: ERROR included file is not specified\n");
+        sprintf(errmsg, "rcRunConfigDialog::ReadConfigFile: ERROR included file is not specified\n");
         return(-7);
 	  }
 
@@ -272,7 +274,7 @@ rcRunConfigDialog::parseConfigFile(char *fname, int iter)
 	{
       if( fputs(str_tmp, fout) == EOF)
 	  {
-        printf("rcRunConfigDialog::ReadConfigFile: ERROR writing %s\n",fnameout);
+        sprintf(errmsg, "rcRunConfigDialog::ReadConfigFile: ERROR writing %s\n",fnameout);
         return(-8);
 	  }
       /*else
@@ -285,15 +287,18 @@ rcRunConfigDialog::parseConfigFile(char *fname, int iter)
   } /* end of while */
 
   fclose(fin);
+  fclose(fout);
 
-  if(chmod(fnameout,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH) != 0) /*open file for everybody*/
+  /* open output file for everybody */
+  mode = S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH;
+  if(chmod(fnameout, mode) != 0) /*open file for everybody*/
   {
     printf("rcRunConfigDialog::ReadConfigFile: ERROR: cannot change mode on output run config file\n");
-    printf("rcRunConfigDialog::ReadConfigFile: ERROR: cannot change mode on output run config file\n");
-    printf("rcRunConfigDialog::ReadConfigFile: ERROR: cannot change mode on output run config file\n");
   }
-
-  fclose(fout);
+  else
+  {
+    printf("rcRunConfigDialog::ReadConfigFile: INFO: changed mode on output run config file - opened for everybody\n");
+  }
 
   return(0);
 }
@@ -387,8 +392,9 @@ rcRunConfigDialog::downloadCallback (int status, void* arg, daqNetData* data)
 void
 rcRunConfigDialog::execute (void)
 {
-  char filename[256], fname[256], fnam1[256], fnam2[256], *fn, *ptr;
-  int len, ret;
+  char filename[STRLEN], fname[STRLEN], fnam1[STRLEN], fnam2[STRLEN], *fn, *ptr;
+  char errmsg[STRLEN];
+  int len, ret = 0;
 
 #ifdef _CODA_DEBUG
   printf("rcRunConfigDialog::execute: ------------> execute reached\n");
@@ -430,10 +436,11 @@ rcRunConfigDialog::execute (void)
     strcpy(fnam1,filename);
     for(int iter=5; iter>=0; iter--)
     {
-      if( (ret=parseConfigFile(fnam1, iter)) < 0 )
+      if( (ret = parseConfigFile(fnam1, iter, errmsg)) < 0 )
       {
         printf("rcRunConfigDialog::execute: ERROR in parseRunConfigFile: ret=%d\n",ret);
         strcpy(filename,"none");
+        reportErrorMsg(errmsg);
         break;
       }
       else /* change extension for next iteration, in last iteration it has to become '.cnf' */
@@ -449,6 +456,9 @@ rcRunConfigDialog::execute (void)
       sprintf(fnam1,"%s.cnf_%d\0",fname,iter);
       remove(fnam1);
     }
+
+    /* if not 'none': config file in database (and runcontrol gui) need .cnf extension, not .trg */
+    if(strncmp(filename,"none",4)) sprintf(filename,"%s.cnf\0",fname);
 
   }
   else
@@ -472,5 +482,13 @@ rcRunConfigDialog::execute (void)
   printf("rcRunConfigDialog::execute: >>>>>>>>>>>>> FILE3 >%s<\n",filename);fflush(stdout);
 #endif
 
-  download (); /* from inside 'download()' we'll send DADOWNLOAD command to daqRun.cc */
+  /* download if it was no error; from inside 'download()' we'll send DADOWNLOAD command to daqRun.cc */
+  if(ret==0)
+  {
+    download();
+  }
+  else
+  {
+    printf("rcRunConfigDialog::execute: do NOT download !!!\n");
+  }
 }

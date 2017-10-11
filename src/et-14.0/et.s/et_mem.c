@@ -50,12 +50,14 @@ int et_mem_create(const char *name, size_t memsize, void **pmemory, size_t *tota
   totalsize  = pagesize * num_pages;
   /*printf("et_mem_create: size = %d bytes, requested size = %d bytes\n",totalsize, memsize);*/
 
-  mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
+  /*sergey mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;*/
+  mode = S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH;
   if ((fd = open(name, O_RDWR|O_CREAT|O_EXCL, mode)) < 0) {
     /* file exists already */
     return ET_ERROR_EXISTS;
   }
-  else {
+  else
+  {
     /* set (shared mem, file) size */
     if (ftruncate(fd, (off_t) totalsize) < 0) {
       close(fd);
@@ -71,6 +73,9 @@ int et_mem_create(const char *name, size_t memsize, void **pmemory, size_t *tota
     unlink(name);
     return ET_ERROR;
   }
+
+  /*sergey: set mode again, because doing that in 'open()' will be masked by user's 'umask' setting */
+  if(fchmod(fd,mode) < 0) printf("fchmod() returns error - proceeding anyway\n");
 
   /* close fd for mapped mem since no longer needed */
   close(fd);

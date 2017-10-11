@@ -56,13 +56,9 @@ typedef struct
   int pcal_cluster_emin;
   int pcal_cluster_width;
   
-  int ecalout_cluster_emin_en;
-  int ecalout_cluster_emin;
-  int ecalout_cluster_width;
-  
-  int ecalin_cluster_emin_en;
-  int ecalin_cluster_emin;
-  int ecalin_cluster_width;
+  int ecal_cluster_emin_en;
+  int ecal_cluster_emin;
+  int ecal_cluster_width;
   
   int pcal_esum_en;
   int pcal_esum_emin;
