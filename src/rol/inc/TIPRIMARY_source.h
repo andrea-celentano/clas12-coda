@@ -23,7 +23,7 @@
 #define MVT_READ_CONF_FILE  {mvtSetExpid(expid);                        mvtConfig("");     if(strncasecmp(rol->confFile,"none",4)) mvtConfig(rol->confFile);}
 #define FTT_READ_CONF_FILE  {fttConfig("");                                                if(strncasecmp(rol->confFile,"none",4)) fttConfig(rol->confFile);}
 #define FLP_READ_CONF_FILE  {flpSetExpid(expid);                        flpConfig("");     if(strncasecmp(rol->confFile,"none",4)) flpConfig(rol->confFile);}
-
+#define V1725_READ_CONF_FILE {v1725SetExpid(expid);                  v1725Config("");   if(strncasecmp(rol->confFile,"none",4))   v1725Config(rol->confFile);}
 
 #include <stdio.h>
 #include <libdb.h>
@@ -140,6 +140,7 @@ tiprimarytinit(int code)
 /*vmeCheckMutexHealth(1); - use 'mutexclean' command if needed !!!!!!!!!!!!!!!!!!!*/
 
 
+  printf("tiprimaryinit: code is %i - TIADDR is: 0x%08x  ---- %i \n",code,TI_ADDR,TI_ADDR);
 
   /* DMA setup */
   /*usrVmeDmaSetMemSize(0x200000);*/
@@ -149,6 +150,7 @@ tiprimarytinit(int code)
 #else
   usrVmeDmaMemory(&i1, &i2, &i3);
 #endif
+  printf("tiprimarytinit: pMemBase,uMemBase,mSize: 0x%08x 0x%08x %i \n",i1,i2,i3);
   i2_from_rol1 = i2;
   printf("tiprimarytinit: i2_from_rol1 = 0x%08x\n",i2_from_rol1);
 

@@ -3,7 +3,8 @@
 
 static UINT32 physMemBase;
 static UINT32 userMemBase;
-static UINT32 memSize = 0x100000; /*must be enough to take maximum event size from entire VME crate*/
+static UINT32 memSize = 0x200000; /*must be enough to take maximum event size from entire VME crate*/
+
 
 /* if using externally allocated destination memory, attributes will be modified; following will
 be used to save default values so we can go back to our memory */

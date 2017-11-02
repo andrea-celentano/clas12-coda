@@ -53,19 +53,26 @@ main(int argc, char *argv[])
 {
   int res;
   char myname[256];
-  unsigned int addr, laddr;
+  unsigned int addr, laddr,user_vme;
 
-  if(argc==3)
+  if(argc==4)
   {
     addr = strtol(argv[1], (char **)NULL, 16);
     printf("use argument >0x%08x< as board VME address\n",addr);
 
     strncpy(myname, argv[2], 255);
     printf("use argument >%s< as rbf file name\n",myname);
+
+    user_vme =  strtol(argv[3], (char **)NULL, 16);
+    printf("use argument >%i< as user_VME \n",user_vme);
+    if (user_vme<0||user_vme>1){
+    	printf("invalid argument \n");
+    	exit(1);
+    }
   }
   else
   {
-    printf("Usage: v1495firmware <vme_address> <rbf file>\n");
+    printf("Usage: v1495firmware <vme_address> <rbf file> <USER(0)/VME(1)>\n");
     exit(0);
   }
 
@@ -82,7 +89,7 @@ main(int argc, char *argv[])
   {
     printf("INFO: addr=0x%08x, laddr=0x%08x\n",addr,laddr);
     /* update firmware */
-    v1495firmware(laddr,myname,0,0);
+    v1495firmware(laddr,myname,0,user_vme);
   }
 
   exit(0);

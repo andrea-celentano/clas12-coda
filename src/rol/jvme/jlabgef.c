@@ -65,6 +65,8 @@ static GEF_MAP_HDL crcsrmap_hdl;
     \{ */
 unsigned int a32_window_width        = 0x00010000; /*64KB*/ /*0x03000000 - 48MB*/
 unsigned int a32blt_window_width     = 0x0a000000; /*160MB*/
+
+
 unsigned int a24_window_width        = 0x01000000; /*16MB*/
 unsigned int a16_window_width        = 0x00010000;
 unsigned int crcsr_window_width        = 0x01000000;
