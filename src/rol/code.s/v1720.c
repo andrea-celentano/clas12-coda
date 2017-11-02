@@ -379,7 +379,7 @@ v1720Config(int options)
   taskDelay(10);
   */
 
-  return;
+  return 0;
 }
 
 

@@ -69,6 +69,8 @@ CrateMsg_Write16(CrateMsgStruct *msg, int swap)
 int
 CrateMsg_Read32(CrateMsgStruct *msg, int swap)
 {
+	printf("CrateMsg_Read32 was called. cnt >%d< addr >0x%08x< \n",msg->msg.m_Cmd_Read32.cnt,msg->msg.m_Cmd_Read32.addr);fflush(stdout);
+	printf("Address of function: 0x%08x\n",gServerCBFunctions.Read32);
 	if(swap)
 	{
 		msg->msg.m_Cmd_Read32.cnt = DW_SWAP(msg->msg.m_Cmd_Read32.cnt);
@@ -241,7 +243,7 @@ ConnectionThread(void *parm)
 
   while(1)
   {
-    /*printf("ConnectionThread befor recv1 - expecting  message length and message type - 8 bytes total\n");*/
+  //  printf("ConnectionThread befor recv1 - expecting  message length and message type - 8 bytes total\n");
    	if( (result = recv(pParm->sock, (char *)&pParm->msg, 8, 0)) != 8)
    	{
       printf("break 1: result=%d\n",result);
@@ -250,7 +252,7 @@ ConnectionThread(void *parm)
    	  /*break;*/
       goto error_exit;
    	}
-    /*printf("ConnectionThread after recv1, result=%d\n",result);*/
+  //  printf("ConnectionThread after recv1, result=%d\n",result);
 
    	if(swap)
    	{
@@ -264,13 +266,13 @@ ConnectionThread(void *parm)
 	  break;
 	}
 
-    /*printf("ConnectionThread befor recv2, expecting msg.len=%d msg.type=%d\n",pParm->msg.len,pParm->msg.type);*/
+  //  printf("ConnectionThread befor recv2, expecting msg.len=%d msg.type=%d\n",pParm->msg.len,pParm->msg.type);
    	if(pParm->msg.len && ((result = recv(pParm->sock, (char *)&pParm->msg.msg, pParm->msg.len, 0)) != pParm->msg.len))
 	{	
       printf("break 3: result=%d, pParm->msg.len=%d\n",result,pParm->msg.len);
 	  break;
 	}
-    /*printf("ConnectionThread after recv2, result=%d\n",result);*/
+    printf("ConnectionThread after recv2, result=%d\n",result);
 
 	result = -1;
 
@@ -410,24 +412,24 @@ next_port:
 
   while(1)
   {
-	printf("waiting for accept, port >%d<\n",gListenPort);fflush(stdout);
+	printf("ListenerThread waiting for accept, port >%d<\n",gListenPort);fflush(stdout);
     csock = accept(lsock, (struct sockaddr *)&clientAddr, &sockAddrSize);
-	printf("accepted\n");fflush(stdout);
+	printf("ListenerThread accepted\n");fflush(stdout);
     if(csock < 0)
 	{
-      printf("Error in %s: accept() failed\n", __FUNCTION__);fflush(stdout);
+      printf("ListenerThread Error in %s: accept() failed\n", __FUNCTION__);fflush(stdout);
 	  break;
 	}
 	pcThreadParm = (SocketThreadStruct *) malloc(sizeof(SocketThreadStruct));
 	pcThreadParm->sock = csock;
 	if(!pcThreadParm)
 	{
-	  printf("Error in %s: malloc() failed\n", __FUNCTION__);fflush(stdout);
+	  printf("ListenerThread Error in %s: malloc() failed\n", __FUNCTION__);fflush(stdout);
 	  break;
 	}
     else
 	{
-      printf("pcThreadParm=0x%08x\n",pcThreadParm);fflush(stdout);
+      printf("ListenerThread pcThreadParm=0x%08x\n",pcThreadParm);fflush(stdout);
 	}
 
 
@@ -455,9 +457,10 @@ next_port:
           strncmp(address,"129.57.68.",10)  &&
           strncmp(address,"129.57.69.",10)  &&
           strncmp(address,"129.57.86.",10) &&
-          strncmp(address,"129.57.29.",10) )
+          strncmp(address,"129.57.29.",10) &&
+          strncmp(address,"192.168.0.",10))   //A.C. adding for BDX local ntwrk
 	  {
-        printf("CrateMsgServer: ignore request from %s\n",address);fflush(stdout);
+        printf("ListenerThread CrateMsgServer: ignore request from %s\n",address);fflush(stdout);
         /*close(lsock);*/
         continue;
 	  }

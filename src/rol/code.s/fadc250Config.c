@@ -123,7 +123,7 @@ fadc250Config(char *fname)
 
   /* faInit() must be called by now; get the number of boards from there */
   nfadc = faGetNfadc();
-  printf("fadc250Config: nfadc=%d\n",nfadc);
+  printf("fadc250Config: nfadc=%d -- fname: %s \n",nfadc,fname);
 
   if(strlen(fname) > 0) /* filename specified  - upload initial settings from the hardware */
   {
