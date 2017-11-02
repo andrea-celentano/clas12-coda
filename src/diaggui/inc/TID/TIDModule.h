@@ -10,14 +10,19 @@ class TIDModule	: public ModuleFrame
  public:
   TIDModule(const TGWindow *p, CrateMsgClient *pClient, unsigned int baseAddr) : ModuleFrame(p, pClient, baseAddr)
     {
-		SetupRegisters();
+	  printf("TIDModule constructor starts \n");fflush(stdout);
+	  SetupRegisters();
+	  printf("TIDModule constructor setup registers done \n");fflush(stdout);
 
       TGCompositeFrame *tFrame;
       AddFrame(pTIDTabs = new TGTab(this), 
 	       new TGLayoutHints(kLHintsBottom | kLHintsRight | kLHintsExpandX | kLHintsExpandY));
 
+      printf("TIDModule first AddFrame done\n");fflush(stdout);
       tFrame = pTIDTabs->AddTab("Status");
+      printf("TIDModule AddTab done\n");fflush(stdout);
       tFrame->AddFrame(new TID_Status(tFrame, this), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+	  printf("TIDModule constructor end\n");fflush(stdout);
     }
 
 

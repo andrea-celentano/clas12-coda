@@ -14,9 +14,9 @@ class TID_Status	: public TGCompositeFrame
     {
       SetLayoutManager(new TGVerticalLayout(this));
 
-		pM = pModule;
-		pRegs = (TID_regs *)pM->BaseAddr;
-
+      	  pM = pModule;
+      	  pRegs = (TID_regs *)pM->BaseAddr;
+      	  printf("TID_Status creator: 0x%08x\n",pRegs);
       AddFrame(pFrameButtons = 
 	       new TGHorizontalFrame(this), new TGLayoutHints(kLHintsExpandX));
       pFrameButtons->AddFrame(pButtonUpdate = 
@@ -52,6 +52,7 @@ class TID_Status	: public TGCompositeFrame
       pButtonSWSync->Associate(this);
 
       UpdateTextView();
+      printf("TID_Status constructor end \n");fflush(stdout);
     }
 
     virtual Bool_t ProcessMessage(Long_t msg, Long_t parm1, Long_t)

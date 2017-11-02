@@ -30,6 +30,7 @@ CLON_FLAGS += -I./src.s \
 				-I./inc/DCRBScalers \
 				-I./inc/DSC \
 				-I./inc/FADC \
+				-I./inc/V1725 \
 				-I./inc/FADCScalers_HPS \
 				-I./inc/GTP \
 				-I./inc/GTP_HPS \

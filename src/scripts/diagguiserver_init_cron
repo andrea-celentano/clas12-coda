@@ -1,2 +1,2 @@
 #!/bin/bash
-cron_exec $1 DiagGuiServer diagguiserver_init "/usr/local/clas12/release/current/coda/common/scripts"
+cron_exec $1 DiagGuiServer diagguiserver_init "/local/clas12/release/current/coda/common/scripts"

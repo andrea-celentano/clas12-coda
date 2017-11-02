@@ -9,7 +9,7 @@
 #include "RootHeader.h"
 
 #define DEBUG_NOCONNECTION				0
-#define DEBUG_PRINT						0
+#define DEBUG_PRINT						1
 
 #define CRATEMSG_LISTEN_PORT			6102
 #define MAX_MSG_SIZE					10000
@@ -124,6 +124,7 @@ public:
 
 	CrateMsgClient(const char *pHost, int port)
 	{
+		Bool_t ret;
 		hostname = Form("%s",pHost);
 		hostport = port;
 
@@ -143,8 +144,9 @@ public:
 		}
 		else
 			printf("Successfully connected to host: %s\n" , pHost);
-
-		InitConnection();
+		ret=InitConnection();
+		if (ret) printf("Init connection was fine! \n");
+		else printf("Init connection error \n");
 	}
 
   Bool_t IsValid() 
@@ -185,11 +187,18 @@ public:
 
 		// send endian test word to server
 		val = CRATEMSG_HDR_ID;
+#ifdef DEBUG_PRINT
+		printf("Before sendRaw\n");fflush(stdout);
+#endif
 		SendRaw(&val, 4);
-
+#ifdef DEBUG_PRINT
+		printf("After sendRaw\n");fflush(stdout);
+#endif
 		if(RecvRaw(&val, 4) != 4)
 			return kFALSE;
-
+#ifdef DEBUG_PRINT
+		printf("After RecvRaw\n");fflush(stdout);
+#endif
 		if(val == CRATEMSG_HDR_ID)
 			swap = 0;
 		else if(val == LSWAP(CRATEMSG_HDR_ID))
@@ -342,9 +351,9 @@ public:
 
 	Bool_t Read32(unsigned int addr, unsigned int *val, int cnt = 1, int flags = CRATE_MSG_FLAGS_ADRINC)
 	{
-		if(!CheckConnection(__FUNCTION__))
+		if(!CheckConnection(__FUNCTION__)){
 			return kFALSE;
-
+		}
 		Msg.len = 12;
 		Msg.type = CRATEMSG_TYPE_READ32;
 		Msg.msg.m_Cmd_Read16.cnt = cnt;
@@ -353,7 +362,7 @@ public:
 		SendRaw(&Msg, Msg.len+8);
 
 #if DEBUG_PRINT
-		printf("Read32 @ 0x%08X, Count = %d, Flag = %d, Vals = ", addr, cnt, flags);
+		printf("Read32 @ 0x%08X, Count = %d, Flag = %d, Vals = ", addr, cnt, flags);fflush(stdout);
 #endif
 
 		if(RcvRsp(Msg.type))

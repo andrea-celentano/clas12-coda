@@ -205,12 +205,12 @@ ifeq ("$(OSTYPE_PLATFORM)","Linux_x86_64")
     CC = /apps/gcc/4.9.4/bin/gcc
     CXX = /apps/gcc/4.9.4/bin/g++ -g
 endif
-ifeq ("$(OSTYPE_PLATFORM)","Linux_i686")
-    CC = /apps/gcc/4.9.4/bin/gcc
-    CXX = /apps/gcc/4.9.4/bin/g++ -g
-    CFLAGS += -gdwarf-2
-    CXXFLAGS += -gdwarf-2
-endif
+#ifeq ("$(OSTYPE_PLATFORM)","Linux_i686")
+#    CC = /apps/gcc/4.9.4/bin/gcc
+#    CXX = /apps/gcc/4.9.4/bin/g++ -g
+#    CFLAGS += -gdwarf-2
+#    CXXFLAGS += -gdwarf-2
+#endif
 
     CPP = $(CC) -E
 
@@ -806,6 +806,7 @@ LIB_FILES_ROL = $(subst .c,.so,$(TMP4))
 #	echo ">$(MACHINE)<"
 #	echo ">$(PLATFORM)<"
 #	echo ">$(OSTYPE_PLATFORM)<"
+#	echo ">$(OSTYPE_MACHINE)<"
 #	echo ">$(OSRELEASE)<"
 #	echo ">$(MAKECMDGOALS)<"
 #	echo "VPATH_DIR3 >$(VPATH_DIR3)<"

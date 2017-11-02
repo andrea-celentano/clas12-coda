@@ -117,10 +117,10 @@ setenv LD_LIBRARY_PATH "/apps/Trolltech/qwt-5.2.1/lib:${LD_LIBRARY_PATH}"
 
 #modelsim
 setenv PATH "${PATH}:/apps/modelsim66a/modelsim_dlx/linuxpe"
-setenv LM_LICENSE_FILE 1717@clondb1old.jlab.org
+#setenv LM_LICENSE_FILE 1717@clondb1old.jlab.org
 
 #quartus
-setenv PATH "${PATH}:/apps/altera/11.0/quartus/bin"
+setenv PATH "${PATH}:/apps/altera/9.1/quartus/bin"
 
 
 

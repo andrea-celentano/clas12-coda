@@ -8,6 +8,7 @@
 #include "DCRBScalersModule.h"
 #include "DSC2Module.h"
 #include "FADC250Module.h"
+#include "V1725Module.h"
 #include "SDModule.h"
 #include "SSPModule.h"
 #include "SSP_HPSModule.h"
@@ -219,7 +220,7 @@ void DiagGUI::ProcessParam(char *paramA, char *paramB, char *paramC, int count)
 	static CrateMsgClient *pCrateMsgClientLast = NULL;
 	static ModuleFrame *pModuleFrameLast = NULL;
 	unsigned int addr = 0;
-
+	printf("DiagGUI::ProcessParam start %s %s %s %d\n",paramA,paramB,paramC,count);fflush(stdout);
 	if(!stricmp("HOSTNAME", paramA))
 	{
 		if(iHostCount < HOST_COUNT_MAX)
@@ -235,7 +236,7 @@ void DiagGUI::ProcessParam(char *paramA, char *paramB, char *paramC, int count)
 			
 			if(!pCrateMsgClient[iHostCount]->IsValid())
 			{
-//	      printf("%s: INVALID!\n",__FUNCTION__);
+				printf("%s: INVALID!\n",__FUNCTION__);
 //	      delete pVMERemote[iHostCount];
 //		  getch();
 //	      gApplication->Terminate();
@@ -308,11 +309,14 @@ void DiagGUI::ProcessParam(char *paramA, char *paramB, char *paramC, int count)
 				pFrameModule->AddFrame(pModuleFrames[iModuleCount] = new V1495PulserModule(pFrameModule, pCrateMsgClientLast, addr), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 			else if(!stricmp("MOD_TYPE_VETROC", paramB))
 				pFrameModule->AddFrame(pModuleFrames[iModuleCount] = new vetroc_module(pFrameModule, pCrateMsgClientLast, addr), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+			else if(!stricmp("MOD_TYPE_V1725", paramB))
+				pFrameModule->AddFrame(pModuleFrames[iModuleCount] = new V1725_module(pFrameModule, pCrateMsgClientLast, addr), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 			else
 			{
 				printf("Error: Unknown module type: %s\n", paramB);
 				return;
 			}
+			printf("DiagGUI::ProcessParam after boards\n");fflush(stdout);
 			TString str;
 			str.Form("%s: %s", pModuleFrames[iModuleCount]->GetSlotIdentifier(), pModuleFrames[iModuleCount]->GetModuleName());
 
@@ -345,6 +349,7 @@ void DiagGUI::ProcessParam(char *paramA, char *paramB, char *paramC, int count)
 		else
 			printf("Unknown parameter: %s\n", paramA);
 	}
+	printf("DiagGUI::ProcessParam end %s %s %s \n",paramA,paramB,paramC);fflush(stdout);
 }
 
 Bool_t DiagGUI::ProcessMessage(Long_t msg, Long_t parm1, Long_t)
