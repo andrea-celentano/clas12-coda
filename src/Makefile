@@ -22,6 +22,8 @@ all:
 	- cd codaedit;                       $(MAKE) install
 	- cd cterm;                          $(MAKE)
 	- cd cterm;                          $(MAKE) install
+	- cd ipc;                            $(MAKE)
+	- cd ipc;                            $(MAKE) install
 #	- cd rol;                            $(MAKE) jvmes
 	- cd rol/jvme;                       $(MAKE)
 	- cd dac;                            $(MAKE)
