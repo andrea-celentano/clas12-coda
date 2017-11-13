@@ -18,45 +18,6 @@
 #define V1190_MAX_WORDS_PER_EVENT  34
 #define V1190_MAX_WORDS_PER_BOARD  512/*3200*/ /* must be alligned to 16 !!! */
 
-/* Define a Structure for access to TDC*/
-typedef struct v1190_struct
-{
-  /*0x0000*/ volatile unsigned int   data[1024];
-  /*0x1000*/ volatile unsigned short control;
-  /*0x1002*/ volatile unsigned short status;
-  /*0x1004*/ volatile unsigned short res1;
-  /*0x1006*/ volatile unsigned short res2;
-  /*0x1008*/ volatile unsigned short res3;
-  /*0x100A*/ volatile unsigned short intLevel;
-  /*0x100C*/ volatile unsigned short intVector;
-  /*0x100E*/ volatile unsigned short geoAddr;
-  /*0x1010*/ volatile unsigned short mcstBaseAddr;
-  /*0x1012*/ volatile unsigned short mcstCtrl;
-  /*0x1014*/ volatile unsigned short moduleReset;
-  /*0x1016*/ volatile unsigned short clear;
-  /*0x1018*/ volatile unsigned short countReset;
-  /*0x101A*/ volatile unsigned short trigger;
-  /*0x101C*/ volatile unsigned int   evCount;
-  /*0x1020*/ volatile unsigned short evStored;
-  /*0x1022*/ volatile unsigned short almostFullLevel;
-  /*0x1024*/ volatile unsigned short bltEventNumber;
-  /*0x1026*/ volatile unsigned short firmwareRev;
-  /*0x1028*/ volatile unsigned int   testReg;
-  /*0x102C*/ volatile unsigned short outProgControl;
-  /*0x102E*/ volatile unsigned short microReg;
-  /*0x1030*/ volatile unsigned short microHandshake;
-
-  /*0x1032*/ volatile unsigned short selflash;
-  /*0x1034*/ volatile unsigned short flash;
-  /*0x1036*/ volatile unsigned short compensationSRAMpage;
-
-  /*0x1038*/ volatile unsigned int   fifo;
-  /*0x103C*/ volatile unsigned short fifo_stored;
-  /*0x103E*/ volatile unsigned short fifo_status;
-
-} TDC1190;
-
-
 struct v1190_ROM_struct {
   /*0x4000*/ volatile unsigned short checksum;
   unsigned short blank0;
@@ -97,11 +58,61 @@ struct v1190_ROM_struct {
   /*0x4048*/ volatile unsigned short revis1;
   unsigned short blank18;
   /*0x404C*/ volatile unsigned short revis0;
-  unsigned short blank19[25];
+  unsigned short blank19[/*25*/(0x4080-0x404E)>>1];
   /*0x4080*/ volatile unsigned short sernum1;
   unsigned short blank20;
   /*0x4084*/ volatile unsigned short sernum2;
+  unsigned short blank21;
+  unsigned int   blank22[(0x4200 - 0x4088) >> 2];
 };
+
+/* Define a Structure for access to TDC*/
+typedef struct v1190_struct
+{
+  /*0x0000*/ volatile unsigned int   data[1024];
+  /*0x1000*/ volatile unsigned short control;
+  /*0x1002*/ volatile unsigned short status;
+  /*0x1004*/ volatile unsigned short res1;
+  /*0x1006*/ volatile unsigned short res2;
+  /*0x1008*/ volatile unsigned short res3;
+  /*0x100A*/ volatile unsigned short intLevel;
+  /*0x100C*/ volatile unsigned short intVector;
+  /*0x100E*/ volatile unsigned short geoAddr;
+  /*0x1010*/ volatile unsigned short mcstBaseAddr;
+  /*0x1012*/ volatile unsigned short mcstCtrl;
+  /*0x1014*/ volatile unsigned short moduleReset;
+  /*0x1016*/ volatile unsigned short clear;
+  /*0x1018*/ volatile unsigned short countReset;
+  /*0x101A*/ volatile unsigned short trigger;
+  /*0x101C*/ volatile unsigned int   evCount;
+  /*0x1020*/ volatile unsigned short evStored;
+  /*0x1022*/ volatile unsigned short almostFullLevel;
+  /*0x1024*/ volatile unsigned short bltEventNumber;
+  /*0x1026*/ volatile unsigned short firmwareRev;
+  /*0x1028*/ volatile unsigned int   testReg;
+  /*0x102C*/ volatile unsigned short outProgControl;
+  /*0x102E*/ volatile unsigned short microReg;
+  /*0x1030*/ volatile unsigned short microHandshake;
+
+  /*0x1032*/ volatile unsigned short selflash;
+  /*0x1034*/ volatile unsigned short flash;
+  /*0x1036*/ volatile unsigned short compensationSRAMpage;
+
+  /*0x1038*/ volatile unsigned int   fifo;
+  /*0x103C*/ volatile unsigned short fifo_stored;
+  /*0x103E*/ volatile unsigned short fifo_status;
+
+  /* 0x1040 */          unsigned int   blank0[(0x4000 - 0x1040) >> 2];
+
+  /* 0x4000 */ struct v1190_ROM_struct rom;
+
+  /* 0x4200 */          unsigned int   blank1[(0x8000 - 0x4200) >> 2];
+
+  /* 0x8000 */ volatile unsigned short sram[(0x8200 - 0x8000) >> 1];
+
+} TDC1190;
+
+
 
 #define V1190_BOARD_ID   0x000004A6
 #define V1290_BOARD_ID   0x0000050A
@@ -198,6 +209,10 @@ struct v1190_ROM_struct {
 
 #define V1190_MICRO_WRITEOK       0x0001
 #define V1190_MICRO_READOK        0x0002
+
+#define V1190_MAIN_MEM_PAGE_READ         0x00D2
+#define V1190_MAIN_MEM_PAGE_PROG_TH_BUF1 0x0082
+#define V1190_PAGE_ERASE                 0x0081
 
 #ifndef UINT32
 #define UINT32 unsigned int
@@ -384,6 +399,7 @@ typedef struct {
   char SerNum[80];
 
   int    edge;
+  int    compensation;
   UINT16 mask[8];
 
 } TDC1290_CONF;

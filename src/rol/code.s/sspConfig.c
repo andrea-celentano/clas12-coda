@@ -2136,32 +2136,31 @@ sspUploadAll(char *string, int length)
     /******************************************/
     if(ssp[slot].fw_type == SSP_CFG_SSPTYPE_HALLBGTC)
     {
-      sspGtc_SetLatency(slot, ssp[slot].gtc.gtpif_latency);
+      ssp[slot].gtc.gtpif_latency = sspGtc_GetLatency(slot);
 
-      sspGtc_SetFt_EsumDelay(slot, ssp[slot].gtc.ft.esum_delay);
-      sspGtc_SetFt_ClusterDelay(slot, ssp[slot].gtc.ft.cluster_delay);
-      sspGtc_SetFt_EsumIntegrationWidth(slot, ssp[slot].gtc.ft.esum_intwidth);
-      sspGtc_SetHtcc_Delay(slot, ssp[slot].gtc.htcc.htcc_delay);
+      ssp[slot].gtc.ft.esum_delay = sspGtc_GetFt_EsumDelay(slot);
+      ssp[slot].gtc.ft.cluster_delay = sspGtc_GetFt_ClusterDelay(slot);
+      ssp[slot].gtc.ft.esum_intwidth = sspGtc_GetFt_EsumIntegrationWidth(slot);
 
-      for(jj=0; jj<4; jj++)
+      for(i=0; i<4; i++)
       {
-        ival = sspGtc_GetTrigger_Enable(slot, jj);
-        ssp[slot].gtc.ctrg[jj].en            = (ival & 0x001) ? 1 : 0;
-        ssp[slot].gtc.ctrg[jj].ft_cluster_en = (ival & 0x002) ? 1 : 0;
-        ssp[slot].gtc.ctrg[jj].ft_esum_en    = (ival & 0x004) ? 1 : 0;
-        ssp[slot].gtc.ctrg[jj].htcc_en       = (ival & 0x008) ? 1 : 0;
+        ival = sspGtc_GetTrigger_Enable(slot, i);
+        ssp[slot].gtc.ctrg[i].en            = (ival & 0x001) ? 1 : 0;
+        ssp[slot].gtc.ctrg[i].ft_cluster_en = (ival & 0x002) ? 1 : 0;
+        ssp[slot].gtc.ctrg[i].ft_esum_en    = (ival & 0x004) ? 1 : 0;
+        ssp[slot].gtc.ctrg[i].htcc_en       = (ival & 0x008) ? 1 : 0;
 
-        ssp[slot].gtc.ctrg[jj].ft_esum_emin = sspGtc_GetTrigger_FtEsumEmin(slot, jj);
-        ssp[slot].gtc.ctrg[jj].ft_esum_width = sspGtc_GetTrigger_FtEsumWidth(slot, jj);
-        ssp[slot].gtc.ctrg[jj].ft_cluster_emin = sspGtc_GetTrigger_FtClusterEmin(slot, jj);
-        ssp[slot].gtc.ctrg[jj].ft_cluster_emax = sspGtc_GetTrigger_FtClusterEmax(slot, jj);
-        ssp[slot].gtc.ctrg[jj].ft_cluster_hodo_nmin = sspGtc_GetTrigger_FtClusterHodoNmin(slot, jj);
-        ssp[slot].gtc.ctrg[jj].ft_cluster_nmin = sspGtc_GetTrigger_FtClusterNmin(slot, jj); 
-        ssp[slot].gtc.ctrg[jj].ft_cluster_width = sspGtc_GetTrigger_FtClusterWidth(slot, jj);
+        ssp[slot].gtc.ctrg[i].ft_esum_emin = sspGtc_GetTrigger_FtEsumEmin(slot, i);
+        ssp[slot].gtc.ctrg[i].ft_esum_width = sspGtc_GetTrigger_FtEsumWidth(slot, i);
+        ssp[slot].gtc.ctrg[i].ft_cluster_emin = sspGtc_GetTrigger_FtClusterEmin(slot, i);
+        ssp[slot].gtc.ctrg[i].ft_cluster_emax = sspGtc_GetTrigger_FtClusterEmax(slot, i);
+        ssp[slot].gtc.ctrg[i].ft_cluster_hodo_nmin = sspGtc_GetTrigger_FtClusterHodoNmin(slot, i);
+        ssp[slot].gtc.ctrg[i].ft_cluster_nmin = sspGtc_GetTrigger_FtClusterNmin(slot, i); 
+        ssp[slot].gtc.ctrg[i].ft_cluster_width = sspGtc_GetTrigger_FtClusterWidth(slot, i);
 
-        ssp[slot].gtc.ctrg[jj].htcc_width = sspGtc_GetTrigger_HtccWidth(slot, jj);
-        for(kk=0; kk<6; kk++)
-          ssp[slot].gtc.ctrg[jj].htcc_mask[kk] = sspGtc_GetTrigger_HtccMask(slot, jj, kk);
+        ssp[slot].gtc.ctrg[i].htcc_width = sspGtc_GetTrigger_HtccWidth(slot, i);
+        for(j=0; j<6; j++)
+          ssp[slot].gtc.ctrg[i].htcc_mask[j] = sspGtc_GetTrigger_HtccMask(slot, i, j);
       }
     }
     /******************************************/

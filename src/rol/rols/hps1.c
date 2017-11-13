@@ -106,6 +106,7 @@ static char ssname[80];
 void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE);
 void usrtrig_done();
 
+#define USE_HPS
 #include "TIPRIMARY_source.h"
 
 

@@ -19,7 +19,7 @@
 #define FADC_READ_CONF_FILE {fadc250SetExpid(expid);                    fadc250Config(""); if(strncasecmp(rol->confFile,"none",4)) fadc250Config(rol->confFile);}
 #define SSP_READ_CONF_FILE  {sspSetExpid(expid);     sspInitGlobals();  sspConfig("");     if(strncasecmp(rol->confFile,"none",4)) sspConfig(rol->confFile);}
 #define GTP_READ_CONF_FILE  {gtpSetExpid(expid);                        gtpConfig("");     if(strncasecmp(rol->confFile,"none",4)) gtpConfig(rol->confFile);}
-#define TDC_READ_CONF_FILE  {tdc1290SetExpid(expid);                    tdc1190Config(""); /*if(strncasecmp(rol->confFile,"none",4)) tdc1190Config(rol->confFile);*/}
+#define TDC_READ_CONF_FILE  {tdc1290SetExpid(expid);                    tdc1190Config(""); if(strncasecmp(rol->confFile,"none",4)) tdc1190Config(rol->confFile);}
 #define MVT_READ_CONF_FILE  {mvtSetExpid(expid);                        mvtConfig("");     if(strncasecmp(rol->confFile,"none",4)) mvtConfig(rol->confFile);}
 #define FTT_READ_CONF_FILE  {fttConfig("");                                                if(strncasecmp(rol->confFile,"none",4)) fttConfig(rol->confFile);}
 #define FLP_READ_CONF_FILE  {flpSetExpid(expid);                        flpConfig("");     if(strncasecmp(rol->confFile,"none",4)) flpConfig(rol->confFile);}
@@ -329,7 +329,7 @@ vmeBusUnlock();
 
 
 
-#if 1 /* for HPS */
+#ifdef USE_HPS
 vmeBusLock();
   if(rol->pid==37||rol->pid==39) tiRemoveRocSWA(); /*temporary: remove GTPs by default*/
 vmeBusUnlock();
@@ -418,7 +418,7 @@ vmeBusUnlock();
         roc_id_db = atoi(row[2]);
         printf("TIPRIMARY: roc_id_db = %d\n",roc_id_db);
 
-#if 1 /*for HPS*/
+#ifdef USE_HPS
 
         if(roc_id_db==38 && rol->pid==37) /*hps1/hps1gtp, temporary until resolved in hardware*/
 		{

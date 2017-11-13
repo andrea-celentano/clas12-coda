@@ -15,21 +15,23 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifdef VXWORKS
+#if defined(VXWORKS) || defined(Linux_vme)
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef VXWORKS
 #include <vxWorks.h>
 #include <taskLib.h>
 #include <intLib.h>
 #include <logLib.h>
 #include <vxLib.h>
+#endif
 
 #include "sis3801.h"
 
-
+#ifdef VXWORKS
 IMPORT STATUS sysBusToLocalAdrs(int, char *, char **);
 IMPORT STATUS intDisconnect(int);
 IMPORT STATUS sysIntEnable(int);
@@ -38,7 +40,17 @@ int    sysClkRateGet();
 IMPORT int sysBusIntAck(int);
 #endif
 
+#else
 
+#define STATUS int
+#define UINT32 unsigned int
+#define OK 0
+#define FALSE -1
+
+#endif
+
+
+#ifdef VXWORKS
 STATUS intconnect(VOIDFUNCPTR routine, int arg);
 STATUS scalIntInit (UINT32, UINT32, UINT32);
 STATUS scalIntEnable (UINT32);
@@ -49,6 +61,7 @@ LOCAL VOIDFUNCPTR     scalIntRoutine = NULL;
 LOCAL int             scalIntArg     = (int)NULL;
 LOCAL UINT32          scalIntLevel   = SCAL_VME_INT_LEVEL;
 LOCAL UINT32          scalIntVec     = SCAL_INT_VEC;
+#endif
 
 volatile struct fifo_scaler *pf;
 volatile UINT32 scalData[32];
@@ -161,6 +174,9 @@ int sis3801read(int addr, int *value)
  } 
 }
 
+
+#ifdef VXWORKS
+
 /**************************************************************************/
 /*
 LOCAL void scalInt(void)
@@ -245,6 +261,9 @@ STATUS scalIntDisable(void)
 
   return(OK);
 }
+
+#endif
+
 
 /************************************************************************/
 

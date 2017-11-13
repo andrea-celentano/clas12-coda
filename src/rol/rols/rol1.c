@@ -106,6 +106,7 @@ void usrtrig_done();
 #ifdef USE_SSP
 #include "sspLib.h"
 static int nssp;   /* Number of SSPs found with sspInit(..) */
+static int ssp_not_ready_errors[21];
 #endif
 
 static char rcname[5];
@@ -1215,6 +1216,8 @@ vmeBusUnlock();
 #ifdef USE_SSP
   printf("SSP Prestart() starts =========================\n");
 
+  memset(ssp_not_ready_errors, 0, sizeof(ssp_not_ready_errors));
+
  /*****************
   *   SSP SETUP - must do sspInit() after master TI clock is stable, so do it in Prestart
   *****************/
@@ -1886,7 +1889,11 @@ vmeBusUnlock();
         }
 
         if(!gbready)
+        {
           printf("SSP NOT READY (slot=%d)\n",slot);
+          
+          ssp_not_ready_errors[slot]++;
+        }
 #ifdef DEBUG
         else
           printf("SSP IS READY (slot=%d)\n",slot);
@@ -1911,6 +1918,19 @@ vmeBusUnlock();
 
         dCnt += len;
       }
+    }
+
+    if(dCnt>0)
+    {
+      printf("SSP Read Errors:");
+      for(ii=0; ii<nssp; ii++)
+      {
+        slot = sspSlot(ii);
+        type = sspGetFirmwareType_Shadow(slot);
+        if(type == SSP_CFG_SSPTYPE_HALLBRICH)
+          printf(" %4d", ssp_not_ready_errors[slot]);
+      }
+      printf("\n");
     }
 
     if(dCnt>0)

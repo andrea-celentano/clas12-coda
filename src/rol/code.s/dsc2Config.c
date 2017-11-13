@@ -17,6 +17,8 @@ DSC2_SLOT  2   <- slot#
 
 DSC2_WIDTH  20  40   <- TDC width (ns), TRG width (ns)
 
+DSC2_TEST_INPUT 0
+
 DSC2_TDCMASK  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1     <- TDC enable mask
 
 DSC2_TRGMASK  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1     <- TRG enable mask
@@ -81,6 +83,7 @@ static int dscID_tcp[DSC_MAX_BOARDS+1];        /* array of slot numbers for tcps
 /* Define global variables (NOTE: index in following arrays is SLOT NUMNER !!!) */
 static int     TDCWidth[NBOARD];
 static int     TRGWidth[NBOARD];
+static int     TestInput[NBOARD];
 static int     TDCThreshold[NBOARD][NCHAN];
 static int     TRGThreshold[NBOARD][NCHAN];
 static UINT32  ChannelMask[NBOARD];
@@ -232,6 +235,7 @@ dsc2InitGlobals()
   {
     TDCWidth[ii] = 40;
     TRGWidth[ii] = 40;
+    TestInput[ii] = 0;
     for(jj=0; jj<NCHAN; jj++) TDCThreshold [ii][jj] = 20;
     for(jj=0; jj<NCHAN; jj++) TRGThreshold [ii][jj] = 40;
     ChannelMask[ii] = 0xffffffff;
@@ -431,6 +435,12 @@ dsc2ReadConfigFile(char *filename)
         for(slot=slot1; slot<slot2; slot++) TRGWidth[slot] = i2;
       }
 
+      else if(active && ((strcmp(keyword,"DSC2_TEST_INPUT") == 0) && (kk >= 0)))
+	  {
+        sscanf (str_tmp, "%*s %d", &i1);
+        for(slot=slot1; slot<slot2; slot++) TestInput[slot] = i1;
+      }
+
       else if(active && ((strcmp(keyword,"DSC2_THRESHOLD") == 0) && (kk >= 0)))
 	  {
         sscanf (str_tmp, "%*s %d %d", &i1, &i2);
@@ -540,6 +550,7 @@ for(jj=0;jj<NCHAN;jj++) printf("!!!      chan=%2d, TDCThreshold=%d, TRGThreshold
     printf("\nslot=%2d\n",slot);
 	printf("   TDCWidth=%d\n",TDCWidth[slot]);
 	printf("   TRGWidth=%d\n",TRGWidth[slot]);
+	printf("   TestInput=%d\n",TestInput[slot]);
 	printf("   ChannelMask=0x%08x\n",ChannelMask[slot]);
 	printf("   ORMask=0x%08x\n",ORMask[slot]);
     for(jj=0;jj<NCHAN;jj++)
@@ -577,6 +588,7 @@ dsc2DownloadAll()
     slot = dsc2Slot(kk);
     dsc2SetPulseWidth(slot, TDCWidth[slot], 1);
     dsc2SetPulseWidth(slot, TRGWidth[slot], 2);
+    dsc2SetTestInput(slot, TestInput[slot]);
     dsc2SetChannelMask(slot,  ChannelMask[slot]&0xFFFF,      1); /* set tdc mask */
     dsc2SetChannelMask(slot, (ChannelMask[slot]>>16)&0xFFFF, 2); /* set trg mask */
     dsc2SetChannelORMask(slot,  ORMask[slot]&0xFFFF,      1); /* set tdc mask */
@@ -659,6 +671,8 @@ dsc2Mon(int slot)
     printf("   TDCWidth=%d(ns) TRGWidth=%d(ns)\n",
        dsc2GetPulseWidth(slot,1),
        dsc2GetPulseWidth(slot,2));
+    printf("   TestInput=%d\n",
+       dsc2GetTestInput(slot));
     printf("   ChannelMask=0x%08x ORMask=0x%08x \n",
        dsc2GetChannelMask(slot, 0),
        dsc2GetChannelORMask(slot, 0));
@@ -726,6 +740,7 @@ dsc2UploadAll(char *string, int length)
 
 	TDCWidth[slot] = dsc2GetPulseWidth(slot,1);
     TRGWidth[slot] = dsc2GetPulseWidth(slot,2);
+    TestInput[slot] = dsc2GetTestInput(slot);
 
     ChannelMask[slot] = dsc2GetChannelMask(slot,1),
     ChannelMask[slot] |= (dsc2GetChannelMask(slot,2) << 16),
@@ -760,6 +775,9 @@ dsc2UploadAll(char *string, int length)
       ADD_TO_STRING;
 
       sprintf(sss,"DSC2_WIDTH %d %d\n",TDCWidth[slot],TRGWidth[slot]);
+      ADD_TO_STRING;
+
+      sprintf(sss,"DSC2_TEST_INPUT %d\n",TestInput[slot]);
       ADD_TO_STRING;
 
       sprintf(sss,"DSC2_TDCMASK");
