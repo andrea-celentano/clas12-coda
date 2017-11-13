@@ -202,9 +202,13 @@ vmeBusUnlock();
   /* only 1 trigger type for physics trigger */
 vmeBusLock();
 /*tiSetTriggerSource(TI_TRIGGER_TSINPUTS); move to config */
+
+/* moved to config
   tiDisableTSInput(TI_TSINPUT_ALL);
   tiEnableTSInput( TI_TSINPUT_1 | TI_TSINPUT_2 | TI_TSINPUT_3 | TI_TSINPUT_4 | TI_TSINPUT_5 | TI_TSINPUT_6);
+*/
   tiLoadTriggerTable(3);
+
 vmeBusUnlock();
 
 #endif

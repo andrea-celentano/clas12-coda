@@ -274,11 +274,13 @@ tiReadConfigFile(char *filename)
       else if(active && (strcmp(keyword,"TI_INPUT_MASK")==0))
       {
         sscanf (str_tmp, "%*s %d %d %d %d %d %d",&i1,&i2,&i3,&i4,&i5,&i6);
-        if( (i1!=0)||(i1!=1)||(i2!=0)||(i2!=1)||(i3!=0)||(i3!=1)||(i4!=0)||(i4!=1)||(i5!=0)||(i5!=1)||(i6!=0)||(i6!=1) )
+ 		printf("INPUT MASK = %d %d %d %d %d %d\n",i1,i2,i3,i4,i5,i6);
+        if( (i1<0)||(i1>1)||(i2<0)||(i2>1)||(i3<0)||(i3>1)||(i4<0)||(i4>1)||(i5<0)||(i5>1)||(i6<0)||(i6>1) )
         {
           printf("\nReadConfigFile: Invalid input mask selection, %s\n",str_tmp);
         }
         input_mask = i1+(i2<<1)+(i3<<2)+(i4<<3)+(i5<<4)+(i6<<5);
+		printf("INPUT MASK = 0x%08x\n",input_mask);
       }
 
       else if(active && (strcmp(keyword,"TI_RANDOM_TRIGGER")==0))
@@ -364,6 +366,7 @@ tiDownloadAll()
   /*for(ii=0; ii<nslave; ii++) tiAddSlave(slave_list[ii]); done automatically in ROL1 */
   for(ii=0; ii<6; ii++) tiSetInputPrescale(ii+1,input_prescale[ii]);
 
+  tiDisableTSInput(TI_TSINPUT_ALL);
   tiEnableTSInput(input_mask);
 
   for(ii=0; ii<4; ii++) tiSetTriggerHoldoff(ii+1,holdoff_rules[ii],holdoff_timescale[ii]);
@@ -484,8 +487,8 @@ tiUploadAll(char *string, int length)
     }
 
     sprintf(sss,"TI_INPUT_MASK %d %d %d %d %d %d\n",
-      (input_mask>>5)&1,(input_mask>>4)&1,(input_mask>>3)&1,
-      (input_mask>>2)&1,(input_mask>>1)&1,(input_mask)&1);
+      (input_mask>>0)&1,(input_mask>>1)&1,(input_mask>>2)&1,
+      (input_mask>>3)&1,(input_mask>>4)&1,(input_mask>>5)&1);
     ADD_TO_STRING;
 
     for(ii = 0; ii < 6; ii++)
