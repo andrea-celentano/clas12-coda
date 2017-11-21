@@ -72,6 +72,13 @@ typedef struct
   int dc_mult_min;
   int dc_mult_width;
 
+  int htcc_en;
+  long long htcc_mask;
+  int htcc_width;
+
+  int ftof_en;
+  int ftof_width;
+
   int ecalin_cosmic_en;
   int ecalout_cosmic_en;
   int pcal_cosmic_en;
@@ -105,10 +112,6 @@ typedef struct
   int ft_esum_en;
   int ft_esum_emin;
   int ft_esum_width;
-
-  int htcc_en;
-  long long htcc_mask[6];
-  int htcc_width;
 } ctrigger;
 
 typedef struct
@@ -122,6 +125,11 @@ typedef struct
 {
   int htcc_delay;
 } ss_htcc;
+
+typedef struct
+{
+  int ftof_delay;
+} ss_ftof;
 
 typedef struct
 {
@@ -209,7 +217,9 @@ typedef struct {
     strigger strg[4];
     ss_ecal  ecal;
     ss_ecal  pcal;
-    ss_dc    dc[3];
+    ss_htcc  htcc;
+    ss_ftof  ftof;
+    ss_dc    dc;
     int      gtpif_latency;
   } gt;
 
@@ -217,7 +227,6 @@ typedef struct {
   {
     ctrigger ctrg[4];
     ss_ft    ft;
-    ss_htcc  htcc;
     int      gtpif_latency;
   } gtc; 
  

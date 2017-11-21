@@ -229,6 +229,28 @@ typedef struct
   /* 0x0004-0x00FF */ BLANK[(0x0100-0x0004)/4];
 } GT_ssdc_regs;
 
+#define GT_SSHTCC_DELAY_MASK               0x000003FF
+
+/* GT htcc subsystem */
+typedef struct
+{
+  /* 0x0000-0x0003 */ volatile unsigned int Delay_htcc;
+  /* 0x0004-0x001F */ BLANK[(0x0020-0x0004)/4];
+  /* 0x0020-0x0023 */ volatile unsigned int Scaler_htcc;
+  /* 0x0024-0x00FF */ BLANK[(0x0100-0x0024)/4];
+} GT_sshtcc_regs;
+
+#define GT_SSFTOF_DELAY_MASK               0x000003FF
+
+/* GT ftof subsystem */
+typedef struct
+{
+  /* 0x0000-0x0003 */ volatile unsigned int Delay_ftof;
+  /* 0x0004-0x001F */ BLANK[(0x0020-0x0004)/4];
+  /* 0x0020-0x0023 */ volatile unsigned int Scaler_ftof;
+  /* 0x0024-0x00FF */ BLANK[(0x0100-0x0024)/4];
+} GT_ssftof_regs;
+
 #define GT_GTPIF_LATENCY_MASK               0x0000007FF
 
 /* GT GTP interface */
@@ -247,6 +269,8 @@ typedef struct
 #define GT_STRG_CTRL_ECOCOSMIC_EN           0x00000040
 #define GT_STRG_CTRL_ECICOSMIC_EN           0x00000080
 #define GT_STRG_CTRL_PCCOSMIC_EN            0x00000100
+#define GT_STRG_CTRL_HTCC_EN                0x00000200
+#define GT_STRG_CTRL_FTOF_EN                0x00000400
 
 #define GT_STRG_ECCTRL_ESUM_EMIN_MASK       0x00003FFF
 #define GT_STRG_ECCTRL_ESUM_WIDTH_MASK      0x00FF0000
@@ -265,6 +289,13 @@ typedef struct
 #define GT_STRG_DCCTRL_MULT_MIN_MASK        0x00000007
 #define GT_STRG_DCCTRL_MULT_WIDTH_MASK      0x01FF0000
 
+#define GT_STRG_HTCC_CTRL_WIDTH_MASK        0x00FF0000
+
+#define GT_STRG_HTCC_MASK0                  0xFFFFFFFF
+#define GT_STRG_HTCC_MASK1                  0x0000FFFF
+
+#define GT_STRG_FTOF_CTRL_WIDTH_MASK        0x00FF0000
+
 /* GT sector trigger */
 typedef struct
 {
@@ -277,9 +308,12 @@ typedef struct
   /* 0x001C-0x001F */ BLANK[(0x0020-0x001C)/4];
   /* 0x0020-0x0023 */ volatile unsigned int PCCtrl_cluster;
   /* 0x0024-0x0027 */ volatile unsigned int DCCtrl;
-  /* 0x0028-0x002F */ BLANK[(0x0030-0x0028)/4];
-  /* 0x0030-0x0033 */ volatile unsigned int Scaler_trigger;
-  /* 0x0034-0x00FF */ BLANK[(0x0100-0x0034)/4];
+  /* 0x0028-0x0027 */ volatile unsigned int HtccCtrl;
+  /* 0x002C-0x002F */ volatile unsigned int HtccMask0;
+  /* 0x0030-0x0033 */ volatile unsigned int HtccMask1;
+  /* 0x0034-0x0037 */ volatile unsigned int FtofCtrl;
+  /* 0x0038-0x003B */ volatile unsigned int Scaler_trigger;
+  /* 0x003C-0x00FF */ BLANK[(0x0100-0x003C)/4];
 } GT_strg_regs;
 
 /******************************************************************/
@@ -302,17 +336,6 @@ typedef struct
   /* 0x0024-0x00FF */ BLANK[(0x0100-0x0024)/4];
 } GTC_ssft_regs;
 
-#define GTC_SSHTCC_DELAY_MASK               0x000003FF
-
-/* GTC htcc subsystem */
-typedef struct
-{
-  /* 0x0000-0x0003 */ volatile unsigned int Delay_htcc;
-  /* 0x0004-0x001F */ BLANK[(0x0020-0x0004)/4];
-  /* 0x0020-0x0023 */ volatile unsigned int Scaler_htcc;
-  /* 0x0024-0x00FF */ BLANK[(0x0100-0x0024)/4];
-} GTC_sshtcc_regs;
-
 #define GTC_GTPIF_LATENCY_MASK               0x0000007FF
 
 /* GTC GTP interface */
@@ -325,7 +348,6 @@ typedef struct
 #define GTC_CTRG_CTRL_EN                          0x00000001
 #define GTC_CTRG_CTRL_FTESUM_EMIN_EN              0x00000002
 #define GTC_CTRG_CTRL_FTCLUSTER_EN                0x00000004
-#define GTC_CTRG_CTRL_HTCC_EN                     0x00000008
 
 #define GTC_CTRG_FT_ESUM_CTRL_EMIN_MASK           0x00003FFF
 #define GTC_CTRG_FT_ESUM_CTRL_WIDTH_MASK          0x00FF0000
@@ -337,11 +359,6 @@ typedef struct
 #define GTC_CTRG_FT_CLUSTER_CTRL1_NMIN_MASK       0x00000F00
 #define GTC_CTRG_FT_CLUSTER_CTRL1_WIDTH_MASK      0x00FF0000
 
-#define GTC_CTRG_HTCC_CTRL0_MASK                  0xFFFFFFFF
-#define GTC_CTRG_HTCC_CTRL1_MASK                  0x0000000F
-
-#define GTC_CTRG_HTCC_CTRL2_WIDTH_MASK            0x00FF0000
-
 /* GTC sector trigger */
 typedef struct
 {
@@ -349,12 +366,11 @@ typedef struct
   /* 0x0004-0x0007 */ volatile unsigned int FtCtrl_esum;
   /* 0x0008-0x000B */ volatile unsigned int FtCtrl_Cluster0;
   /* 0x000C-0x000F */ volatile unsigned int FtCtrl_Cluster1;
-  /* 0x0010-0x0027 */ volatile unsigned int HtccCtrl0[6];
-  /* 0x0028-0x003F */ volatile unsigned int HtccCtrl1[6];
-  /* 0x0040-0x0043 */ volatile unsigned int HtccCtrl2;
+
+
   /* 0x0044-0x007F */ BLANK[(0x0080-0x0044)/4];
-  /* 0x0080-0x0097 */ volatile unsigned int Scaler_trigger[6];
-  /* 0x0098-0x00FF */ BLANK[(0x0100-0x0098)/4];
+  /* 0x0080-0x0083 */ volatile unsigned int Scaler_trigger;
+  /* 0x0084-0x00FF */ BLANK[(0x0100-0x0084)/4];
 } GTC_ctrg_regs;
 
 /************************/
@@ -387,8 +403,11 @@ typedef struct
   /* 0x2200-0x22FF */ GT_ssec_regs    ssec;
   /* 0x2300-0x23FF */ GT_sspc_regs    sspc;
   /* 0x2400-0x24FF */ GT_gtpif_regs   gtpif;
-  /* 0x2500-0x27FF */ GT_ssdc_regs    ssdc[3];
-  /* 0x2800-0x2FFF */ BLANK[(0x3000-0x2800)/4];
+  /* 0x2500-0x25FF */ GT_ssdc_regs    ssdc;
+  /* 0x2600-0x27FF */ BLANK[(0x2800-0x2600)/4];
+  /* 0x2800-0x28FF */ GT_sshtcc_regs  sshtcc;
+  /* 0x2900-0x29FF */ GT_ssftof_regs  ssftof;
+  /* 0x2A00-0x2FFF */ BLANK[(0x3000-0x2A00)/4];
   /* 0x3000-0x33FF */ GT_strg_regs    strigger[4];
   } gt;
 
@@ -397,7 +416,7 @@ typedef struct
   struct
   {
   /* 0x4000-0x41FF */ GTC_ssft_regs   ssft[2];
-  /* 0x4200-0x42FF */ GTC_sshtcc_regs sshtcc;
+  /* 0x4200-0x42FF */ BLANK[(0x4300-0x4300)/4];
   /* 0x4300-0x43FF */ GTC_gtpif_regs  gtpif;
   /* 0x4400-0x4FFF */ BLANK[(0x5000-0x4400)/4];
   /* 0x5000-0x53FF */ GTC_ctrg_regs   ctrigger[4];
@@ -732,8 +751,12 @@ int sspGt_SetPcal_EsumIntegrationWidth(int id, int width);
 int sspGt_GetPcal_EsumIntegrationWidth(int id);
 int sspGt_SetPcal_CosmicDelay(int id, int delay);
 int sspGt_GetPcal_CosmicDelay(int id);
-int sspGt_SetDc_SegDelay(int id, int region, int delay);
-int sspGt_GetDc_SegDelay(int id, int region);
+int sspGt_SetDc_SegDelay(int id, int delay);
+int sspGt_GetDc_SegDelay(int id);
+int sspGt_SetHtcc_Delay(int id, int delay);
+int sspGt_GetHtcc_Delay(int id);
+int sspGt_SetFtof_Delay(int id, int delay);
+int sspGt_GetFtof_Delay(int id);
 int sspGt_SetTrigger_Enable(int id, int trg, int en_mask);
 int sspGt_GetTrigger_Enable(int id, int trg);
 int sspGt_SetTrigger_EcalEsumEmin(int id, int trg, int val);
@@ -758,6 +781,12 @@ int sspGt_SetTrigger_DcMultMin(int id, int trg, int val);
 int sspGt_GetTrigger_DcMultMin(int id, int trig);
 int sspGt_SetTrigger_DcMultWidth(int id, int trg, int val);
 int sspGt_GetTrigger_DcMultWidth(int id, int trg);
+int sspGt_SetTrigger_HtccWidth(int id, int trg, int val);
+int sspGt_GetTrigger_HtccWidth(int id, int trg);
+int sspGt_SetTrigger_HtccMask(int id, int trg, long long mask);
+long long sspGt_GetTrigger_HtccMask(int id, int trg);
+int sspGt_SetTrigger_FtofWidth(int id, int trg, int val);
+int sspGt_GetTrigger_FtofWidth(int id, int trg);
 
 void sspPrintGtConfig(int id);
 
@@ -770,8 +799,6 @@ int sspGtc_SetFt_ClusterDelay(int id, int delay);
 int sspGtc_GetFt_ClusterDelay(int id);
 int sspGtc_SetFt_EsumIntegrationWidth(int id, int width);
 int sspGtc_GetFt_EsumIntegrationWidth(int id);
-int sspGtc_SetHtcc_Delay(int id, int delay);
-int sspGtc_GetHtcc_Delay(int id);
 int sspGtc_SetTrigger_Enable(int id, int trg, int en_mask);
 int sspGtc_GetTrigger_Enable(int id, int trg);
 int sspGtc_SetTrigger_FtEsumEmin(int id, int trg, int val);
@@ -788,10 +815,6 @@ int sspGtc_SetTrigger_FtClusterNmin(int id, int trg, int val);
 int sspGtc_GetTrigger_FtClusterNmin(int id, int trg); 
 int sspGtc_SetTrigger_FtClusterWidth(int id, int trg, int val);
 int sspGtc_GetTrigger_FtClusterWidth(int id, int trg);
-int sspGtc_SetTrigger_HtccWidth(int id, int trg, int val);
-int sspGtc_GetTrigger_HtccWidth(int id, int trg);
-int sspGtc_SetTrigger_HtccMask(int id, int trg, int sector, long long mask);
-long long sspGtc_GetTrigger_HtccMask(int id, int trg, int sector);
 
 /* Pulser routines */
 int  sspPulserStatus(int id);

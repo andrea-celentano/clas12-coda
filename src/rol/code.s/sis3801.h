@@ -1,3 +1,5 @@
+#ifndef __SIS3801H__
+#define __SIS3801H__
 /***************************************************************************
                           sis3801.h   Scaler 3801 GmbH
                              -------------------
@@ -12,21 +14,65 @@
  *   the Free Software Foundation; either version 2 of the License, or     *
  *   (at your option) any later version.                                   *
  *                                                                         *
- ***************************************************************************/ 
+ ***************************************************************************/
 
-struct fifo_scaler{
-  volatile unsigned long csr;
-  volatile unsigned long irq;
-  volatile unsigned long clear;
-  volatile unsigned long next;
-  volatile unsigned long enable;
-  volatile unsigned long disable;
-  volatile unsigned long reset;
-  volatile unsigned long test;
-  volatile unsigned long fifo[64];
-  volatile unsigned long scaler;
-  volatile unsigned long rclear[32];
-};
+#define SIS3801_BOARD_ID       0x3801
+#define SIS_MAX_SLOTS              21
+
+/* Level 2 defs */
+#define NL2CH 30
+#define L2SCALER 0x280800
+
+
+struct fifo_scaler
+{
+  /* 0x0000 */ volatile unsigned int csr;
+  /* 0x0004 */ volatile unsigned int irq;
+  /* 0x0008          */ unsigned int _blank0;
+  /* 0x000C */ volatile unsigned int copy_disable;
+  /* 0x0010 */ volatile unsigned int write_to_fifo;
+  /* 0x0014          */ unsigned int _blank1[(0x20-0x14)>>2];
+  /* 0x0020 */ volatile unsigned int clear;
+  /* 0x0024 */ volatile unsigned int next;
+  /* 0x0028 */ volatile unsigned int enable;
+  /* 0x002C */ volatile unsigned int disable;
+  /* 0x0030          */ unsigned int _blank2[(0x50-0x30)>>2];
+  /* 0x0050 */ volatile unsigned int enable_ref1;
+  /* 0x0054 */ volatile unsigned int disable_ref1;
+  /* 0x0058          */ unsigned int _blank3[(0x60-0x58)>>2];
+  /* 0x0060 */ volatile unsigned int reset;
+  /* 0x0064          */ unsigned int _blank4;
+  /* 0x0068 */ volatile unsigned int test;
+  /* 0x006C          */ unsigned int _blank5[(0x80-0x6C)>>2];
+  /* 0x0080 */ volatile unsigned int prescale;
+  /* 0x0084          */ unsigned int _blank6[(0x100-0x84)>>2];
+  /* 0x0100 */ volatile unsigned int fifo[(0x200-0x100)>>2];
+} SIS;
+
+typedef struct sis3801_struct
+{
+  /* 0x0000 */ volatile unsigned int csr;
+  /* 0x0004 */ volatile unsigned int irq;
+  /* 0x0008          */ unsigned int _blank0;
+  /* 0x000C */ volatile unsigned int copy_disable;
+  /* 0x0010 */ volatile unsigned int write_to_fifo;
+  /* 0x0014          */ unsigned int _blank1[(0x20-0x14)>>2];
+  /* 0x0020 */ volatile unsigned int clear;
+  /* 0x0024 */ volatile unsigned int next;
+  /* 0x0028 */ volatile unsigned int enable;
+  /* 0x002C */ volatile unsigned int disable;
+  /* 0x0030          */ unsigned int _blank2[(0x50-0x30)>>2];
+  /* 0x0050 */ volatile unsigned int enable_ref1;
+  /* 0x0054 */ volatile unsigned int disable_ref1;
+  /* 0x0058          */ unsigned int _blank3[(0x60-0x58)>>2];
+  /* 0x0060 */ volatile unsigned int reset;
+  /* 0x0064          */ unsigned int _blank4;
+  /* 0x0068 */ volatile unsigned int test;
+  /* 0x006C          */ unsigned int _blank5[(0x80-0x6C)>>2];
+  /* 0x0080 */ volatile unsigned int prescale;
+  /* 0x0084          */ unsigned int _blank6[(0x100-0x84)>>2];
+  /* 0x0100 */ volatile unsigned int fifo[(0x200-0x100)>>2];
+} SIS3801;
 
 #define ENABLE_EXT_NEXT   0x00010000
 #define DISABLE_EXT_NEXT  0x01000000
@@ -43,6 +89,12 @@ struct fifo_scaler{
 
 #define ENABLE_TEST       0x00000020
 #define DISABLE_TEST      0x00002000
+
+#define ENABLE_10MHZ_TO_LNE_PRESCALER   (1<<6)
+#define DISABLE_10MHZ_TO_LNE_PRESCALER  (1<<14)
+
+#define ENABLE_PRESCALER  (1<<7)
+#define DISABLE_PRESCALER (1<<15)
 
 #define ENABLE_25MHZ      0x00000010
 #define DISABLE_25MHZ     0x00001000
@@ -61,7 +113,7 @@ struct fifo_scaler{
 
 /* interupt vector */
 #define SCAL_VME_INT_LEVEL   5
-#define SCAL_INT_VEC         0xda
+#define SCAL_INT_VEC         0xec
 /* masks for status register */
 
 #define FIFO_FULL         0x00001000
@@ -70,3 +122,68 @@ struct fifo_scaler{
 #define FIFO_ALMOST_EMPTY 0x00000200
 #define FIFO_EMPTY        0x00000100
 
+struct flex_struct
+{
+  /* 0x00 */ volatile unsigned short csr1;
+  /* 0x02 */ volatile unsigned short port1_data;
+  /* 0x04 */ volatile unsigned short csr2;
+  /* 0x06 */ volatile unsigned short port2_data;
+  /* 0x08 */ volatile unsigned short vector;
+};
+
+
+/* Function prototypes */
+int sis3801CheckAddresses();
+int sis3801readfifo(unsigned long addr);
+void sis3801writefifo(unsigned long addr, int value);
+int sis3801status(unsigned long addr);
+void sis3801control(unsigned long addr, int value);
+void sis3801mask(unsigned long addr, int value);
+void sis3801clear(unsigned long addr);
+void sis3801nextclock(unsigned long addr);
+void sis3801enablenextlogic(unsigned long addr);
+void sis3801disablenextlogic(unsigned long addr);
+void sis3801reset(unsigned long addr);
+void sis3801testclock(unsigned long addr);
+void sis3801Uledon(unsigned long addr);
+void sis3801Uledoff(unsigned long addr);
+int sis3801almostread(unsigned long addr, unsigned int *value);
+int sis3801read(unsigned long addr, unsigned int *value);
+
+STATUS scalIntInit(UINT32 addr, UINT32 level, UINT32 vector);
+STATUS scalIntConnect(VOIDFUNCPTR routine, int arg);
+STATUS scalIntEnable(UINT32 mask);
+STATUS scalIntDisable(void);
+int store(unsigned long addr, int mask);
+
+/* level 2 scaler functions */
+int l2_init();
+int l2_readscaler(unsigned int counts[NL2CH]);
+int l2_status();
+int l2_status_dead();
+int l2_status_hot();
+int l2_flex_init();
+int l2_ADB_reset(char *ADB_name);
+int l2_ADB_reset_VMEpulse(char *ADB_name);
+int l2_ADB_name2id(char *ADB_name, int prn);
+void l2_status_dead_reset_STOP();
+
+int l2_trigger_ERROR_set();
+int l2_trigger_ERROR_clear();
+
+int l2_reset();
+int l2_status_dead_reset();
+
+int readout1();
+void scalIntUser(int arg);
+void scalPrint();
+void scalPulse(int count);
+int l2_input(unsigned int counts[NL2CH]);
+int pp();
+int l2_delay();
+
+
+int junk(unsigned int counts[NL2CH]);
+int hist();
+
+#endif /* __SIS3801H__ */

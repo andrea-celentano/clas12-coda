@@ -1,6 +1,8 @@
 #ifndef __MESSAGE_ACTION_TEST__
 #define __MESSAGE_ACTION_TEST__
 
+#include "ipc.h"
+
 #include "MessageAction.h"
 
 class MessageActionTest : public MessageAction {
@@ -69,7 +71,7 @@ class MessageActionTest : public MessageAction {
         while(ilen!=-1)
         {
           recv >> idata >> GetSize(&ilen);
-          std::cout<< "ilen= "<<ilen<<std::endl;
+          std::cout<< "ilen1= "<<ilen<<std::endl;
           for(int i=0; i<ilen; i++) std::cout << "=--------- idata["<<i<<"]="<<idata[i]<< std::endl;
         }
 
@@ -77,7 +79,7 @@ class MessageActionTest : public MessageAction {
         while(ilen!=-1)
         {
           recv >> idata >> GetSize(&ilen);
-          std::cout<< "ilen= "<<ilen<<std::endl;
+          std::cout<< "ilen2= "<<ilen<<std::endl;
           for(int i=0; i<ilen; i++) std::cout << "=--------- idata["<<i<<"]="<<idata[i]<< std::endl;
         }
 

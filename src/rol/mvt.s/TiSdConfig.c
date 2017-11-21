@@ -269,6 +269,7 @@ fprintf( stdout, "%s: **** Standalone APPLICATION ****\n", __FUNCTION__ );
 	// Set the sync delay width to 0x40*32 = 2.048us
 	// For some reason this function is void.
 	tiSetSyncDelayWidth(0x54, 0x40, 1);
+//	tiSetSyncDelayWidth(0x54, 0x20, 1);
 
 	/* Set Busy source */
 //fprintf( stdout, "%s: BsySrc=%d OK for TI %d\n", __FUNCTION__, params->BsySrc, params->Id );

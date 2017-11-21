@@ -761,7 +761,7 @@ static void dump_fragment(unsigned int *buf, int fragment_type) {
     indent(0);
 
 
-    /* format and content */
+    /* format and content: evGetTypename() returns format string, like "composite" */
     if((fragment_type==BANK)&&(depth==1)) {
         xml+=sprintf(xml,"<%s format=\"evio\" count=\"%d\"",event_tag,nbuf);
         if(brief==0)xml+=sprintf(xml," content=\"%s\"",evGetTypename(type));
@@ -973,9 +973,10 @@ dump_composite(unsigned int *buf)
     num    =  buf[index+1] & 0xff;
 
     padding = (buf[index+1] >> 14) & 0x3;
-	/*
-	printf("padding=%d\n",padding);
-	*/
+	
+	/*printf("composite data header 0x%08x 0x%08x, padding=%d\n",buf[index],buf[index+1],padding);*/
+	xml += sprintf(xml,"(PADDING=%d)\n",padding);
+
     /* 'padding' contains the number of extra characters in the end of data - Sergey */
     /*printf("2---> %d %d %d %d\n",length,type,tag,num);*/
 	

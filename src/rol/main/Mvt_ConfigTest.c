@@ -38,6 +38,8 @@
 extern char *optarg;
 extern int   optind;
 
+FILE *log_fptr = (FILE *)NULL;
+
 // Default values
 #define DEF_ConfFileName        "Sys.cfg"
 
@@ -51,6 +53,7 @@ void usage( char *name )
 {
 	printf( "\nUsage: %s", name );
 	printf( " [-c Conf_FileName]" );
+	printf( " [-l]" );
 	printf( " [-s]" );
 	printf( " [-m]" );
 	printf( " [-v [-v]]" );
@@ -61,7 +64,8 @@ void usage( char *name )
 	printf( "-c Conf_FileName        - name for config file; default: %s; \"None\" no file consulted\n", DEF_ConfFileName );
 	printf( "-s                      - Scan system for self trigger thresholds\n" );
 	printf( "-m file_upd_per_sec     - Scan system for monitoring information and store in file every file_upd_per_sec; 0 - no file\n" );
-	printf( "-v [-v]                 - forces debug output\n" );
+	printf( "-v [-v]                 - Forces debug output\n" );
+	printf( "-l                      - Create log file\n" );
 	printf( "-h                      - help\n" );
 
 	printf( "  Get this text:\n"); 
@@ -82,6 +86,15 @@ void cleanup(int param)
 
 	// Close mamory configuration file if any open
 	SysConfig_CleanUp();
+
+	if( log_fptr != (FILE *)NULL )
+	{
+		fflush( log_fptr );
+		fclose( log_fptr );
+		log_fptr = (FILE *)NULL;
+		if( verbose )
+			printf( "cleanup: log file closed\n" );
+	}
 
 	if( verbose )
 		printf( "cleanup: Exiting\n" );
@@ -108,8 +121,11 @@ int main( int argc, char* *argv )
 
 	// Parameters
 	char conf_file_name[128];
+	char log_file_name[128];
 	int  scan_trg_thr;
 	int  scan_monit;
+	int  do_log_file;
+int  do_configure;
 
 	int ret;
 
@@ -117,17 +133,21 @@ int main( int argc, char* *argv )
 	struct timeval t1;
 	struct timeval dt;
 
+	char c;
+
 	// Initialization
 	verbose      =  0;
 	scan_trg_thr =  0;
 	scan_monit   = -1;
+	do_log_file  =  0;
+do_configure = 1;
 	sprintf(conf_file_name,            DEF_ConfFileName );
 	sprintf(progname,            "%s", basename(argv[0]));
 
 	/******************************/
 	/* Check for input parameters */
 	/******************************/
-	sprintf( optformat, "c:m:svh" );
+	sprintf( optformat, "c:m:lsvh" );
 	while( ( opt = getopt( argc, argv, optformat ) ) != -1 )
 	{
 		switch( opt )
@@ -145,6 +165,10 @@ int main( int argc, char* *argv )
 				scan_monit = atoi(optarg);
 			break;
 
+			case 'l':
+				do_log_file = 1;
+			break;
+
 			case 'v':
 				verbose++;
 			break;
@@ -160,6 +184,7 @@ int main( int argc, char* *argv )
 		printf( "conf_file_name          = %s\n",    conf_file_name );
 		printf( "scan_trg_thr            = %d\n",    scan_trg_thr );
 		printf( "scan_monit              = %d\n",    scan_monit );
+		printf( "do_log_file             = %d\n",    do_log_file );
 		printf( "verbose                 = %d\n",    verbose );
 	}
 
@@ -175,25 +200,47 @@ int main( int argc, char* *argv )
 	if( verbose )
 		printf( "%s: signal handler set\n", progname );
 
-	// Get start time for performance measurements
-	gettimeofday(&t0,0);
-
-	/*
-	 * Configure system
-	 */
-	if( (ret=SysConfigFromFile( conf_file_name )) != D_RetCode_Sucsess )
+	if( do_log_file )
 	{
-		fprintf( stderr, "%s: SysConfigFromFile failed for file %s with %d\n", progname, conf_file_name, ret );
-		cleanup(ret);
+		sprintf(log_file_name, "%s.log", progname);
+		// Open file
+		if( (log_fptr = fopen(log_file_name, "w")) == (FILE *)NULL )
+		{
+			fprintf(stderr, "%s: fopen failed to open log file %s in w mode with %d\n", __FUNCTION__, log_file_name, errno);
+		 	perror("fopen failed");
+		}
+		else
+		{
+			SysConfig_SetLogFilePointer( log_fptr );
+			if( verbose )
+				printf( "%s: log file %s created\n", progname, log_file_name );
+
+		}
 	}
-	if( verbose )
-		printf( "%s: SysConfig OK\n", progname );
 
-	// Get end time for performance measurements
-	gettimeofday(&t1, 0);
-	timersub(&t1,&t0,&dt);
-	printf("%s: The system has been configured in %d sec and %d usec\n", progname, dt.tv_sec, dt.tv_usec );
+while(1)
+{
+if( do_configure > 0 )
+{
+		// Get start time for performance measurements
+		gettimeofday(&t0,0);
 
+		/*
+		 * Configure system
+		 */
+		if( (ret=SysConfigFromFile( conf_file_name )) != D_RetCode_Sucsess )
+		{
+			fprintf( stderr, "%s: SysConfigFromFile failed for file %s with %d\n", progname, conf_file_name, ret );
+			cleanup(ret);
+		}
+		if( verbose )
+			printf( "%s: SysConfig OK\n", progname );
+
+		// Get end time for performance measurements
+		gettimeofday(&t1, 0);
+		timersub(&t1,&t0,&dt);
+		printf("%s: The system has been configured in %d sec and %d usec\n", progname, dt.tv_sec, dt.tv_usec );
+}
 	/*
 	 * The following does not belong to configuration
 	 * This is an attempt to derive self trigger thresholds
@@ -276,6 +323,19 @@ int main( int argc, char* *argv )
 	}
 	if( verbose )
 		printf( "%s: SysStop OK\n", progname );
+
+	printf("%s: Press Q<CR> to quit; C<CR> configure again; <CR> to loop again over prestart <-", progname );
+	c=getchar();
+	if( c == 'Q' )
+		break;
+	else if( c == 'C' )
+	{
+		do_configure = 1;
+		getchar();
+	}
+	else
+		do_configure = 0;
+}
 
 	/********************/
 	/* Cleanup and stop */

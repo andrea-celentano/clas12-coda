@@ -256,7 +256,7 @@ main(int argc,char **argv)
 
   // post startup message
   sprintf(temp,"Process startup:  %s  in project:  %s, session: %s",unique_id,project,session);
-  status = insert_msg("ipcbank2et","online",unique_id,"status",0,"START",0,temp);
+  //status = insert_msg("ipcbank2et","online",unique_id,"status",0,"START",0,temp);
 
   // flush messages and output
 #ifndef USE_ACTIVEMQ
@@ -314,10 +314,10 @@ main(int argc,char **argv)
   if(lost_connection==1)
   {
     printf("lost connection to ET - exiting\n");
-    insert_msg("ipcbank2et","online",unique_id,"status",1,"WARN",0,"ipcbank2et...lost connection to ET system");
+    //insert_msg("ipcbank2et","online",unique_id,"status",1,"WARN",0,"ipcbank2et...lost connection to ET system");
   }
   sprintf(temp,"Process shutdown:  %s",unique_id);
-  status = insert_msg("ipcbank2et","online",unique_id,"status",0,"STOP",0,temp);
+  //status = insert_msg("ipcbank2et","online",unique_id,"status",0,"STOP",0,temp);
 
   /*redo
   // done

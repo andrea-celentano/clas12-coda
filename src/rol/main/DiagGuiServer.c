@@ -13,6 +13,8 @@
 #include <unistd.h>
 #include "CrateMsgTypes.h"
 
+#include "ipc.h"
+
 #ifdef Linux_vme
 #include "jvme.h"
 #include "dsc2Lib.h"
@@ -244,6 +246,8 @@ vmeBusUnlock();
 		/*printf("vmeScalersRead: nw=%d, vmescalers[slot][nw-2]=%d, vmescalers[slot][nw-1]=%d\n",nw,vmescalers[slot][nw-2],vmescalers[slot][nw-1]);*/
       }
     }
+
+#if 0
     else if(itype == SCALER_TYPE_SSP)    /* ssp scalers */
 	{
       for(id=0; id<nssp; id++)
@@ -292,6 +296,8 @@ vmeBusUnlock();
 		/*printf("vmeScalersRead: nw=%d, vmescalers[slot][nw-2]=%d, vmescalers[slot][nw-1]=%d\n",nw,vmescalers[slot][nw-2],vmescalers[slot][nw-1]);*/
       }
     }
+#endif
+
   }
 
   SCALER_UNLOCK;
@@ -316,6 +322,8 @@ vmeDataRead()
 
   for(itype=0; itype<SCALER_TYPE_MAX; itype++)
   {
+	;
+#if 0
     if(itype == SCALER_TYPE_SSP)    /* ssp board */
 	{
       for(id=0; id<nssp; id++)
@@ -358,6 +366,8 @@ vmeBusUnlock();
         for(ii=0; ii<nw; ii++) vmedata[slot][ii] = sspbuf[ii];
       }
     }
+#endif
+
   }
 
   SCALER_UNLOCK;
@@ -760,7 +770,10 @@ vtpReadTask()
       SCALER_LOCK;
 	  /* actual scales readout */
       slot = 11; /* VTP always in slot 11 */
-      nw = vtpReadScalers(vtpbuf, MAXVTPWORDS);
+
+/*nw = vtpReadScalers(vtpbuf, MAXVTPWORDS);*/
+vtpSendScalers();
+
       vmescalerslen[slot] = nw;
       for(ii=0; ii<nw; ii++) vmescalers[slot][ii] = vtpbuf[ii];
 
@@ -1298,6 +1311,10 @@ main(int argc, char *argv[])
   }
 #endif
 
+  /* connect to IPC server */
+  epics_json_msg_sender_init(getenv("EXPID"), getenv("SESSION"), "daq", "HallB_DAQ");
+
+
   ScalersReadoutStart(); /* pthread_create inside */
 
   sleep(2);
@@ -1347,6 +1364,9 @@ main(int argc, char *argv[])
 
 	
 CLOSE:
+
+  /* disconnect from IPC server */
+  epics_json_msg_close();
 
 #ifdef Linux_vme
   vmeCloseDefaultWindows();

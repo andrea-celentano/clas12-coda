@@ -182,6 +182,21 @@ else ifeq ("$(OSTYPE_MACHINE)","Linux_armv7l")
   CLON_FLAGS += -I$(CODA)/Linux_armv7l/include
   LIBNAMES += $(CODA)/src/mysql4.1.20/$(OSTYPE_MACHINE)/lib/libmysql4.1.20.a
   LIBNAMES += -lvtp
+
+
+
+
+  LIBNAMES += $(CODA)/src/codautil/$(OSTYPE_MACHINE)/lib/libcodautil.a
+
+  LIBNAMES += $(CODA)/src/ipc/$(OSTYPE_MACHINE)/lib/libipc.a
+  LIBNAMES += /usr/local/lib/libactivemq-cpp.so
+  LIBNAMES += -lapr-1
+  LIBNAMES += -lrt -lcrypt -lssl -lcrypto -ldl -lz
+  LIBNAMES += -L/usr/kerberos/lib -lpthread -pthread -Wl,-rpath -Wl,/usr/local/lib
+
+
+
+
   LIBNAMES += /usr/local/lib/libi2c.a
   LIBNAMES += -lpthread
   LIBNAMES += -lrt
@@ -205,6 +220,14 @@ else
 ifeq ("$(OSTYPE_MACHINE)","Linux_i686_vme")
 
   LIBNAMES += $(CODA)/src/rol/jvme/libjvme.so
+
+  LIBNAMES += $(CODA)/src/codautil/$(OSTYPE_MACHINE)/lib/libcodautil.a
+
+  LIBNAMES += $(CODA)/src/ipc/$(OSTYPE_MACHINE)/lib/libipc.a
+  LIBNAMES += /usr/local/lib/libactivemq-cpp.so
+  LIBNAMES += -lapr-1
+  LIBNAMES += -lrt -lcrypt -lssl -lcrypto -ldl -lz
+  LIBNAMES += -L/usr/kerberos/lib -lpthread -pthread -Wl,-rpath -Wl,/usr/local/lib
 
 ## smartsocket stuff
   CLON_FLAGS +=	-I$(CLON)/common/include

@@ -285,6 +285,7 @@ __download()
 			fprintf(stderr, "%s: fopen failed to open log file %s in %s mode with %d\n", __FUNCTION__, logfilename, log_file_perms, errno);
 		 	perror("fopen failed");
 		}
+		mvtSetLogFilePointer( mvt_fptr_err_1 );
 	}
 	fprintf( mvt_fptr_err_1, "**************************************************\n" );
 	fprintf( mvt_fptr_err_1, "%s at %02d%02d%02d %02dH%02d\n", __FUNCTION__, time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday, time_struct->tm_hour, time_struct->tm_min );
@@ -482,6 +483,7 @@ __prestart()
 			fprintf(stderr, "%s: fopen failed to open log file %s in %s mode with %d\n", __FUNCTION__, logfilename, log_file_perms, errno);
 		 	perror("fopen failed");
 		}
+		mvtSetLogFilePointer( mvt_fptr_err_1 );
 	}
 	if( mvt_fptr_err_1 != (FILE *)NULL )
 	{
@@ -617,6 +619,14 @@ __end()
 		tiStatus(1);
 		sdStatus(1);
 	vmeBusUnlock();
+
+	if( mvt_fptr_err_1 != (FILE *)NULL )
+	{
+		mvtClrLogFilePointer();
+		fflush( mvt_fptr_err_1 );
+		fclose( mvt_fptr_err_1 );
+		mvt_fptr_err_1 = (FILE *)NULL;
+	}
 
 	printf("INFO: End1 Executed\n\n\n");fflush(stdout);
 	return;
@@ -793,7 +803,13 @@ constant_set = 1;
 		}
  		else
 		{
-			;
+/*
+			if( mvt_fptr_err_1 != (FILE *)NULL )
+			{
+				fprintf(mvt_fptr_err_1, "%s: TI block len=%d\n",__FUNCTION__, len);
+				fflush( mvt_fptr_err_1);
+			}
+*/
 			/*
 				printf("ti: len=%d\n",len);
 				for(jj=0; jj<len; jj++) printf("ti[%2d] 0x%08x\n",jj,LSWAP(tdcbuf[jj]));
@@ -863,6 +879,13 @@ constant_set = 1;
 				vmeBusUnlock();
 				if(len>0)
 				{
+/*
+		                        if( mvt_fptr_err_1 != (FILE *)NULL )
+               			        {
+                     		          	fprintf(mvt_fptr_err_1, "%s: MVT block len=%d\n",__FUNCTION__, len);
+                        		        fflush( mvt_fptr_err_1);
+                      			 }
+*/
 					BANKOPEN(0xe118,1,rol->pid);
 	//				BANKOPEN(0xe1FF,1,rol->pid);
 #ifdef DEBUG_MVT

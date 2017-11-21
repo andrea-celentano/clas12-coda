@@ -216,6 +216,7 @@ int beusspSetSBTSource(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, unsigned
 int beusspSetSoftId(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, unsigned int soft_id);
 int beusspResetGClkPll(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg);
 int beusspResetMultiGTX(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg);
+int beusspGetMultiGTXStatus(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg, unsigned int *mgtx_status);
 int beusspFlushPipeline(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg);
 int beusspDisplayAllReg(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg);
 int beusspSetTargetFeuAndDisplayAllReg(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg, int numFeu);
@@ -251,6 +252,10 @@ int beusspFlashID(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg);
 int beusspFlashLoadbuffer(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, int NumBuf, unsigned char data[1056] );
 int beusspFlashBufferToMemory(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, int NumBuf, int NumPage );
 int beusspFWU( volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, char *filename ) ;
+int beusspFlashREAD(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, int NumPage);
+int beusspCompareFlashBufferToMemory(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, int NumBuf, int NumPage );
+int beusspFWCompare( volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, char *filename ); 
+
 
 
 int beusspCheckFeuLink( volatile struct BEUSSP_A24RegStruct *BEUSSPreg, int numFeu);

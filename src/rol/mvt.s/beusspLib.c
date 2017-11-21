@@ -362,102 +362,103 @@ int beusspSetTargetFeu(volatile struct BEUSSP_A24RegStruct * BEUSSPreg, int numF
 */
 int beusspSendSlowControl(volatile struct BEUSSP_A24RegStruct * BEUSSPreg, unsigned int numFeu, unsigned  int * datain1, unsigned int * datain2, unsigned int * dataout1, unsigned int * dataout2)
 {
-  unsigned int timeout = 0, slwctrlstatus = 0, mltgtxstatus = 0;
-  unsigned int feu_is_there = 0, feu_is_active = 0;
+	unsigned int timeout = 0, slwctrlstatus = 0, mltgtxstatus = 0;
+	unsigned int feu_is_there = 0, feu_is_active = 0;
 
-   // check that BEU is there
-  if(BEUSSPreg == NULL) 
-    {
-      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
- 
-// check that FEU is there and active 
+	// check that BEU is there
+	if(BEUSSPreg == NULL) 
+	{
+		fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+		return ERROR;
+	}
+
+	// check that FEU is there and active 
 	BEUSSPLOCK;
-	
+
 	feu_is_there = vmeRead32(  &(BEUSSPreg->regout_11)     );
 	feu_is_active = vmeRead32( &(BEUSSPreg->regin_0)     );
-	
+
 	BEUSSPUNLOCK;
 	if (((feu_is_there >> numFeu) & 0x00000001 ) != 1 )  
-		{
+	{
 		fprintf( stderr,"%s: ERROR: there is no FEU on link %d  Feu present 0x%08x.  \n",__FUNCTION__, numFeu,feu_is_there );
 		return ERROR ;
 	}   
 	if ((( feu_is_active >> numFeu) & 0x00000001 ) != 1 ) 
-		{
+	{
 		fprintf( stderr,"%s: ERROR: FEU on link %d is not marked as active.  \n",__FUNCTION__, numFeu);
 		return ERROR ;
 	}   
- 
+
   	BEUSSPLOCK;   
 
 	//check that peripheral is ready to send a slwctrl request
 	slwctrlstatus = vmeRead32( &BEUSSPreg->regout_B );
-	mltgtxstatus = vmeRead32( &BEUSSPreg->regout_10);
-	
+	mltgtxstatus  = vmeRead32( &BEUSSPreg->regout_10);
+
 //	if ( (( (slwctrlstatus & 0x0000003E) != (unsigned int) 0  ) || ((mltgtxstatus & 0x00000001)  ==  (unsigned int) 0 ) )) {
-	if ( ( (slwctrlstatus & 0x0000003E) != (unsigned int) 0  ) ) {
+	if ( ( (slwctrlstatus & 0x0000003E) != (unsigned int) 0  ) )
+	{
 		fprintf( stderr,"%s: ERROR: Peripheral not ready for slow control : scstat=0x%08x scstat&0x3E=0x%02x mgtstat=0x%08x mgtstat&0x1=0x%01x.\r\n",
 			__FUNCTION__,  slwctrlstatus, slwctrlstatus & 0x3E, mltgtxstatus, mltgtxstatus & 0x1 );
 		BEUSSPUNLOCK;   		 
 		return ERROR;
 	}
-	
-	
-	
-		//write slowctrl data to be sent to FEU 	
-		vmeWrite32( &BEUSSPreg->regin_8, * datain1);  
-		vmeWrite32( &BEUSSPreg->regin_9, * datain2); 		
-		//write numfeu  
-		vmeWrite32( &BEUSSPreg->regin_6,   (0x000000FF&numFeu)<< 8   );
-		//request send
-		vmeWrite32( &BEUSSPreg->regin_6,   ( (0x000000FF&numFeu)<< 8 )  | (0x00000001)  ); //request send !
+
+	//write slowctrl data to be sent to FEU 	
+	vmeWrite32( &BEUSSPreg->regin_8, * datain1);  
+	vmeWrite32( &BEUSSPreg->regin_9, * datain2); 		
+	//write numfeu  
+	vmeWrite32( &BEUSSPreg->regin_6,   (0x000000FF&numFeu)<< 8   );
+	//request send
+	vmeWrite32( &BEUSSPreg->regin_6,   ( (0x000000FF&numFeu)<< 8 )  | (0x00000001)  ); //request send !
 #define SLCTRL_TO_CNTR 10000
-		timeout = 0;
-		do{
-			slwctrlstatus = vmeRead32( &BEUSSPreg->regout_B);
-			timeout += 1;
-		} while ( ( timeout <= SLCTRL_TO_CNTR) && ( (slwctrlstatus & 0x00000008) == (unsigned int)0) ) ;
+	timeout = 0;
+	do
+	{
+		slwctrlstatus = vmeRead32( &BEUSSPreg->regout_B);
+		timeout += 1;
+	} while ( ( timeout <= SLCTRL_TO_CNTR) && ( (slwctrlstatus & 0x00000008) == (unsigned int)0) ) ;
 
-	
-		if ( timeout > SLCTRL_TO_CNTR )  {
-			//set low the slowctrl request bit
-			vmeWrite32( &BEUSSPreg->regin_6,  ( (0x000000FF&numFeu)<< 8 )  | (0x00000000) );
-
-		 	fprintf( stderr,"%s: ERROR: TIMEOUT ! Slow control operation timed out by software. \n\r",__FUNCTION__);
-		 	BEUSSPUNLOCK;   		 
-		 	return ERROR;
-		}
-
-		//These two error types are not exclusive : there will be a timeout if no Ack is receivd, there can be an Ack received and a timeout.
-		//The following is sufficient for now.
-
-		if ( (slwctrlstatus & 0x00000010) == 0x00000000 )  {
-			//set low the slowctrl request bit
-			vmeWrite32( &BEUSSPreg->regin_6,  ( (0x000000FF&numFeu)<< 8 )  | (0x00000000) );
-
-		 	fprintf( stderr,"%s: ERROR:  no Acknowledge received for slow control request. \n\r",__FUNCTION__);
-		 	BEUSSPUNLOCK;   		 
-		 	return ERROR;
-		}
-		
-		if ( (slwctrlstatus & 0x00000020) == 0x00000020 )  {
-			//set low the slowctrl request bit
-			vmeWrite32( &BEUSSPreg->regin_6,  ( (0x000000FF&numFeu)<< 8 )  | (0x00000000) );
-
-		 	fprintf( stderr,"%s: ERROR: TIMEOUT ! Slow control operation timed out by hardware. \n\r",__FUNCTION__);
-		 	BEUSSPUNLOCK;   		 
-		 	return ERROR;
-		}
-
-		* dataout1 = vmeRead32( &BEUSSPreg->regout_12);
-		* dataout2 = vmeRead32( &BEUSSPreg->regout_13);
-
+	if ( timeout > SLCTRL_TO_CNTR )
+	{
 		//set low the slowctrl request bit
 		vmeWrite32( &BEUSSPreg->regin_6,  ( (0x000000FF&numFeu)<< 8 )  | (0x00000000) );
-		BEUSSPUNLOCK;   
-	   	return OK;
+
+		fprintf( stderr,"%s: ERROR: TIMEOUT ! Slow control operation timed out by software. \n\r",__FUNCTION__);
+		BEUSSPUNLOCK;   		 
+		return ERROR;
+	}
+
+	//These two error types are not exclusive : there will be a timeout if no Ack is receivd, there can be an Ack received and a timeout.
+	//The following is sufficient for now.
+	if ( (slwctrlstatus & 0x00000010) == 0x00000000 ) 
+	{
+		//set low the slowctrl request bit
+		vmeWrite32( &BEUSSPreg->regin_6,  ( (0x000000FF&numFeu)<< 8 )  | (0x00000000) );
+
+	 	fprintf( stderr,"%s: ERROR:  no Acknowledge received for slow control request. \n\r",__FUNCTION__);
+	 	BEUSSPUNLOCK;   		 
+	 	return ERROR;
+	}
+		
+	if ( (slwctrlstatus & 0x00000020) == 0x00000020 )
+	{
+		//set low the slowctrl request bit
+		vmeWrite32( &BEUSSPreg->regin_6,  ( (0x000000FF&numFeu)<< 8 )  | (0x00000000) );
+
+	 	fprintf( stderr,"%s: ERROR: TIMEOUT ! Slow control operation timed out by hardware. \n\r",__FUNCTION__);
+	 	BEUSSPUNLOCK;   		 
+	 	return ERROR;
+	}
+
+	* dataout1 = vmeRead32( &BEUSSPreg->regout_12);
+	* dataout2 = vmeRead32( &BEUSSPreg->regout_13);
+
+	//set low the slowctrl request bit
+	vmeWrite32( &BEUSSPreg->regin_6,  ( (0x000000FF&numFeu)<< 8 )  | (0x00000000) );
+	BEUSSPUNLOCK;   
+   	return OK;
 }
 
 /*******************************************************************************
@@ -668,7 +669,7 @@ int  beusspSetTargetFeuAndDumpAllReg(volatile struct BEUSSP_A24RegStruct *BEUSSP
 	fprintf(fptr, "Mask on timed out links 	     %d  \r\n", (data&0x00008000)>>15  );
 	fprintf(fptr, "\r\n" );  	
 	ddata = vmeRead32( &BEUSSPreg->regin_6) ;
-	printf("Received on Link %d  \r\n", (ddata&0x0000FF00)>>8 );
+	fprintf(fptr, "Received on Link %d  \r\n", (ddata&0x0000FF00)>>8 );
 	data = vmeRead32( &BEUSSPreg->regout_C) ;		
 	ddata = vmeRead32( &BEUSSPreg->regout_E) ;
 	fprintf(fptr, "   - SlwCtrl Packets      : %d  \r\n",(data&0xFFFF0000)>> 16 );	
@@ -699,6 +700,10 @@ int  beusspSetTargetFeuAndDumpAllReg(volatile struct BEUSSP_A24RegStruct *BEUSSP
 	fprintf(fptr, "selftrig reg in		%08X	%08X	%08X\r\n", vmeRead32( &BEUSSPreg->regin_10 ), vmeRead32( &BEUSSPreg->regin_12 ),  vmeRead32( &BEUSSPreg->regin_13 ));
 	fprintf(fptr, "selftrig reg out	%08X	%08X	%08X\r\n", vmeRead32( &BEUSSPreg->regout_19 ), vmeRead32( &BEUSSPreg->regout_1A ), vmeRead32( &BEUSSPreg->regout_1B ) );
   	fprintf(fptr, "------------------------------------------------------------\r\n" );  
+	fprintf(fptr, "CtrlReg_4	%08X CtrlReg_6	%08X \r\n", vmeRead32( &BEUSSPreg->regin_4 ), vmeRead32( &BEUSSPreg->regin_6 ) );
+	fprintf(fptr, "adr32mReg	%08X\r\n", vmeRead32( &BEUSSPreg->adr32m ) );
+  	fprintf(fptr, "------------------------------------------------------------\r\n" );  
+  	fprintf(fptr, "\r\n" );  
 
 
 	vmeWrite32( &BEUSSPreg->regin_6,   (0x000000FF&old_numFeu)<< 8   );	
@@ -765,6 +770,30 @@ int  beusspWriteConf(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg, volatile 
 
 /*******************************************************************************
  *
+ *  beusspGetMultiGTXStatus - 
+ *
+ *  ARGs: 
+ *    BEUSSPreg   - map of all beussp registers 
+ *    BEUSSPconf  - structure filled by software containing values for all the configuration registers of the beussp 
+ *
+ *  RETURNS: OK if successful, otherwise ERROR.
+ *
+*/
+int beusspGetMultiGTXStatus(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg, unsigned int *mgtx_status)
+{
+	if(BEUSSPreg == NULL) 
+	{
+		fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+		return ERROR;
+	}
+//	BEUSSPLOCK;
+	*mgtx_status = vmeRead32( &BEUSSPreg->regout_10  );
+//	BEUSSPUNLOCK;
+	return OK;
+}
+
+/*******************************************************************************
+ *
  *  beusspResetMultiGTX - 
  *
  *  ARGs: 
@@ -796,7 +825,7 @@ int  beusspResetMultiGTX(volatile struct BEUSSP_A24RegStruct  * BEUSSPreg)
 
 		vmeWrite32( &BEUSSPreg->regin_7, 0x00000000);  //multigtx reset low
 		timeout = 0;
-		usleep(500);
+		usleep(1000000);
 		do{
 			res = vmeRead32( &BEUSSPreg->regout_10  );
 			timeout += 1;
@@ -2046,7 +2075,7 @@ unsigned char tmpdata = 0;
 					}	
 					
 				//sending the 1056 data bytes
-				for (ii = 1; ii <= 1056; ii++){
+				for (ii = 0; ii < 1056; ii++){
 					
 					tmpdata = data[ii];
 					
@@ -2068,6 +2097,93 @@ unsigned char tmpdata = 0;
 
   return OK;
 }
+/*******************************************************************************
+ *
+ *  beusspFlashREAD
+ *  - Routine to read N bytes from the flash memory starting at given address
+ */
+int beusspFlashREAD(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, int NumPage)
+{
+int retval = 0 ;
+int retval_bis = 0 ;
+int cmd = 0 ;
+int ii = 0 ;
+int jj = 0 ;
+unsigned char tmpdata = 0; 
+int temppage = 0;
+
+  if(BEUSSPreg == NULL) 
+    {
+      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  cmd = 0xE8; 
+
+  BEUSSPLOCK;
+				
+				vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );	 // CLK LOW
+				vmeWrite32( &BEUSSPreg->regin_14,  0xFFFFFFFF );	 // CSB HIGH - should be high already	
+				vmeWrite32( &BEUSSPreg->regin_14,  0x00000000 );	 // CSB LOW
+	
+				//sending the command
+				for (ii = 1; ii <= 8; ii++){
+					vmeWrite32( &BEUSSPreg->regin_15, (cmd & 0x00000080) >> 7 );
+					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+					cmd  = (cmd << 1 ); 
+					}
+				//sending the start address for the buffer write
+				temppage = 	(NumPage>>5) & 0xFF ;
+				for (ii = 1; ii <= 8; ii++){
+					vmeWrite32( &BEUSSPreg->regin_15, (temppage & 0x00000080) >> 7 );
+					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+					temppage  = (temppage << 1 ); 
+					}
+				temppage = 	(NumPage<<3) & 0xFF ;
+				for (ii = 1; ii <= 8; ii++){
+					vmeWrite32( &BEUSSPreg->regin_15, (temppage & 0x00000080) >> 7 );
+					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+					temppage  = (temppage << 1 ); 
+					}
+				temppage = 	0x00000000 ;
+				for (ii = 1; ii <= 8; ii++){
+					vmeWrite32( &BEUSSPreg->regin_15, (temppage & 0x00000080) >> 7 );
+					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+					temppage  = (temppage << 1 ); 
+					}	
+				//sending 4 bytes
+				for (ii = 1; ii <= 32; ii++){
+					vmeWrite32( &BEUSSPreg->regin_15, 0x00000000 );
+					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+					}	
+
+
+		for (ii = 1; ii <= 1056/4; ii++){
+		
+ 			for (jj = 0; jj <= 31; jj++){
+				retval_bis = vmeRead32(&BEUSSPreg->regout_1C);
+				retval = (retval << 1 ) | ( retval_bis);
+				vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+				vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+			}
+
+		  printf(" FLASH  page %d  word %d value : %08x \n\r", NumPage, ii, retval );
+	
+			
+		}
+				vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );  // CLK LOW
+				vmeWrite32( &BEUSSPreg->regin_14,  0xFFFFFFFF );  // CSB HIGH
+
+  BEUSSPUNLOCK;
+
+  return OK;
+}
+
 
 /*******************************************************************************
  *
@@ -2097,8 +2213,83 @@ int temppage = 0;
       fprintf( stderr,"%s: ERROR: Specified Flash buffer number should be either 1 or 2.\n",__FUNCTION__);
       return ERROR;
     }
+//TO DO : insert a test on the page number .... the file to be written has a fixed size therefore the maximum number of pages is known.	
     
 	
+  BEUSSPLOCK;
+				
+				vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );	 // CLK LOW
+				vmeWrite32( &BEUSSPreg->regin_14,  0xFFFFFFFF );	 // CSB HIGH - should be high already
+				vmeWrite32( &BEUSSPreg->regin_14,  0x00000000 );	 // CSB LOW
+	
+				for (ii = 1; ii <= 8; ii++){
+					vmeWrite32( &BEUSSPreg->regin_15, (cmd & 0x00000080) >> 7 );
+					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+					cmd  = (cmd << 1 ); 
+					}
+					
+				temppage = 	(NumPage>>5) & 0xFF ;
+				for (ii = 1; ii <= 8; ii++){
+					vmeWrite32( &BEUSSPreg->regin_15, (temppage & 0x00000080) >> 7 );
+					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+					temppage  = (temppage << 1 ); 
+					}
+				temppage = 	(NumPage<<3) & 0xFF ;
+				for (ii = 1; ii <= 8; ii++){
+					vmeWrite32( &BEUSSPreg->regin_15, (temppage & 0x00000080) >> 7 );
+					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+					temppage  = (temppage << 1 ); 
+					}
+				temppage = 	0x00000000 ;
+				for (ii = 1; ii <= 8; ii++){
+					vmeWrite32( &BEUSSPreg->regin_15, (temppage & 0x00000080) >> 7 );
+					vmeWrite32( &BEUSSPreg->regin_16,  0xFFFFFFFF );
+					vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );
+					temppage  = (temppage << 1 ); 
+					}	
+
+				vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );  // CLK LOW
+				vmeWrite32( &BEUSSPreg->regin_14,  0xFFFFFFFF );  // CSB HIGH
+
+
+  BEUSSPUNLOCK;
+
+  return OK;
+}
+/*******************************************************************************
+ *
+ *  beusspCompareFlashBufferToMemory
+ *  - Routine to send the command to compare one of the two 1056 byte buffer contents 
+ *  - to the flash memory at given address
+ *	
+ */
+int beusspCompareFlashBufferToMemory(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, int NumBuf, int NumPage )
+{
+
+int cmd = 0 ;
+int ii = 0 ;
+int temppage = 0;
+
+
+  if(BEUSSPreg == NULL) 
+    {
+      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+      return ERROR;
+	  
+    }
+  
+  if (NumBuf == 1) {cmd = 0x60;} 
+  else if (NumBuf == 2) {cmd = 0x61;} 
+  else {
+      fprintf( stderr,"%s: ERROR: Specified Flash buffer number should be either 1 or 2.\n",__FUNCTION__);
+      return ERROR;
+    }
+    
+	//TO DO : insert a test on the page number .... the file to be written has a fixed size therefore the maximum number of pages is known.	
+
   BEUSSPLOCK;
 				
 				vmeWrite32( &BEUSSPreg->regin_16,  0x00000000 );	 // CLK LOW
@@ -2151,7 +2342,7 @@ int temppage = 0;
  *  - to the  on the Flash
  *	
  */
-beusspFWU( volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, char *filename ) 
+int beusspFWU( volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, char *filename ) 
 { 
   FILE *f; 
   int i; 
@@ -2200,9 +2391,11 @@ beusspFWU( volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, char *filename )
   //at this stage, file and flash are hopefully compatible
    
    memset(buf, 0xff, 1056); 
+   fread(buf,1, 27*4,f);
+   memset(buf, 0xff, 1056);
    while(fread(buf, 1, 1056, f) > 0) 
 	{ 
-
+	//buf[0] = 0xff;
 	//Fill flash buffer 1 
 	//already has its Lock and unlock
 	beusspFlashLoadbuffer( BEUSSPreg , 1 ,  buf );
@@ -2228,12 +2421,129 @@ beusspFWU( volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, char *filename )
 	    }			 
 	  memset(buf, 0xff, 1056); 
 	  page++; 
+	
+if(! (page%128)){
+printf("Updating firmware in flash on SSP , current page number %d\n\r", page);
+}  
+//TO DO : insert a test on the page number .... the file to be written has a fixed size therefore the maximum number of pages is known.	
+	  
 	} 
     fclose(f); 
 	
   return OK; 
 } 
  
+/*******************************************************************************
+ *
+ *  beusspFWCompare
+ *  - Routine to compare the beussp firmware in flash  
+ *  - to the firmware file
+ *	
+ */
+int beusspFWCompare( volatile struct BEUSSP_A24RegStruct  *BEUSSPreg, char *filename ) 
+{ 
+  FILE *f; 
+  int i; 
+int ii = 0;
+  int bufnum = 0;
+  unsigned int page = 0; 
+  unsigned char buf[1056]={0xFF};
+  int flashid = 0;
+  int flashstatus=0;
+ 
+  if(BEUSSPreg == NULL) 
+    {
+      fprintf( stderr,"%s: ERROR: BEUSSP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+	
+  //check flash component and print description
+  //already has its own LOCK and UNLOCK
+  flashstatus=beusspFlashSatusReg(BEUSSPreg);
+  printf("Flash status: 0x%08X \n", flashstatus ); 
+  flashid =   beusspFlashID( BEUSSPreg );
+  printf("Flash id: 0x%08X \n", flashid ); 
+  flashstatus=beusspFlashSatusReg(BEUSSPreg);
+  printf("Flash status: 0x%08X \n", flashstatus ); 
+
+  //compare to expected flash ID and print
+/*
+  printf("Flash: Mfg=0x%02X, Type=0x%02X, Capacity=0x%02X\n", rspId[0], rspId[1], rspId[2]); 
+ if( BEUSSP_FLASHID ~= flashid )
+	{
+	  printf("%s: ERROR: unexpected flash id, expecting %x read %x\n", __FUNCTION__, BEUSSP_FLASHID, flashid); 
+	  return ERROR; 
+	  BEUSSPUNLOCK; 
+	}
+*/
+  
+  //open firmware file, check that file existes, check type
+  f = fopen(filename, "rb"); 
+  if(!f) { 
+	  printf("%s: ERROR: invalid file %s\n", __FUNCTION__, filename); 
+     // fclose(f); 	  
+	  return ERROR; 
+	}
+  //check file type ???
+		
+  //at this stage, file and flash are hopefully compatible
+   
+   memset(buf, 0xff, 1056); 
+   fread(buf, 1, 27*4, f);
+   memset(buf, 0xff, 1056);
+   while(fread(buf, 1, 1056, f) > 0) 
+	{
+
+//if( page < 2) { 
+//for(ii=0; ii<1056/4; ii ++) {
+//printf(" from .bit file , page : %d, bufnum : %d, byte num : %d , data %02x %02x %02x %02x  \n\r", page, bufnum, ii, buf[4*ii], buf[4*ii+1], buf[4*ii+2], buf[4*ii+3]);
+//}}  
+
+	//Fill flash buffer 1 
+	//already has its Lock and unlock
+	beusspFlashLoadbuffer( BEUSSPreg , 1 ,  buf );
+	//dump the buffer to flash with page erase
+	//already has its Lock and unlock
+	beusspCompareFlashBufferToMemory( BEUSSPreg, 1 , page);
+	//compare flash and buffer contents	
+	  i = 0; 
+	  while(1) 
+	    { 
+		
+	  //already has its lock and unlock
+        flashstatus=beusspFlashSatusReg(BEUSSPreg);
+	    if( flashstatus & 0x80)  break; 
+		if(i == 40000)	// 40ms maximum page program time 
+		{ 
+			fclose(f); 
+			printf("%s: ERROR: failed to program flash\n", __FUNCTION__); 
+			return ERROR; 
+		} 
+	    i++; 
+	    }
+
+	if ( flashstatus & 0x40)
+	{
+         	printf("%s: ERROR: flash memory and file not identical on page %d \n", __FUNCTION__,page);
+    // 		fclose(f);
+    //      	return ERROR;
+	}
+ 	
+	if( !(page % 128)){	  
+		printf("Verifying firmware in flash on SSP - status register : 0x%08X, page number : %d\n", flashstatus , page); 
+	}
+
+	  memset(buf, 0xff, 1056); 
+	  page++; 
+	  bufnum++;
+
+//TO DO : insert a test on the page number .... the file to be written has a fixed size therefore the maximum number of pages is known.	
+	  
+	} 
+    fclose(f); 
+	
+  return OK; 
+} 
 
 
 
@@ -2732,6 +3042,7 @@ int beusspBReady(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
   headers = (trailers&0xFFFF0000)>>16;
   trailers = (trailers&0x0000FFFF);
   if ( (readme == 1 ) && ( headers > 0) && (  ( trailers > 0) || ( fifofull==1) )  )
+ // if ( (readme == 1 ) && ( headers > 0) )
 	retval = 1 ;
 
   return retval;
@@ -2753,7 +3064,7 @@ int beusspBZRDHigh(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
    
   BEUSSPLOCK;
   bzrd = vmeRead32( &(BEUSSPreg->regin_4) );
-  if(bzrd == 0x00000001) 
+  if( bzrd & 0x1 ) 
     {
       fprintf( stderr,"%s: ERROR: Trying to mark busy a BEUSSP already in busy state !\n",__FUNCTION__);
       BEUSSPUNLOCK;
@@ -2761,8 +3072,15 @@ int beusspBZRDHigh(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
     } 
   
   vmeWrite32( &(BEUSSPreg->regin_4),  0x00000001 );
+  bzrd = vmeRead32( &(BEUSSPreg->regin_4) );
+  if( (bzrd & 0x1) == 0) 
+    {
+      fprintf( stderr,"%s: ERROR: failed to set busy state bzrd=0x%08x!\n",__FUNCTION__, bzrd);
+      BEUSSPUNLOCK;
+      return ERROR;
+    } 
   BEUSSPUNLOCK;
-  return bzrd;
+  return 0;
 }
 /*******************************************************************************
  *
@@ -2781,7 +3099,7 @@ int beusspBZRDLow(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
     
   BEUSSPLOCK;
   bzrd = vmeRead32( &(BEUSSPreg->regin_4) );
-  if(bzrd == 0x00000000) 
+  if( (bzrd & 0x1) == 0) 
     {
       fprintf( stderr,"%s: ERROR: Trying to mark NOT BUSY a BEUSSP already in NOT BUSY state !\n",__FUNCTION__);
       BEUSSPUNLOCK;
@@ -2789,8 +3107,15 @@ int beusspBZRDLow(volatile struct BEUSSP_A24RegStruct  *BEUSSPreg)
     } 
   
   vmeWrite32( &(BEUSSPreg->regin_4),  0x00000000 );
+  bzrd = vmeRead32( &(BEUSSPreg->regin_4) );
+  if( (bzrd & 0x1) != 0) 
+    {
+      fprintf( stderr,"%s: ERROR: failed to clear busy state bzrd=0x%08x!\n",__FUNCTION__, bzrd);
+      BEUSSPUNLOCK;
+      return ERROR;
+    } 
   BEUSSPUNLOCK;
-  return bzrd;
+  return 0;
 }
 
 //------------------------------------------------------------------------------------------------

@@ -45,6 +45,7 @@ int  FeuToggleCommand( FeuParams *feu_params, int feu_id, int beu_id, int beu_ln
 int  FeuReset(  FeuParams *params, int feu_id, int beu_id, int beu_lnk_id );
 int  FeuRun(    FeuParams *params, int feu_id, int beu_id, int beu_lnk_id, int run );
 int  FeuConfig( FeuParams *params, int feu_id, int beu_id, int beu_lnk_id );
+int  FeuComChanRxErr_Get( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id, int *rx_err_cntr, int *par_err_cntr, int *pac_err_cntr );
 int  FeuConfig_Lock();
 int  FeuConfig_UnLock();
 void FeuConfig_CleanUp();

@@ -1549,7 +1549,7 @@ codaPrestart()
       ret = rocOpenLink(object->name, tmp, host, &port, &socketnum);
       if(ret<0)
 	  {
-        /*REDO IT USIBNG UDP_user_request !!!*/
+        /*REDO IT USING UDP_user_request !!!*/
         char tmpp[1000];
         strcpy(tmpp,"err:");
         strcat(tmpp,object->name);

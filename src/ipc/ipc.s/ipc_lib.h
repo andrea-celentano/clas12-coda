@@ -65,14 +65,16 @@ typedef enum{
         ")";
 */
 
+#define DEFAULT_BROCKER_HOST "clondb1"
+
 #define GET_BROKER \
   char *broker_host = NULL; \
   char broker_str[512]; \
   broker_host = getenv("IPC_HOST"); \
   if(broker_host==NULL) \
   { \
-    printf("Cannot get broker_host name  - exit\n"); \
-    exit(0); \
+    printf("Cannot get broker_host name - use default >%s<\n",DEFAULT_BROCKER_HOST);	\
+    broker_host = strdup(DEFAULT_BROCKER_HOST); \
   } \
   /*printf("Will use broker on host >%s<\n",broker_host);*/		   \
   sprintf(broker_str,"failover:(tcp://%s:61616)",broker_host); \

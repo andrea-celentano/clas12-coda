@@ -42,6 +42,29 @@ static int first_beu_in_token = -1;
 // configuration file pointer
 static FILE *sys_conf_params_fptr = (FILE *)NULL;
 
+int mvtSetLogFilePointer( FILE *fptr )
+{
+	int ret;
+	if( (ret = SysConfig_SetLogFilePointer( fptr ) ) != D_RetCode_Sucsess )
+	{
+		fprintf( stderr, "%s: SysConfig_SetLogFilePointer failed with %d\n", __FUNCTION__, ret );
+		return( -1 );
+	}
+	return( 0 );
+}
+
+int mvtClrLogFilePointer()
+{
+	int ret;
+	if( (ret = SysConfig_ClrLogFilePointer() ) != D_RetCode_Sucsess )
+	{
+		fprintf( stderr, "%s: SysConfig_ClrLogFilePointer failed with %d\n", __FUNCTION__, ret );
+		return( -1 );
+	}
+	return( 0 );
+}
+
+
 /*
  *
  */
@@ -753,12 +776,19 @@ fprintf(stdout, "%s: Using configuration file copy %s\n", __FUNCTION__, filename
 	 **********************/
 	if( (ret=SysConfig( sys_params_ptr )) != D_RetCode_Sucsess )
 	{
-		fprintf( stderr, "%s: SysConfig failed for parameters from conf file %s with %d at first pass\nSecond attempt...\n", __FUNCTION__, sys_conf_params_filename, ret );
+		fprintf( stderr, "%s: SysConfig failed for parameters from conf file %s with %d at first pass\nSecond attempt...\n",
+			__FUNCTION__, sys_conf_params_filename, ret );
 		if( (ret=SysConfig( sys_params_ptr )) != D_RetCode_Sucsess )
-		  {
-		    fprintf( stderr, "%s: SysConfig failed for parameters from conf file %s with %d at second pass\nAbandon...\n", __FUNCTION__, sys_conf_params_filename, ret );
-		    return ret;
-		  }
+		{
+			fprintf( stderr, "%s: SysConfig failed for parameters from conf file %s with %d at second pass\nThird attempt...\n",
+				__FUNCTION__, sys_conf_params_filename, ret );
+			if( (ret=SysConfig( sys_params_ptr )) != D_RetCode_Sucsess )
+		  	{
+		 	   	fprintf( stderr, "%s: SysConfig failed for parameters from conf file %s with %d at third pass\nAbandon...\n",
+					__FUNCTION__, sys_conf_params_filename, ret );
+		   		return ret;
+		  	}
+		}
 	}
 
 	// Get end time for performance measurements

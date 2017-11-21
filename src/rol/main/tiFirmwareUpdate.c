@@ -31,12 +31,12 @@
 
   UNIX:
      cd $CLON_PARMS/firmwares
-     tiFirmwareUpdate 0x00A80000 tip32.svf
-     tiFirmwareUpdate 0x00A80000 tip43.svf
-     PRAD: tiFirmwareUpdate 0x00100000 tip43.svf
+     tiFirmwareUpdate 0x00A80000 tip32.svf - old
+     tiFirmwareUpdate 0x00A80000 tip79.svf
+     (PRAD: tiFirmwareUpdate 0x00100000 tip43.svf)
 
   serial number upgrade
-     tiFirmwareUpdate 0x00A80000 tip32.svf 203
+     tiFirmwareUpdate 0x00A80000 tip79.svf 203
 
 
 

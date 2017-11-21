@@ -43,4 +43,6 @@ int mvtGetRepRawData();
 int mvtStatus(int numFeu);
 int mvtStatusDump(int numFeu, FILE *fptr);
 
+int mvtSetLogFilePointer( FILE *fptr );
+
 #endif // #ifndef __MVTLIB__

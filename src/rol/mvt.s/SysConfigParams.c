@@ -530,23 +530,23 @@ int SysParams_Prop( SysParams *params )
 			drm_evt_buf = drm_derand_buf / params->NbOfSmpPerEvt;
 			if( drm_evt_buf > 20 )
 			{
-				Beu_TrgFifo_Hwm = drm_evt_buf - 4;
-				Beu_TrgFifo_Lwm = drm_evt_buf -16;
+				Beu_TrgFifo_Hwm = drm_evt_buf - 8;
+				Beu_TrgFifo_Lwm = drm_evt_buf -10;
 			}
 			if( drm_evt_buf > 16 )
 			{
-				Beu_TrgFifo_Hwm = drm_evt_buf - 4;
+				Beu_TrgFifo_Hwm = drm_evt_buf - 6;
 				Beu_TrgFifo_Lwm = drm_evt_buf - 8;
 			}
 			else if( drm_evt_buf > 8 )
 			{
-				Beu_TrgFifo_Hwm = drm_evt_buf - 4;
+				Beu_TrgFifo_Hwm = drm_evt_buf - 3;
 				Beu_TrgFifo_Lwm = drm_evt_buf - 4;
 			}
 			else if( drm_evt_buf > 4 )
 			{
 				Beu_TrgFifo_Hwm = drm_evt_buf - 2;
-				Beu_TrgFifo_Lwm = drm_evt_buf - 4;
+				Beu_TrgFifo_Lwm = drm_evt_buf - 3;
 			}
 			else if( drm_evt_buf > 2 )
 			{

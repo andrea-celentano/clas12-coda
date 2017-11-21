@@ -284,17 +284,21 @@ vmeBusUnlock();
   }
   printf("TDSLOTMASK: tdslotmask=0x%08x (from library 0x%08x)\n",tdslotmask,tdSlotMask());
 
+  /*
   tdGStatus(0);
-
+  */
 
   /***************************************
    *   SD SETUP
    ***************************************/
+  printf("SD init starts\n");
 vmeBusLock();
+  printf("SD init 1\n");
   sdInit(1);   /* Initialize the SD library */
   sdSetActiveVmeSlots(tdslotmask); /* Use the tdslotmask to configure the SD */
   sdStatus();
 vmeBusUnlock();
+  printf("SD init done\n");
 
 
 
@@ -495,6 +499,15 @@ vmeBusUnlock();
 */
 
 
+
+/*
+  {
+  char portfile[1024];
+  sprintf(portfile,"%s/portnames.txt",getenv("CLON_PARMS"));
+  printf("Loading port names from file >%s<\n",portfile);
+  tdLoadPortNames(portfile);
+  }
+*/
 
 
 vmeBusLock();

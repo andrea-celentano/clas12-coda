@@ -85,6 +85,7 @@ main(int argc AMQCPP_UNUSED, char* argv[] AMQCPP_UNUSED)
       float farray[5]={9.9, 8.8, 7.7, 6.6, 5.5};
       std::vector<double> v({2.5, 3.6, 4.5, 5.5, 6.5});
 
+
       server << SetSize(4) << SetOffset(1) << arrayPtr;
 
       server << SetSize(2) << SetOffset(1) << array;

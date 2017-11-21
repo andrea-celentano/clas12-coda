@@ -947,11 +947,17 @@ tdGStatus(int pflag)
     pflag = 0;
   }
 
+
   /* Grab all of the register info we need */
   TDLOCK;
   for(itd=0; itd<nTD; itd++)
     {
       id = tdSlot(itd);
+
+      /*sergey
+      tdSetPortNamesFromCrateID(id);
+      sergey*/
+
       fiber[id]    = vmeRead32(&TDp[id]->fiber);
       trigsrc[id]  = vmeRead32(&TDp[id]->trigsrc);
       sync[id]         = vmeRead32(&TDp[id]->sync);
@@ -2091,6 +2097,18 @@ tdGetCrateID(int id, int port)
 
   return rval;
 }
+
+
+/*sergey*/
+int
+tdPrintCrateID(int id, int port)
+{
+  int crate_id;
+  crate_id = tdGetCrateID(id, port);
+  printf("TD slot %d, port %d -> crate ID = %d\n",id,port,crate_id);
+}
+/*sergey*/
+
 
 /**
  * @ingroup Config

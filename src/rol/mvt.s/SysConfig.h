@@ -28,6 +28,10 @@
 #include "FeuConfigParams.h"
 #include "SysConfigParams.h"
 
+
+// Log file pointer to be set from outside
+extern FILE *sys_log_fptr;
+
 /* Max allowed 4194304 */
 /* 1 event 48 FEU-s, 64 samples, 604 2-byte words per sample */
 #define MAX_BLOCK_LENGTH 3710976
@@ -45,5 +49,6 @@ int  SysConfigFromFile( char *params );
 int  SysScanSlfTrgThresh( char *sys_conf_params_filename );
 int  SysScanFeuMonit( char *sys_conf_params_filename, int store_period_sec );
 void SysConfig_CleanUp();
+int  SysConfig_SetLogFilePointer( FILE *fptr );
 
 #endif // #ifndef H_SysConfiguration

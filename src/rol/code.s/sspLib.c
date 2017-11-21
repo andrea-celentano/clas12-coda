@@ -2237,7 +2237,7 @@ int sspGt_GetPcal_EsumIntegrationWidth(int id)
   return val*4;
 }
 
-int sspGt_SetDc_SegDelay(int id, int region, int delay)
+int sspGt_SetDc_SegDelay(int id, int delay)
 {
   if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
     return ERROR;
@@ -2248,35 +2248,23 @@ int sspGt_SetDc_SegDelay(int id, int region, int delay)
     return ERROR;
   }
 
-  if( (region < 0) || (region > 2) )
-  {
-    printf("%s: ERROR: region is outside acceptable range.\n",__func__);
-    return ERROR;
-  }
-
   delay/=4;
   SSPLOCK();
-  sspWriteReg(&pSSP[id]->gt.ssdc[region].Delay_seg, delay);
+  sspWriteReg(&pSSP[id]->gt.ssdc.Delay_seg, delay);
   SSPUNLOCK();
 
   return OK;
 
 }
 
-int sspGt_GetDc_SegDelay(int id, int region)
+int sspGt_GetDc_SegDelay(int id)
 {
   int val;
   if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
     return ERROR;
 
-  if( (region < 0) || (region > 2) )
-  {
-    printf("%s: ERROR: region is outside acceptable range.\n",__func__);
-    return ERROR;
-  }
-
   SSPLOCK();
-  val = sspReadReg(&pSSP[id]->gt.ssdc[region].Delay_seg);
+  val = sspReadReg(&pSSP[id]->gt.ssdc.Delay_seg);
   SSPUNLOCK();
 
   return val*4;
@@ -2709,7 +2697,172 @@ int sspGt_GetTrigger_DcMultWidth(int id, int trg)
   return rval*4;
 }
 
+int sspGt_SetHtcc_Delay(int id, int delay)
+{
+  int rval;
 
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
+    return ERROR;
+
+  if( (delay < 0) || (delay > 4095) )
+  {
+    printf("%s: ERROR: delay is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  delay/=4;
+  SSPLOCK();
+  sspWriteReg(&pSSP[id]->gt.sshtcc.Delay_htcc, delay);
+  SSPUNLOCK();
+
+  return OK;
+}
+
+int sspGt_GetHtcc_Delay(int id)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
+    return ERROR;
+
+  SSPLOCK();
+  rval = sspReadReg(&pSSP[id]->gt.sshtcc.Delay_htcc);
+  SSPUNLOCK();
+
+  return rval*4;
+}
+
+int sspGt_SetFtof_Delay(int id, int delay)
+{
+  int rval;
+
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
+    return ERROR;
+
+  if( (delay < 0) || (delay > 4095) )
+  {
+    printf("%s: ERROR: delay is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  delay/=4;
+  SSPLOCK();
+  sspWriteReg(&pSSP[id]->gt.ssftof.Delay_ftof, delay);
+  SSPUNLOCK();
+
+  return OK;
+}
+
+int sspGt_GetFtof_Delay(int id)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
+    return ERROR;
+
+  SSPLOCK();
+  rval = sspReadReg(&pSSP[id]->gt.ssftof.Delay_ftof);
+  SSPUNLOCK();
+
+  return rval*4;
+}
+
+int sspGt_SetTrigger_HtccWidth(int id, int trg, int val)
+{
+  int rval;
+  
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
+    return ERROR;
+
+  if( (val < 0) || (val > 255*4) )
+  {
+    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+ 
+  val/=4;
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].HtccCtrl);
+  rval = (val<<16) | (rval & ~GT_STRG_HTCC_CTRL_WIDTH_MASK);
+  sspWriteReg(&pSSP[id]->gt.strigger[trg].HtccCtrl, rval);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+int sspGt_GetTrigger_HtccWidth(int id, int trg)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
+    return ERROR;
+
+  SSPLOCK(); 
+  rval = (sspReadReg(&pSSP[id]->gt.strigger[trg].HtccCtrl) & GT_STRG_HTCC_CTRL_WIDTH_MASK)>>16;
+  SSPUNLOCK(); 
+ 
+  return rval*4;
+}
+
+int sspGt_SetTrigger_HtccMask(int id, int trg, long long mask)
+{
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
+    return ERROR;
+
+  SSPLOCK(); 
+  sspWriteReg(&pSSP[id]->gt.strigger[trg].HtccMask0, (mask>>0)&GT_STRG_HTCC_MASK0);
+  sspWriteReg(&pSSP[id]->gt.strigger[trg].HtccMask1, (mask>>32)&GT_STRG_HTCC_MASK1);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+long long sspGt_GetTrigger_HtccMask(int id, int trg)
+{
+  long long rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
+    return ERROR;
+
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].HtccMask0);
+  rval |= ((long long)sspReadReg(&pSSP[id]->gt.strigger[trg].HtccMask1))<<32;
+  SSPUNLOCK(); 
+ 
+  return rval;
+}
+
+int sspGt_SetTrigger_FtofWidth(int id, int trg, int val)
+{
+  int rval;
+  
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
+    return ERROR;
+
+  if( (val < 0) || (val > 255*4) )
+  {
+    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
+    return ERROR;
+  }
+ 
+  val/=4;
+  SSPLOCK(); 
+  rval = sspReadReg(&pSSP[id]->gt.strigger[trg].FtofCtrl);
+  rval = (val<<16) | (rval & ~GT_STRG_FTOF_CTRL_WIDTH_MASK);
+  sspWriteReg(&pSSP[id]->gt.strigger[trg].FtofCtrl, rval);
+  SSPUNLOCK(); 
+ 
+  return OK;
+}
+
+int sspGt_GetTrigger_FtofWidth(int id, int trg)
+{
+  int rval;
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGT))
+    return ERROR;
+
+  SSPLOCK(); 
+  rval = (sspReadReg(&pSSP[id]->gt.strigger[trg].FtofCtrl) & GT_STRG_FTOF_CTRL_WIDTH_MASK)>>16;
+  SSPUNLOCK(); 
+ 
+  return rval*4;
+}
 
 /***************************************
      GTC Routines
@@ -2849,40 +3002,6 @@ int sspGtc_GetFt_EsumIntegrationWidth(int id)
   SSPUNLOCK(); 
  
   return val*4;
-}
-
-int sspGtc_SetHtcc_Delay(int id, int delay)
-{
-  int rval;
-
-  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
-    return ERROR;
-
-  if( (delay < 0) || (delay > 4095) )
-  {
-    printf("%s: ERROR: delay is outside acceptable range.\n",__FUNCTION__);
-    return ERROR;
-  }
-
-  delay/=4;
-  SSPLOCK();
-  sspWriteReg(&pSSP[id]->gtc.sshtcc.Delay_htcc, delay);
-  SSPUNLOCK();
-
-  return OK;
-}
-
-int sspGtc_GetHtcc_Delay(int id)
-{
-  int rval;
-  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
-    return ERROR;
-
-  SSPLOCK();
-  rval = sspReadReg(&pSSP[id]->gtc.sshtcc.Delay_htcc);
-  SSPUNLOCK();
-
-  return rval*4;
 }
 
 int sspGtc_SetTrigger_Enable(int id, int trg, int en_mask)
@@ -3161,81 +3280,6 @@ int sspGtc_GetTrigger_FtClusterWidth(int id, int trg)
   SSPUNLOCK(); 
  
   return rval*4;
-}
-
-int sspGtc_SetTrigger_HtccWidth(int id, int trg, int val)
-{
-  int rval;
-  
-  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
-    return ERROR;
-
-  if( (val < 0) || (val > 255*4) )
-  {
-    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
-    return ERROR;
-  }
- 
-  val/=4;
-  SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl2);
-  rval = (val<<16) | (rval & ~GTC_CTRG_HTCC_CTRL2_WIDTH_MASK);
-  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl2, rval);
-  SSPUNLOCK(); 
- 
-  return OK;
-}
-
-int sspGtc_GetTrigger_HtccWidth(int id, int trg)
-{
-  int rval;
-  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
-    return ERROR;
-
-  SSPLOCK(); 
-  rval = (sspReadReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl2) & GTC_CTRG_HTCC_CTRL2_WIDTH_MASK)>>16;
-  SSPUNLOCK(); 
- 
-  return rval*4;
-}
-
-int sspGtc_SetTrigger_HtccMask(int id, int trg, int sector, long long mask)
-{
-  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
-    return ERROR;
-
-  if( (sector < 0) || (sector > 5) )
-  {
-    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
-    return ERROR;
-  }
- 
-  SSPLOCK(); 
-  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl0[sector], (mask>>0)&GTC_CTRG_HTCC_CTRL0_MASK);
-  sspWriteReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl1[sector], (mask>>32)&GTC_CTRG_HTCC_CTRL1_MASK);
-  SSPUNLOCK(); 
- 
-  return OK;
-}
-
-long long sspGtc_GetTrigger_HtccMask(int id, int trg, int sector)
-{
-  long long rval;
-  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
-    return ERROR;
-
-  if( (sector < 0) || (sector > 5) )
-  {
-    printf("%s: ERROR: val is outside acceptable range.\n",__FUNCTION__);
-    return ERROR;
-  }
- 
-  SSPLOCK(); 
-  rval = sspReadReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl0[sector]);
-  rval |= ((long long)sspReadReg(&pSSP[id]->gtc.ctrigger[trg].HtccCtrl1[sector]))<<32;
-  SSPUNLOCK(); 
- 
-  return rval;
 }
 
 
@@ -4613,9 +4657,14 @@ void sspPrintGtConfig(int id)
   printf("      Cosmic Delay           = %dns\n", sspGt_GetPcal_CosmicDelay(id));
   printf("\n");
   printf("   *** DC Subsystem ***\n");
-  printf("      Segment Delay R1       = %dns\n", sspGt_GetDc_SegDelay(id, 0));
-  printf("      Segment Delay R2       = %dns\n", sspGt_GetDc_SegDelay(id, 1));
-  printf("      Segment Delay R3       = %dns\n", sspGt_GetDc_SegDelay(id, 2));
+  printf("      Segment Delay          = %dns\n", sspGt_GetDc_SegDelay(id));
+  printf("\n");
+  printf("   *** HTCC Subsystem ***\n");
+  printf("      Mask Delay             = %dns\n", sspGt_GetHtcc_Delay(id));
+  printf("\n");
+  printf("   *** FTOF Subsystem ***\n");
+  printf("      Mask Delay             = %dns\n", sspGt_GetFtof_Delay(id));
+
   printf("\n");
   for(trg = 0; trg<4; trg++)
   {
@@ -4647,6 +4696,13 @@ void sspPrintGtConfig(int id)
   printf("         Require EC Outer Pixel    = %d\n", (val&GT_STRG_CTRL_ECICOSMIC_EN) ? 1:0);
   printf("         Require PC Pixel          = %d\n", (val&GT_STRG_CTRL_PCCOSMIC_EN) ? 1:0);
   printf("         Coindidence Width         = %dns\n", sspGt_GetTrigger_CosmicWidth(id, trg));
+  printf("      *** HTCC ***\n");
+  printf("         Require HTCC Mask Hit     = %d\n", (val&GT_STRG_CTRL_HTCC_EN) ? 1:0);
+  printf("         Mask                      = 0x%16llX\n", sspGt_GetTrigger_HtccMask(id, trg));
+  printf("         Coindidence Width         = %dns\n", sspGt_GetTrigger_HtccWidth(id, trg));
+  printf("      *** FTOF ***\n");
+  printf("         Require FTOF Mask Hit     = %d\n", (val&GT_STRG_CTRL_FTOF_EN) ? 1:0);
+  printf("         Coindidence Width         = %dns\n", sspGt_GetTrigger_FtofWidth(id, trg));
   printf("\n");
   }
 }
@@ -4720,6 +4776,72 @@ void sspPrintGtScalers(int id)
      printf("   %-25s %10u,%.3fHz [OVERFLOW]\n", scalers_name[i], gtscalers[i], rate); 
     else 
      printf("   %-25s %10u,%.3fHz\n", scalers_name[i], gtscalers[i], rate); 
+  }
+}
+
+void sspPrintGtcScalers(int id)
+{
+  double ref, rate; 
+  int i; 
+  unsigned int scalers[SD_SCALER_NUM];
+  unsigned int gtcscalers[6];
+  const char *scalers_name[6] = {
+    "ssft1.cluster",
+    "ssft2.cluster",
+    "ctrigger0",
+    "ctrigger1",
+    "ctrigger2",
+    "ctrigger3"
+    };
+ 
+  if(sspIsNotInit(&id, __func__, SSP_CFG_SSPTYPE_HALLBGTC))
+    return;
+ 
+  SSPLOCK(); 
+  sspWriteReg(&pSSP[id]->Sd.ScalerLatch, 1); 
+ 
+  for(i = 0; i < SD_SCALER_NUM; i++) 
+    scalers[i] = sspReadReg(&pSSP[id]->Sd.Scalers[i]); 
+
+  gtcscalers[0] = sspReadReg(&pSSP[id]->gtc.ssft[0].Scaler_cluster);
+  gtcscalers[1] = sspReadReg(&pSSP[id]->gtc.ssft[1].Scaler_cluster);
+  gtcscalers[2] = sspReadReg(&pSSP[id]->gtc.ctrigger[0].Scaler_trigger);
+  gtcscalers[3] = sspReadReg(&pSSP[id]->gtc.ctrigger[1].Scaler_trigger);
+  gtcscalers[4] = sspReadReg(&pSSP[id]->gtc.ctrigger[2].Scaler_trigger);
+  gtcscalers[5] = sspReadReg(&pSSP[id]->gtc.ctrigger[3].Scaler_trigger);
+
+  sspWriteReg(&pSSP[id]->Sd.ScalerLatch, 0); 
+  SSPUNLOCK(); 
+ 
+  printf("%s - \n", __FUNCTION__); 
+  if(!scalers[SD_SCALER_SYSCLK]) 
+  {
+    printf("Error: sspPrintScalers() reference time is 0. Reported rates will not be normalized.\n"); 
+    ref = 1.0; 
+  } 
+  else 
+  { 
+    ref = (double)scalers[SD_SCALER_SYSCLK] / 100000.0; 
+  } 
+   
+  for(i = 0; i < SD_SCALER_NUM; i++) 
+  { 
+    rate = (double)scalers[i]; 
+    rate = rate / ref; 
+    if(scalers[i] == 0xFFFFFFFF) 
+     printf("   %-25s %10u,%.3fHz [OVERFLOW]\n", ssp_scaler_name[i], scalers[i], rate); 
+    else 
+     printf("   %-25s %10u,%.3fHz\n", ssp_scaler_name[i], scalers[i], rate); 
+  }
+
+  for(i = 0; i < 6; i++) 
+  { 
+    rate = (double)gtcscalers[i]; 
+    rate = rate / ref; 
+    if(gtcscalers[i] == 0xFFFFFFFF) 
+     printf("   %-25s %10u,%.3fHz [OVERFLOW]\n", scalers_name[i], gtcscalers[i], rate); 
+    else 
+     printf("   %-25s %10u,%.3fHz\n", scalers_name[i], gtcscalers[i], rate); 
   }
 }
 

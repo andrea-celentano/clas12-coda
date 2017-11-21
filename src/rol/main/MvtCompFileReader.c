@@ -2910,13 +2910,17 @@ int main( int argc, char* *argv )
 						||
 						(cur_ent_type == 0x00C210cc)
 						||
-						(cur_ent_type == 0x00fe10cc)
+						(cur_ent_type == 0x00fe10cc) // random trigger
 						||
-						(DEF_GetEvioEntryTag(cur_ent_type) == 0x45)
+                                                (cur_ent_type == 0x00fd10cc) // constant trigger
+                                                ||
+						(DEF_GetEvioEntryTag(cur_ent_type) == 0x45) // MVT mvt1
 						||
-						((DEF_GetEvioEntryTag(cur_ent_type) == 0x4B))
+						(DEF_GetEvioEntryTag(cur_ent_type) == 0x4B) // FTT mmft1
 						||
-						((DEF_GetEvioEntryTag(cur_ent_type) == 0x01))
+						(DEF_GetEvioEntryTag(cur_ent_type) == 0x01) // STB sedipcq156
+                                                ||
+                                                (DEF_GetEvioEntryTag(cur_ent_type) == 0x3F) // JTB svt3
 					)
 					{
 //printf("%s: Physics header in cur_ent_type=0x%08x of len=%d\n", __FUNCTION__, cur_ent_type, *rd_buf_ptr);
