@@ -37,11 +37,11 @@ set roc $argv
 #
 
 
-set roc_name "classc1 classc3 classc6 classc12 classc4 classc8"
+set roc_name "classc1 classc3 classc6 classc12 classc4 classc8 btarg"
 
-set reset_line "reset4 reset4 reset4 reset4 reset1 reset1"
+set reset_line "reset4 reset4 reset4 reset4 reset1 reset1 reset5"
 
-set target_name "CLASSC1 SC3 CLASSC6 SC12 SC4 SC8"
+set target_name "CLASSC1 SC3 CLASSC6 SC12 SC4 SC8 PTARG"
 
 
 
