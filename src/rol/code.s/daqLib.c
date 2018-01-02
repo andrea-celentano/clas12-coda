@@ -118,6 +118,14 @@ daqReadConfigFile(char *filename)
   
   gethostname(host,ROCLEN);  /* obtain our hostname */
   clonparms = getenv("CLON_PARMS");
+  for(jj=0; jj<strlen(host); jj++)
+  {
+    if(host[jj] == '.')
+    {
+      host[jj] = '\0';
+      break;
+    }
+  }
 
   if(expid==NULL)
   {

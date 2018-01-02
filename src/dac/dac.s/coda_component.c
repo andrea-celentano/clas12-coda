@@ -335,7 +335,7 @@ codaFindFreeTcpPort()
 
 /* read whole text file */
 char *
-loadwholefile(char *file, int *size)
+loadwholefile(char *file, int *size, int *padding)
 {
   FILE *fp;
   int res, nbytes;
@@ -354,7 +354,7 @@ loadwholefile(char *file, int *size)
   rewind(fp);
 
   /* allocate memory for entire content */
-  buffer = calloc(1,nbytes+5);
+  buffer = calloc(1,nbytes+10);
   if(!buffer)
   {
     fclose(fp);
@@ -366,17 +366,10 @@ loadwholefile(char *file, int *size)
     printf("loadwholefile: allocated %d bytes output buffer\n",nbytes+5);
   }
 
-  /* fill end of buffer with \004 */
-  buffer[nbytes-2] = '\n';
-  buffer[nbytes-1] = '\n';
-  buffer[nbytes+0] = '\n';
-  buffer[nbytes+1] = '\n';
-  buffer[nbytes+2] = '\n';
-  buffer[nbytes+3] = '\n';
-  buffer[nbytes+4] = '\n';
+  buffer[0] = '\n'; /*return in the beginning*/
 
   /* copy the file into the buffer */
-  res = fread(buffer,nbytes,1,fp);
+  res = fread((char *)&buffer[1],nbytes,1,fp);
   if(res != 1)
   {
     fclose(fp);
@@ -385,8 +378,25 @@ loadwholefile(char *file, int *size)
     return(NULL);
   }
 
+  nbytes ++; /* count '\n' */
+
+  /* add end-of-string in the end */
+  buffer[nbytes] = '\0';
+
+  nbytes ++; /* count '\0' */
+
+  /*calculate padding */
+  *padding = ((nbytes+3)/4)*4 - nbytes;
+
+  /* fill end of buffer with \004 */
+  buffer[nbytes+0] = '\4';
+  buffer[nbytes+1] = '\4';
+  buffer[nbytes+2] = '\4';
+  buffer[nbytes+3] = '\4';
+  buffer[nbytes+4] = '\4';
+
   /* buffer is a string contains the whole text */
-  *size = (nbytes+4)/4; /* align to 4-byte boundary and return #words */
+  *size = (nbytes+5)/4; /* align to 4-byte boundary with al least one '\4' and return #words */
   fclose(fp);
 
   printf("loadwholefile: nbytes=%d, *size=%d words\n",nbytes,*size);

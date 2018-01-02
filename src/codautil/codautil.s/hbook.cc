@@ -128,24 +128,46 @@ Hbook::hbook2(int id, char *title, int nbinx, float xmin, float xmax, int nbiny,
   hist[id].ymin = ymin;
 
   hist[id].dx = (xmax - xmin)/(float)nbinx;
+  /* check bin size consistency */
   if(hist[id].dx <= HZERO)
   {
     printf("hbook2: ERROR dx=%d must be > 0\n",hist[id].dx);
     return;
   }
-  /* SEE CHECK IN 1D !!! */
   hist[id].dy = (ymax - ymin)/(float)nbiny;
   if(hist[id].dy <= HZERO)
   {
     printf("hbook2: ERROR dy=%d must be > 0\n",hist[id].dy);
     return;
   }
-  /* SEE CHECK IN 1D !!! */
 
-  hist[id].nbinx = nbinx;
-  hist[id].xmax = xmax;
-  hist[id].nbiny = nbiny;
-  hist[id].ymax = ymax;
+  if( (xmin + nbinx*hist[id].dx) < xmax)
+  {
+    hist[id].nbinx = (xmax - xmin)/hist[id].dx + 1;
+    hist[id].xmax = xmin + ((float)nbinx)*hist[id].dx;
+    printf("hbook1: WARN rebining for [%d]: nbinx=%d xmax=%d\n",
+      id,hist[id].nbinx,hist[id].xmax);
+  }
+  else
+  {
+    hist[id].nbinx = nbinx;
+    hist[id].xmax = xmax;
+  }
+
+
+  if( (ymin + nbiny*hist[id].dy) < ymax)
+  {
+    hist[id].nbiny = (ymax - ymin)/hist[id].dy + 1;
+    hist[id].ymax = ymin + ((float)nbiny)*hist[id].dy;
+    printf("hbook1: WARN rebining for [%d]: nbiny=%d ymax=%d\n",
+      id,hist[id].nbiny,hist[id].ymax);
+  }
+  else
+  {
+    hist[id].nbiny = nbiny;
+    hist[id].ymax = ymax;
+  }
+
 
   nch = strlen(title);
   hist[id].ntitle = nch;
@@ -158,7 +180,7 @@ Hbook::hbook2(int id, char *title, int nbinx, float xmin, float xmax, int nbiny,
     hist[id].buf2[i] = (float *) calloc(nbiny,sizeof(float));
     if(hist[id].buf2[i]==NULL) {printf("hbook: ERROR2 in calloc()\n");exit(0);}
   }
-  printf("hbook2: [%d] nbinx=%d xmin=%d xmax=%d nbiny=%d ymin=%d ymax=%d\n",
+  printf("hbook2: [%d] nbinx=%d xmin=%f xmax=%f nbiny=%d ymin=%f ymax=%f\n",
     id,hist[id].nbinx,hist[id].xmin,hist[id].xmax,
        hist[id].nbiny,hist[id].ymin,hist[id].ymax);
 
@@ -745,7 +767,6 @@ Hbook::hist2ipc(int id, char *myname)
 	server << hist[id].ymax;
 	server << hist[id].yunderflow;
 	server << hist[id].yoverflow;
-    server << hist[id].nbinx * hist[id].nbiny;
     for(ibinx=0; ibinx<hist[id].nbinx; ibinx++)
     {
       for(ibiny=0; ibiny<hist[id].nbiny; ibiny++)

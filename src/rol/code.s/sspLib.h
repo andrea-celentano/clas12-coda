@@ -271,6 +271,7 @@ typedef struct
 #define GT_STRG_CTRL_PCCOSMIC_EN            0x00000100
 #define GT_STRG_CTRL_HTCC_EN                0x00000200
 #define GT_STRG_CTRL_FTOF_EN                0x00000400
+#define GT_STRG_CTRL_ECPCCLUSTER_EMIN_EN    0x00000800
 
 #define GT_STRG_ECCTRL_ESUM_EMIN_MASK       0x00003FFF
 #define GT_STRG_ECCTRL_ESUM_WIDTH_MASK      0x00FF0000
@@ -278,10 +279,10 @@ typedef struct
 #define GT_STRG_PCCTRL_ESUM_EMIN_MASK       0x00003FFF
 #define GT_STRG_PCCTRL_ESUM_WIDTH_MASK      0x00FF0000
 
-#define GT_STRG_ECCTRL_CLUSTER_EMIN_MASK    0x00003FFF
+#define GT_STRG_ECCTRL_CLUSTER_EMIN_MASK    0x0000FFFF
 #define GT_STRG_ECCTRL_CLUSTER_WIDTH_MASK   0x00FF0000
 
-#define GT_STRG_PCCTRL_CLUSTER_EMIN_MASK    0x00003FFF
+#define GT_STRG_PCCTRL_CLUSTER_EMIN_MASK    0x0000FFFF
 #define GT_STRG_PCCTRL_CLUSTER_WIDTH_MASK   0x00FF0000
 
 #define GT_STRG_COSMIC_WIDTH_MASK           0x00FF0000
@@ -296,12 +297,16 @@ typedef struct
 
 #define GT_STRG_FTOF_CTRL_WIDTH_MASK        0x00FF0000
 
+#define GT_STRG_ECPCCTRL_CLUSTER_EMIN_MASK  0x0000FFFF
+#define GT_STRG_ECPCCTRL_CLUSTER_WIDTH_MASK 0x00FF0000
+
 /* GT sector trigger */
 typedef struct
 {
   /* 0x0000-0x0003 */ volatile unsigned int Ctrl;
   /* 0x0004-0x0007 */ volatile unsigned int Cosmic;
-  /* 0x0008-0x000F */ BLANK[(0x0010-0x0008)/4];
+  /* 0x0008-0x000B */ volatile unsigned int ECPCCtrl_cluster;
+  /* 0x000C-0x000F */ BLANK[(0x0010-0x000C)/4];
   /* 0x0010-0x0013 */ volatile unsigned int ECCtrl_esum;
   /* 0x0014-0x0017 */ volatile unsigned int PCCtrl_esum;
   /* 0x0018-0x001B */ volatile unsigned int ECCtrl_cluster;
@@ -313,7 +318,7 @@ typedef struct
   /* 0x0030-0x0033 */ volatile unsigned int HtccMask1;
   /* 0x0034-0x0037 */ volatile unsigned int FtofCtrl;
   /* 0x0038-0x003B */ volatile unsigned int Scaler_trigger;
-  /* 0x003C-0x00FF */ BLANK[(0x0100-0x003C)/4];
+  /* 0x003C-0x007F */ BLANK[(0x0080-0x003C)/4];
 } GT_strg_regs;
 
 /******************************************************************/
@@ -366,9 +371,7 @@ typedef struct
   /* 0x0004-0x0007 */ volatile unsigned int FtCtrl_esum;
   /* 0x0008-0x000B */ volatile unsigned int FtCtrl_Cluster0;
   /* 0x000C-0x000F */ volatile unsigned int FtCtrl_Cluster1;
-
-
-  /* 0x0044-0x007F */ BLANK[(0x0080-0x0044)/4];
+  /* 0x0010-0x007F */ BLANK[(0x0080-0x0010)/4];
   /* 0x0080-0x0083 */ volatile unsigned int Scaler_trigger;
   /* 0x0084-0x00FF */ BLANK[(0x0100-0x0084)/4];
 } GTC_ctrg_regs;
@@ -408,15 +411,15 @@ typedef struct
   /* 0x2800-0x28FF */ GT_sshtcc_regs  sshtcc;
   /* 0x2900-0x29FF */ GT_ssftof_regs  ssftof;
   /* 0x2A00-0x2FFF */ BLANK[(0x3000-0x2A00)/4];
-  /* 0x3000-0x33FF */ GT_strg_regs    strigger[4];
+  /* 0x3000-0x37FF */ GT_strg_regs    strigger[16];
   } gt;
 
-  /* 0x3400-0x3FFF */ BLANK[(0x4000-0x3400)/4];
+  /* 0x388888888FF */ BLANK[(0x4000-0x3800)/4];
 
   struct
   {
   /* 0x4000-0x41FF */ GTC_ssft_regs   ssft[2];
-  /* 0x4200-0x42FF */ BLANK[(0x4300-0x4300)/4];
+  /* 0x4200-0x42FF */ BLANK[(0x4300-0x4200)/4];
   /* 0x4300-0x43FF */ GTC_gtpif_regs  gtpif;
   /* 0x4400-0x4FFF */ BLANK[(0x5000-0x4400)/4];
   /* 0x5000-0x53FF */ GTC_ctrg_regs   ctrigger[4];
@@ -527,7 +530,7 @@ typedef struct
 #define SD_SCALER_NUM			35
 
 #define SD_PULSER_DONE			0x1
-#define SD_PULSER_FREQ_MIN		0.01
+#define SD_PULSER_FREQ_MIN		0.00
 #define SD_PULSER_FREQ_MAX		25E6
 
 #define CLK_CTRL_DRPDWE				0x00200000
@@ -787,6 +790,10 @@ int sspGt_SetTrigger_HtccMask(int id, int trg, long long mask);
 long long sspGt_GetTrigger_HtccMask(int id, int trg);
 int sspGt_SetTrigger_FtofWidth(int id, int trg, int val);
 int sspGt_GetTrigger_FtofWidth(int id, int trg);
+int sspGt_SetTrigger_ECPCClusterEmin(int id, int trg, int val);
+int sspGt_GetTrigger_ECPCClusterEmin(int id, int trg);
+int sspGt_SetTrigger_ECPCClusterWidth(int id, int trg, int val);
+int sspGt_GetTrigger_ECPCClusterWidth(int id, int trg);
 
 void sspPrintGtConfig(int id);
 

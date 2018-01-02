@@ -71,7 +71,7 @@ endif
    setenv PATH "$PATH":${CODA}/common/scripts
 
 # set coda database
-	setenv MYSQL_HOST clondb1old
+	setenv MYSQL_HOST clondb1
 
 
 #skip cdev for Mac

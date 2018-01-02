@@ -121,6 +121,12 @@ __download()
   /* init trig source VTP */
   CDOINIT(VTP, 1);
 
+  /************/
+  /* init daq */
+
+  daqInit();
+  DAQ_READ_CONF_FILE;
+
   /* user code */
 
   printf("INFO: User Download 1 Executed\n");

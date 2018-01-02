@@ -280,10 +280,13 @@ if( do_configure > 0 )
 	getchar();
 
 	/*
-	 * The following does not belong to configuration
-	 * This is a test of bringing the system in running mode for data taking
-	 * This has to be added to the CODA rocPrestart()
+	 * Configure the system
 	 */
+	if( (ret=SysConfig( sys_params_ptr, 2 )) != D_RetCode_Sucsess )
+	{
+		fprintf( stderr, "%s: SysConfig 2 failed with %d\n", __FUNCTION__, ret );
+		return ret;
+	}
 
 	// Set system in Running state
 	if( (ret=SysRun()) != D_RetCode_Sucsess )

@@ -32,15 +32,117 @@
 #include "BeuConfig.h"
 
 // For the moment an ugly declaration
-extern SysParams *sys_params_ptr;					// DEFINED IN SysConfig.c
+extern SysParams *sys_params_ptr; // DEFINED IN SysConfig.c
 
 int static num_of_beu;
 int beu_id2slot[DEF_MAX_NB_OF_BEU];
 static int first_beu_in_token = -1;
 
-
 // configuration file pointer
 static FILE *sys_conf_params_fptr = (FILE *)NULL;
+
+/*
+ * Log file management functions
+ */
+int mvtManageLogFile( FILE* *fptr, int roc_id )
+{
+	// Log file variables
+	char    logfilename[128];
+	char    logfilename_backup[128];
+	char    log_file_perms[16];
+	char    log_message[256];
+	FILE   *mvt_fptr_err_1;
+	struct  stat log_stat;   
+	char   *env_home;
+	char    tmp_dir[512];
+	char    mkcmd[512];
+	int     ret;
+	// time variables
+	time_t      cur_time;
+	struct tm  *time_struct;
+	
+	// Get current time
+	cur_time = time(NULL);
+	time_struct = localtime(&cur_time);
+	mvt_fptr_err_1 = *fptr;
+	if( mvt_fptr_err_1 == (FILE *)NULL )
+	{
+		if( (env_home = getenv( "HOME" )) == (char *)NULL )
+		{
+			fprintf(stderr, "%s: Unable to HOME variable; log file in . directory\n", __FUNCTION__ );
+			sprintf( tmp_dir, "./" );
+		}
+		else
+		{
+			//Check that tmp directory exists and if not create it
+			sprintf( tmp_dir, "%s/mvt/tmp", env_home );
+			if( stat( tmp_dir, &log_stat ) )
+			{
+				// create directory
+				sprintf( mkcmd, "mkdir -p %s", tmp_dir );
+				ret = system( mkcmd );
+				if( (ret<0) || (ret==127) )
+				{
+					fprintf(stderr, "%s: failed to create dir %s with %d\n", __FUNCTION__, tmp_dir, ret );
+					return(-1);
+				}
+			}
+			else if( !(S_ISDIR(log_stat.st_mode)) )
+			{
+				fprintf(stderr, "%s: %s file exists but is not directory\n", __FUNCTION__, tmp_dir );
+				return(-1);
+			}
+		}
+
+		// Check if log file already exists	
+		sprintf(logfilename, "%s/mvt_roc_%d_rol_1.log", tmp_dir, roc_id);
+		sprintf(log_file_perms, "a+");
+		if( stat( logfilename, &log_stat ) == 0 )
+		{
+			// file exists, check its size
+			if( log_stat.st_size > 100000 )
+			{
+				// Too big, rename it
+				// form backup log file name
+				sprintf
+				(
+					logfilename_backup,
+					"%s/mvt_roc_%d_rol_1_%02d%02d%02d_%02dH%02d.log",
+					tmp_dir,
+					roc_id,
+					time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
+					time_struct->tm_hour, time_struct->tm_min
+				);
+  				if( rename(logfilename, logfilename_backup) ) 
+				{
+					fprintf(stderr, "%s: rename failed from log file %s to %s with %d\n", __FUNCTION__, logfilename, logfilename_backup, errno);
+				 	perror("rename failed");
+					return( -1 );
+				}
+				sprintf(log_file_perms, "w");
+			}
+		}
+
+		// Open file
+		if( (mvt_fptr_err_1 = fopen(logfilename, log_file_perms)) == (FILE *)NULL )
+		{
+			fprintf(stderr, "%s: fopen failed to open log file %s in %s mode with %d\n", __FUNCTION__, logfilename, log_file_perms, errno);
+		 	perror("fopen failed");
+			return( -1 );
+		}
+		mvtSetLogFilePointer( mvt_fptr_err_1 );
+	}
+	*fptr = mvt_fptr_err_1;
+	if( mvt_fptr_err_1 != (FILE *)NULL )
+	{
+		fprintf( mvt_fptr_err_1, "**************************************************\n" );
+		fprintf( mvt_fptr_err_1, "%s at %02d%02d%02d %02dH%02d\n", __FUNCTION__,
+			time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday, time_struct->tm_hour, time_struct->tm_min );
+		fflush( mvt_fptr_err_1 );
+		return (1);
+	}
+	return (0);
+}
 
 int mvtSetLogFilePointer( FILE *fptr )
 {
@@ -64,6 +166,27 @@ int mvtClrLogFilePointer()
 	return( 0 );
 }
 
+char *mvtRocId2Str( int roc_id )
+{
+         if( roc_id == 0x45 ) return "MVT"; // 69 mvt1
+    else if( roc_id == 0x4B ) return "FTT"; // 75 mmft1
+    else if( roc_id == 0x3F ) return "JTB"; // 63 svt3
+    else if( roc_id == 0x01 ) return "STB"; //  1 sedipcq156
+    else                      return "UKN";
+}
+
+int mvtStr2RocId( char *roc_str )
+{
+	     if( strcmp( roc_str, "MVT" ) == 0 ) return 0x45; // 69 mvt1
+	else if( strcmp( roc_str, "FTT" ) == 0 ) return 0x4B; // 75 mmft1
+	else if( strcmp( roc_str, "JTB" ) == 0 ) return 0x3F; // 63 svt3
+	else if( strcmp( roc_str, "STB" ) == 0 ) return 0x01; //  1 sedipcq156
+	else                                     return 0x00; // Unknown
+}
+
+/*
+ * End of Log file management functions
+ */
 
 /*
  *
@@ -163,8 +286,54 @@ int mvtDownload()
 int mvtPrestart()
 {
 	int ret;
+	int bec;
+	int beu;
+	int beu_lnk;
+	int feu;
+	int num_of_feu;
+
+	// time variables
+	struct timeval t0;
+	struct timeval t1;
+	struct timeval dt;
+
+	// Get start time for performance measurements
+	gettimeofday(&t0,0);
 
 	fprintf(stdout, "%s: **** starting ****\n", __FUNCTION__);
+	if( sys_log_fptr != (FILE *)NULL )
+		fprintf(sys_log_fptr, "%s: **** starting ****\n", __FUNCTION__);
+
+	/**********************
+	 * Configure the system
+	 **********************/
+	// Move this from download
+	if( (ret=SysConfig( sys_params_ptr, 2 )) != D_RetCode_Sucsess )
+	{
+		fprintf( stderr, "%s: SysConfig failed with %d at first pass\nSecond attempt...\n",
+			__FUNCTION__, ret );
+		if( sys_log_fptr != (FILE *)NULL )
+			fprintf( sys_log_fptr, "%s: SysConfig failed with %d at first pass\nSecond attempt...\n",
+				__FUNCTION__, ret );
+		// Do only MVT config staff here; no TI/SD
+		if( (ret=SysConfig( sys_params_ptr, 2 )) != D_RetCode_Sucsess )
+		{
+			fprintf( stderr, "%s: SysConfig failed with %d at second pass\nThird attempt...\n",
+				__FUNCTION__, ret );
+			if( sys_log_fptr != (FILE *)NULL )
+				fprintf( sys_log_fptr, "%s: SysConfig failed with %d at second pass\nThird attempt...\n",
+					__FUNCTION__, ret );
+			if( (ret=SysConfig( sys_params_ptr, 2 )) != D_RetCode_Sucsess )
+		  	{
+		 	   	fprintf( stderr, "%s: SysConfig failed with %d at third pass\nAbandon...\n",
+					__FUNCTION__, ret );
+				if( sys_log_fptr != (FILE *)NULL )
+					fprintf( sys_log_fptr, "%s: SysConfig failed with %d at third pass\nAbandon...\n",
+						__FUNCTION__, ret );
+		   		return ret;
+		  	}
+		}
+	}
 
 	// Set system in Running state
 	if( (ret=SysRun()) != D_RetCode_Sucsess )
@@ -174,8 +343,31 @@ int mvtPrestart()
 		return(ret);
 	}
 
+	// Get end time for performance measurements
+	gettimeofday(&t1, 0);
+	timersub(&t1,&t0,&dt);
+	fprintf(stdout, "%s: The system has been configured in %d.%d sec\n", __FUNCTION__, dt.tv_sec, (int)(dt.tv_usec / 100000. + 0.5) );
+	if( sys_log_fptr != (FILE *)NULL )
+		fprintf(sys_log_fptr, "%s: The system has been configured in %d.%d sec\n", __FUNCTION__, dt.tv_sec, (int)(dt.tv_usec / 100000. + 0.5) );
+
+	num_of_feu = 0;
+	// Go through back end crates
+	for( bec=1; bec<DEF_MAX_NB_OF_BEC; bec++ )
+	{
+		/* Configure FEU-s */
+		for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+		{
+			beu        = ((feu>>5)&0x07)+1;
+			beu_lnk    = ( feu    &0x1F)-1;
+			if( (1<=sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
+			{
+				num_of_feu++;
+			} // if( (1<=sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]
+		} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+	} // for( bec=1; bec<DEF_MAX_NB_OF_BEC; bec++ )
+
 	fprintf(stdout, "%s: **** end ****\n", __FUNCTION__);
-	return(0);
+	return(num_of_feu);
 }
 
 /*
@@ -225,6 +417,14 @@ int mvtEnd()
 	if( (ret=SysStop()) != D_RetCode_Sucsess )
 	{
 		fprintf( stderr, "%s: SysStop failed with %d\n", __FUNCTION__, ret );
+		SysConfig_CleanUp();
+		return(ret);
+	}
+
+	// Set system in Idle state
+	if( (ret=SysDumpFeuOptLnk()) != D_RetCode_Sucsess )
+	{
+		fprintf( stderr, "%s: SysDumpFeuOptLnk failed with %d\n", __FUNCTION__, ret );
 		SysConfig_CleanUp();
 		return(ret);
 	}
@@ -774,15 +974,16 @@ fprintf(stdout, "%s: Using configuration file copy %s\n", __FUNCTION__, filename
 	/**********************
 	 * Configure the system
 	 **********************/
-	if( (ret=SysConfig( sys_params_ptr )) != D_RetCode_Sucsess )
+	if( (ret=SysConfig( sys_params_ptr, 1 )) != D_RetCode_Sucsess )
 	{
 		fprintf( stderr, "%s: SysConfig failed for parameters from conf file %s with %d at first pass\nSecond attempt...\n",
 			__FUNCTION__, sys_conf_params_filename, ret );
-		if( (ret=SysConfig( sys_params_ptr )) != D_RetCode_Sucsess )
+		// Do only TI/SD config here; no MVT staff; it will be done during prestart
+		if( (ret=SysConfig( sys_params_ptr, 1 )) != D_RetCode_Sucsess )
 		{
 			fprintf( stderr, "%s: SysConfig failed for parameters from conf file %s with %d at second pass\nThird attempt...\n",
 				__FUNCTION__, sys_conf_params_filename, ret );
-			if( (ret=SysConfig( sys_params_ptr )) != D_RetCode_Sucsess )
+			if( (ret=SysConfig( sys_params_ptr, 1 )) != D_RetCode_Sucsess )
 		  	{
 		 	   	fprintf( stderr, "%s: SysConfig failed for parameters from conf file %s with %d at third pass\nAbandon...\n",
 					__FUNCTION__, sys_conf_params_filename, ret );

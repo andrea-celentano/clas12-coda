@@ -24,6 +24,8 @@ $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
 	./$(OSTYPE_MACHINE)/rol/hps1_slave.so \
 	./$(OSTYPE_MACHINE)/rol/rol1_master.so \
 	./$(OSTYPE_MACHINE)/rol/rol1_slave.so \
+	./$(OSTYPE_MACHINE)/rol/scaler1_master.so \
+	./$(OSTYPE_MACHINE)/rol/scaler1_slave.so \
 	./$(OSTYPE_MACHINE)/rol/fbrol1_master.so \
 	./$(OSTYPE_MACHINE)/rol/fbrol1_slave.so \
 	./$(OSTYPE_MACHINE)/rol/srs1_master.so \
@@ -55,6 +57,14 @@ $(LIB_FILES_ROL): $(SOURCE_FILES_ROL) ./$(OSTYPE_MACHINE)/rol/hps1_master.so \
 	$(CC) -DTI_MASTER $(CCROLOPT)
 
 ./$(OSTYPE_MACHINE)/rol/rol1_slave.o : rols/rol1.c
+	$(MKROLDIR)
+	$(CC) -DTI_SLAVE $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/scaler1_master.o : rols/scaler1.c
+	$(MKROLDIR)
+	$(CC) -DTI_MASTER $(CCROLOPT)
+
+./$(OSTYPE_MACHINE)/rol/scaler1_slave.o : rols/scaler1.c
 	$(MKROLDIR)
 	$(CC) -DTI_SLAVE $(CCROLOPT)
 

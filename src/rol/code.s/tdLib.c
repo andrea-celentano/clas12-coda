@@ -1,10 +1,3 @@
-/*
-TDs:
-
-dc11 slot 9 port 1
-dc13 stot 13 port 1
- */
-
 /*----------------------------------------------------------------------------*/
 /**
  * @mainpage
@@ -27,7 +20,7 @@ dc13 stot 13 port 1
  *
  * </pre>
  *----------------------------------------------------------------------------*/
-#if defined(VXWORKS) || defined(Linux_vme)
+#if defined(VXWORKS) || defined(Linux_vme) /*sergey*/
 
 #define _GNU_SOURCE
 
@@ -40,12 +33,13 @@ dc13 stot 13 port 1
 #include <iv.h>
 #include <semLib.h>
 #include <vxLib.h>
-/*sergey #include "vxCompat.h" */
+#include "vxCompat.h"
 #else 
 #include <sys/prctl.h>
 #include <unistd.h>
 #include "jvme.h"
 #endif
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
@@ -63,7 +57,7 @@ int nTD = 0;                                  /**< Number of TDs found with tdIn
 volatile struct TD_A24RegStruct *TDp[MAX_VME_SLOTS+1];    /**< pointer to TD memory map */
 int tdID[MAX_VME_SLOTS+1];                    /**< array of slot numbers for TDs */
 unsigned int tdAddrList[MAX_VME_SLOTS+1];     /**< array of a24 addresses for TDs */
-int tdA24Offset=0;                            /**< Difference in CPU A24 Base and VME A24 Base */
+unsigned long tdA24Offset=0;                            /**< Difference in CPU A24 Base and VME A24 Base */
 int tdCrateID=0x59;                           /**< Crate ID */
 int tdBlockLevel=0;                           /**< Block level for TD */
 int tdFiberLatencyOffset = 0xbf;              /**< Default offset for fiber latency */
@@ -106,7 +100,8 @@ tdInit(UINT32 addr, UINT32 addr_inc, int nfind, int iFlag)
   int useList=0, noBoardInit=0, noFirmwareCheck=0;
   int islot, itd, TD_SLOT;
   int res;
-  unsigned int rdata, laddr, laddr_inc, boardID;
+  unsigned int rdata, boardID;
+  unsigned long laddr, laddr_inc;
   unsigned int firmwareInfo=0, tdVersion=0, tdType=0;
   volatile struct TD_A24RegStruct *td;
 
@@ -182,9 +177,9 @@ tdInit(UINT32 addr, UINT32 addr_inc, int nfind, int iFlag)
 
   /* get the TD address */
 #ifdef VXWORKS
-  res = sysBusToLocalAdrs(0x39,(char *)addr,(char **)&laddr);
+  res = sysBusToLocalAdrs(0x39,(char *)(unsigned long)addr,(char **)&laddr);
 #else
-  res = vmeBusToLocalAdrs(0x39,(char *)addr,(char **)&laddr);
+  res = vmeBusToLocalAdrs(0x39,(char *)(unsigned long)addr,(char **)&laddr);
 #endif
 
 #ifndef SHOWERROR
@@ -268,7 +263,7 @@ tdInit(UINT32 addr, UINT32 addr_inc, int nfind, int iFlag)
 
 		  if(firmwareInfo>0)
 		    {
-		      printf("  User ID: 0x%x \tFirmware (type - revision): 0x%X - 0x%x.0x%02x\n",
+		      printf("  User ID: 0x%x \tFirmware (type - revision): %X - %x.%x\n",
 			     (firmwareInfo&TD_FIRMWARE_ID_MASK)>>16, 
 			     (firmwareInfo&TD_FIRMWARE_TYPE_MASK)>>12, 
 			     (firmwareInfo&TD_FIRMWARE_MAJOR_VERSION_MASK)>>4, 
@@ -290,7 +285,7 @@ tdInit(UINT32 addr, UINT32 addr_inc, int nfind, int iFlag)
 				     __FUNCTION__,
 				     tdType,tdVersion,TD_SUPPORTED_TYPE,TD_SUPPORTED_FIRMWARE);
 			      TDp[boardID]=NULL;
-			      return ERROR;
+			      continue;
 			    }
 			}
 		    }
@@ -301,9 +296,9 @@ tdInit(UINT32 addr, UINT32 addr_inc, int nfind, int iFlag)
 		      return ERROR;
 		    }
 
-		  printf("Initialized TD %2d  Slot # %2d at address 0x%08x (0x%08x) \n",
-			 nTD, tdID[nTD],(UINT32) TDp[(tdID[nTD])],
-			 (UINT32) TDp[(tdID[nTD])]-tdA24Offset);
+		  printf("Initialized TD %2d  Slot # %2d at address 0x%08lx (0x%08x) \n",
+			 nTD, tdID[nTD],(unsigned long) TDp[(tdID[nTD])],
+			 (UINT32)((unsigned long)TDp[(tdID[nTD])]-tdA24Offset));
 		}
 	    }
 	  nTD++;
@@ -354,6 +349,9 @@ tdInit(UINT32 addr, UINT32 addr_inc, int nfind, int iFlag)
 
       /* MGT reset */
       tdResetMGT(TD_SLOT);
+
+      /* Reset the Slave Mask */
+      tdSlaveMask[TD_SLOT] = 0;
     }
 
   printf("%s: Found and configured %d TD modules\n",
@@ -407,6 +405,80 @@ tdSlotMask()
 
 /**
  *  @ingroup Status
+ *  @brief Test of register map 
+ *
+ *  @return OK
+ *
+ */
+int
+tdCheckAddresses()
+{
+  unsigned long offset=0, expected=0, base=0;
+  struct TD_A24RegStruct *TDr;
+  
+  printf("%s:\n\t ---------- Checking TD address space ---------- \n",__FUNCTION__);
+
+  base = (unsigned long) &TDr->boardID;
+
+  offset = ((unsigned long) &TDr->trigsrc) - base;
+  expected = 0x20;
+  if(offset != expected)
+    printf("%s: ERROR TDp->triggerSource not at offset = 0x%lx (@ 0x%lx)\n",
+	   __FUNCTION__,expected,offset);
+
+  offset = ((unsigned long) &TDr->syncWidth) - base;
+  expected = 0x80;
+  if(offset != expected)
+    printf("%s: ERROR TDp->syncWidth not at offset = 0x%lx (@ 0x%lx)\n",
+	   __FUNCTION__,expected,offset);
+    
+  offset = ((unsigned long) &TDr->adr24) - base;
+  expected = 0xD0;
+  if(offset != expected)
+    printf("%s: ERROR TDp->adr24 not at offset = 0x%lx (@ 0x%lx)\n",
+	   __FUNCTION__,expected,offset);
+    
+  offset = ((unsigned long) &TDr->reset) - base;
+  expected = 0x100;
+  if(offset != expected)
+    printf("%s: ERROR TDp->reset not at offset = 0x%lx (@ 0x%lx)\n",
+	   __FUNCTION__,expected,offset);
+    
+  offset = ((unsigned long) &TDr->fpBusy) - base;
+  expected = 0x128;
+  if(offset != expected)
+    printf("%s: ERROR TDp->fpBusy not at offset = 0x%lx (@ 0x%lx)\n",
+	   __FUNCTION__,expected,offset);
+    
+  offset = ((unsigned long) &TDr->trigTable[0]) - base;
+  expected = 0x140;
+  if(offset != expected)
+    printf("%s: ERROR TDp->trigTable[0] not at offset = 0x%lx (@ 0x%lx)\n",
+	   __FUNCTION__,expected,offset);
+    
+  offset = ((unsigned long) &TDr->master_tiID) - base;
+  expected = 0x1F0;
+  if(offset != expected)
+    printf("%s: ERROR TDp->master_tiID not at offset = 0x%lx (@ 0x%lx)\n",
+	   __FUNCTION__,expected,offset);
+    
+  offset = ((unsigned long) &TDr->JTAGPROMBase[0]) - base;
+  expected = 0x10000;
+  if(offset != expected)
+    printf("%s: ERROR TDp->JTAGPROMBase[0] not at offset = 0x%lx (@ 0x%lx)\n",
+	   __FUNCTION__,expected,offset);
+    
+  offset = ((unsigned long) &TDr->JTAGFPGABase[0]) - base;
+  expected = 0x20000;
+  if(offset != expected)
+    printf("%s: ERROR TDp->JTAGFPGABase[0] not at offset = 0x%lx (@ 0x%lx)\n",
+	   __FUNCTION__,expected,offset);
+    
+  return OK;
+}
+
+/**
+ *  @ingroup Status
  *  @brief Print some status information of the TD to standard out
  *
  *  @param    pflag 
@@ -426,13 +498,13 @@ tdStatus(int id, int pflag)
   unsigned int inputCounter;
   unsigned int blockStatus[5], iblock, nblocksReady, nblocksNeedAck;
   unsigned int ifiber, fibermask;
-  unsigned int TDBase;
+  unsigned long TDBase;
 
   if(id==0) id=tdID[0];
 
-  if((id<=0) || (id>21) || (TDp[id]==NULL))  /* sergey: check id range */
+  if((id<=0) || (id>21) || (TDp[id]==NULL)) /* sergey: check id range */
     {
-      printf("%s: ERROR: TD in slot %d not initialized\n",__FUNCTION__,id);fflush(stdout);
+      printf("%s: ERROR: TD in slot %d not initialized\n",__FUNCTION__,id);
       return;
     }
 
@@ -469,36 +541,36 @@ tdStatus(int id, int pflag)
 
   TDUNLOCK;
 
-  TDBase = (unsigned int)TDp[id];
+  TDBase = (unsigned long)TDp[id];
 
   printf("\n");
 #ifdef VXWORKS
   printf("STATUS for TD %2d at base address 0x%08x \n",
 	 id, (unsigned int) TDp[id]);
 #else
-  printf("STATUS for TD %2d at VME (USER) base address 0x%08x (0x%08x) \n",
-	 id, (unsigned int) TDp[id] - tdA24Offset, (unsigned int) TDp[id]);
+  printf("STATUS for TD %2d at VME (USER) base address 0x%08x (0x%08lx) \n",
+	 id, (unsigned int)((unsigned long) TDp[id] - tdA24Offset), (unsigned long) TDp[id]);
 #endif
   printf("--------------------------------------------------------------------------------\n");
 
   if(pflag>0)
     {
       printf(" Registers (offset):\n");
-      printf("  boardID        (0x%04x) = 0x%08x\t", (unsigned int)(&TDp[id]->boardID) - TDBase, boardID);
-      printf("  fiber          (0x%04x) = 0x%08x\n", (unsigned int)(&TDp[id]->fiber) - TDBase, fiber);
-      printf("  intsetup       (0x%04x) = 0x%08x\t", (unsigned int)(&TDp[id]->intsetup) - TDBase, intsetup);
-      printf("  trigDelay      (0x%04x) = 0x%08x\n", (unsigned int)(&TDp[id]->trigDelay) - TDBase, trigDelay);
-      printf("  adr32          (0x%04x) = 0x%08x\t", (unsigned int)(&TDp[id]->adr32) - TDBase, adr32);
-      printf("  vmeControl     (0x%04x) = 0x%08x\n", (unsigned int)(&TDp[id]->vmeControl) - TDBase, vmeControl);
-      printf("  trigsrc        (0x%04x) = 0x%08x\t", (unsigned int)(&TDp[id]->trigsrc) - TDBase, trigsrc);
-      printf("  sync           (0x%04x) = 0x%08x\n", (unsigned int)(&TDp[id]->sync) - TDBase, sync);
-      printf("  busy           (0x%04x) = 0x%08x\t", (unsigned int)(&TDp[id]->busy) - TDBase, busy);
-      printf("  blockBuffer    (0x%04x) = 0x%08x\t", (unsigned int)(&TDp[id]->blockBuffer) - TDBase, blockBuffer);
+      printf("  boardID        (0x%04lx) = 0x%08x\t", (unsigned long)(&TDp[id]->boardID) - TDBase, boardID);
+      printf("  fiber          (0x%04lx) = 0x%08x\n", (unsigned long)(&TDp[id]->fiber) - TDBase, fiber);
+      printf("  intsetup       (0x%04lx) = 0x%08x\t", (unsigned long)(&TDp[id]->intsetup) - TDBase, intsetup);
+      printf("  trigDelay      (0x%04lx) = 0x%08x\n", (unsigned long)(&TDp[id]->trigDelay) - TDBase, trigDelay);
+      printf("  adr32          (0x%04lx) = 0x%08x\t", (unsigned long)(&TDp[id]->adr32) - TDBase, adr32);
+      printf("  vmeControl     (0x%04lx) = 0x%08x\n", (unsigned long)(&TDp[id]->vmeControl) - TDBase, vmeControl);
+      printf("  trigsrc        (0x%04lx) = 0x%08x\t", (unsigned long)(&TDp[id]->trigsrc) - TDBase, trigsrc);
+      printf("  sync           (0x%04lx) = 0x%08x\n", (unsigned long)(&TDp[id]->sync) - TDBase, sync);
+      printf("  busy           (0x%04lx) = 0x%08x\t", (unsigned long)(&TDp[id]->busy) - TDBase, busy);
+      printf("  blockBuffer    (0x%04lx) = 0x%08x\t", (unsigned long)(&TDp[id]->blockBuffer) - TDBase, blockBuffer);
 
-      printf("  output         (0x%04x) = 0x%08x\n", (unsigned int)(&TDp[id]->output) - TDBase, output);
+      printf("  output         (0x%04lx) = 0x%08x\n", (unsigned long)(&TDp[id]->output) - TDBase, output);
 
-      printf("  livetime       (0x%04x) = 0x%08x\t", (unsigned int)(&TDp[id]->livetime) - TDBase, livetime);
-      printf("  busytime       (0x%04x) = 0x%08x\n", (unsigned int)(&TDp[id]->busytime) - TDBase, busytime);
+      printf("  livetime       (0x%04lx) = 0x%08x\t", (unsigned long)(&TDp[id]->livetime) - TDBase, livetime);
+      printf("  busytime       (0x%04lx) = 0x%08x\n", (unsigned long)(&TDp[id]->busytime) - TDBase, busytime);
     }
   printf("\n");
 
@@ -934,29 +1006,24 @@ tdGStatus(int pflag)
   unsigned int livetime[TD_MAX_VME_SLOTS], busytime[TD_MAX_VME_SLOTS];
   unsigned int inputCounter[TD_MAX_VME_SLOTS];
   unsigned int blockStatus[TD_MAX_VME_SLOTS][5], nblocksReady, nblocksNeedAck;
+  unsigned int hfbr_tiID[TD_MAX_VME_SLOTS][8];
   unsigned int fibermask;
-  char name[TD_MAX_PORTNAME_CHARS+1];
   int slaveCount=0;
 
   if((pflag<0)|(pflag>2))
-  {
-	/*sergey
+    {
+/*sergey
       printf("%s: ERROR: Invalid pflag (%d)\n",__FUNCTION__,pflag);
       return;
-	*/
+*/
     pflag = 0;
-  }
-
+    }
 
   /* Grab all of the register info we need */
   TDLOCK;
   for(itd=0; itd<nTD; itd++)
     {
       id = tdSlot(itd);
-
-      /*sergey
-      tdSetPortNamesFromCrateID(id);
-      sergey*/
 
       fiber[id]    = vmeRead32(&TDp[id]->fiber);
       trigsrc[id]  = vmeRead32(&TDp[id]->trigsrc);
@@ -973,7 +1040,11 @@ tdGStatus(int pflag)
       for(iblock=0;iblock<4;iblock++)
 	blockStatus[id][iblock] = vmeRead32(&TDp[id]->blockStatus[iblock]);
 
-    blockStatus[id][4] = vmeRead32(&TDp[id]->adr24);
+      blockStatus[id][4] = vmeRead32(&TDp[id]->adr24);
+      for(iport=0; iport<8; iport++)
+	{
+	  hfbr_tiID[id][iport] = vmeRead32(&TDp[id]->hfbr_tiID[iport]);
+	}
     }
   TDUNLOCK;
 
@@ -1069,8 +1140,8 @@ tdGStatus(int pflag)
   if((pflag==0) || (pflag==2))
     {
       printf("TD Port STATUS Summary\n");
-      printf("                                                                Block Status\n");
-      printf("Sl-P Name               Connected   TrigSrcEn   Busy Status    Ready / NeedAck\n");
+      printf("                                                      Block Status      Block  Buffer\n");
+      printf("Sl-P  RocName  COMM  ROCID  TrigSrcEn   Busy Status  Ready / NeedAck    Level   Level\n");
       printf("--------------------------------------------------------------------------------\n");
       for(itd=0; itd<nTD; itd++)
 	{
@@ -1083,21 +1154,33 @@ tdGStatus(int pflag)
 	      /* Slot and Port number */
 	      printf("%2d-%d ", id, iport);
 
-	      /* Port Name */
-	      strncpy(name,portName[id][iport],TD_MAX_PORTNAME_CHARS);
-	      printf("%-20s  ",
-		     name);
-	  
+		  /*sergey*/
+          printf("%9.9s ",portName[id][iport]);
+          /*sergey*/
+
 	      /* Connection Status */
-	      printf("%s      %s    ",
-		     (fiber[id] & TD_FIBER_CONNECTED_TI(iport))?"YES":"NO ",
-		     (fiber[id] & TD_FIBER_TRIGSRC_ENABLED_TI(iport))?"ENABLED ":"DISABLED");
+	      printf("%s   ",
+		     (fiber[id] & TD_FIBER_CONNECTED_TI(iport))?" UP ":"DOWN");
+
+	      if(!(fiber[id] & TD_FIBER_CONNECTED_TI(iport)))
+		{
+		  printf("\n");
+		  continue;
+		}
+	      
+	      /* ROCID */
+	      printf("%3d    ",
+		     (hfbr_tiID[id][iport-1]&TD_ID_CRATEID_MASK)>>8);
+	      
+	      printf("%s   ",
+		     (fiber[id] & TD_FIBER_TRIGSRC_ENABLED_TI(iport))?" ENABLED":"DISABLED");
 
 	      /* Busy Status */
-	      printf("%s   ",
+	      printf("%s ",
 		     (busy[id] & TD_BUSY_MONITOR_FIBER_BUSY(iport))?
 		     ((fiber_busy[id] & TD_FIBER_BUSY(iport))?"BUSY-Fiber":"BUSY-BlkAck")
 		     :"           ");
+
 	      /* Block Status */
 	      ifiber=iport-1;
 	      if( (ifiber % 2) == 0)
@@ -1112,6 +1195,11 @@ tdGStatus(int pflag)
 		}
 	      printf("   %3d / %3d",nblocksReady, nblocksNeedAck);
 	  
+	      printf("         %3d",
+		     (hfbr_tiID[id][iport-1]&TD_ID_BLOCKLEVEL_MASK)>>16);
+	      
+	      printf("     %3d",
+		     (hfbr_tiID[id][iport-1]&TD_ID_BLOCK_BUFFERLEVEL_MASK)>>24);
 	      printf("\n");
 	      slaveCount++;
 	    }
@@ -1873,9 +1961,9 @@ tdGetSerialNumber(int id, char **rSN)
   rval = vmeRead32(&TDp[id]->JTAGPROMBase[(0x1f1c)>>2]);
   TDUNLOCK;
 
-  if(rSN!=NULL)
+   sprintf(retSN,"TD-%d",rval&0xfff);
+   if(rSN!=NULL)
     {
-      sprintf(retSN,"TD-%d",rval&0xfff);
       strcpy((char *)rSN,retSN);
     }
 
@@ -1973,6 +2061,94 @@ tdGetBusyTime(int id)
 }
 
 /**
+ * @ingroup Config
+ * @brief Configure which ports (and self) to enable response of a SyncReset request.
+ * @param id Slot number
+ * @param portMask Mask of ports to enable (port 1 = bit 0)
+ * @param self 1 to enable self, 0 to disable
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tdEnableSyncResetRequest(int id, unsigned int portMask)
+{
+  if(id==0) id=tdID[0];
+
+  if(TDp[id]==NULL)
+    {
+      printf("%s: ERROR: TD in slot %d not initialized\n",__FUNCTION__,id);
+      return ERROR;
+    }
+
+  if(portMask > 0xFF)
+    {
+      printf("%s: ERROR: Invalid portMask (0x%x)\n",
+	     __FUNCTION__, portMask);
+      return ERROR;
+    }
+
+  TDLOCK;
+  vmeWrite32(&TDp[id]->rocEnable,
+	   (vmeRead32(&TDp[id]->rocEnable) & TD_ROCENABLE_MASK) |
+	   (portMask << 11));
+  TDUNLOCK;
+  
+  return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Status of SyncReset Request received bits.
+ * @param id Slot number
+ * @param pflag Print to standard out if not 0
+ * @return Port mask of SyncReset Request received (port 1 = bit 0), otherwise ERROR;
+ */
+int
+tdSyncResetRequestStatus(int id, int pflag)
+{
+  int rval = 0, ibit = 0;
+  if(id==0) id=tdID[0];
+
+  if(TDp[id]==NULL)
+    {
+      printf("%s: ERROR: TD in slot %d not initialized\n",__FUNCTION__,id);
+      return ERROR;
+    }
+
+  TDLOCK;
+  rval = (int)(vmeRead32(&TDp[id]->rocEnable) & TD_ROCENABLE_SYNCRESET_REQUEST_MONITOR_MASK);
+  TDUNLOCK;
+
+  /* Reorganize the bits */
+  if(rval)
+    {
+      rval = rval >> 1;
+    }
+
+  if(pflag)
+    {
+      if(rval)
+	{
+	  printf("    ***** SyncReset Requested from ");
+
+	  for(ibit = 0; ibit < 8; ibit++)
+	    {
+	      printf("%d ", ibit + 1);
+	    }
+	  
+	  printf("*****\n");
+	}
+      else
+	{
+	  printf("    No SyncReset Requested\n");
+	}
+    }
+  
+  return rval;
+}
+
+
+/**
  * @ingroup Status
  * @brief Returns the mask of fiber channels that report a "connected" status from a TI.
  * @param id Slot number
@@ -2047,6 +2223,10 @@ tdTriggerReadyReset(int id)
     }
 
   TDLOCK;
+  /* Reset Receiver */
+  vmeWrite32(&TDp[id]->reset, TD_RESET_MGT_RX_RESET);
+  taskDelay(1);
+
   /* Get the current SyncReset Source */
   syncsource = vmeRead32(&TDp[id]->sync) & TD_SYNC_SOURCEMASK;
 
@@ -2098,7 +2278,6 @@ tdGetCrateID(int id, int port)
   return rval;
 }
 
-
 /*sergey*/
 int
 tdPrintCrateID(int id, int port)
@@ -2108,7 +2287,6 @@ tdPrintCrateID(int id, int port)
   printf("TD slot %d, port %d -> crate ID = %d\n",id,port,crate_id);
 }
 /*sergey*/
-
 
 /**
  * @ingroup Config
@@ -2254,6 +2432,30 @@ tdResetMGT(int id)
 }
 
 /**
+ * @ingroup Config
+ * @brief Reset the MGT Rx CDR
+ * @param id Slot number
+ */
+int
+tdResetMGTRx(int id)
+{
+  if(id==0) id=tdID[0];
+
+  if(TDp[id] == NULL) 
+    {
+      printf("%s: ERROR: TD in slot %d not initialized\n",__FUNCTION__,id);
+      return ERROR;
+    }
+
+  TDLOCK;
+  vmeWrite32(&TDp[id]->reset, TD_RESET_MGT_RX_RESET);
+  TDUNLOCK;
+  taskDelay(1);
+
+  return OK;
+}
+
+/**
  * @ingroup Status
  * @brief Print a summary of all fiber port connections to potential TI Slaves
  *
@@ -2266,8 +2468,8 @@ void
 tdSlaveStatus(int id, int pflag)
 {
   int iport=0, ibs=0, ifiber=0;
-  unsigned int TDBase;
-  unsigned int hfbr_tiID[8] = {1,2,3,4,5,6,7};
+  unsigned long TDBase;
+  unsigned int hfbr_tiID[8] = {1,2,3,4,5,6,7,8};
   unsigned int blockStatus[5];
   unsigned int fiber=0, busy=0, trigsrc=0;
   int nblocksReady=0, nblocksNeedAck=0, slaveCount=0;
@@ -2295,7 +2497,7 @@ tdSlaveStatus(int id, int pflag)
 
   TDUNLOCK;
 
-  TDBase = (unsigned int)TDp[id];
+  TDBase = (unsigned long)TDp[id];
 
 
   printf("TD - Slot %2d - Port STATUS Summary\n",id);
@@ -2303,17 +2505,17 @@ tdSlaveStatus(int id, int pflag)
   if(pflag>0)
     {
       printf(" Registers (offset):\n");
-      printf("  TDBase     (0x%08x)\n",TDBase-tdA24Offset);
-      printf("  busy           (0x%04x) = 0x%08x\t", (unsigned int)(&TDp[id]->busy) - TDBase, busy);
-      printf("  fiber          (0x%04x) = 0x%08x\n", (unsigned int)(&TDp[id]->fiber) - TDBase, fiber);
-      printf("  hfbr_tiID[0]   (0x%04x) = 0x%08x\t", (unsigned int)(&TDp[id]->hfbr_tiID[0]) - TDBase, hfbr_tiID[0]);
-      printf("  hfbr_tiID[1]   (0x%04x) = 0x%08x\n", (unsigned int)(&TDp[id]->hfbr_tiID[1]) - TDBase, hfbr_tiID[1]);
-      printf("  hfbr_tiID[2]   (0x%04x) = 0x%08x\t", (unsigned int)(&TDp[id]->hfbr_tiID[2]) - TDBase, hfbr_tiID[2]);
-      printf("  hfbr_tiID[3]   (0x%04x) = 0x%08x\n", (unsigned int)(&TDp[id]->hfbr_tiID[3]) - TDBase, hfbr_tiID[3]);
-      printf("  hfbr_tiID[4]   (0x%04x) = 0x%08x\t", (unsigned int)(&TDp[id]->hfbr_tiID[4]) - TDBase, hfbr_tiID[4]);
-      printf("  hfbr_tiID[5]   (0x%04x) = 0x%08x\n", (unsigned int)(&TDp[id]->hfbr_tiID[5]) - TDBase, hfbr_tiID[5]);
-      printf("  hfbr_tiID[6]   (0x%04x) = 0x%08x\t", (unsigned int)(&TDp[id]->hfbr_tiID[6]) - TDBase, hfbr_tiID[6]);
-      printf("  hfbr_tiID[7]   (0x%04x) = 0x%08x\n", (unsigned int)(&TDp[id]->hfbr_tiID[7]) - TDBase, hfbr_tiID[7]);
+      printf("  TDBase     (0x%08lx)\n",TDBase-tdA24Offset);
+      printf("  busy           (0x%04lx) = 0x%08x\t", (unsigned long)(&TDp[id]->busy) - TDBase, busy);
+      printf("  fiber          (0x%04lx) = 0x%08x\n", (unsigned long)(&TDp[id]->fiber) - TDBase, fiber);
+      printf("  hfbr_tiID[0]   (0x%04lx) = 0x%08x\t", (unsigned long)(&TDp[id]->hfbr_tiID[0]) - TDBase, hfbr_tiID[0]);
+      printf("  hfbr_tiID[1]   (0x%04lx) = 0x%08x\n", (unsigned long)(&TDp[id]->hfbr_tiID[1]) - TDBase, hfbr_tiID[1]);
+      printf("  hfbr_tiID[2]   (0x%04lx) = 0x%08x\t", (unsigned long)(&TDp[id]->hfbr_tiID[2]) - TDBase, hfbr_tiID[2]);
+      printf("  hfbr_tiID[3]   (0x%04lx) = 0x%08x\n", (unsigned long)(&TDp[id]->hfbr_tiID[3]) - TDBase, hfbr_tiID[3]);
+      printf("  hfbr_tiID[4]   (0x%04lx) = 0x%08x\t", (unsigned long)(&TDp[id]->hfbr_tiID[4]) - TDBase, hfbr_tiID[4]);
+      printf("  hfbr_tiID[5]   (0x%04lx) = 0x%08x\n", (unsigned long)(&TDp[id]->hfbr_tiID[5]) - TDBase, hfbr_tiID[5]);
+      printf("  hfbr_tiID[6]   (0x%04lx) = 0x%08x\t", (unsigned long)(&TDp[id]->hfbr_tiID[6]) - TDBase, hfbr_tiID[6]);
+      printf("  hfbr_tiID[7]   (0x%04lx) = 0x%08x\n", (unsigned long)(&TDp[id]->hfbr_tiID[7]) - TDBase, hfbr_tiID[7]);
 
       printf("\n\n");
     }
@@ -2329,7 +2531,7 @@ tdSlaveStatus(int id, int pflag)
       /* Slot and Port number */
       printf("%d     ", iport);
 
-      /* Port Name */
+      /* ROCID */
       printf("%5d      ",
 	     (hfbr_tiID[iport-1]&TD_ID_CRATEID_MASK)>>8);
 	  
@@ -2620,9 +2822,9 @@ tdPrintBusyCounters(int id)
   for(icnt=0; icnt<16; icnt++)
     {
       if(icnt<7)
-		counter[icnt] = vmeRead32(&TDp[id]->busy_scaler1[icnt]);
+	counter[icnt] = vmeRead32(&TDp[id]->busy_scaler1[icnt]);
       else
-	    counter[icnt] = vmeRead32(&TDp[id]->busy_scaler2[icnt-7]);
+	counter[icnt] = vmeRead32(&TDp[id]->busy_scaler2[icnt-7]);
     }
   TDUNLOCK;
 
@@ -2640,6 +2842,224 @@ tdPrintBusyCounters(int id)
   return OK;
 }
 
+/**
+ * @ingroup Status
+ * @brief Read the fiber fifo from the TD 
+ *
+ * @param   fiber - Fiber fifo to read. 1 and 5 only supported.
+ * @param   data  - local memory address to place data
+ * @param  maxwords - Maximum number of 32bit words to put into data array.
+ * @param  rflag - Readout Flag
+ *      0 - Stop only on fifo empty, or maxwords
+ *      1 - Stop on Block Received, fifo empty, or maxwords
+ *      2 - Empty fifo.  @data not used. Maxwords ignored.
+ *
+ * @return Number of words transferred to data if successful, ERROR otherwise
+ *
+ */
+int
+tdReadFiberFifo(int id, int fiber, volatile unsigned int *data, int maxwords,
+		int rflag)
+{
+  int nwords = 0, nodata = 0;
+  unsigned int word = 0;
+  unsigned int end_mask = 0;
+  
+  if(id==0) id=tdID[0];
+
+  if(TDp[id] == NULL) 
+    {
+      printf("%s: ERROR: TD in slot %d not initialized\n",__FUNCTION__,id);
+      return ERROR;
+    }
+
+  if((data==NULL) && (rflag != 2))
+    {
+      printf("%s: ERROR: Invalid Destination address\n",
+	     __func__);
+      return(ERROR);
+    }
+
+  if((fiber != 1) && (fiber !=5))
+    {
+      printf("%s: Invalid fiber (%d)\n",
+	     __func__, fiber);
+      return ERROR;
+    }
+
+  // Check readout flag
+  switch(rflag)
+    {
+    case 1: // Stop on block received, fifo empty
+      end_mask = ((1 << 31) || (1 << 4));
+      break;
+
+    case 2: // Empty fifo
+      nodata = 1;
+      end_mask = (1 << 31);
+      break;
+	
+    case 0:
+    default: // Stop on fifo empty.
+      end_mask = (1 << 31);
+    }
+
+  TDLOCK;
+  while(nwords < maxwords)
+    {
+      if(fiber == 1)
+	word = vmeRead32(&TDp[id]->trigTable[12]);
+      else
+      	word = vmeRead32(&TDp[id]->trigTable[13]);
+
+      if(word & end_mask)
+	break;
+
+#ifndef VXWORKS
+      word = LSWAP(word);
+#endif
+      
+      if(!nodata)
+	data[nwords++] = word;
+      else
+	nwords++;
+    }
+  TDUNLOCK;
+  
+  return nwords;
+}
+
+
+/**
+ * @ingroup Status
+ * @brief Read the fiber fifo from the TD and print to standard out.
+ *
+ * @param   fiber - Fiber fifo to read. 1 and 5 only supported.
+ *
+ * @return OK if successful, ERROR otherwise
+ *
+ */
+int
+tdPrintFiberFifo(int id, int fiber)
+{
+  volatile unsigned int *data;
+  int maxwords = 256, iword, rwords = 0;
+
+  if(id==0) id=tdID[0];
+
+  if(TDp[id] == NULL) 
+    {
+      printf("%s: ERROR: TD in slot %d not initialized\n",__FUNCTION__,id);
+      return ERROR;
+    }
+
+  if((fiber != 1) && (fiber !=5))
+    {
+      printf("%s: Invalid fiber (%d)\n",
+	     __func__, fiber);
+      return ERROR;
+    }
+  
+  data = (volatile unsigned int *)malloc(maxwords * sizeof(unsigned int));
+  if(!data)
+    {
+      printf("%s: Unable to acquire memory\n",
+	     __func__);
+      return ERROR;
+    }
+
+  rwords = tdReadFiberFifo(id, fiber, data, maxwords, 0);
+
+  if(rwords == 0)
+    {
+      printf("%s: No data in fifo\n\n",
+	     __func__);
+      return OK;
+    }
+  else if(rwords == ERROR)
+    {
+      printf("%s: tdReadFiberFifo(..) returned ERROR\n",
+	     __func__);
+      return ERROR;
+    }
+  
+  printf(" TD %2d Fiber %d fifo (%d words)\n",
+	 id,
+	 fiber, rwords);
+  printf("      Timestamp     Data\n");
+  printf("----------------------------\n");
+  for(iword = 0; iword < rwords; iword++)
+    {
+      printf("%3d:    0x%04x     0x%04x\n",
+	     iword,
+	     (data[iword] & 0xFFFF0000)>>16,
+	     (data[iword] & 0xFFFF));
+    }
+  printf("----------------------------\n");
+  printf("\n");
+  
+  if(data)
+    free((void *)data);
+  
+  return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Clear the selected fiber fifo from selected TD
+ *
+ * @param id Slot number
+ * @param fiber - Fiber fifo to read. 1 and 5 only supported. 0 for both
+ *
+ * @return Number of words cleared from fifo if successful, ERROR otherwise
+ *
+ */
+int
+tdClearFiberFifo(int id, int fiber)
+{
+  int rval = 0, rwords = 0, maxwords = 256;
+  if(id==0) id=tdID[0];
+
+  if(TDp[id] == NULL) 
+    {
+      printf("%s: ERROR: TD in slot %d not initialized\n",__FUNCTION__,id);
+      return ERROR;
+    }
+
+  if(fiber == 0)
+    {
+      rval = tdReadFiberFifo(id, 1, NULL, maxwords, 0);
+      if(rval == ERROR)
+	{
+	  return ERROR;
+	}
+
+      rwords = rval;
+
+      rval = tdReadFiberFifo(id, 5, NULL, maxwords, 0);
+
+      if(rval == ERROR)
+	{
+	  return ERROR;
+	}
+
+      rwords += rval;
+
+    }
+  else
+    {
+      rval = tdReadFiberFifo(id, 5, NULL, maxwords, 0);
+
+      if(rval == ERROR)
+	{
+	  return ERROR;
+	}
+
+      rwords = rval;
+    }
+
+  return rwords;
+}
 
 /*sergey*/
 int
@@ -2647,7 +3067,6 @@ tdGetNtds()
 {
   return(nTD);
 }
-
 
 #else /* dummy version*/
 

@@ -84,8 +84,9 @@ main(int argc, char *argv[])
 
 
   N = 7;
-  A = 8;
+  A = 0;
 
+  /*
   F = 16;
   datain = 85;
   resp = CNAF16(sock, N, A, F, &Q, &datain);
@@ -96,7 +97,7 @@ main(int argc, char *argv[])
     return 0;
   }
   
-
+  */
   while(1)
   {
     ll++;

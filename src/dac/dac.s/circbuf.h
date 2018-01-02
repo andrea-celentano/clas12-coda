@@ -67,7 +67,7 @@
 #endif
 
 #ifdef Linux_x86_64
-#define MAX_ROCS 113 /* must accomodate biggest roc id, not the number of rocs !!! */
+#define MAX_ROCS 127 /* must accomodate biggest roc id, not the number of rocs !!! */
 #else
 #define MAX_ROCS 85
 #endif

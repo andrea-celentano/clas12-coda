@@ -16,21 +16,21 @@
 using namespace std;
 #include <strstream>
 
+#include "codautil.h"
+
 // online and coda stuff
 extern "C"{
 #include "libdb.h"
 }
 
 
-//--------------------------------------------------------------------------
-
-extern "C" {
 int
 get_run_number(char *mysql_database, char *session)
 {
   MYSQL *connNum;
   MYSQL_RES *result;
   MYSQL_ROW row_out;
+  int numRows;
   ostrstream query;
   
   // connect to mysql database
@@ -41,23 +41,29 @@ get_run_number(char *mysql_database, char *session)
 	<< session << "'" << ends;
   mysql_query(connNum,query.str());
   result = mysql_store_result(connNum);
-  row_out = mysql_fetch_row(result);
+
+  if(result)
+  {
+    numRows = mysql_num_rows(result);
+    if(numRows == 1)
+	{
+      row_out = mysql_fetch_row(result);
   
-  // get run number 
-  if(row_out[0]==NULL)
-  {
-    mysql_free_result(result);
-    dbDisconnect(connNum);
-    return(0);
+      // get run number 
+      if(row_out[0]==NULL)
+      {
+        mysql_free_result(result);
+        dbDisconnect(connNum);
+        return(0);
+      }
+      else
+      {
+        mysql_free_result(result);
+        dbDisconnect(connNum);
+        return(atoi(row_out[0]));
+      }
+	}
   }
-  else
-  {
-    mysql_free_result(result);
-    dbDisconnect(connNum);
-    return(atoi(row_out[0]));
-  }
+
+  return(0);
 }
-} // extern "C"
-
-
-//--------------------------------------------------------------------------

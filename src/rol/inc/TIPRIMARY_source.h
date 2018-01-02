@@ -137,7 +137,7 @@ tiprimarytinit(int code)
 
 
 /* TEMPORARY!!! this will kill mutex so DiagGuiServer must be restarted after that !!!!!!!!!!!!!!!!!!!!! */
-/*vmeCheckMutexHealth(1); - use 'mutexclean' command if needed !!!!!!!!!!!!!!!!!!!*/
+vmeCheckMutexHealth(1); /*- use 'mutexclean' command if needed !!!!!!!!!!!!!!!!!!!*/
 
 
 

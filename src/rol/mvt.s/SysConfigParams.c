@@ -65,6 +65,8 @@ char *SysRunMode2Str( SysRunMode mode )
 		return ("Standalone");
 	else if( mode == Expert )
 		return ("Expert    ");
+	else if( mode == Spy )
+		return ("Spy       ");
 	else
 		return ("Unknown   ");
 }
@@ -214,21 +216,18 @@ int SysParams_Sprintf( SysParams *params, char *buf  )
 	sprintf( buf, "%s#####################\n", buf );
 	sprintf( buf, "%s# TI configurations #\n", buf );
 	sprintf( buf, "%s#####################\n", buf );
-	if( params->RunMode != Clas12 )
+	for( bec=0; bec<DEF_MAX_NB_OF_BEC; bec++ )
 	{
-		for( bec=0; bec<DEF_MAX_NB_OF_BEC; bec++ )
+		if( params->RunMode == Clas12 )
+			sprintf( buf, "%s# TI parameters do not apply in %s mode #\n", buf, SysRunMode2Str( params->RunMode ) );
+		ret = TiParams_Sprintf( &(params->Ti_Params[bec]), buf );
+		if( ret != D_RetCode_Sucsess )
 		{
-			ret = TiParams_Sprintf( &(params->Ti_Params[bec]), buf );
-			if( ret != D_RetCode_Sucsess )
-			{
-				fprintf( stderr, "%s: TiParams_Sprintf failed for sd %d with %d\n", __FUNCTION__, bec, ret );
-				return ret;
-			}
+			fprintf( stderr, "%s: TiParams_Sprintf failed for sd %d with %d\n", __FUNCTION__, bec, ret );
+			return ret;
 		}
-	}
-	else
-	{
-		sprintf( buf, "%s# TI parameters do not apply in %s mode #\n", buf, SysRunMode2Str( params->RunMode ) );
+		if( params->RunMode == Clas12 )
+			sprintf( buf, "%s# TI parameters do not apply in %s mode #\n", buf, SysRunMode2Str( params->RunMode ) );
 	}
 	sprintf( buf, "%s\n", buf );
 //fprintf( stderr, "%s: TiParams_Sprintf OK\n", __FUNCTION__ );
@@ -511,7 +510,7 @@ int SysParams_Prop( SysParams *params )
 			beu_conf->NbOfEventsPerBlock = params->NbOfEvtPerBlk;
 			beu_conf->SelfTrigLat        = params->SelfTrigLat;
 			beu_conf->SelfTrigWin        = params->SelfTrigWin;
-			if( (params->RunMode == Clas12) || (params->RunMode = Standalone) )
+			if( (params->RunMode == Clas12) || (params->RunMode == Standalone) )
 			{
 				beu_conf->ClkSrc = BeuClkSrc_TiVxs;
 			}
@@ -530,23 +529,23 @@ int SysParams_Prop( SysParams *params )
 			drm_evt_buf = drm_derand_buf / params->NbOfSmpPerEvt;
 			if( drm_evt_buf > 20 )
 			{
-				Beu_TrgFifo_Hwm = drm_evt_buf - 8;
-				Beu_TrgFifo_Lwm = drm_evt_buf -10;
+				Beu_TrgFifo_Hwm = drm_evt_buf - 4;
+				Beu_TrgFifo_Lwm = drm_evt_buf -16;
 			}
 			if( drm_evt_buf > 16 )
 			{
-				Beu_TrgFifo_Hwm = drm_evt_buf - 6;
+				Beu_TrgFifo_Hwm = drm_evt_buf - 4;
 				Beu_TrgFifo_Lwm = drm_evt_buf - 8;
 			}
 			else if( drm_evt_buf > 8 )
 			{
-				Beu_TrgFifo_Hwm = drm_evt_buf - 3;
+				Beu_TrgFifo_Hwm = drm_evt_buf - 4;
 				Beu_TrgFifo_Lwm = drm_evt_buf - 4;
 			}
 			else if( drm_evt_buf > 4 )
 			{
 				Beu_TrgFifo_Hwm = drm_evt_buf - 2;
-				Beu_TrgFifo_Lwm = drm_evt_buf - 3;
+				Beu_TrgFifo_Lwm = drm_evt_buf - 4;
 			}
 			else if( drm_evt_buf > 2 )
 			{
@@ -616,15 +615,15 @@ int SysParams_Prop( SysParams *params )
 			// Recalculate trigger rule 0 for NbOfSamples
 			if( params->RunMode != Clas12 )
 			{
-			  if( ti_params->TrgRules_TimeUnit[0] == 0 )
-			    trg_rule_0 = ti_params->TrgRules_UnitCount[0] * Def_Ti_TrgRules_TimeUnit_016ns;
-			  else if( ti_params->TrgRules_TimeUnit[0] == 1 )
-			    trg_rule_0 = ti_params->TrgRules_UnitCount[0] * Def_Ti_TrgRules_TimeUnit_480ns;
-			  else
-			  {
-			    fprintf( stderr, "%s: Wrong trigger rule 0 time unit %d for ti=%d\n", __FUNCTION__, ti_params->TrgRules_TimeUnit[0], ti );
-			    return D_RetCode_Err_Wrong_Param;
-			  }
+				if( ti_params->TrgRules_TimeUnit[0] == 0 )
+					trg_rule_0 = ti_params->TrgRules_UnitCount[0] * Def_Ti_TrgRules_TimeUnit_016ns;
+				else if( ti_params->TrgRules_TimeUnit[0] == 1 )
+					trg_rule_0 = ti_params->TrgRules_UnitCount[0] * Def_Ti_TrgRules_TimeUnit_480ns;
+				else
+				{
+					fprintf( stderr, "%s: Wrong trigger rule 0 time unit %d for ti=%d\n", __FUNCTION__, ti_params->TrgRules_TimeUnit[0], ti );
+					return D_RetCode_Err_Wrong_Param;
+				}
 			}
 			drm_trg_dur = (params->NbOfSmpPerEvt+1) * PredefinedSysClcParams[params->ClkMode].DrmWrClkPeriod*(1+params->SparseSmp);
 			if( (params->RunMode != Clas12) && (trg_rule_0 < drm_trg_dur) )
@@ -657,7 +656,7 @@ int SysParams_Prop( SysParams *params )
 //		{
 			feu_params->Main_Conf_Samples = params->NbOfSmpPerEvt;
 			sprintf( feu_params->Main_Conf_ClkSel, "RecClk" );
-			feu_params->Feu_Pwr_Dream = 0xF;
+//			feu_params->Feu_Pwr_Dream = 0xF;
 			feu_params->Feu_Pwr_PrtFlt = 0xFFFF;
 			feu_params->Feu_RunCtrl_DrDblSmpClk = 0;
 			feu_params->Main_Conf_DataPipeLen = params->SparseSmp;

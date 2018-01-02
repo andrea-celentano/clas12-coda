@@ -19,7 +19,7 @@ static int nusertrig, ndone;
 #define USE_VSCM
 #define USE_DCRB
 #define USE_VETROC
-#define USE_FLP
+//#define USE_FLP
 
 /* if event rate goes higher then 10kHz, with random triggers we have wrong
 slot number reported in GLOBAL HEADER and/or GLOBAL TRAILER words; to work
@@ -360,16 +360,15 @@ static void
 __download()
 {
   int i1, i2, i3;
-#ifdef USE_FADC250
+  char *ch, tmp[64];
 
+#ifdef USE_FADC250
   int ret, ii, id, isl, ichan, slot;
   unsigned short iflag;
   int fadc_mode = 1, iFlag = 0;
   int ich, NSA, NSB;
   unsigned int maxA32Address;
   unsigned int fadcA32Address = 0x09000000;
-  char *ch, tmp[64];
-
 #endif
 #ifdef POLLING_MODE
   rol->poll = 1;
@@ -424,6 +423,9 @@ __download()
 
   /*************************************/
   /* redefine TI settings if neseccary */
+  
+  tiSetUserSyncResetReceive(1);
+  
 
 #ifndef TI_SLAVE
   /* TS 1-6 create physics trigger, no sync event pin, no trigger 2 */
@@ -1830,9 +1832,9 @@ vmeBusUnlock();
             slot = utmp&0x1f;
             if( slot != slotnums[ii] )
 			{
-              printf("ERROR: old=0x%08x: WRONG slot=%d IN GLOBAL HEADER, must be %d - fixed\n",utmp,slot,slotnums[ii]);
+              /*printf("ERROR: old=0x%08x: WRONG slot=%d IN GLOBAL HEADER, must be %d - fixed\n",utmp,slot,slotnums[ii]);*/
               utmp = (utmp & 0xFFFFFFE0) | slotnums[ii];
-              printf("new=0x%08x\n",utmp);
+              /*printf("new=0x%08x\n",utmp);*/
               tdc[jj] = LSWAP(utmp);
             }
 		  }
@@ -1841,9 +1843,9 @@ vmeBusUnlock();
             slot = utmp&0x1f;
             if( slot != slotnums[ii] )
 			{
-              printf("ERROR: old=0x%08x: WRONG slot=%d IN GLOBAL TRAILER, must be %d - fixed\n",utmp,slot,slotnums[ii]);
+              /*printf("ERROR: old=0x%08x: WRONG slot=%d IN GLOBAL TRAILER, must be %d - fixed\n",utmp,slot,slotnums[ii]);*/
               utmp = (utmp & 0xFFFFFFE0) | slotnums[ii];
-              printf("new=0x%08x\n",utmp);
+              /*printf("new=0x%08x\n",utmp);*/
               tdc[jj] = LSWAP(utmp);
             }
 		  }
@@ -2965,6 +2967,8 @@ vmeBusUnlock();
       chptr[3] = '\n';
       nbytes = (((nbytes+1)+3)/4)*4;
       chptr0[nbytes-1] = '\0';
+
+	  /*ADD PADDING AND \4 HERE !!!!!!!!!!!!*/
 
       nwords = nbytes/4;
       rol->dabufp += nwords;

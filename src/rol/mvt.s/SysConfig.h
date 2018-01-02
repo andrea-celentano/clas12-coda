@@ -32,6 +32,9 @@
 // Log file pointer to be set from outside
 extern FILE *sys_log_fptr;
 
+// System configuration parameters structure
+extern SysParams *sys_params_ptr;
+
 /* Max allowed 4194304 */
 /* 1 event 48 FEU-s, 64 samples, 604 2-byte words per sample */
 #define MAX_BLOCK_LENGTH 3710976
@@ -41,7 +44,7 @@ int  TiRun(      TiParams *params, int run );
 int  TiGo(       TiParams *params );
 int  SdConfig(   SdParams *params );
 
-int  SysConfig( SysParams *params );
+int  SysConfig( SysParams *params, int configs_to_do );
 int  SysRun();
 int  SysStop();
 int  SysGo();
@@ -50,5 +53,6 @@ int  SysScanSlfTrgThresh( char *sys_conf_params_filename );
 int  SysScanFeuMonit( char *sys_conf_params_filename, int store_period_sec );
 void SysConfig_CleanUp();
 int  SysConfig_SetLogFilePointer( FILE *fptr );
+int  SysDumpFeuOptLnk();
 
 #endif // #ifndef H_SysConfiguration

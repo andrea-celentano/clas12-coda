@@ -379,6 +379,7 @@ rol2trig(int a, int b)
   int a_event_number_l, a_timestamp_l, a_event_number_h, a_timestamp_h, a_bitpattern;
   int a_clusterN, a_clusterE, a_clusterY, a_clusterX, a_clusterT, a_type, a_data, a_time;
   int a_instance, a_view, a_coord, a_energy, a_coordU, a_coordV, a_coordW, a_lane;
+  int a_h1tag, a_h2tag, a_nhits, a_coordX, a_coordY;
   long long timestamp, latency, latency_offset;
 
   int nheaders, ntrailers, nbcount, nbsubtract, nwtdc;
@@ -1673,6 +1674,8 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 
     else if(banktag[jj] == 0xe122) /* VTP hardware format */
 	{
+//Ben Nov 22, 2017
+      REPORT_RAW_BANK_IF_REQUESTED;
       banknum = rol->pid;
 
 #ifdef DEBUG7
@@ -1877,6 +1880,37 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
 		}
 
 
+        else if( ((datain[ii]>>27)&0x1F) == 0x17) /*FT cluster*/
+        {
+          uint32_t last_val;
+		  /*
+          a_instance = ((datain[ii]>>26)&0x1);
+		  a_coordW =   ((datain[ii]>>17)&0x1FF);
+		  a_coordV =   ((datain[ii]>>8)&0x1FF);
+          last_val = datain[ii];
+#ifdef DEBUG7
+	      printf("[%3d] CLUSTER_(INST,COORDW,COORDV): %d %d %d\n",ii,a_instance,a_coordW,a_coordV);
+#endif
+		  */
+	      ii++;
+          iii=0;
+          while( ((datain[ii]>>31)&0x1) == 0 && ii<lenin ) /*must be one more word*/
+	      {
+			/*
+		    a_coordU = ((last_val<<1)&0x1FE) | ((datain[ii]>>30)&0x1);
+		    a_energy = ((datain[ii]>>17)&0x1FFF);
+            a_time =   (datain[ii]&0x7FF);
+#ifdef DEBUG7
+            printf("   [%3d] FT CLUSTER_(COORDU,ENERGY,TIME): %d\n",ii,a_coordU,a_energy,a_time);
+#endif
+			*/
+            iii++;
+            if(iii>1) printf("ERROR2 in VTP: iii=%d\n",iii); 
+
+            ii++;
+	      }
+        }
+
 
 
 
@@ -1902,7 +1936,7 @@ printf("tmpgood=0x%08x tmpbad=0x%08x\n",tmpgood,tmpbad);
         }
         else
 		{
-          printf("VTP UNKNOWN data1: [%3d] 0x%08x\n",ii,datain[ii]);
+          /*printf("VTP UNKNOWN data1: [%3d] 0x%08x\n",ii,datain[ii]);*/
           ii++;
 		}
 
@@ -3563,9 +3597,13 @@ if(a_pulsenumber == 0)
 			
 		    if(a_nwords>4)
 		    {
+		      a_bitpattern = datain[ii]&0xFF;
 #ifdef DEBUG1
 		      printf("[%3d] TS word4 = 0x%08x\n",ii,datain[ii]);
 #endif
+              dataout[5] = datain[ii];
+              b08 += 4;
+
 		      ii++;
 		    }
 
@@ -3574,6 +3612,9 @@ if(a_pulsenumber == 0)
 #ifdef DEBUG1
 		      printf("[%3d] TS word5 = 0x%08x\n",ii,datain[ii]);
 #endif
+              dataout[6] = datain[ii];
+              b08 += 4;
+
 		      ii++;
 		    }
 
@@ -3582,6 +3623,9 @@ if(a_pulsenumber == 0)
 #ifdef DEBUG1
 		      printf("[%3d] TS word6 = 0x%08x\n",ii,datain[ii]);
 #endif
+              dataout[7] = datain[ii];
+              b08 += 4;
+
 		      ii++;
 		    }
 
@@ -4090,21 +4134,119 @@ if(a_pulsenumber == 0)
 #endif
 		    }
 
-            else if( ((datain[ii]>>27)&0x1F) == 0x16) /*ECAL trigger bits*/
+            else if( ((datain[ii]>>27)&0x1F) == 0x16) /*HTCC trigger bits*/
             {
+			  /*
               a_instance = ((datain[ii]>>16)&0x1);
               a_lane = ((datain[ii]>>11)&0x1F);
 		      a_time = (datain[ii]&0x7FF);
+			  */
 
               *dataout ++ = datain[ii];
               b08 += 4;
 	          ii++;
 
+	          printf("HTCC mask 47-31: 0x%08x\n",datain[ii]);
+              *dataout ++ = datain[ii];
+              b08 += 4;
+	          ii++;
+
+	          printf("HTCC mask 30-00: 0x%08x\n",datain[ii]);
+              *dataout ++ = datain[ii];
+              b08 += 4;
+	          ii++;
+
+			  /*
 #ifdef DEBUG7
 	          printf("[%3d] TRIG_(INST,LANE,TIME) %d %d %d\n",ii,a_instance,a_lane,a_time);
 #endif
+			  */
 		    }
 
+
+
+
+            else if( ((datain[ii]>>27)&0x1F) == 0x17) /*FT cluster*/
+            {
+              a_h2tag = ((datain[ii]>>15)&0x1);
+              a_h1tag =     ((datain[ii]>>14)&0x1);
+		      a_nhits =   ((datain[ii]>>10)&0xF);
+		      a_coordY = ((datain[ii]>>5)&0x1F);
+		      a_coordX = ((datain[ii]>>0)&0x1F);
+
+              *dataout ++ = datain[ii];
+              b08 += 4;
+	          ii++;
+
+
+		      a_energy = ((datain[ii]>>16)&0x3FFF);
+		      a_time = ((datain[ii]>>0)&0x7FF);
+
+              *dataout ++ = datain[ii];
+              b08 += 4;
+	          ii++;
+#ifdef DEBUG7
+              printf("   [%3d] FT CLUSTER_(COORDX,COORDY,NHITS,ENERGY,TIME): %d %d %d %d %d %d\n",ii,
+                a_coordX,a_coordY,a_nhits,a_energy,a_time);
+#endif
+		    }
+
+
+
+            else if( ((datain[ii]>>27)&0x1F) == 0x18) /*???*/
+            {
+              printf("VTP UNKNOWN data18: [%3d] 0x%08x\n",ii,datain[ii]);
+              ii++;
+			}
+            else if( ((datain[ii]>>27)&0x1F) == 0x19) /*???*/
+            {
+              printf("VTP UNKNOWN data19: [%3d] 0x%08x\n",ii,datain[ii]);
+              ii++;
+			}
+            else if( ((datain[ii]>>27)&0x1F) == 0x1A) /*???*/
+            {
+              printf("VTP UNKNOWN data1A: [%3d] 0x%08x\n",ii,datain[ii]);
+              ii++;
+			}
+            else if( ((datain[ii]>>27)&0x1F) == 0x1B) /*???*/
+            {
+              printf("VTP UNKNOWN data1B: [%3d] 0x%08x\n",ii,datain[ii]);
+              ii++;
+			}
+            else if( ((datain[ii]>>27)&0x1F) == 0x1C) /*???*/
+            {
+              printf("VTP UNKNOWN data1C: [%3d] 0x%08x\n",ii,datain[ii]);
+              ii++;
+			}
+            else if( ((datain[ii]>>27)&0x1F) == 0x1D) /*???trig2?????*/
+            {
+			  /*
+			  a_h2tag = ((datain[ii]>>15)&0x1);
+              a_h1tag =     ((datain[ii]>>14)&0x1);
+		      a_nhits =   ((datain[ii]>>10)&0xF);
+		      a_coordY = ((datain[ii]>>5)&0x1F);
+		      a_coordX = ((datain[ii]>>0)&0x1F);
+			  */
+
+              *dataout ++ = datain[ii];
+              b08 += 4;
+	          ii++;
+
+			  /*
+		      a_energy = ((datain[ii]>>16)&0x3FFF);
+		      a_time = ((datain[ii]>>0)&0x7FF);
+			  */
+
+              *dataout ++ = datain[ii];
+              b08 += 4;
+	          ii++;
+			  /*
+#ifdef DEBUG7
+              printf("   [%3d] FT CLUSTER_(COORDX,COORDY,NHITS,ENERGY,TIME): %d %d %d %d %d %d\n",ii,
+                a_coordX,a_coordY,a_nhits,a_energy,a_time);
+#endif
+			  */
+		    }
 
 
 

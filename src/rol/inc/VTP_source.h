@@ -8,6 +8,7 @@
 #ifndef __VTP_ROL__
 #define __VTP_ROL__
 
+#define DAQ_READ_CONF_FILE  {daqSetExpid(expid);                        daqConfig("");     if(strncasecmp(rol->confFile,"none",4)) daqConfig(rol->confFile);}
 #define VTP_READ_CONF_FILE {vtpSetExpid(expid); vtpInitGlobals(); vtpConfig(""); if(strncasecmp(rol->confFile,"none",4)) vtpConfig(rol->confFile);}
 
 extern char *mysql_host; /* defined in coda_component.c */

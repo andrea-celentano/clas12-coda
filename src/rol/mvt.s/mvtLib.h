@@ -43,6 +43,11 @@ int mvtGetRepRawData();
 int mvtStatus(int numFeu);
 int mvtStatusDump(int numFeu, FILE *fptr);
 
+int mvtManageLogFile( FILE* *fptr, int roc_id );
 int mvtSetLogFilePointer( FILE *fptr );
+int mvtClrLogFilePointer();
+
+char *mvtRocId2Str( int roc_id );
+int   mvtStr2RocId( char *roc_str );
 
 #endif // #ifndef __MVTLIB__

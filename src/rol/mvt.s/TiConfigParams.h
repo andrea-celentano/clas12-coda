@@ -30,7 +30,8 @@ typedef enum _TiClkSrc
 {
 	TiClkSrc_Undefined   = -1,
 	TiClkSrc_Internal    =  0,
-	TiClkSrc_HFBR1       =  2
+	TiClkSrc_HFBR1       =  2,
+	TiClkSrc_HFBR5       =  3
 } TiClkSrc;
 char *TiClkSrc2Str( TiClkSrc src );
 
@@ -49,6 +50,7 @@ typedef enum _TiSynSrc
 	TiSynSrc_Undefined   = -1,
 	TiSynSrc_None        =  0,
 	TiSynSrc_HFBR1       =  (1<<1),
+	TiSynSrc_HFBR5       =  (1<<2),
 	TiSynSrc_Soft        =  (1<<7)
 } TiSynSrc;
 char *TiSynSrc2Str( TiSynSrc src );
@@ -63,7 +65,8 @@ typedef enum _TiTrgSrc
 	TiTrgSrc_FpInp1      =  3,
 	TiTrgSrc_FpInp2      =  4,
 	TiTrgSrc_IntCst      =  5,
-	TiTrgSrc_IntRnd      =  6
+	TiTrgSrc_IntRnd      =  6,
+	TiTrgSrc_HFBR5       =  7,
 } TiTrgSrc;
 char *TiTrgSrc2Str( TiTrgSrc src );
 

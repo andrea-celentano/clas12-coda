@@ -2221,8 +2221,12 @@ int _FeuConfig( FeuParams *feu_params, int feu_id, int beu_id, int beu_lnk_id )
 				else
 					dream_power &= ((~(1 << dream_pair))&0xF);
 				wr_val = D_Feu_RegPwr_Dream_Set( wr_val, dream_power );
-//printf("%s: Feu %d dream_pair=%d shift=0x%1x inf=0x%1x mask=0x%1x dream_power 0x%08x (beu %d lnk %d)\n", __FUNCTION__, feu_id, dream_pair, (1 << dream_pair), ~(1 << dream_pair), dream_power, beu_id, beu_lnk_id);
-//printf("%s: Feu %d dream_pair=%d power wr_val 0x%08x (beu %d lnk %d)\n", __FUNCTION__, feu_id, dream_pair, wr_val, beu_id, beu_lnk_id);
+/*
+printf("%s: Feu %d dream_pair=%d shift=0x%1x inf=0x%1x mask=0x%1x dream_power 0x%08x (beu %d lnk %d)\n",
+	__FUNCTION__, feu_id, dream_pair, (1 << dream_pair), ~(1 << dream_pair), dream_power, beu_id, beu_lnk_id);
+printf("%s: Feu %d dream_pair=%d power wr_val 0x%08x (beu %d lnk %d)\n",
+	__FUNCTION__, feu_id, dream_pair, wr_val, beu_id, beu_lnk_id);
+*/
 				// Write
 				if( (ret = Beu_ReqResp(feu_id, beu_id, beu_lnk_id, reg_adr, wr_val, DEF_FEU_WRITE, &rd_val ) ) < 0 )
 				{

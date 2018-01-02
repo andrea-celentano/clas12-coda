@@ -849,11 +849,9 @@ faStatus(int id, int sflag)
   ambMax =  (addrMB&FA_AMB_MAX_MASK);
   berr_count = vmeRead32(&(FAp[id]->berr_module_scal));
 
-  for(ii=0;ii<3;ii++) 
-    {
-      adcStat[ii] = (vmeRead32(&(FAp[id]->adc_status[ii]))&0xFFFF);
-      adcConf[ii] = (vmeRead32(&(FAp[id]->adc_config[ii]))&0xFFFF);
-    }    
+  for(ii=0;ii<3;ii++) adcStat[ii] = (vmeRead32(&(FAp[id]->adc_status[ii]))&0xFFFF);
+  for(ii=0;ii<4;ii++) adcConf[ii] = (vmeRead32(&(FAp[id]->adc_config[ii]))&0xFFFF);
+
   PTW =  (vmeRead32(&(FAp[id]->adc_ptw))&0xFFFF)*FA_ADC_NS_PER_CLK;
   PL  =  (vmeRead32(&(FAp[id]->adc_pl))&0xFFFF)*FA_ADC_NS_PER_CLK;
   NSB =  (vmeRead32(&(FAp[id]->adc_nsb))&0xFFFF)*FA_ADC_NS_PER_CLK;

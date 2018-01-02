@@ -81,10 +81,39 @@ int   feu_chan_num;
 unsigned int *rd_buf = (unsigned int *)NULL;
 int rd_buf_len = 0;
 
+typedef enum
+{
+
+	SysType_MVT = 0,
+	SysType_FTT = 1,
+	SysType_JTB = 2,
+	SysType_STB = 3,
+	SysType_UKN = 4
+} SysType;
+#define Def_SysNum (SysType_UKN+1)
+char *SysType2Str( SysType sys_type )
+{
+         if( sys_type == SysType_MVT ) return "MVT";
+    else if( sys_type == SysType_FTT ) return "FTT";
+    else if( sys_type == SysType_JTB ) return "JTB";
+    else if( sys_type == SysType_STB ) return "STB";
+    else                               return "UKN";
+}
+int RocId2SysType( int roc_id )
+{
+         if( roc_id == 0x45 ) return SysType_MVT; // 69 mvt1
+    else if( roc_id == 0x4B ) return SysType_FTT; // 75 mmft1
+    else if( roc_id == 0x3F ) return SysType_JTB; // 63 svt3
+    else if( roc_id == 0x01 ) return SysType_STB; //  1 sedipcq156
+    else                      return SysType_UKN;
+}
+
+
 // Define mux number of FEUs & BEUs
 #define Def_MaxNbOfBeu 3
-#define Def_MaxNbOfFeu 128
-FILE *feu_data_fptr[Def_MaxNbOfFeu];
+#define Def_MaxNbOfFeu 64
+#define Def_MaxNbFeuFptr Def_SysNum*Def_MaxNbOfFeu
+FILE *feu_data_fptr[Def_MaxNbFeuFptr];
 int feu_data_fptr_cntr = 0;
 
 
@@ -101,8 +130,8 @@ int evt_blk_cnt;
 
 int ti_evt_cnt;
 
-int mvt_raw_evt_cnt;
-int mvt_cmp_evt_cnt;
+int mvt_raw_evt_cnt[Def_SysNum];
+int mvt_cmp_evt_cnt[Def_SysNum];
 int cfg_evt_cnt;
 
 int unknown_cmp_cnt;
@@ -471,8 +500,8 @@ void TimingHistos_DumpHistos(TimingHistos *tim_hist, FILE *fptr)
 }
 
 // Timing histos
-TimingHistos timing_histos_raw;
-TimingHistos timing_histos_cmp;
+TimingHistos timing_histos_raw[Def_SysNum];
+TimingHistos timing_histos_cmp[Def_SysNum];
 /***********************************************************
  * End Histogramms
  ***********************************************************/
@@ -488,7 +517,8 @@ typedef struct _PhyEvtStat
 	// General info
 	int id;
 	int size;
-	int data_type;
+	SysType sys_type;
+	int     data_type;
 	// Ti stat
 	unsigned int ti_evid_hi;
 	unsigned int ti_evid_lo;
@@ -546,6 +576,7 @@ void PhyEvtStat_Init(PhyEvtStat *phy_evt_stat)
 	}
 	phy_evt_stat->id   = 0;
 	phy_evt_stat->size = 0;
+	phy_evt_stat->sys_type  = SysType_UKN;
 	phy_evt_stat->data_type = PHY_EVT_DATA_TYPE_NON;
 
 }
@@ -555,6 +586,7 @@ void PhyEvtStat_Dump(PhyEvtStat *phy_evt_stat, FILE *fptr)
 	fprintf( fptr, "  PhyEvtStat = 0x%08x\n", (unsigned int)phy_evt_stat );
 	fprintf( fptr, "   id   = %d\n", phy_evt_stat->id );
 	fprintf( fptr, "   size = %d\n", phy_evt_stat->size );
+	fprintf( fptr, "   sys_type  = %d\n", SysType2Str( phy_evt_stat->sys_type ) );
 	fprintf( fptr, "   data_type = %d\n", phy_evt_stat->data_type );
 	if( phy_evt_stat->ti_evid_hi != 0xFFFFFFFF )
 		fprintf( fptr, "   ti_evid_hi = 0x%08x\n", phy_evt_stat->ti_evid_hi );
@@ -620,6 +652,7 @@ int PhyEvtStat_Validate(PhyEvtStat *phy_evt_stat)
 	int error;
 	unsigned int beu2ti_tstp_offset;
 	unsigned int feu2beu_tstp_offset;
+	SysType sys_type;
 
 	if( phy_evt_stat->ti_evid_lo == 0xFFFFFFFF )
 	{
@@ -634,6 +667,7 @@ int PhyEvtStat_Validate(PhyEvtStat *phy_evt_stat)
 	}
 
 	error = 0;
+	sys_type = phy_evt_stat->sys_type;
 
 	// BEU-s
 	for( beu=0; beu<Def_MaxNbOfBeu; beu++ )
@@ -643,9 +677,9 @@ int PhyEvtStat_Validate(PhyEvtStat *phy_evt_stat)
 		{
 			if( phy_evt_stat->beu_evid_lo[beu] != (phy_evt_stat->ti_evid_lo & 0x7FFF) )
 			{
-				if( ((phy_evt_stat->ti_evid_lo & 0x7FFF) - phy_evt_stat->beu_evid_lo[beu]) != timing_histos_cmp.beu_ti_evid_lo_shift_cnt[beu] )
+				if( ((phy_evt_stat->ti_evid_lo & 0x7FFF) - phy_evt_stat->beu_evid_lo[beu]) != timing_histos_cmp[sys_type].beu_ti_evid_lo_shift_cnt[beu] )
 				{
-					timing_histos_cmp.beu_ti_evid_lo_shift_cnt[beu] = ((phy_evt_stat->ti_evid_lo & 0x7FFF) - phy_evt_stat->beu_evid_lo[beu]);
+					timing_histos_cmp[sys_type].beu_ti_evid_lo_shift_cnt[beu] = ((phy_evt_stat->ti_evid_lo & 0x7FFF) - phy_evt_stat->beu_evid_lo[beu]);
 					fprintf( stderr, "%s: ERROR beu %d evid_lo = 0x%04x != ti_evid_lo[15:0] = 0x%04x\n",
 						__FUNCTION__, beu, phy_evt_stat->beu_evid_lo[beu], (phy_evt_stat->ti_evid_lo & 0xFFFF) );
 					error |= 4;
@@ -668,28 +702,24 @@ int PhyEvtStat_Validate(PhyEvtStat *phy_evt_stat)
 			{
 				beu2ti_tstp_offset = ( ((((unsigned int)phy_evt_stat->beu_tstp_lo[beu])<<1)&0xFFF) - (phy_evt_stat->ti_tstp_lo & 0xFFF) ) & 0xFFF;
 	//			beu2ti_tstp_offset = (  (((unsigned int)phy_evt_stat->beu_tstp_lo[beu])&0xFFF) - ((phy_evt_stat->ti_tstp_lo >> 1) & 0xFFF) ) & 0xFFF;
-				if( timing_histos_raw.beu2ti_tstp_offset[beu] == 0xFFFFffff )
+				if( timing_histos_raw[sys_type].beu2ti_tstp_offset[beu] == 0xFFFFffff )
 				{
-					timing_histos_raw.beu2ti_tstp_offset[beu] = beu2ti_tstp_offset;
-				}
-				if( timing_histos_raw.beu2ti_tstp_offset[beu] == 0xFFFFffff )
-				{
-					timing_histos_raw.beu2ti_tstp_offset[beu] = beu2ti_tstp_offset;
+					timing_histos_raw[sys_type].beu2ti_tstp_offset[beu] = beu2ti_tstp_offset;
 				}
 /*
 printf("ti=0x%08x beu(%d)=0x%04x offset=0x%08x first_offset=0x%08x diff=0x%04x\n",
 phy_evt_stat->ti_tstp_lo,
 beu, phy_evt_stat->beu_tstp_lo[beu],
-beu2ti_tstp_offset, timing_histos.beu2ti_tstp_offset[beu],
-beu2ti_tstp_offset - timing_histos.beu2ti_tstp_offset[beu]);
+beu2ti_tstp_offset, timing_histos[sys_type].beu2ti_tstp_offset[beu],
+beu2ti_tstp_offset - timing_histos[sys_type].beu2ti_tstp_offset[beu]);
 //getchar();
 */
-				Histo_Add(&(timing_histos_raw.beu2ti_tstp_histo[beu]), (beu2ti_tstp_offset - timing_histos_raw.beu2ti_tstp_offset[beu]) );
+				Histo_Add(&(timing_histos_raw[sys_type].beu2ti_tstp_histo[beu]), (beu2ti_tstp_offset - timing_histos_raw[sys_type].beu2ti_tstp_offset[beu]) );
 				// Fine timestamp
 				if( phy_evt_stat->beu_tstp_fn[beu] == 0x0700 )
-					Histo_Add(&(timing_histos_raw.beu_ftstp_histo[beu]), 0 );
+					Histo_Add(&(timing_histos_raw[sys_type].beu_ftstp_histo[beu]), 0 );
 				else if( phy_evt_stat->beu_tstp_fn[beu] == 0x0f00 )
-					Histo_Add(&(timing_histos_raw.beu_ftstp_histo[beu]), 1 );
+					Histo_Add(&(timing_histos_raw[sys_type].beu_ftstp_histo[beu]), 1 );
 				else
 				{
 					fprintf( stderr, "%s: WARNING beu %d beu_evid_ac = 0x%03x unknown ftstp=0x%04x\n",
@@ -700,20 +730,16 @@ beu2ti_tstp_offset - timing_histos.beu2ti_tstp_offset[beu]);
 			{
 				beu2ti_tstp_offset = ( ((((unsigned int)phy_evt_stat->beu_tstp_lo[beu])<<1)&0xFFF) - (phy_evt_stat->ti_tstp_lo & 0xFFF) ) & 0xFFF;
 	//			beu2ti_tstp_offset = (  (((unsigned int)phy_evt_stat->beu_tstp_lo[beu])&0xFFF) - ((phy_evt_stat->ti_tstp_lo >> 1) & 0xFFF) ) & 0xFFF;
-				if( timing_histos_cmp.beu2ti_tstp_offset[beu] == 0xFFFFffff )
+				if( timing_histos_cmp[sys_type].beu2ti_tstp_offset[beu] == 0xFFFFffff )
 				{
-					timing_histos_cmp.beu2ti_tstp_offset[beu] = beu2ti_tstp_offset;
+					timing_histos_cmp[sys_type].beu2ti_tstp_offset[beu] = beu2ti_tstp_offset;
 				}
-				if( timing_histos_cmp.beu2ti_tstp_offset[beu] == 0xFFFFffff )
-				{
-					timing_histos_cmp.beu2ti_tstp_offset[beu] = beu2ti_tstp_offset;
-				}
-				Histo_Add(&(timing_histos_cmp.beu2ti_tstp_histo[beu]), (beu2ti_tstp_offset - timing_histos_cmp.beu2ti_tstp_offset[beu]) );
+				Histo_Add(&(timing_histos_cmp[sys_type].beu2ti_tstp_histo[beu]), (beu2ti_tstp_offset - timing_histos_cmp[sys_type].beu2ti_tstp_offset[beu]) );
 				// Fine timestamp
 				if( phy_evt_stat->beu_tstp_fn[beu] == 0x0700 )
-					Histo_Add(&(timing_histos_cmp.beu_ftstp_histo[beu]), 0 );
+					Histo_Add(&(timing_histos_cmp[sys_type].beu_ftstp_histo[beu]), 0 );
 				else if( phy_evt_stat->beu_tstp_fn[beu] == 0x0f00 )
-					Histo_Add(&(timing_histos_cmp.beu_ftstp_histo[beu]), 1 );
+					Histo_Add(&(timing_histos_cmp[sys_type].beu_ftstp_histo[beu]), 1 );
 				else
 				{
 					fprintf( stderr, "%s: WARNING beu %d beu_evid_ac = 0x%03x unknown ftstp=0x%04x\n",
@@ -759,28 +785,30 @@ beu2ti_tstp_offset - timing_histos.beu2ti_tstp_offset[beu]);
 
 				// Timestamp
 				feu2beu_tstp_offset = ( ((unsigned int)phy_evt_stat->feu_tstp[feu]) - (((unsigned int)phy_evt_stat->beu_tstp_lo[beu])&0xFFF) ) & 0xFFF;
-				if( timing_histos_raw.feu2beu_tstp_offset[feu] == 0xFFFFffff )
+				if( timing_histos_raw[sys_type].feu2beu_tstp_offset[feu] == 0xFFFFffff )
 				{
-					timing_histos_raw.feu2beu_tstp_offset[feu] = feu2beu_tstp_offset;
-					timing_histos_raw.feu_beu_id[feu] = beu;
+					timing_histos_raw[sys_type].feu2beu_tstp_offset[feu] = feu2beu_tstp_offset;
+					timing_histos_raw[sys_type].feu_beu_id[feu] = beu;
 				}
-				if( timing_histos_cmp.feu2beu_tstp_offset[feu] == 0xFFFFffff )
+				if( timing_histos_cmp[sys_type].feu2beu_tstp_offset[feu] == 0xFFFFffff )
 				{
-					timing_histos_cmp.feu2beu_tstp_offset[feu] = feu2beu_tstp_offset;
-					timing_histos_cmp.feu_beu_id[feu] = beu;
+					timing_histos_cmp[sys_type].feu2beu_tstp_offset[feu] = feu2beu_tstp_offset;
+					timing_histos_cmp[sys_type].feu_beu_id[feu] = beu;
 				}
-				Histo_Add(&(timing_histos_raw.feu2beu_tstp_histo[feu]), (feu2beu_tstp_offset - timing_histos_raw.feu2beu_tstp_offset[feu]) );
-				Histo_Add(&(timing_histos_cmp.feu2beu_tstp_histo[feu]), (feu2beu_tstp_offset - timing_histos_cmp.feu2beu_tstp_offset[feu]) );
-/*
-printf("beu(%d)=0x%04x 0x%04x 0x%04x feu(%2d)=0x%04x offset=0x%08x first_offset=0x%08x diff=0x%08x\n",
-beu, phy_evt_stat->beu_tstp_hi[beu], phy_evt_stat->beu_tstp_mi[beu], phy_evt_stat->beu_tstp_lo[beu],
-feu, phy_evt_stat->feu_tstp[feu], feu2beu_tstp_offset, timing_histos.feu2beu_tstp_offset[feu],
-(feu2beu_tstp_offset - timing_histos.feu2beu_tstp_offset[feu]) );
-//getchar();
-*/
+				Histo_Add(&(timing_histos_raw[sys_type].feu2beu_tstp_histo[feu]), (feu2beu_tstp_offset - timing_histos_raw[sys_type].feu2beu_tstp_offset[feu]) );
+				Histo_Add(&(timing_histos_cmp[sys_type].feu2beu_tstp_histo[feu]), (feu2beu_tstp_offset - timing_histos_cmp[sys_type].feu2beu_tstp_offset[feu]) );
 
-				Histo_Add(&(timing_histos_raw.feu_ftstp_histo[feu]), phy_evt_stat->feu_ftstp[feu] );
-				Histo_Add(&(timing_histos_cmp.feu_ftstp_histo[feu]), phy_evt_stat->feu_ftstp[feu] );
+if( feu2beu_tstp_offset - timing_histos_cmp[sys_type].feu2beu_tstp_offset[feu] )
+printf("event id hi=%d mi=%d lo=%d acc=%d beu(%d)=0x%04x 0x%04x 0x%04x feu(%2d)=0x%04x offset=0x%08x first_offset=0x%08x diff=0x%08x\n",
+phy_evt_stat->beu_evid_hi[beu], phy_evt_stat->beu_evid_mi[beu], phy_evt_stat->beu_evid_lo[beu], phy_evt_stat->beu_evid_ac[beu],
+beu, phy_evt_stat->beu_tstp_hi[beu], phy_evt_stat->beu_tstp_mi[beu], phy_evt_stat->beu_tstp_lo[beu],
+feu, phy_evt_stat->feu_tstp[feu], feu2beu_tstp_offset, timing_histos_cmp[sys_type].feu2beu_tstp_offset[feu],
+(feu2beu_tstp_offset - timing_histos_cmp[sys_type].feu2beu_tstp_offset[feu]) );
+//getchar();
+
+
+				Histo_Add(&(timing_histos_raw[sys_type].feu_ftstp_histo[feu]), phy_evt_stat->feu_ftstp[feu] );
+				Histo_Add(&(timing_histos_cmp[sys_type].feu_ftstp_histo[feu]), phy_evt_stat->feu_ftstp[feu] );
 			} // if( phy_evt_stat->feu_smp_num[feu] > 0 )
 		} // for( feu=0; feu<Def_MaxNbOfFeu; feu++ )
 	} // if( phy_evt_stat->nb_of_feu > 0 )
@@ -789,8 +817,8 @@ feu, phy_evt_stat->feu_tstp[feu], feu2beu_tstp_offset, timing_histos.feu2beu_tst
 }
 
 // Per event statistics
-PhyEvtStat phy_evt_stat_raw;
-PhyEvtStat phy_evt_stat_cmp;
+PhyEvtStat phy_evt_stat_raw[Def_SysNum];
+PhyEvtStat phy_evt_stat_cmp[Def_SysNum];
 
 int FeuWordWrite( unsigned short word, FILE* fptr )
 {
@@ -822,21 +850,30 @@ int PhyEvtStat_SaveFdf(PhyEvtStat *phy_evt_stat, int feu_id, int zero_sup, char 
 	short dream_chan;
 	int samples;
 	int chan;
+	FILE *feu_fptr;
+	
+//	if( phy_evt_stat->sys_type == SysType_UKN )
+//	    return 0;
+	
+	feu_fptr = feu_data_fptr[phy_evt_stat->sys_type*Def_MaxNbOfFeu+feu_id];
 
 	// Open File if necessary
-	if( feu_data_fptr[feu_id] == (FILE *)NULL )
+	if( feu_fptr == (FILE *)NULL )
 	{
 		if( (first_phy_blk != 0) || (last_phy_blk != 0x7fffFFFF) )
-			sprintf( feu_bin_data_file_name, "%s_%dTo%d_%02d.fdf", base_file_name, first_phy_blk, last_phy_blk, feu_id );
+			sprintf( feu_bin_data_file_name, "%s_%dTo%d_%s_%02d.fdf",
+                base_file_name, first_phy_blk, last_phy_blk, SysType2Str( phy_evt_stat->sys_type ), feu_id );
 		else
-			sprintf( feu_bin_data_file_name, "%s_%02d.fdf", base_file_name, feu_id );
+			sprintf( feu_bin_data_file_name, "%s_%s_%02d.fdf",
+                base_file_name, SysType2Str( phy_evt_stat->sys_type ), feu_id );
 //fprintf( stderr, "feu_id=%d file=%s to be opend\n", feu_id, base_file_name);
-		if( (feu_data_fptr[feu_id]=fopen(feu_bin_data_file_name, "wb")) == ((FILE *)NULL) )
+		if( (feu_fptr=fopen(feu_bin_data_file_name, "wb")) == ((FILE *)NULL) )
 		{
 			fprintf( stderr, "%s: fopen failed for file %s in binary write mode with %s\n",
 				__FUNCTION__, feu_bin_data_file_name, strerror(errno) );
 			return -1;
 		}
+	    feu_data_fptr[phy_evt_stat->sys_type*Def_MaxNbOfFeu+feu_id] = feu_fptr;
 		feu_data_fptr_cntr++;
 	}
 	// Feu ID
@@ -844,10 +881,10 @@ int PhyEvtStat_SaveFdf(PhyEvtStat *phy_evt_stat, int feu_id, int zero_sup, char 
 	for( samples=0; samples<phy_evt_stat->feu_smp_num[feu_id]; samples++ )
 	{
 		feu_data_len = 0;
-		word = 0x6000 | (zero_sup<<10) | (feu_id & 0xFF);         FeuWordWrite( word, feu_data_fptr[feu_id] ); feu_data_len++;
-		word = 0x6000 | (phy_evt_stat->feu_evid[feu_id] & 0xFFF); FeuWordWrite( word, feu_data_fptr[feu_id] ); feu_data_len++;
-		word = 0x6000 | (phy_evt_stat->feu_tstp[feu_id] & 0xFFF); FeuWordWrite( word, feu_data_fptr[feu_id] ); feu_data_len++;
-		word = 0x6000 | (( (samples << 3) | phy_evt_stat->feu_ftstp[feu_id]) & 0xFFF); FeuWordWrite( word, feu_data_fptr[feu_id] ); feu_data_len++;
+		word = 0x6000 | (zero_sup<<10) | (feu_id & 0xFF);         FeuWordWrite( word, feu_fptr ); feu_data_len++;
+		word = 0x6000 | (phy_evt_stat->feu_evid[feu_id] & 0xFFF); FeuWordWrite( word, feu_fptr ); feu_data_len++;
+		word = 0x6000 | (phy_evt_stat->feu_tstp[feu_id] & 0xFFF); FeuWordWrite( word, feu_fptr ); feu_data_len++;
+		word = 0x6000 | (( (samples << 3) | phy_evt_stat->feu_ftstp[feu_id]) & 0xFFF); FeuWordWrite( word, feu_fptr ); feu_data_len++;
 		cur_dream = -1;
 		for( feu_chan=0; feu_chan<feu_chan_num; feu_chan++ )
 		{
@@ -862,35 +899,35 @@ int PhyEvtStat_SaveFdf(PhyEvtStat *phy_evt_stat, int feu_id, int zero_sup, char 
 					if( (cur_dream >= 0) )
 					{
 						// write current dream trailer
-						word = 0x4000 | (cur_dream<<9); FeuWordWrite( word, feu_data_fptr[feu_id] ); feu_data_len++;
+						word = 0x4000 | (cur_dream<<9); FeuWordWrite( word, feu_fptr ); feu_data_len++;
 					}
 					// write new dream header
 					cur_dream = dream;
-					word = 0x2000 | (cur_dream<<9); FeuWordWrite( word, feu_data_fptr[feu_id] ); feu_data_len++;
+					word = 0x2000 | (cur_dream<<9); FeuWordWrite( word, feu_fptr ); feu_data_len++;
 				}
-				word = feu_smp_val[feu_chan][samples] & 0xFFF; FeuWordWrite( word, feu_data_fptr[feu_id] ); feu_data_len++;
+				word = feu_smp_val[feu_chan][samples] & 0xFFF; FeuWordWrite( word, feu_fptr ); feu_data_len++;
 			}
 			else
 			{
-				word = 0x1000 | (dream<<6) | chan;    FeuWordWrite( word, feu_data_fptr[feu_id] ); feu_data_len++;
+				word = 0x1000 | (dream<<6) | chan;    FeuWordWrite( word, feu_fptr ); feu_data_len++;
 //printf(" chan=0x%04x", word);
-				word = feu_smp_val[feu_chan][samples] & 0xFFF; FeuWordWrite( word, feu_data_fptr[feu_id] ); feu_data_len++;
+				word = feu_smp_val[feu_chan][samples] & 0xFFF; FeuWordWrite( word, feu_fptr ); feu_data_len++;
 //printf(" smp=0x%04x\n", word);
 			}
 		}
 		// write current dream trailer if needed
 		if( (zero_sup == 0) && (cur_dream >= 0) )
 		{
-				word = 0x4000 | (cur_dream<<9); FeuWordWrite( word, feu_data_fptr[feu_id] ); feu_data_len++;
+				word = 0x4000 | (cur_dream<<9); FeuWordWrite( word, feu_fptr ); feu_data_len++;
 		}
 		// Feu Trailler
 		word = 0x7000 | ((feu_data_len+1) & 0xFFF);
 		// Set end of event flag for last sample
 		if( samples == (phy_evt_stat->feu_smp_num[feu_id] - 1) )
 			word |= 0x800;
-		 FeuWordWrite( word, feu_data_fptr[feu_id] );
+		 FeuWordWrite( word, feu_fptr );
 		// VEP emulator
-		word = 0; FeuWordWrite( word, feu_data_fptr[feu_id] );
+		word = 0; FeuWordWrite( word, feu_fptr );
 //fprintf( stdout, "   feu_id=%d smp=%d feu_data_len=%d\n", feu_id, samples, feu_data_len);
 	}
 	return wr_len;
@@ -1974,6 +2011,8 @@ int TiBank_Disent_Fill( TiBank_Dis *ti_bank, unsigned int *buf )
 		((ti_bank->type_count & 0xFFFFFF00) != 0Xfe010000)
 		&&
 		((ti_bank->type_count & 0xFFFFFF00) != 0Xfd010000)
+		&&
+                ((ti_bank->type_count & 0xFFFFFF00) != 0X2b010000)
 	)
 	{
 		fprintf( stderr, "%s: Unexpected TI banck type 0x%08x\n", __FUNCTION__, ti_bank->type_count );
@@ -2023,7 +2062,7 @@ int TiBank_Disent_Printf( TiBank_Dis *ti_bank, FILE *fptr )
 #define CMP_GetBeuTstp16Lsb( tstp_lo ) ( ((tstp_lo)>>16)&0xFFFF)
 #define CMP_GetBeuTstp30Msb( tstp_hi ) (  (tstp_hi)     &0x3FFFFFFF)
 
-int MvtCmpDataRead( unsigned int *buf, int buf_len )
+int MvtCmpDataRead( unsigned int *buf, int buf_len, PhyEvtStat *phy_evt_stat )
 {
 	unsigned int *ptr;
 	int index;
@@ -2154,6 +2193,7 @@ int MvtCmpDataRead( unsigned int *buf, int buf_len )
 		beu_id = CMP_GetBeuId( crate );
 		lnk_id = CMP_GetLnkId( crate );
 		zero_sup      =   CMP_GetFeuZs(        tstp_lo );
+//fprintf( stdout, " zero_sup=%d\n", zero_sup );
 		feu_tstp      =   CMP_GetFeuTstp(      tstp_lo );
 		feu_fine_tstp =   CMP_GetFeuFineTstp(  tstp_lo );
 		beu_tstp_lo   = ((CMP_GetBeuTstp30Msb( tstp_hi ) & 0x1) << 15) | (CMP_GetBeuTstp16Lsb( tstp_lo ) >> 1);
@@ -2169,29 +2209,29 @@ int MvtCmpDataRead( unsigned int *buf, int buf_len )
 
 		if( beu_id != cur_beu )
 		{
-			phy_evt_stat_cmp.nb_of_beu++;
+			phy_evt_stat->nb_of_beu++;
 			cur_beu = beu_id;
-			phy_evt_stat_cmp.beu_evid_ac[beu_id] =   evnt_id & 0x0FFF;
-			phy_evt_stat_cmp.beu_evid_lo[beu_id] =   evnt_id & 0x7FFF;
+			phy_evt_stat->beu_evid_ac[beu_id] =   evnt_id & 0x0FFF;
+			phy_evt_stat->beu_evid_lo[beu_id] =   evnt_id & 0x7FFF;
 //if( phy_evt_stat_cmp.beu_evid_lo[beu_id] == 0x27c1 )
 //fprintf( stdout, " evnt_id=0x%08x\n", evnt_id );
 
-			phy_evt_stat_cmp.beu_evid_mi[beu_id] = ( evnt_id >> 15 ) & 0x7FFF;
-			phy_evt_stat_cmp.beu_evid_hi[beu_id] = ( evnt_id >> 30 ) & 0x3;
-			phy_evt_stat_cmp.beu_tstp_hi[beu_id] = beu_tstp_hi;
-			phy_evt_stat_cmp.beu_tstp_mi[beu_id] = beu_tstp_mi;
-			phy_evt_stat_cmp.beu_tstp_lo[beu_id] = beu_tstp_lo;
-			phy_evt_stat_cmp.beu_tstp_fn[beu_id] = beu_tstp_fn;
+			phy_evt_stat->beu_evid_mi[beu_id] = ( evnt_id >> 15 ) & 0x7FFF;
+			phy_evt_stat->beu_evid_hi[beu_id] = ( evnt_id >> 30 ) & 0x3;
+			phy_evt_stat->beu_tstp_hi[beu_id] = beu_tstp_hi;
+			phy_evt_stat->beu_tstp_mi[beu_id] = beu_tstp_mi;
+			phy_evt_stat->beu_tstp_lo[beu_id] = beu_tstp_lo;
+			phy_evt_stat->beu_tstp_fn[beu_id] = beu_tstp_fn;
 		}
 		if( crate != cur_feu )
 		{
-			phy_evt_stat_cmp.nb_of_feu++;
+			phy_evt_stat->nb_of_feu++;
 			cur_feu = crate;
 			cur_drm = -1;
-			phy_evt_stat_cmp.feu_evid[crate]   = evnt_id & 0xFFF;
-			phy_evt_stat_cmp.feu_ftstp[crate]  = feu_fine_tstp;
-			phy_evt_stat_cmp.feu_tstp[crate]   = feu_tstp;
-			phy_evt_stat_cmp.feu_beu_id[crate] = beu_id;
+			phy_evt_stat->feu_evid[crate]   = evnt_id & 0xFFF;
+			phy_evt_stat->feu_ftstp[crate]  = feu_fine_tstp;
+			phy_evt_stat->feu_tstp[crate]   = feu_tstp;
+			phy_evt_stat->feu_beu_id[crate] = beu_id;
 		}
 //fprintf( stdout, " \n\ncrate %d; evt_id=0x%08x %d; tstp_lo=0x%08x tstp_hi=0x%08x\n", crate, evnt_id, evnt_id, tstp_lo, tstp_hi );
 //fprintf( stdout, " Beu %d Link %d\n", beu_id, lnk_id );
@@ -2233,31 +2273,31 @@ int MvtCmpDataRead( unsigned int *buf, int buf_len )
 		} // for( index=0; index<nb_of_chan; index++ )
 //fprintf( stdout, " cmp_size =%d after beu=%d\n", cmp_size, beu_id );
 		feu_chan_num = nb_of_chan;
-		phy_evt_stat_cmp.feu_smp_num[crate] = nb_of_samples;
-		phy_evt_stat_cmp.beu_smp_num[phy_evt_stat_cmp.feu_beu_id[crate]] = nb_of_samples;
+		phy_evt_stat->feu_smp_num[crate] = nb_of_samples;
+		phy_evt_stat->beu_smp_num[phy_evt_stat->feu_beu_id[crate]] = nb_of_samples;
 //if( nb_of_chan*(1+2+nb_of_samples)+6 == 6124 )
 //fprintf( stdout, " nb_of_chan=%d nb_of_samples=%d evnt_id=%d feu_tstp=%d feu_fine_tstp=%d\n",
 //		nb_of_chan, nb_of_samples, evnt_id, feu_tstp, feu_fine_tstp );
 
-		Histo_Add( &(timing_histos_cmp.feu_smp_size_histo[crate]), nb_of_chan*(1+2+nb_of_samples)+6 );
-			if( (first_phy_blk <= evt_blk_cnt) && (evt_blk_cnt <= last_phy_blk) )
-			{
-				if( do_feu_bin_files && ( cur_feu >= 0 ) )
-					if( (ret = PhyEvtStat_SaveFdf(&phy_evt_stat_cmp, cur_feu, zero_sup, rootfilename(bin_data_file_name))) < 0 )
-					{
-						fprintf( stderr, "%s: PhyEvtStat_SaveFdf failed for evt=%d feu=%d\n", __FUNCTION__, phy_evt_stat_cmp.id, cur_feu );
-						return -4;
-					}
-				if( do_disp_file && ( cur_feu >= 0 ) )
-					if( (ret = MvtPlot_Update( &mvt_event_plot, disp_type, &phy_evt_stat_cmp, cur_feu, zero_sup )) < 0 )
-					{
-						fprintf( stderr, "%s: MvtPlot_Update failed for evt=%d feu=%d\n", __FUNCTION__, phy_evt_stat_cmp.id, cur_feu );
-						return -4;
-					}
-			}
+		Histo_Add( &(timing_histos_cmp[phy_evt_stat->sys_type].feu_smp_size_histo[crate]), 0+2+4+2+nb_of_chan*(1+2+nb_of_samples*1) );
+		if( (first_phy_blk <= evt_blk_cnt) && (evt_blk_cnt <= last_phy_blk) )
+		{
+			if( do_feu_bin_files && ( cur_feu >= 0 ) )
+				if( (ret = PhyEvtStat_SaveFdf(phy_evt_stat, cur_feu, zero_sup, rootfilename(bin_data_file_name))) < 0 )
+				{
+					fprintf( stderr, "%s: PhyEvtStat_SaveFdf failed for evt=%d feu=%d\n", __FUNCTION__, phy_evt_stat->id, cur_feu );
+					return -4;
+				}
+			if( do_disp_file && ( cur_feu >= 0 ) )
+				if( (ret = MvtPlot_Update( &mvt_event_plot, disp_type, phy_evt_stat, cur_feu, zero_sup )) < 0 )
+				{
+					fprintf( stderr, "%s: MvtPlot_Update failed for evt=%d feu=%d\n", __FUNCTION__, phy_evt_stat->id, cur_feu );
+					return -4;
+				}
+		}
 	} // while( cmp_size )
-	Histo_Add( &(timing_histos_cmp.mvt_evt_nb_of_chan_histo), total_nb_of_chan );
-	Histo_Add( &(timing_histos_cmp.mvt_evt_nb_of_feu_histo), phy_evt_stat_cmp.nb_of_feu );
+	Histo_Add( &(timing_histos_cmp[phy_evt_stat->sys_type].mvt_evt_nb_of_chan_histo), total_nb_of_chan );
+	Histo_Add( &(timing_histos_cmp[phy_evt_stat->sys_type].mvt_evt_nb_of_feu_histo), phy_evt_stat->nb_of_feu );
 /*
 	while( cmp_size )
 	{
@@ -2356,6 +2396,7 @@ void usage( char *name )
 void cleanup(int param)
 {
 	int feu_id;
+	int index;
 	if( param )
 		fprintf( stderr, "cleanup: Entering with %d\n", param );
 
@@ -2373,8 +2414,16 @@ void cleanup(int param)
 
 	fprintf(stdout, " ti_evt_cnt=%d\n",     ti_evt_cnt);
 
-	fprintf(stdout, " mvt_raw_evt_cnt=%d\n", mvt_raw_evt_cnt);
-	fprintf(stdout, " mvt_cmp_evt_cnt=%d\n", mvt_cmp_evt_cnt);
+	for( index=0; index<Def_SysNum; index++ )
+    {
+        if( mvt_raw_evt_cnt[index] )
+	        fprintf(stdout, " mvt_raw_evt_cnt=%d in system %s\n", mvt_raw_evt_cnt[index], SysType2Str( index));
+	}
+	for( index=0; index<Def_SysNum; index++ )
+    {
+        if( mvt_cmp_evt_cnt[index] )
+	        fprintf(stdout, " mvt_cmp_evt_cnt=%d in system %s\n", mvt_cmp_evt_cnt[index], SysType2Str( index));
+	}
 	fprintf(stdout, " cfg_evt_cnt=%d\n", cfg_evt_cnt);
 
 	fprintf(stdout, " unknown_asc_cnt=%d\n",     unknown_asc_cnt);
@@ -2382,21 +2431,38 @@ void cleanup(int param)
 	fprintf(stdout, " unknown_cmp_cnt=%d\n",     unknown_cmp_cnt);
 	fprintf(stdout, " unknown_ent_cnt=%d\n",     unknown_ent_cnt);
 
-	if( mvt_raw_evt_cnt )
-	{
-		fprintf(stdout, "\nRAW data stat histos for %d events\n", mvt_raw_evt_cnt);
-		TimingHistos_DumpStat(&timing_histos_raw, stdout);
-		fprintf(stdout, "\n", mvt_raw_evt_cnt);
-		if( do_hst_file )
-			TimingHistos_DumpHistos(&timing_histos_raw, hst_data_fptr);
+	for( index=0; index<Def_SysNum; index++ )
+    {
+	    if( mvt_raw_evt_cnt[index] )
+	    {
+            fprintf(stdout, "\nRAW data stat histos for %d events in system %s\n",
+                mvt_raw_evt_cnt[index], SysType2Str( index));
+            TimingHistos_DumpStat(&timing_histos_raw[index], stdout);    
+            fprintf(stdout, "\n");
+		    if( do_hst_file )
+		    {
+                fprintf(hst_data_fptr, "\nRAW data stat histos for %d events in system %s\n",
+                    mvt_raw_evt_cnt[index], SysType2Str( index));
+                TimingHistos_DumpHistos(&timing_histos_raw[index], hst_data_fptr);
+            }
+		}
 	}
-	if( mvt_cmp_evt_cnt )
-	{
-		fprintf(stdout, "\nCMP data stat histos for %d events\n", mvt_cmp_evt_cnt);
-		TimingHistos_DumpStat(&timing_histos_cmp, stdout);
-		fprintf(stdout, "\n", mvt_raw_evt_cnt);
-		if( do_hst_file )
-			TimingHistos_DumpHistos(&timing_histos_cmp, hst_data_fptr);
+	
+	for( index=0; index<Def_SysNum; index++ )
+    {
+	    if( mvt_cmp_evt_cnt[index] )
+	    {
+            fprintf(stdout, "\nCMP data stat histos for %d events in system %s\n",
+                mvt_cmp_evt_cnt[index], SysType2Str( index));
+            TimingHistos_DumpStat(&timing_histos_cmp[index], stdout);    
+            fprintf(stdout, "\n");
+		    if( do_hst_file )
+		    {
+                fprintf(hst_data_fptr, "\nCMP data stat histos for %d events in system %s\n",
+                    mvt_cmp_evt_cnt[index], SysType2Str( index));
+                TimingHistos_DumpHistos(&timing_histos_cmp[index], hst_data_fptr);
+            }
+		}
 	}
 
 	// Close data files
@@ -2438,7 +2504,7 @@ void cleanup(int param)
 			printf( "cleanup: cfg_data_fptr closed\n" );
 	}
 
-	for( feu_id=0; feu_id<Def_MaxNbOfFeu; feu_id++ )
+	for( feu_id=0; feu_id<Def_MaxNbFeuFptr; feu_id++ )
 	{
 		if( feu_data_fptr[feu_id] != (FILE *)NULL )
 		{
@@ -2467,8 +2533,11 @@ void cleanup(int param)
 	}
 
 	// Free allocated timing histos
-	TimingHistos_Free( &timing_histos_raw );
-	TimingHistos_Free( &timing_histos_cmp );
+	for( index=0; index<Def_SysNum; index++ )
+	{
+	    TimingHistos_Free( &timing_histos_raw[index] );
+    	TimingHistos_Free( &timing_histos_cmp[index] );
+    }
 	if( verbose > 1 )
 		printf( "cleanup: TimingHistos_Free called\n" );
 
@@ -2512,6 +2581,8 @@ int main( int argc, char* *argv )
 	int pause;
 	char disp_data_file_name[128];
 
+	SysType sys_type;
+
 	int ret;
 	int feu_wr_len;
 
@@ -2527,6 +2598,7 @@ int main( int argc, char* *argv )
 	NetHdr net_hdr;
 	int net_buf_len;
 	int next_ent_len_to_be_read;
+	int net_hdr_detected;
 
 	RcSync     *rc_sync;
 	RcGo       *rc_go;
@@ -2562,6 +2634,8 @@ int main( int argc, char* *argv )
 	disp_type      = ValType_MaxVal;
 	pause          = 0;
 	prescale_event = 0;
+
+	sys_type = SysType_UKN;
 
 	/******************************/
 	/* Check for input parameters */
@@ -2736,8 +2810,13 @@ int main( int argc, char* *argv )
 		mvt_plot_fptr = (FILE *)NULL;
 
 	// Allocated timing histos
-	TimingHistos_Init( &timing_histos_raw );
-	TimingHistos_Init( &timing_histos_cmp );
+	for( index=0; index<Def_SysNum; index++ )
+	{
+	    TimingHistos_Init( &timing_histos_raw[index] );
+    	TimingHistos_Init( &timing_histos_cmp[index] );
+        mvt_raw_evt_cnt[index] = 0;
+        mvt_cmp_evt_cnt[index] = 0;
+   }
 
 	/*
 	 * Main loop
@@ -2755,8 +2834,6 @@ int main( int argc, char* *argv )
 	evt_hdr_cnt  = 0;
 	evt_blk_cnt  = 0;
 	ti_evt_cnt   = 0;
-	mvt_raw_evt_cnt = 0;
-	mvt_cmp_evt_cnt = 0;
 	cfg_evt_cnt = 0;
 	unknown_cmp_cnt = 0;
 	unknown_int_cnt = 0;
@@ -2777,6 +2854,7 @@ int main( int argc, char* *argv )
 			// Check if nework header has to be stripped
 			if( net_hdr_expected == 1 )
 			{
+				net_hdr_detected = 0;
 				// Skip network header
 				if( ( rd_len = ReadNoumWords(bin_data_fptr, Def_NetHdrSize, (unsigned int *)(&net_hdr)) ) != Def_NetHdrSize )
 				{
@@ -2792,97 +2870,156 @@ int main( int argc, char* *argv )
 						cleanup(-1);
 					}
 				}
-				rd_word_cnt += Def_NetHdrSize;
-				if( verbose > 1 )
-					NetHdr_Printf( stdout, &net_hdr );
-				net_hdr_cnt++;
-				// Network header has been stripped
-				net_buf_len = net_hdr.size - net_hdr.hdr_len;
-				if( net_buf_len )
-					net_hdr_expected = 0;
+				// Check for network header
+				if( (net_hdr.magic & 0xFFFF0000) == 0xc0da0000 )
+				{
+					rd_word_cnt += Def_NetHdrSize;
+					if( verbose > 1 )
+						NetHdr_Printf( stdout, &net_hdr );
+					net_hdr_cnt++;
+					// Network header has been stripped
+					net_buf_len = net_hdr.size - net_hdr.hdr_len;
+					if( net_buf_len > 0 )
+					{
+						net_hdr_expected = 0;
+						net_hdr_detected = 1;
+					}
+					else if( net_buf_len == 0 )
+					{
+						fprintf( stderr, "%s: Empty Network buffer\n", __FUNCTION__ );
+						cleanup(-2);
+					}
+					else
+					{
+						fprintf( stderr, "%s: Negative net_buf_len=%d\n", __FUNCTION__, net_buf_len );
+						cleanup(-2);
+					}
+				}
 				else
 				{
-					fprintf( stderr, "%s: Empty Network buffer\n", __FUNCTION__ );
-					cleanup(-2);
+					net_hdr_expected = 0;
+					net_hdr_detected = 0;
+					net_buf_len      = 0;
 				}
 			}
 			if( next_ent_len == 0 )
 			{
-				// Get next entry length
-				if( ( rd_len = ReadNoumWords(bin_data_fptr, 1, &next_ent_len) ) != 1 )
+				if( net_hdr_detected )
 				{
-					fprintf( stderr, "%s: ReadNoumWords failed for next_ent_len with rd_len=%d != 1\n", __FUNCTION__, rd_len );
-					cleanup(-3);
-				}
-				rd_word_cnt += 1;
-				if( verbose > 2 )
-					fprintf(stdout, "%s: next_ent_len = %d net_buf_len = %d\n", __FUNCTION__, next_ent_len, net_buf_len);
-				// determine buffer length to allocate
-				if( next_ent_len <= 0 )
-				{
-					fprintf( stderr, "%s: unexpected next_ent_len=%d 0x%08x must be positive\n", __FUNCTION__, next_ent_len, next_ent_len );
-					// try to get few more words to understand their nature
-					rd_word_cnt = 0;
-					do
+					// Get next entry length
+					if( ( rd_len = ReadNoumWords(bin_data_fptr, 1, &next_ent_len) ) != 1 )
 					{
-						net_buf_len=0;
+						fprintf( stderr, "%s: ReadNoumWords failed for next_ent_len with rd_len=%d != 1\n", __FUNCTION__, rd_len );
+						cleanup(-3);
+					}
+					rd_word_cnt += 1;
+					if( verbose > 2 )
+						fprintf(stdout, "%s: next_ent_len = %d net_buf_len = %d\n", __FUNCTION__, next_ent_len, net_buf_len);
+					// determine buffer length to allocate
+					if( next_ent_len <= 0 )
+					{
+						fprintf( stderr, "%s: unexpected next_ent_len=%d 0x%08x must be positive\n", __FUNCTION__, next_ent_len, next_ent_len );
+						// try to get few more words to understand their nature
+						rd_word_cnt = 0;
 						do
 						{
-							if( ( rd_len = ReadNoumWords(bin_data_fptr, 1, &next_ent_len) ) != 1 )
+							net_buf_len=0;
+							do
 							{
-								fprintf( stderr, "%s: ReadNoumWords failed for tst word %d with rd_len=%d != 1\n", __FUNCTION__, net_buf_len, rd_len );
-								cleanup(-3);
-							}
-							net_buf_len++;
-						} while ( next_ent_len == 0 );
-						rd_word_cnt++;
-						fprintf( stderr, "%s: %4d word after negative and %2d 0 words : 0x%08x %d\n", __FUNCTION__, rd_word_cnt, net_buf_len-1, next_ent_len, next_ent_len );
-					} while( rd_word_cnt < 200 );
-					cleanup(-4);
+								if( ( rd_len = ReadNoumWords(bin_data_fptr, 1, &next_ent_len) ) != 1 )
+								{
+									fprintf( stderr, "%s: ReadNoumWords failed for tst word %d with rd_len=%d != 1\n", __FUNCTION__, net_buf_len, rd_len );
+									cleanup(-3);
+								}
+								net_buf_len++;
+							} while ( next_ent_len == 0 );
+							rd_word_cnt++;
+							fprintf( stderr, "%s: %4d word after negative and %2d 0 words : 0x%08x %d\n", __FUNCTION__, rd_word_cnt, net_buf_len-1, next_ent_len, next_ent_len );
+						} while( rd_word_cnt < 200 );
+						cleanup(-4);
+					}
+					// One word has been read
+					net_buf_len--;
+					// Allocate requested buffer
+					if( (rd_buf = (unsigned int *)calloc(next_ent_len+1, sizeof(int))) == (unsigned int *)NULL )
+					{
+						fprintf( stderr, "%s: calloc failed for %d words\n", __FUNCTION__, next_ent_len+1 );
+						cleanup(-5);
+					}
+					// Now the buffer has to be filled from the file stripping if necessary the network header
+					// first wright the entity length in the buffer
+					rd_buf_ptr = rd_buf;
+					if( verbose > 2 )
+						fprintf(stdout, "%s: rd_buf_ptr = 0x%08x\n", __FUNCTION__, (unsigned int)rd_buf_ptr);
+					*rd_buf_ptr++ = next_ent_len;
+					next_ent_len_to_be_read = next_ent_len;
+					if( verbose > 2 )
+						fprintf(stdout, "%s: next_ent_len_to_be_read = %d\n", __FUNCTION__, next_ent_len_to_be_read);
+					// Compute what needs to be read from the current network buffer
+					rd_buf_len = next_ent_len_to_be_read < net_buf_len ? next_ent_len_to_be_read : net_buf_len;
+					if( verbose > 2 )
+						fprintf(stdout, "%s: rd_buf_len = %d\n", __FUNCTION__, rd_buf_len);
+					// Now read requested number of words
+					if( ( rd_len = ReadNoumWords(bin_data_fptr, rd_buf_len, rd_buf_ptr) ) != rd_buf_len )
+					{
+						fprintf( stderr, "%s: ReadNoumWords failed with rd_len=%d != rd_buf_len\n", __FUNCTION__, rd_len, rd_buf_len );
+						cleanup(-6);
+					}
+					rd_word_cnt += rd_buf_len;
+					// Update network buffer
+					rd_buf_ptr += rd_len;
+					net_buf_len -= rd_len;
+					if( net_buf_len == 0 )
+						net_hdr_expected = 1;
+					// Update remained next entity data to be read
+					next_ent_len_to_be_read -= rd_len;
+					if( next_ent_len_to_be_read == 0 )
+					{
+						ent_len = next_ent_len;
+						if( verbose > 2 )
+							fprintf(stdout, "%s: rd_buf = 0x%08x rd_buf_len=%d\n", __FUNCTION__, (unsigned int)rd_buf, ent_len);
+						next_ent_len = 0;
+					}
 				}
-				// One word has been read
-				net_buf_len--;
-				// Allocate requested buffer
-				if( (rd_buf = (unsigned int *)calloc(next_ent_len+1, sizeof(int))) == (unsigned int *)NULL )
+				else // of if( net_hdr_detected )
 				{
-					fprintf( stderr, "%s: calloc failed for %d words\n", __FUNCTION__, next_ent_len+1 );
-					cleanup(-5);
-				}
-				// Now the buffer has to be filled from the file stripping if necessary the network header
-				// first wright the entity length in the buffer
-				rd_buf_ptr = rd_buf;
-				if( verbose > 2 )
-					fprintf(stdout, "%s: rd_buf_ptr = 0x%08x\n", __FUNCTION__, (unsigned int)rd_buf_ptr);
-				*rd_buf_ptr++ = next_ent_len;
-				next_ent_len_to_be_read = next_ent_len;
-				if( verbose > 2 )
-					fprintf(stdout, "%s: next_ent_len_to_be_read = %d\n", __FUNCTION__, next_ent_len_to_be_read);
-			}
-			// Compute what needs to be read from the current network buffer
-			rd_buf_len = next_ent_len_to_be_read < net_buf_len ? next_ent_len_to_be_read : net_buf_len;
-			if( verbose > 2 )
-				fprintf(stdout, "%s: rd_buf_len = %d\n", __FUNCTION__, rd_buf_len);
-			// Now read requested number of words
-			if( ( rd_len = ReadNoumWords(bin_data_fptr, rd_buf_len, rd_buf_ptr) ) != rd_buf_len )
-			{
-				fprintf( stderr, "%s: ReadNoumWords failed with rd_len=%d != rd_buf_len\n", __FUNCTION__, rd_len, rd_buf_len );
-				cleanup(-6);
-			}
-			rd_word_cnt += rd_buf_len;
-			// Update network buffer
-			rd_buf_ptr += rd_len;
-			net_buf_len -= rd_len;
-			if( net_buf_len == 0 )
-				net_hdr_expected = 1;
-			// Update remained next entity data to be read
-			next_ent_len_to_be_read -= rd_len;
-			if( next_ent_len_to_be_read == 0 )
-			{
-				ent_len = next_ent_len;
-				if( verbose > 2 )
-					fprintf(stdout, "%s: rd_buf = 0x%08x rd_buf_len=%d\n", __FUNCTION__, (unsigned int)rd_buf, ent_len);
-				next_ent_len = 0;
-			}
+					next_ent_len = net_hdr.size;
+					// Allocate requested buffer
+					if( (rd_buf = (unsigned int *)calloc(next_ent_len+1, sizeof(int))) == (unsigned int *)NULL )
+					{
+						fprintf( stderr, "%s: calloc failed for %d words\n", __FUNCTION__, next_ent_len+1 );
+						cleanup(-5);
+					}
+					// Wrongly prefetched net header data in the newly occupied buffer
+					rd_buf_ptr = rd_buf;
+					if( verbose > 2 )
+						fprintf(stdout, "%s: rd_buf_ptr = 0x%08x\n", __FUNCTION__, (unsigned int)rd_buf_ptr);
+					*rd_buf_ptr++ = net_hdr.size;
+					*rd_buf_ptr++ = net_hdr.blk_num;
+					*rd_buf_ptr++ = net_hdr.hdr_len;
+					*rd_buf_ptr++ = net_hdr.evt_cnt;
+					*rd_buf_ptr++ = net_hdr.rsvd1;
+					*rd_buf_ptr++ = net_hdr.bit_and_ver;
+					*rd_buf_ptr++ = net_hdr.rsvd2;
+					*rd_buf_ptr++ = net_hdr.magic;
+					rd_buf_len = next_ent_len - Def_NetHdrSize;
+					if( verbose > 2 )
+						fprintf(stdout, "%s: rd_buf_len = %d\n", __FUNCTION__, rd_buf_len);
+					// Now read requested number of words
+					if( ( rd_len = ReadNoumWords(bin_data_fptr, rd_buf_len, rd_buf_ptr) ) != rd_buf_len )
+					{
+						fprintf( stderr, "%s: ReadNoumWords failed with rd_len=%d != rd_buf_len\n", __FUNCTION__, rd_len, rd_buf_len );
+						cleanup(-6);
+					}
+					rd_word_cnt += rd_buf_len;
+					if( net_buf_len == 0 )
+						net_hdr_expected = 1;
+					ent_len = next_ent_len;
+					if( verbose > 2 )
+						fprintf(stdout, "%s: rd_buf = 0x%08x rd_buf_len=%d\n", __FUNCTION__, (unsigned int)rd_buf, ent_len);
+					next_ent_len = 0;
+				} // else of if( net_hdr_detected )
+			} // if( next_ent_len == 0 )
 		}
 		else // if( ent_len == 0 )
 		{
@@ -2900,6 +3037,8 @@ int main( int argc, char* *argv )
 				{
 					if
 					( 
+						(cur_ent_type == 0x00ab10cc)
+						||
 						(cur_ent_type == 0x000010cc)
 						||
 						(cur_ent_type == 0x008210cc )
@@ -2912,24 +3051,33 @@ int main( int argc, char* *argv )
 						||
 						(cur_ent_type == 0x00fe10cc) // random trigger
 						||
-                                                (cur_ent_type == 0x00fd10cc) // constant trigger
-                                                ||
+						(cur_ent_type == 0x00fd10cc) // constant trigger
+						||
 						(DEF_GetEvioEntryTag(cur_ent_type) == 0x45) // MVT mvt1
 						||
 						(DEF_GetEvioEntryTag(cur_ent_type) == 0x4B) // FTT mmft1
 						||
 						(DEF_GetEvioEntryTag(cur_ent_type) == 0x01) // STB sedipcq156
-                                                ||
-                                                (DEF_GetEvioEntryTag(cur_ent_type) == 0x3F) // JTB svt3
+						||
+						(DEF_GetEvioEntryTag(cur_ent_type) == 0x3F) // JTB mvt3
+						||
+						((cur_ent_type & 0xFFFFFF00) == 0x00fe0e00) // random trigger out of coda
+						||
+						((cur_ent_type & 0xFFFFFF00) == 0x00fd0e00) // constant trigger out of coda
+						||
+						((cur_ent_type & 0xFFFFFF00) == 0x00000e00) // phy trigger out of coda
 					)
 					{
 //printf("%s: Physics header in cur_ent_type=0x%08x of len=%d\n", __FUNCTION__, cur_ent_type, *rd_buf_ptr);
 						// Looks to be Physics event header
 						evt_hdr_cnt++;
-						PhyEvtStat_Init( &phy_evt_stat_raw );
-						PhyEvtStat_Init( &phy_evt_stat_cmp );
-						phy_evt_stat_raw.size = (*rd_buf_ptr + 1);
-						phy_evt_stat_cmp.size = (*rd_buf_ptr + 1);
+						sys_type = RocId2SysType( DEF_GetEvioEntryTag(cur_ent_type) );
+						PhyEvtStat_Init( &(phy_evt_stat_raw[sys_type]) );
+						PhyEvtStat_Init( &(phy_evt_stat_cmp[sys_type]) );
+						phy_evt_stat_raw[sys_type].size = (*rd_buf_ptr + 1);
+						phy_evt_stat_cmp[sys_type].size = (*rd_buf_ptr + 1);
+						phy_evt_stat_raw[sys_type].sys_type = sys_type;
+						phy_evt_stat_cmp[sys_type].sys_type = sys_type;
 						// This is a bank of bank: skip the header
 						rd_buf_ptr = rd_buf_ptr + Def_EntryHdrSize;
 						rd_buf_ptr_len -= Def_EntryHdrSize;
@@ -2954,7 +3102,7 @@ int main( int argc, char* *argv )
 					}
 					else
 					{
-//fprintf(stdout, "%s: Unknown cur_ent_type=0x%08x of size %d taf 0x%04x skipping!\n", __FUNCTION__, cur_ent_type, (*rd_buf_ptr+1), DEF_GetEvioEntryTag(cur_ent_type) );
+fprintf(stdout, "%s: Unknown cur_ent_type=0x%08x of size %d tag 0x%04x in skipping!\n", __FUNCTION__, cur_ent_type, (*rd_buf_ptr+1), DEF_GetEvioEntryTag(cur_ent_type) );
 						cur_ent_len = (*rd_buf_ptr + 1);
 						rd_buf_ptr = rd_buf_ptr + cur_ent_len;
 						rd_buf_ptr_len -= cur_ent_len;
@@ -2965,24 +3113,18 @@ int main( int argc, char* *argv )
 					if( DEF_GetEvioEntryTag(cur_ent_type) == DEF_ENTRY_TAG_MVT_CMP )
 					{
 						// Looks to be composite MVT data
-						if( (ret = MvtCmpDataRead( rd_buf_ptr, (*rd_buf_ptr + 1) ) ) <= 0 )
+						if( (ret = MvtCmpDataRead( rd_buf_ptr, (*rd_buf_ptr + 1), &(phy_evt_stat_cmp[sys_type]) ) ) <= 0 )
 						{
 							fprintf(stderr, "%s: MvtCmpDataRead failed with %d for event count %d\n", __FUNCTION__, ret, evt_blk_cnt);
 							break;
 						}
-						phy_evt_stat_cmp.data_type = PHY_EVT_DATA_TYPE_CMP;
-						Histo_Add( &(timing_histos_cmp.phy_evt_blk_size_histo), phy_evt_stat_cmp.size);
-/*
-if( phy_evt_stat_cmp.size == 23609 )
-{
-fprintf(stdout, "%s: phy_evt_stat_cmp.size=%d evt_blk_cnt=%d phy_evt_stat_cmp.feu_evid[15]=%d\n", __FUNCTION__, phy_evt_stat_cmp.size, evt_blk_cnt, phy_evt_stat_cmp.feu_evid[15] );
-getchar();
-}
-*/
-						mvt_cmp_evt_cnt++;
+						phy_evt_stat_cmp[sys_type].data_type = PHY_EVT_DATA_TYPE_CMP;
+						Histo_Add( &(timing_histos_cmp[sys_type].phy_evt_blk_size_histo), phy_evt_stat_cmp[sys_type].size);
+
+						mvt_cmp_evt_cnt[sys_type]++;
 						if( prescale_event == 0 )
 						{
-							if( (ret = PhyEvtStat_Validate( &phy_evt_stat_cmp )) < 0 )
+							if( (ret = PhyEvtStat_Validate( &phy_evt_stat_cmp[sys_type] )) < 0 )
 							{
 								fprintf(stderr, "%s: PhyEvtBlkStat_Validate failed with %d\n", __FUNCTION__, ret);
 							}
@@ -2991,17 +3133,17 @@ getchar();
 						if( (first_phy_blk <= evt_blk_cnt) && (evt_blk_cnt <= last_phy_blk) )
 						{
 							if( asc_data_fptr != (FILE *)NULL )
-								PhyEvtStat_Dump( &phy_evt_stat_cmp, asc_data_fptr );
+								PhyEvtStat_Dump( &phy_evt_stat_cmp[sys_type], asc_data_fptr );
 							if( do_disp_file )
 							{
 								MvtPlot_Dump( &mvt_event_plot, evt_blk_cnt, "stdout" );
 							}
 						}
 						if( verbose )
-							PhyEvtStat_Dump( &phy_evt_stat_cmp, stdout );
+							PhyEvtStat_Dump( &phy_evt_stat_cmp[sys_type], stdout );
 
 						cur_ent_len = (*rd_buf_ptr + 1);
-						Histo_Add( &(timing_histos_cmp.mvt_evt_size_histo), cur_ent_len );
+						Histo_Add( &(timing_histos_cmp[sys_type].mvt_evt_size_histo), cur_ent_len );
 						rd_buf_ptr = rd_buf_ptr + cur_ent_len;
 						rd_buf_ptr_len -= cur_ent_len;
 					}
@@ -3032,7 +3174,7 @@ fprintf(stdout, "%s: Unknown tag for rd_buf = 0x%08x of len=%d of composite type
 							{
 								if( ferror(cfg_data_fptr) )
 								{
-									fprintf( stderr, "%s: fwrite failed with %s for ascii cfg file %s\n", __FUNCTION__, strerror(errno), feu_bin_data_file_name );
+									fprintf( stderr, "%s: fwrite failed with %s for ascii cfg file %s\n", __FUNCTION__, strerror(errno), cfg_data_file_name );
 									cleanup(10);
 								}
 							}
@@ -3106,8 +3248,8 @@ fprintf(stdout, "%s: Unknown tag for rd_buf = 0x%08x of len=%d of composite type
 						}
 						// Looks to be EvtHdr
 						// Initialize event stat
-						phy_evt_stat_raw.id = evt_blk.num;
-						phy_evt_stat_cmp.id = evt_blk.num;
+						phy_evt_stat_raw[sys_type].id = evt_blk.num;
+						phy_evt_stat_cmp[sys_type].id = evt_blk.num;
 						evt_blk_cnt++;
 						if( (first_phy_blk <= evt_hdr_cnt) && (evt_hdr_cnt <= last_phy_blk) && (asc_data_fptr != ((FILE *)NULL)) )
 							EvtBlk_Printf( (EvtBlk *)rd_buf_ptr, asc_data_fptr );
@@ -3120,6 +3262,7 @@ fprintf(stdout, "%s: Unknown tag for rd_buf = 0x%08x of len=%d of composite type
 						if( (ret = TiBank_Disent_Fill( &ti_bank, rd_buf_ptr ) ) <= 0 )
 						{
 							fprintf(stderr, "%s: TiBank_Disent_Fill failed with %d for event count %d\n", __FUNCTION__, ret, evt_blk_cnt);
+TiBank_Disent_Printf( &ti_bank, stdout );
 							break;
 						}
 //fprintf(stdout, "%s: TiBank_Disent_Fill OK with ret=%d\n", __FUNCTION__, ret);
@@ -3129,39 +3272,39 @@ fprintf(stdout, "%s: Unknown tag for rd_buf = 0x%08x of len=%d of composite type
 						if( verbose > 1 )
 							TiBank_Disent_Printf( &ti_bank, stdout );
 						// Fill Phy event stat
-						phy_evt_stat_raw.ti_evid_lo = ti_bank.evid_lo;
-						phy_evt_stat_raw.ti_tstp_lo = ti_bank.tstp_lo;
-						phy_evt_stat_raw.ti_evid_hi = ti_bank.evid_tstp_hi        & 0xFFFF;
-						phy_evt_stat_raw.ti_tstp_hi =(ti_bank.evid_tstp_hi >> 16) & 0xFFFF;
+						phy_evt_stat_raw[sys_type].ti_evid_lo = ti_bank.evid_lo;
+						phy_evt_stat_raw[sys_type].ti_tstp_lo = ti_bank.tstp_lo;
+						phy_evt_stat_raw[sys_type].ti_evid_hi = ti_bank.evid_tstp_hi        & 0xFFFF;
+						phy_evt_stat_raw[sys_type].ti_tstp_hi =(ti_bank.evid_tstp_hi >> 16) & 0xFFFF;
 						// Inter trigger delay
-						if( ti_bank.evid_lo > 1 && timing_histos_raw.ti_tstp_prev != 0xFFFFffff)
+						if( ti_bank.evid_lo > 1 && timing_histos_raw[sys_type].ti_tstp_prev != 0xFFFFffff)
 						{
-							itd = (int)(((((ti_bank.tstp_lo & 0x7FFFffff) - (timing_histos_raw.ti_tstp_prev & 0x7FFFffff)) & 0x7FFFffff) * 4. / 1000.)+.5);
-							Histo_Add(&(timing_histos_raw.ti_itd_histo), itd );
+							itd = (int)(((((ti_bank.tstp_lo & 0x7FFFffff) - (timing_histos_raw[sys_type].ti_tstp_prev & 0x7FFFffff)) & 0x7FFFffff) * 4. / 1000.)+.5);
+							Histo_Add(&(timing_histos_raw[sys_type].ti_itd_histo), itd );
 						}
-						timing_histos_raw.ti_tstp_prev = ti_bank.tstp_lo;
+						timing_histos_raw[sys_type].ti_tstp_prev = ti_bank.tstp_lo;
 
-						phy_evt_stat_cmp.ti_evid_lo = ti_bank.evid_lo;
-						phy_evt_stat_cmp.ti_tstp_lo = ti_bank.tstp_lo;
-						phy_evt_stat_cmp.ti_evid_hi = ti_bank.evid_tstp_hi        & 0xFFFF;
-						phy_evt_stat_cmp.ti_tstp_hi =(ti_bank.evid_tstp_hi >> 16) & 0xFFFF;
+						phy_evt_stat_cmp[sys_type].ti_evid_lo = ti_bank.evid_lo;
+						phy_evt_stat_cmp[sys_type].ti_tstp_lo = ti_bank.tstp_lo;
+						phy_evt_stat_cmp[sys_type].ti_evid_hi = ti_bank.evid_tstp_hi        & 0xFFFF;
+						phy_evt_stat_cmp[sys_type].ti_tstp_hi =(ti_bank.evid_tstp_hi >> 16) & 0xFFFF;
 						rd_buf_ptr = rd_buf_ptr + ret;
 						rd_buf_ptr_len -= ret;
 						// Inter trigger delay
-						if( ti_bank.evid_lo > 1 && timing_histos_cmp.ti_tstp_prev != 0xFFFFffff)
+						if( ti_bank.evid_lo > 1 && timing_histos_cmp[sys_type].ti_tstp_prev != 0xFFFFffff)
 						{
-							itd = (int)(((((ti_bank.tstp_lo & 0x7FFFffff) - (timing_histos_cmp.ti_tstp_prev & 0x7FFFffff)) & 0x7FFFffff) * 4. / 1000.)+.5);
-							Histo_Add(&(timing_histos_cmp.ti_itd_histo), itd );
+							itd = (int)(((((ti_bank.tstp_lo & 0x7FFFffff) - (timing_histos_cmp[sys_type].ti_tstp_prev & 0x7FFFffff)) & 0x7FFFffff) * 4. / 1000.)+.5);
+							Histo_Add(&(timing_histos_cmp[sys_type].ti_itd_histo), itd );
 						}
-						timing_histos_cmp.ti_tstp_prev = ti_bank.tstp_lo;
+						timing_histos_cmp[sys_type].ti_tstp_prev = ti_bank.tstp_lo;
 					}
 					else if( DEF_GetEvioEntryTag(cur_ent_type) == DEF_ENTRY_TAG_MVT_RAW )
 					{
 						// Looks to be Raw MVT data
-						mvt_raw_evt_cnt++;
-						Histo_Add( &(timing_histos_raw.phy_evt_blk_size_histo), phy_evt_stat_raw.size);
+						mvt_raw_evt_cnt[sys_type]++;
+						Histo_Add( &(timing_histos_raw[sys_type].phy_evt_blk_size_histo), phy_evt_stat_raw[sys_type].size);
 						cur_ent_len = (*rd_buf_ptr + 1);
-						Histo_Add(&(timing_histos_raw.mvt_evt_size_histo), cur_ent_len );
+						Histo_Add(&(timing_histos_raw[sys_type].mvt_evt_size_histo), cur_ent_len );
 						rd_buf_ptr = rd_buf_ptr + cur_ent_len;
 						rd_buf_ptr_len -= cur_ent_len;
 					}

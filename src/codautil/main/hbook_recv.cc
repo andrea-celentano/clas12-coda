@@ -28,8 +28,8 @@ main()
   int done = 0;
 
   // connect to ipc server
-  //server.init(getenv("EXPID"), getenv("SESSION"), "daq", "*", NULL, "*");
-  server.init(NULL, NULL, "*", "*", NULL, "*");
+  server.init(getenv("EXPID"), getenv("SESSION"), "daq", "hist", "daq", "hist");
+  //server.init(NULL, NULL, "*", "*", NULL, "*");
 
   MessageActionHist *hist = new MessageActionHist((char *)"hbook_recv",debug);
   server.addActionListener(hist);

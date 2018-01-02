@@ -70,11 +70,21 @@ int TiConfig( TiParams *params )
 		// For the moment only polling mode is supported
 		if( params->TrgSrc == TiTrgSrc_HFBR1 )
 		{
-			if( (ret = tiInit(0,TI_READOUT_TS_POLL,0)) != OK )
+			if( (ret = tiInit(0, TI_READOUT_TS_POLL, 0)) != OK )
 			{
 				fprintf( stderr, "%s: tiInit failed for TI_READOUT_TS_POLL with %d\n", __FUNCTION__, ret );
 				return ret;
 			}
+			tiSetFiberIn_preInit(1);
+		}
+		else if( params->TrgSrc == TiTrgSrc_HFBR5 )
+		{
+			if( (ret = tiInit(0, TI_READOUT_TS_POLL, TI_INIT_SLAVE_FIBER_5)) != OK )
+			{
+				fprintf( stderr, "%s: tiInit failed for TI_READOUT_TS_POLL with %d\n", __FUNCTION__, ret );
+				return ret;
+			}
+			tiSetFiberIn_preInit(5);
 		}
 		else
 		{
@@ -103,6 +113,14 @@ fprintf( stdout, "%s: **** Standalone APPLICATION ****\n", __FUNCTION__ );
 		if( (ret=tiSetTriggerSource(TI_TRIGGER_HFBR1)) != OK )
 		{
 			fprintf( stderr, "%s: tiSetTriggerSource(TI_TRIGGER_HFBR1) failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
+			return ret;
+		}
+	}
+	else if( params->TrgSrc == TiTrgSrc_HFBR5 )
+	{
+		if( (ret=tiSetTriggerSource(TI_TRIGGER_HFBR5)) != OK )
+		{
+			fprintf( stderr, "%s: tiSetTriggerSource(TI_TRIGGER_HFBR5) failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
 			return ret;
 		}
 	}
@@ -143,6 +161,11 @@ fprintf( stdout, "%s: **** Standalone APPLICATION ****\n", __FUNCTION__ );
 			fprintf( stderr, "%s: tiLoadTriggerTable(0) failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );
 			return ret;
 		}
+		// We might need to do this according to rol 1
+		/*
+		tiLoadTriggerTable(3);
+		tiSetTriggerWindow(7);	// (7+1)*4ns trigger it coincidence time to form trigger type
+		*/
 	}
 	else if (params->TrgSrc == TiTrgSrc_IntCst)
 	{
@@ -269,7 +292,6 @@ fprintf( stdout, "%s: **** Standalone APPLICATION ****\n", __FUNCTION__ );
 	// Set the sync delay width to 0x40*32 = 2.048us
 	// For some reason this function is void.
 	tiSetSyncDelayWidth(0x54, 0x40, 1);
-//	tiSetSyncDelayWidth(0x54, 0x20, 1);
 
 	/* Set Busy source */
 //fprintf( stdout, "%s: BsySrc=%d OK for TI %d\n", __FUNCTION__, params->BsySrc, params->Id );
@@ -314,7 +336,7 @@ fprintf( stdout, "%s: **** Standalone APPLICATION ****\n", __FUNCTION__ );
 	/* Set event format */
 	// This corresponds to Timing word enabled: two block placeholdr is disabled
 	// if ExtEidTstp is set higher 16 MSB-s are enabled for EiD and Tstp
-	if( params->TrgSrc == TiTrgSrc_HFBR1 )
+	if( params->TrgSrc == TiTrgSrc_HFBR1 || params->TrgSrc == TiTrgSrc_HFBR5 )
 	{
 		if( (ret=tiSetEventFormat(params->ExtEidTstp*2+1)) != OK )
 		{
@@ -499,6 +521,7 @@ int TiRun( TiParams *params, int run )
 		if( params->TrgSrc != TiTrgSrc_HFBR1 )
 		{
 			// Do this only if the function is called from a standalone application
+/*
 			if( stand_alone_app == 1 )
 			{
 				tiClockReset();
@@ -507,6 +530,7 @@ int TiRun( TiParams *params, int run )
 				tiSyncReset(0);
 				taskDelay(2);
 			}
+*/
 			if( (ret=tiSetBusySource(TI_BUSY_SWB, 0)) != OK )
 			{
 				fprintf( stderr, "%s: tiSetBusySource(TI_BUSY_SWB,0) failed for TI %d with %d\n", __FUNCTION__, params->Id, ret );

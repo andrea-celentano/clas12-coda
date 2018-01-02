@@ -766,12 +766,13 @@ vtpReadTask()
 #else
       sleep(vmeScalersReadInterval);
 #endif
-      
+printf("vtpSendScalers()\n");      
       SCALER_LOCK;
 	  /* actual scales readout */
       slot = 11; /* VTP always in slot 11 */
 
 /*nw = vtpReadScalers(vtpbuf, MAXVTPWORDS);*/
+nw = 0;
 vtpSendScalers();
 
       vmescalerslen[slot] = nw;
@@ -1290,6 +1291,8 @@ main(int argc, char *argv[])
   stat = vtpOpen(VTP_FPGA_OPEN);
   if(stat != VTP_FPGA_OPEN) goto CLOSE;
   else printf("vtpOpen'ed\n");
+
+  if(init_boards) vtpCheckMutexHealth(1); 
 #endif
 
 
@@ -1312,10 +1315,14 @@ main(int argc, char *argv[])
 #endif
 
   /* connect to IPC server */
+  printf("Connect to IPC server...\n");
   epics_json_msg_sender_init(getenv("EXPID"), getenv("SESSION"), "daq", "HallB_DAQ");
+  printf("done.\n");
 
 
+  printf("Start scaler readout thread...\n");
   ScalersReadoutStart(); /* pthread_create inside */
+  printf("done.\n");
 
   sleep(2);
 #endif

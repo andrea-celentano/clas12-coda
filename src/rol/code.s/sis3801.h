@@ -21,33 +21,7 @@
 
 /* Level 2 defs */
 #define NL2CH 30
-#define L2SCALER 0x280800
-
-
-struct fifo_scaler
-{
-  /* 0x0000 */ volatile unsigned int csr;
-  /* 0x0004 */ volatile unsigned int irq;
-  /* 0x0008          */ unsigned int _blank0;
-  /* 0x000C */ volatile unsigned int copy_disable;
-  /* 0x0010 */ volatile unsigned int write_to_fifo;
-  /* 0x0014          */ unsigned int _blank1[(0x20-0x14)>>2];
-  /* 0x0020 */ volatile unsigned int clear;
-  /* 0x0024 */ volatile unsigned int next;
-  /* 0x0028 */ volatile unsigned int enable;
-  /* 0x002C */ volatile unsigned int disable;
-  /* 0x0030          */ unsigned int _blank2[(0x50-0x30)>>2];
-  /* 0x0050 */ volatile unsigned int enable_ref1;
-  /* 0x0054 */ volatile unsigned int disable_ref1;
-  /* 0x0058          */ unsigned int _blank3[(0x60-0x58)>>2];
-  /* 0x0060 */ volatile unsigned int reset;
-  /* 0x0064          */ unsigned int _blank4;
-  /* 0x0068 */ volatile unsigned int test;
-  /* 0x006C          */ unsigned int _blank5[(0x80-0x6C)>>2];
-  /* 0x0080 */ volatile unsigned int prescale;
-  /* 0x0084          */ unsigned int _blank6[(0x100-0x84)>>2];
-  /* 0x0100 */ volatile unsigned int fifo[(0x200-0x100)>>2];
-} SIS;
+#define L2SCALER 0x200000
 
 typedef struct sis3801_struct
 {
@@ -56,22 +30,22 @@ typedef struct sis3801_struct
   /* 0x0008          */ unsigned int _blank0;
   /* 0x000C */ volatile unsigned int copy_disable;
   /* 0x0010 */ volatile unsigned int write_to_fifo;
-  /* 0x0014          */ unsigned int _blank1[(0x20-0x14)>>2];
+  /* 0x0014          */ unsigned int _blank1[(0x20 - 0x14) >> 2];
   /* 0x0020 */ volatile unsigned int clear;
   /* 0x0024 */ volatile unsigned int next;
   /* 0x0028 */ volatile unsigned int enable;
   /* 0x002C */ volatile unsigned int disable;
-  /* 0x0030          */ unsigned int _blank2[(0x50-0x30)>>2];
+  /* 0x0030          */ unsigned int _blank2[(0x50 - 0x30) >> 2];
   /* 0x0050 */ volatile unsigned int enable_ref1;
   /* 0x0054 */ volatile unsigned int disable_ref1;
-  /* 0x0058          */ unsigned int _blank3[(0x60-0x58)>>2];
+  /* 0x0058          */ unsigned int _blank3[(0x60 - 0x58) >> 2];
   /* 0x0060 */ volatile unsigned int reset;
   /* 0x0064          */ unsigned int _blank4;
   /* 0x0068 */ volatile unsigned int test;
-  /* 0x006C          */ unsigned int _blank5[(0x80-0x6C)>>2];
+  /* 0x006C          */ unsigned int _blank5[(0x80 - 0x6C) >> 2];
   /* 0x0080 */ volatile unsigned int prescale;
-  /* 0x0084          */ unsigned int _blank6[(0x100-0x84)>>2];
-  /* 0x0100 */ volatile unsigned int fifo[(0x200-0x100)>>2];
+  /* 0x0084          */ unsigned int _blank6[(0x100 - 0x84) >> 2];
+  /* 0x0100 */ volatile unsigned int fifo[(0x200 - 0x100) >> 2];
 } SIS3801;
 
 #define ENABLE_EXT_NEXT   0x00010000
@@ -122,6 +96,10 @@ typedef struct sis3801_struct
 #define FIFO_ALMOST_EMPTY 0x00000200
 #define FIFO_EMPTY        0x00000100
 
+/* Initialization flags */
+#define S3801_INIT_INPUT_MODE_FLAG 0x000F
+#define S3801_INIT_NO_INIT (1<<15)
+
 struct flex_struct
 {
   /* 0x00 */ volatile unsigned short csr1;
@@ -133,31 +111,35 @@ struct flex_struct
 
 
 /* Function prototypes */
-int sis3801CheckAddresses();
-int sis3801readfifo(unsigned long addr);
-void sis3801writefifo(unsigned long addr, int value);
-int sis3801status(unsigned long addr);
-void sis3801control(unsigned long addr, int value);
-void sis3801mask(unsigned long addr, int value);
-void sis3801clear(unsigned long addr);
-void sis3801nextclock(unsigned long addr);
-void sis3801enablenextlogic(unsigned long addr);
-void sis3801disablenextlogic(unsigned long addr);
-void sis3801reset(unsigned long addr);
-void sis3801testclock(unsigned long addr);
-void sis3801Uledon(unsigned long addr);
-void sis3801Uledoff(unsigned long addr);
-int sis3801almostread(unsigned long addr, unsigned int *value);
-int sis3801read(unsigned long addr, unsigned int *value);
+int  sis3801Init(unsigned int addr, unsigned int addr_inc, int nsis, int iFlag);
+int  sis3801CheckAddresses();
+int  sis3801setinputmode(int id, int mode);
+int  sis3801readfifo(int id);
+void sis3801writefifo(int id, int value);
+int  sis3801status(int id);
+void sis3801control(int id, int value);
+void sis3801mask(int id, int value);
+void sis3801clear(int id);
+void sis3801nextclock(int id);
+void sis3801enablenextlogic(int id);
+void sis3801disablenextlogic(int id);
+void sis3801reset(int id);
+void sis3801testclock(int id);
+void sis3801setlneprescaler(int id, unsigned int prescale);
+void sis3801Uledon(int id);
+void sis3801Uledoff(int id);
+int  sis3801almostread(int id, unsigned int *value);
+int  sis3801read(int id, unsigned int *value);
+unsigned int sis3801GetAddress(int id);
 
-STATUS scalIntInit(UINT32 addr, UINT32 level, UINT32 vector);
+STATUS scalIntInit(int id, UINT32 vector);
 STATUS scalIntConnect(VOIDFUNCPTR routine, int arg);
 STATUS scalIntEnable(UINT32 mask);
 STATUS scalIntDisable(void);
-int store(unsigned long addr, int mask);
+int store(int id, int mask);
 
 /* level 2 scaler functions */
-int l2_init();
+int l2_init(int id);
 int l2_readscaler(unsigned int counts[NL2CH]);
 int l2_status();
 int l2_status_dead();

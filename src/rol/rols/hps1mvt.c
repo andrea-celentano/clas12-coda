@@ -135,14 +135,6 @@ extern int tiMaster; /* defined in tiLib.c */
   } \
 }
 
-
-
-
-
-
-
-
-
 void
 tsleep(int n)
 {
@@ -170,38 +162,39 @@ __download()
 {
 	int ii, i1, i2, i3;
 	int id;
+	int ret;
 
 	// Log file variables
 	char logfilename[128];
 	char logfilename_backup[128];
 	char log_file_perms[16];
+	char log_message[256];
 	struct stat log_stat;   
 	// time variables
 	time_t      cur_time;
 	struct tm  *time_struct;
-  char *ch, tmp[64];
-
+	char *ch, tmp[64];
 
 	rol->poll = 1;
 	printf("\n>>>>>>>>>>>>>>> ROCID=%d, CLASSID=%d <<<<<<<<<<<<<<<<\n",rol->pid,rol->classid);
 	printf("CONFFILE >%s<\n\n",rol->confFile);
 	printf("LAST COMPILED: %s %s\n", __DATE__, __TIME__);
 
-  printf("USRSTRING >%s<\n\n",rol->usrString);
+	printf("USRSTRING >%s<\n\n",rol->usrString);
 
-  /* if slave, get fiber port number from user string */
+	/* if slave, get fiber port number from user string */
 #ifdef TI_SLAVE
-  ti_slave_fiber_port = 1; /* default */
+	ti_slave_fiber_port = 1; /* default */
 
-  ch = strstr(rol->usrString,"fp=");
-  if(ch != NULL)
-  {
-    strcpy(tmp,ch+strlen("fp="));
-    printf("FP >>>>>>>>>>>>>>>>>>>>>%s<<<<<<<<<<<<<<<<<<<<<\n",tmp);
-    ti_slave_fiber_port = atoi(tmp);
-    printf("ti_slave_fiber_port =%d\n",ti_slave_fiber_port);
-    tiSetFiberIn_preInit(ti_slave_fiber_port);
-  }
+	ch = strstr(rol->usrString,"fp=");
+	if(ch != NULL)
+	{
+		strcpy(tmp,ch+strlen("fp="));
+		printf("FP >>>>>>>>>>>>>>>>>>>>>%s<<<<<<<<<<<<<<<<<<<<<\n",tmp);
+		ti_slave_fiber_port = atoi(tmp);
+		printf("ti_slave_fiber_port =%d\n",ti_slave_fiber_port);
+		tiSetFiberIn_preInit(ti_slave_fiber_port);
+	}
 #endif
 
 	/**/
@@ -217,6 +210,8 @@ __download()
 
   /*************************************/
   /* redefine TI settings if neseccary */
+  tiSetUserSyncResetReceive(1);
+
 #ifndef TI_SLAVE
   /* TS 1-6 create physics trigger, no sync event pin, no trigger 2 */
 	vmeBusLock();
@@ -230,11 +225,11 @@ __download()
   /*********************************************************/
   /*********************************************************/
   /* set wide pulse */
-	vmeBusLock();
-	{
-		tiSetSyncDelayWidth(1,127,1);
-	}
-	vmeBusUnlock();
+//	vmeBusLock();
+//	{
+//		tiSetSyncDelayWidth(1,127,1);
+//	}
+//	vmeBusUnlock();
 
 //	usrVmeDmaSetConfig(2,3,0); /*A32,MBLT,  80MB/s*/
 //	usrVmeDmaSetConfig(2,4,0); /*A32,2eVME,160MB/s*/
@@ -266,14 +261,15 @@ __download()
 				sprintf
 				(
 					logfilename_backup,
-					"mvt_roc_%02d%02d%02d_%02dH%02d.log",
+					"mvt_roc_%d_%02d%02d%02d_%02dH%02d.log",
+					rol->pid,
 					time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
 					time_struct->tm_hour, time_struct->tm_min
 				);
   				if( rename(logfilename, logfilename_backup) ) 
 				{
-					fprintf(stderr, "%s: rename failed from log file %s to %s with %d\n", __FUNCTION__, logfilename, logfilename_backup, errno);
-				 	perror("rename failed");
+					fprintf(stderr, "%s: rename failed from log file %s to %s with %d %s\n",
+						__FUNCTION__, logfilename, logfilename_backup, errno, strerror( errno ));
 				}
 				sprintf(log_file_perms, "w");
 			}
@@ -282,41 +278,53 @@ __download()
 		// Open file
 		if( (mvt_fptr_err_1 = fopen(logfilename, log_file_perms)) == (FILE *)NULL )
 		{
-			fprintf(stderr, "%s: fopen failed to open log file %s in %s mode with %d\n", __FUNCTION__, logfilename, log_file_perms, errno);
-		 	perror("fopen failed");
+			fprintf(stderr, "%s: fopen failed to open log file %s in %s mode with %d %s\n",
+				__FUNCTION__, logfilename, log_file_perms, errno, strerror( errno ));
 		}
 		mvtSetLogFilePointer( mvt_fptr_err_1 );
 	}
-	fprintf( mvt_fptr_err_1, "**************************************************\n" );
-	fprintf( mvt_fptr_err_1, "%s at %02d%02d%02d %02dH%02d\n", __FUNCTION__, time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday, time_struct->tm_hour, time_struct->tm_min );
-	fflush( mvt_fptr_err_1 );
+	if( mvt_fptr_err_1 != (FILE *)NULL )
+	{
+		fprintf( mvt_fptr_err_1, "**************************************************\n" );
+		fprintf( mvt_fptr_err_1, "%s at %02d%02d%02d %02dH%02d\n", __FUNCTION__,
+			time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday, time_struct->tm_hour, time_struct->tm_min );
+		fflush( mvt_fptr_err_1 );
+	}
 
 	printf("\nMVT: start\n\n");
 	printf("\nMVT: !!!!!!!!!!!!!!!!!!!!! confFile=%s, rolnum=%d, rolpid=%d\n\n", rol->confFile,rol->runNumber, rol->pid );
 
+	// Do Config here
+	vmeBusLock();
+		nmvt = mvtConfig("", rol->runNumber, rol->pid );
+	vmeBusUnlock();
 
-vmeBusLock();
-	nmvt = mvtConfig("", rol->runNumber, rol->pid );
-vmeBusUnlock();
-
-//	if(strncmp(rol->confFile,"none",4) && strncmp(rol->confFile,"NONE",4))
-//	{
-//vmeBusLock();
-//		nmvt = mvtConfig( rol->confFile, rol->runNumber, rol->pid );
-//vmeBusUnlock();
-//    }	
-
-
-
-
-	//	nmvt = mvtGetNbrOfBeu(rol->pid);
 	if( ( nmvt <= 0 ) || (3 <= nmvt) )
 	{
-		fprintf(stderr,         "%s: wrong number of BEUs %d in crate %d; must be in [1;3] range\n", __FUNCTION__, nmvt, rol->pid);
-		fprintf(mvt_fptr_err_1, "%s: wrong number of BEUs %d in crate %d; must be in [1;3] range\n", __FUNCTION__, nmvt, rol->pid);
-		fflush( mvt_fptr_err_1 );
+		sprintf( log_message, "%s: wrong number of BEUs %d in %s crate %d; must be in [1;3] range",
+			__FUNCTION__, nmvt, mvtRocId2Str( rol->pid ), rol->pid );
+		fprintf(stderr, "%s\n", log_message );
+		if( mvt_fptr_err_1 != (FILE *)NULL )
+		{
+			fprintf(mvt_fptr_err_1, "%s\n", log_message );
+			fflush( mvt_fptr_err_1 );
+		}
+		UDP_user_request(MSGERR, "rol1", "!!!!!!!!!!!!!!!!!!!!!");
+		UDP_user_request(MSGERR, "rol1", log_message);
+		UDP_user_request(MSGERR, "rol1", "Try to download again");
+		UDP_user_request(MSGERR, "rol1", "!!!!!!!!!!!!!!!!!!!!!");
 	}
-	printf("\nMVT: found %d boards\n\n",nmvt);
+	else
+	{
+		sprintf( log_message, "%s: found number of BEUs %d in %s crate %d",
+			__FUNCTION__, nmvt, mvtRocId2Str( rol->pid ), rol->pid );
+		fprintf( stdout, "%s\n", log_message );
+		UDP_user_request(MSGINF, "rol1", "!!!!!!!!!!!!!!!!!!!!!");
+		UDP_user_request(MSGINF, "rol1", log_message);
+		UDP_user_request(MSGINF, "rol1", "!!!!!!!!!!!!!!!!!!!!!");
+	}
+
+	// Set SD active slots
 	mvtSlotMask=0;
 	for(id=0; id<nmvt; id++)
 	{
@@ -324,10 +332,31 @@ vmeBusUnlock();
 		mvtSlotMask |= (1<<MVT_SLOT);
 		printf("=======================> mvtSlotMask=0x%08x\n",mvtSlotMask);
 	}
+
 	vmeBusLock();
-//		sdInit(1);
-		sdSetActiveVmeSlots(mvtSlotMask);
-		sdStatus(1);
+		// To be understood during the merging
+		// For now sdInit(1) is done in mvtLib
+//		ret = sdInit(1);   /* Initialize the SD library */
+		ret = 1;
+		if( ret >= 0 )
+		{
+			sdSetActiveVmeSlots(mvtSlotMask);
+			sdStatus(1);
+		}
+		else
+		{
+			sprintf( log_message, "%s: sdInit(1) failed with %d in %s crate %d",
+				__FUNCTION__, ret, mvtRocId2Str( rol->pid ), rol->pid );
+			fprintf( stdout, "%s\n", log_message );
+			if( mvt_fptr_err_1 != (FILE *)NULL )
+			{
+				fprintf(mvt_fptr_err_1, "%s\n", log_message );
+				fflush( mvt_fptr_err_1 );
+			}
+			UDP_user_request(MSGERR, "rol1", "!!!!!!!!!!!!!!!!!!!!!");
+			UDP_user_request(MSGERR, "rol1", log_message);
+			UDP_user_request(MSGERR, "rol1", "!!!!!!!!!!!!!!!!!!!!!");
+		}
 	vmeBusUnlock();
 
 #endif // #ifdef USE_MVT
@@ -357,6 +386,7 @@ __prestart()
 	char logfilename_backup[128];
 	char log_file_perms[16];
 	struct stat log_stat;   
+	char log_message[256];
 	// time variables
 	time_t      cur_time;
 	struct tm  *time_struct;
@@ -465,13 +495,15 @@ __prestart()
 				sprintf
 				(
 					logfilename_backup,
-					"mvt_roc_%02d%02d%02d_%02dH%02d.log",
+					"mvt_roc_%d_%02d%02d%02d_%02dH%02d.log",
+					rol->pid,
 					time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
 					time_struct->tm_hour, time_struct->tm_min
 				);
   				if( rename(logfilename, logfilename_backup) ) 
 				{
-					fprintf(stderr, "%s: rename failed from log file %s to %s with %d\n", __FUNCTION__, logfilename, logfilename_backup, errno);
+					fprintf(stderr, "%s: rename failed from log file %s to %s with %d\n",
+						__FUNCTION__, logfilename, logfilename_backup, errno);
 				 	perror("rename failed");
 				}
 				sprintf(log_file_perms, "w");
@@ -480,21 +512,49 @@ __prestart()
 		// Open file
 		if( (mvt_fptr_err_1 = fopen(logfilename, log_file_perms)) == (FILE *)NULL )
 		{
-			fprintf(stderr, "%s: fopen failed to open log file %s in %s mode with %d\n", __FUNCTION__, logfilename, log_file_perms, errno);
-		 	perror("fopen failed");
+			fprintf(stderr, "%s: fopen failed to open log file %s in %s mode with %d %s\n",
+				__FUNCTION__, logfilename, log_file_perms, errno, strerror( errno ));
 		}
 		mvtSetLogFilePointer( mvt_fptr_err_1 );
 	}
 	if( mvt_fptr_err_1 != (FILE *)NULL )
 	{
 		fprintf( mvt_fptr_err_1,"**************************************************\n" );
-		fprintf( mvt_fptr_err_1,"%s at %02d%02d%02d %02dH%02d\n", __FUNCTION__, time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday, time_struct->tm_hour, time_struct->tm_min );
+		fprintf( mvt_fptr_err_1,"%s at %02d%02d%02d %02dH%02d\n", __FUNCTION__,
+			time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
+			time_struct->tm_hour, time_struct->tm_min );
 		fprintf( mvt_fptr_err_1,"%s : Information below concerns run %d tiMaster=%d\n", __FUNCTION__, rol->runNumber, tiMaster );
 		fflush(  mvt_fptr_err_1 );
 	}
 
 	if(nmvt>0)
 	{
+		vmeBusLock();
+			ret = mvtPrestart();
+		vmeBusUnlock();
+		if(ret<=0)
+		{
+			sprintf( log_message, "%s: mvtPrestart failed with %d in %s crate %d",
+				__FUNCTION__, ret, mvtRocId2Str( rol->pid ), rol->pid );
+			fprintf(stderr, "%s\n", log_message );
+			if( mvt_fptr_err_1 != (FILE *)NULL )
+			{
+				fprintf(mvt_fptr_err_1, "%s\n", log_message );
+				fflush( mvt_fptr_err_1 );
+			}
+			UDP_user_request(MSGERR, "rol1", "!!!!!!!!!!!!!!!!!!!!!");
+			UDP_user_request(MSGERR, "rol1", log_message);
+			UDP_user_request(MSGERR, "rol1", "!!!!!!!!!!!!!!!!!!!!!");
+		}
+		else
+		{
+			sprintf( log_message, "%s: found number of FEUs %d in %s crate %d with %d BEUs",
+				__FUNCTION__, ret, mvtRocId2Str( rol->pid ), rol->pid, nmvt );
+			fprintf( stdout, "%s\n", log_message );
+			UDP_user_request(MSGINF, "rol1", "!!!!!!!!!!!!!!!!!!!!!");
+			UDP_user_request(MSGINF, "rol1", log_message);
+			UDP_user_request(MSGINF, "rol1", "!!!!!!!!!!!!!!!!!!!!!");
+		}
 		block_level = tiGetCurrentBlockLevel();
 		mvtSetCurrentBlockLevel( block_level );
 		if( mvt_fptr_err_1 != (FILE *)NULL )
@@ -502,9 +562,11 @@ __prestart()
 			fprintf(mvt_fptr_err_1, "%s; mvt block level set to %d \n", __FUNCTION__, block_level);
 			fflush( mvt_fptr_err_1 );
 		}
+/*
 		vmeBusLock();
 			mvtPrestart();
 		vmeBusUnlock();
+*/
 		mvt_to_cntr = 0;
 		mvt_to.tv_sec  = 0;
 		mvt_to.tv_usec = 90000;
@@ -606,7 +668,8 @@ __end()
 		vmeBusUnlock();		
 		if( mvt_fptr_err_1 != (FILE *)NULL )
 		{
-			fprintf(mvt_fptr_err_1,"%s : mvt had to wait %d sec & %d us and iterate %d times\n", __FUNCTION__, mvt_max_wait.tv_sec, mvt_max_wait.tv_usec, mvt_max_to_iter );
+			mvtClrLogFilePointer();
+			fprintf(mvt_fptr_err_1,"%s: mvt had to wait %d sec & %d us and iterate %d times\n", __FUNCTION__, mvt_max_wait.tv_sec, mvt_max_wait.tv_usec, mvt_max_to_iter );
 			fflush( mvt_fptr_err_1 );
 			fclose( mvt_fptr_err_1 );
 			mvt_fptr_err_1 = (FILE *)NULL;
@@ -619,14 +682,6 @@ __end()
 		tiStatus(1);
 		sdStatus(1);
 	vmeBusUnlock();
-
-	if( mvt_fptr_err_1 != (FILE *)NULL )
-	{
-		mvtClrLogFilePointer();
-		fflush( mvt_fptr_err_1 );
-		fclose( mvt_fptr_err_1 );
-		mvt_fptr_err_1 = (FILE *)NULL;
-	}
 
 	printf("INFO: End1 Executed\n\n\n");fflush(stdout);
 	return;
@@ -856,7 +911,10 @@ constant_set = 1;
 				if( mvt_fptr_err_1 != (FILE *)NULL )
 				{
 					fprintf(mvt_fptr_err_1, "MVT NOT READY: gbready=0x%08x, expect 0x%08x, to_cntr=%d EVENT_NUMBER=%d\n", mvtgbr, mvtSlotMask, mvt_to_cntr, EVENT_NUMBER);
-					mvtStatusDump(0, mvt_fptr_err_1);
+					if( mvt_to_cntr <= 5 )
+						mvtStatusDump(0, mvt_fptr_err_1);
+					if( mvt_to_cntr = 5 )
+						fprintf(mvt_fptr_err_1, "Too many timeouts; mvtStatusDump will not be called any more\n");
 					fflush( mvt_fptr_err_1 );
 				}
 			}
@@ -887,7 +945,6 @@ constant_set = 1;
                       			 }
 */
 					BANKOPEN(0xe118,1,rol->pid);
-	//				BANKOPEN(0xe1FF,1,rol->pid);
 #ifdef DEBUG_MVT
 					if( mvt_fptr_err_1 != (FILE *)NULL )
 					{

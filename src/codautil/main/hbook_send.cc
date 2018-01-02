@@ -15,14 +15,15 @@ int
 main()
 {
   // connect to ipc server
-  server.init(getenv("EXPID"), getenv("SESSION"), "daq", "*", NULL, "*");
+  server.init(getenv("EXPID"), getenv("SESSION"), "daq", "hist", "daq", "hist");
 
   Hbook hbook;
 
-  hbook.hbook1(1, "test1", 100, 0.0, 100.0);
+  hbook.hbook1(1, "clondaq6:test1", 100, 0.0, 100.0);
+  hbook.hreset(1,"clondaq6:test1");
   for(int i=0; i<100; i++)
   {
-    hbook.hfill(1, ((float)i), 0.0, ((float)i)*2.);
+    hbook.hfill(1, ((float)i), 0.0, ((float)i)*2./2.);
   }
   hbook.hprint(1);
 

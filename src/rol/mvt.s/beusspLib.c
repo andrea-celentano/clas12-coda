@@ -290,6 +290,9 @@ int  beusspInit(unsigned int vmebaseaddr, volatile struct BEUSSP_A24RegStruct  *
 	/* Configure BEUSSP with provided configuration structure */
 	beusspWriteConf(* BEUSSPreg, BEUSSPfifo, BEUSSPconf);
 	
+	/*flush the pipeline - soft reset*/
+	beusspFlushPipeline(* BEUSSPreg);
+	
 	return OK;
 }
 

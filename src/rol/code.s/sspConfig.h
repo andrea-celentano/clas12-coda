@@ -59,6 +59,10 @@ typedef struct
   int ecal_cluster_emin_en;
   int ecal_cluster_emin;
   int ecal_cluster_width;
+
+  int ecalpcal_cluster_emin_en;
+  int ecalpcal_cluster_emin;
+  int ecalpcal_cluster_width;
   
   int pcal_esum_en;
   int pcal_esum_emin;
@@ -214,7 +218,7 @@ typedef struct {
   
   struct
   {
-    strigger strg[4];
+    strigger strg[8];
     ss_ecal  ecal;
     ss_ecal  pcal;
     ss_htcc  htcc;

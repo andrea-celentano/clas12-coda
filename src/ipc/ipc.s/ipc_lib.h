@@ -76,11 +76,15 @@ typedef enum{
     printf("Cannot get broker_host name - use default >%s<\n",DEFAULT_BROCKER_HOST);	\
     broker_host = strdup(DEFAULT_BROCKER_HOST); \
   } \
-  /*printf("Will use broker on host >%s<\n",broker_host);*/		   \
-  sprintf(broker_str,"failover:(tcp://%s:61616)",broker_host); \
+  printf("Will use broker on host >%s<\n",broker_host);		   \
+  sprintf(broker_str,"failover:(tcp://%s:61616?wireFormat=openwire&wireFormat.maxInactivityDuration=10)",broker_host); \
   brokerURI.assign(broker_str); \
-  /*printf("brokerURI >%s<\n",brokerURI.c_str())*/
+  printf("brokerURI >%s<\n",brokerURI.c_str())
 
+/*
+  sprintf(broker_str,"failover:(tcp://%s:61616)"
+                     "failover:(tcp://%s:61616?wireFormat=openwire&wireFormat.maxInactivityDuration=10)"
+*/
 
 #include <stdio.h>
 #include <string.h>
@@ -173,6 +177,49 @@ struct is_specialization<Ref<Args...>, Ref>: std::true_type {};
 
 
 
+
+
+
+/*sergey*/
+/// This class is used to configure how the next message is sent
+struct SendConfiguration
+{
+  std::string topic = "";
+};
+
+/// This class changes the next message transfer configuration
+class SendConfigManip {
+
+ public:
+  typedef std::function<void(SendConfiguration&)> ConfigFunction;
+
+  ConfigFunction _action;
+
+  explicit SendConfigManip(const ConfigFunction& action)
+  {
+	/*std::cout<<"SendConfigManip::Constructor"<<std::endl;*/
+	_action = action;
+  }
+};
+
+static
+SendConfigManip SetTopic(std::string topic)
+{
+  //std::cout<<"=== SendConfigManip::SetTopic"<<std::endl;
+  return SendConfigManip([=](SendConfiguration& conf) {
+	  std::cout<<"SetTopic: Changing message transfer configuration. SetTopic:"<<topic<<std::endl;
+	  conf.topic = topic;
+	  std::cout<<"SetTopic: conf.topic: "<<conf.topic<<std::endl;
+    });
+}
+/*sergey*/
+
+
+
+
+
+
+
 constexpr size_t UnknownSize = static_cast<size_t>(-1);
 
 /// This class is used to configure how the next array is sent
@@ -192,7 +239,7 @@ class SendArrayConfigManip {
 
   explicit SendArrayConfigManip(const ConfigFunction& action)
   {
-	//std::cout<<"SendArrayConfigManip::Constructor"<<std::endl;
+	/*std::cout<<"SendArrayConfigManip::Constructor"<<std::endl;*/
 	_action = action;
   }
 };
@@ -230,6 +277,50 @@ friend class IpcServer;
 
 private:
 
+
+
+
+
+
+	/********/
+	/*sergey*/
+
+    std::vector<SendConfigManip> _nextSendManips;
+
+	void sendManip()
+    {
+      std::cout << "=== sendManip reached" << std::endl;
+	  SendConfiguration conf;
+
+	  // Go through manipulators and apply their manipulation
+	  for(auto manip: _nextSendManips)
+      {
+		manip._action(conf);         // change configuration according to manipulator
+	  }
+      std::cout << "=== sendManip: conf.topic= >" << conf.topic << "<, len=" << strlen(conf.topic.c_str()) << std::endl;
+
+	  _nextSendManips.clear();   // clear manipulators for further ...
+
+
+      // it topic is set by SetTopic() manipulator then use it, otherwise use default one
+      if(strlen(conf.topic.c_str()) == 0)
+	  {
+        strcpy(topic, topic_orig);
+		std::cout << "=== SetTopic 1: set topic= >" << topic << "<" << std::endl;
+	  }
+      else
+	  {
+        strcpy(topic, conf.topic.c_str());
+		std::cout << "=== SetTopic 2: set topic= >" << topic << "<" << std::endl;
+	  }
+    }
+
+	/*sergey*/
+    /********/
+
+
+
+
     /********/
     /* Dima */
 
@@ -247,6 +338,7 @@ private:
 	  }
 
 	  _nextArrayManips.clear();   // clear manipulators for further arrays
+
 
 	  // If nobody knows the array size we can't continue
 	  if(conf.sendItemsCount == UnknownSize && arraySize == UnknownSize)
@@ -271,14 +363,14 @@ private:
 	  sendingSize -= conf.startOffset;
 	  */
 
-	  
+	  /*
 	  // print an array
 	  for(size_t i=conf.startOffset; i<conf.startOffset+sendingSize; i++)
       {
         std::cout << "===== sendArray: sending" << std::endl;
 		std::cout << arr[i] << std::endl;
       }
-	  
+	  */  
 
 
 /* if have to distinguish between array and vector:
@@ -297,7 +389,9 @@ else
 
 
       // send an array
+	/*
 	  std::cout<<"=== sendArray: sendingSize="<<sendingSize<<" ELEMENT SIZE "<<sizeof(arr[0])<<" size in bytes="<<sendingSize*sizeof(arr[0])<< std::endl;
+	*/
 	  message->writeBytes((const unsigned char *)&arr[conf.startOffset], 0, sendingSize*sizeof(arr[0]));
 
     }
@@ -323,6 +417,7 @@ private:
     //StreamMessage* message;
 
     int waiting_for_messages;
+    char topic_orig[MAX_TOPIC_LENGTH];
     char topic[MAX_TOPIC_LENGTH];
 
     int array_size_in_bytes;
@@ -465,7 +560,8 @@ IpcProducer &sender = IpcProducer::Instance();
         if(sysid==NULL)  sysid = "*";
         if(unique==NULL) sysid = "*";
         sprintf(topic,"%s.%s.%s.%s",expid,sesid,sysid,unique);
-        printf("IpcProducer's topic >%s<\n",topic);
+        strcpy(topic_orig, topic);
+        printf("IpcProducer's topic >%s<, topic_orig >%s<\n",topic, topic_orig);
 
 		/* step 1: Create a ConnectionFactory (broker's URI specified here: protocol(TCP etc), IP address, port, optionally other params) */
 		/*    username and password can be specified, for example:
@@ -481,27 +577,30 @@ IpcProducer &sender = IpcProducer::Instance();
         /*session = connection->createSession(Session::SESSION_TRANSACTED);*/
         session = connection->createSession(Session::AUTO_ACKNOWLEDGE);
 
-        // Create the destination (Topic or Queue)
-		destination = session->createTopic(topic);
-        /*destination = session->createQueue(topic);*/
-
         // create stream message
         message = session->createStreamMessage();
+
+
+
+
+
+
+        // Create the destination (Topic or Queue)
+		destination = session->createTopic(topic);
 
         // Create a MessageProducer from the Session to the Topic or Queue
         producer = session->createProducer(destination);
         producer->setDeliveryMode(DeliveryMode::NON_PERSISTENT);
 
 
+
+
         /* wait here until 'waiting_for_messages' becomes 1, then return */
 		while(waiting_for_messages)
 		{
+
           //printf("IpcProducer::run: waiting_for_messages\n");
 		  sleep(1);
-		  /*
-          using namespace std::literals;
-          std::this_thread::sleep_for(10s);
-		  */
 		}
 
 		/*
@@ -537,6 +636,24 @@ printf("IpcProducer::run: 3\n");
 
     int sendMsg()
 	{
+	  /* IF TOPIC CHANGED, DESTROY destination AND producer AND RECREATE THEM WITH NEW TOPIC */
+      // Destroy resources.
+      try{
+        if( destination != NULL ) delete destination;
+      }catch ( CMSException& e ) { e.printStackTrace(); }
+      destination = NULL;
+
+      try{
+        if( producer != NULL ) delete producer;
+      }catch ( CMSException& e ) { e.printStackTrace(); }
+      producer = NULL;
+
+	  printf("TOPIC >%s<\n",topic);
+	  destination = session->createTopic(topic);
+      producer = session->createProducer(destination);
+      producer->setDeliveryMode(DeliveryMode::NON_PERSISTENT);
+	  /*MUST BE HERE SINCE WE CHANGED TOPIC*/
+
       producer->send(message);
       return(0);
 	}
@@ -544,6 +661,27 @@ printf("IpcProducer::run: 3\n");
 
 
 public:
+
+
+	/*sergey*/	
+    IpcProducer &operator << (const SendConfigManip& mm)
+    {
+	  _nextSendManips.push_back(mm);
+	  std::cout<<"Insert SendConfigManip"<<std::endl;
+	  return *this;
+    }
+
+/*topicm
+	IpcProducer &operator << (MessageTopic& topic)
+    {
+	  std::cout<<"IpcProducer<<(topic string)"<<std::endl;
+	  setTopic("bla");
+	  return *this;
+    }
+*/
+	/*sergey*/
+
+
 
     /********/
     /* Dima */
@@ -558,7 +696,6 @@ public:
     }
 	*/
 
-	
     IpcProducer &operator << (const SendArrayConfigManip& mm)
     {
 	  _nextArrayManips.push_back(mm);
@@ -600,7 +737,14 @@ public:
     in order to chain calls, just like operator=.
 	*/
 
-    IpcProducer& operator << (MessageSender& abc) {sendMsg(); return(*this);}
+    IpcProducer& operator << (MessageSender& abc)
+    {
+      sendManip();
+      sendMsg();
+      return(*this);
+    }
+
+
     IpcProducer& operator << (MessageClearer& abc) {clearMsg(); return(*this);}
 
     IpcProducer& operator << (char               val) {message->writeChar(val); return(*this);}
@@ -1137,7 +1281,7 @@ private:
 			if(actionListeners[i]->check(fmt))
 #endif
             {
-              //std::cout << "onMessage: found listener with format '"<<f.c_str()<<"' - processing" << std::endl;
+	      // std::cout << "onMessage: found listener with format '"<<fmt<<"' - processing" << std::endl;
 
               /* call decoder sending pointer to this class (overloaded '>>' can be used in decoder) */
               actionListeners[i]->decode(*this);
@@ -1152,7 +1296,7 @@ private:
 	    }
         else
         {
-          printf("NOT A STREAM MESSAGE !\n");
+          /*printf("NOT A STREAM MESSAGE !\n")*/;
         }
 	   
       }

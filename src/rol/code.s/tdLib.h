@@ -33,22 +33,31 @@ struct TD_A24RegStruct
   /* 0x00024 */ volatile unsigned int sync;
   /* 0x00028 */ volatile unsigned int busy;
   /* 0x0002C */ volatile unsigned int fiber_busy;
-  /* 0x00030 */          unsigned int blank0;
+  /* 0x00030 */ volatile unsigned int trig1Prescale;
   /* 0x00034 */ volatile unsigned int blockBuffer;
-  /* 0x00038 */ volatile unsigned int blank1[(0x48-0x38)/4];
-  /* 0x00048 */ volatile unsigned int tsInput;
+  /* 0x00038 */ volatile unsigned int triggerRule;
+  /* 0x0003C */ volatile unsigned int triggerWindow;
+  /* 0x00040 */          unsigned int blank0;
+  /* 0x00044 */ volatile unsigned int tsInput;
+  /* 0x00048 */          unsigned int blank1;
   /* 0x0004C */ volatile unsigned int output;
-  /* 0x00050 */          unsigned int blank2[(0x74-0x50)/4];
+  /* 0x00050 */ volatile unsigned int fiberSyncDelay;
+  /* 0x00054 */ volatile unsigned int rocAckRead[2];
+  /* 0x0005C */          unsigned int blank2[(0x64-0x5C)/4];
+  /* 0x00064 */ volatile unsigned int inputPrescale;
+  /* 0x00068 */          unsigned int blank3[(0x74-0x68)/4];
   /* 0x00074 */ volatile unsigned int fp_prescale;
   /* 0x00078 */ volatile unsigned int syncCommand;
   /* 0x0007C */ volatile unsigned int syncDelay;
   /* 0x00080 */ volatile unsigned int syncWidth;
-  /* 0x00084 */          unsigned int blank3[(0x90-0x84)/4];;
-  /* 0x00090 */ volatile unsigned int adr24;
+  /* 0x00084 */ volatile unsigned int triggerCommand;
+  /* 0x00088 */ volatile unsigned int randomPulser;
+  /* 0x0008C */ volatile unsigned int fixedPulser1;
+  /* 0x00090 */ volatile unsigned int fixedPulser2;
   /* 0x00094 */ volatile unsigned int nblocks;
   /* 0x00098 */ volatile unsigned int trigCount;
   /* 0x0009C */ volatile unsigned int runningMode;
-  /* 0x000A0 */          unsigned int blank5[(0xA8-0xA0)/4];
+  /* 0x000A0 */          unsigned int blank4[(0xA8-0xA0)/4];
   /* 0x000A8 */ volatile unsigned int livetime;
   /* 0x000AC */ volatile unsigned int busytime;
   /* 0x000B0 */ volatile unsigned int GTPStatusA;
@@ -56,19 +65,30 @@ struct TD_A24RegStruct
   /* 0x000B8 */ volatile unsigned int GTPtriggerBufferLength;
   /* 0x000BC */ volatile unsigned int inputCounter;
   /* 0x000C0 */ volatile unsigned int blockStatus[4];
-/* 0x000D0 */ volatile unsigned int hfbr_tiID_old[8];
+  /* 0x000D0 */ volatile unsigned int adr24;
+  /* 0x000D4 */ volatile unsigned int syncEventCtrl;
+  /* 0x000D8 */ volatile unsigned int eventNumber_hi;
+  /* 0x000DC */ volatile unsigned int eventNumber_lo;
+  /* 0x000E0 */          unsigned int blank5[(0xEC-0xE0)/4];
+  /* 0x000EC */ volatile unsigned int rocEnable;  
   /* 0x000F0 */          unsigned int blank6[(0xFC-0xF0)/4];
-  /* 0x000FC */ volatile unsigned int scalerCtrl;
+  /* 0x000FC */ volatile unsigned int blocklimit;
   /* 0x00100 */ volatile unsigned int reset;
-  /* 0x00104 */          unsigned int blank7[(0x110-0x104)/4];
-  /* 0x00110 */          unsigned int busy_scaler1[7];
-  /* 0x0012C */          unsigned int blank8[(0x19C-0x12C)/4];
+  /* 0x00104 */ volatile unsigned int fpDelay[2];
+  /* 0x0010C */          unsigned int blank7[(0x128-0x10C)/4];
+  /* 0x00128 */ volatile unsigned int fpBusy;
+  /* 0x0012C */          unsigned int blank8[(0x138-0x12C)/4];
+  /* 0x00138 */ volatile unsigned int triggerRuleMin;
+  /* 0x0013C */          unsigned int blank9;
+  /* 0x00140 */ volatile unsigned int trigTable[(0x180-0x140)/4];
+  /* 0x00180 */ volatile unsigned int busy_scaler1[7];
   /* 0x0019C */ volatile unsigned int busy_scaler2[9];
-/* 0x001C0 */          unsigned int blank9[(0x1D0-0x1C0)/4];
-/* 0x001D0 */ volatile unsigned int hfbr_tiID[8];
-/* 0x001EC */          unsigned int blank99[(0x8C0-0x1F0)/4];
-  /* 0x008C0 */ volatile unsigned int trigTable[(0x900-0x8C0)/4];
-  /* 0x00900 */          unsigned int blank10[(0xFFFC-0x900)/4];
+  /* 0x001C0 */          unsigned int blank10[(0x1D0-0x1C0)/4];
+  /* 0x001D0 */ volatile unsigned int hfbr_tiID[8];
+  /* 0x001F0 */ volatile unsigned int master_tiID;
+  /* 0x001F4 */          unsigned int blank11[(0xDC00-0x1F4)/4];
+  /* 0x0DC00 */ volatile unsigned int sysMon[(0xDE00-0xDC00)/4];
+  /* 0x0DE00 */          unsigned int blank12[(0xFFFC-0xDE00)/4];
   /* 0x0FFFC */ volatile unsigned int eJTAGLoad;
   /* 0x10000 */ volatile unsigned int JTAGPROMBase[(0x20000-0x10000)/4];
   /* 0x20000 */ volatile unsigned int JTAGFPGABase[(0x30000-0x20000)/4];
@@ -86,7 +106,7 @@ struct TD_A24RegStruct
 #define TD_FIRMWARE_MAJOR_VERSION_MASK   0x00000FF0
 #define TD_FIRWMARE_MINOR_VERSION_MASK   0x0000000F
 
-#define TD_SUPPORTED_FIRMWARE 0x17
+#define TD_SUPPORTED_FIRMWARE 0x72
 #define TD_SUPPORTED_TYPE     TD_FIRMWARE_TYPE_P
 
 /* 0x0 boardID bits and masks */
@@ -262,12 +282,6 @@ struct TD_A24RegStruct
 #define TD_SYNCWIDTH_MASK              0x7F
 #define TD_SYNCWIDTH_LONGWIDTH_ENABLE  (1<<7)
 
-/* 0x90 adr24 bits and masks */
-#define TD_ADR24_ADDRESS_MASK         0x0000001F
-#define TD_ADR24_HARDWARE_SET_MASK    0x000003E0
-#define TD_ADR24_TM_NBLOCKS_READY1    0x00FF0000
-#define TD_ADR24_TM_NBLOCKS_NEEDACK1  0xFF000000
-
 /* 0x94 nblocks bits and masks */
 #define TD_NBLOCKS_BLOCK_COUNT_MASK    0x00FFFFFF
 
@@ -292,10 +306,18 @@ struct TD_A24RegStruct
 #define TD_BLOCKSTATUS_NBLOCKS_READY1    0x00FF0000
 #define TD_BLOCKSTATUS_NBLOCKS_NEEDACK1  0xFF000000
 
-/* 0xD0-0xEC TI ID bits and masks */
-#define TD_ID_TRIGSRC_ENABLE_MASK     0x000000FF
-#define TD_ID_CRATEID_MASK            0x0000FF00
-#define TD_ID_BLOCKLEVEL_MASK         0x00FF0000
+/* 0xD0 adr24 bits and masks */
+#define TD_ADR24_ADDRESS_MASK         0x0000001F
+#define TD_ADR24_HARDWARE_SET_MASK    0x000003E0
+#define TD_ADR24_TM_NBLOCKS_READY1    0x00FF0000
+#define TD_ADR24_TM_NBLOCKS_NEEDACK1  0xFF000000
+
+/* 0xEC rocEnable bits and masks */
+#define TD_ROCENABLE_MASK                           0x000000FF
+#define TD_ROCENABLE_ROC(x)                         (1<<(x))
+#define TD_ROCENABLE_SYNCRESET_REQUEST_ENABLE_MASK  0x0007FC00
+#define TD_ROCENABLE_SYNCRESET_REQUEST_MONITOR_MASK 0x1FF00000
+
 
 /* 0x100 reset bits and masks */
 #define TD_RESET_I2C                  (1<<1)
@@ -316,7 +338,15 @@ struct TD_A24RegStruct
 #define TD_RESET_MEASURE_LATENCY      (1<<15)
 #define TD_RESET_TAKE_TOKEN           (1<<16)
 #define TD_RESET_BLOCK_READOUT        (1<<17)
+#define TD_RESET_MGT_RX_RESET         (1<<22)
 #define TD_RESET_LATCH_TIMERS         (1<<24)
+
+/* 0x1D0-0x1EC TI ID bits and masks */
+#define TD_ID_TRIGSRC_ENABLE_MASK     0x000000FF
+#define TD_ID_CRATEID_MASK            0x0000FF00
+#define TD_ID_BLOCKLEVEL_MASK         0x00FF0000
+#define TD_ID_BLOCK_BUFFERLEVEL_MASK  0xFF000000
+
 
 /* Slaves, used by tdAddSlaveMask */
 #define TD_SLAVE_1 (1<<1)
@@ -347,9 +377,11 @@ struct TD_A24RegStruct
 #endif
 
 /* Function prototypes */
-int    tdInit(unsigned int addr, unsigned int addr_inc, int nfind, int iFlag);
+/*sergey: removed STATUS and UINT32 in following call*/
+int tdInit(unsigned int addr, unsigned int addr_inc, int nfind, int iFlag);
 int    tdSlot(unsigned int i);
 unsigned int tdSlotMask();
+int    tdCheckAddresses();
 void   tdStatus(int id, int pflag);
 void   tdInitPortNames();
 int    tdSetPortName(int id, int iport, char *name);
@@ -381,6 +413,8 @@ unsigned int tdGetSerialNumber(int id, char **rSN);
 int    tdLatchTimers(int id);
 unsigned int tdGetLiveTime(int id);
 unsigned int tdGetBusyTime(int id);
+int    tdEnableSyncResetRequest(int id, unsigned int portMask);
+int    tdSyncResetRequestStatus(int id, int pflag);
 int    tdGetConnectedFiberMask(int id);
 int    tdGetTrigSrcEnabledFiberMask(int id);
 int    tdTriggerReadyReset(int id);
@@ -390,12 +424,17 @@ void   tdGSetPortNamesFromCrateID();
 int    tdGetPortTrigSrcEnabled(int id, int port);
 int    tdGetSlaveBlocklevel(int id, int port);
 int    tdResetMGT(int id);
+int    tdResetMGTRx(int id);
 void   tdSlaveStatus(int id, int pflag);
 unsigned int tdGetBlockStatus(int id, int port, int pflag);
 int    tdGetBusyStatus(int id, int port, int pflag);
-int    tdSetOutputPort(int id, unsigned int set1, unsigned int set2, unsigned int set3, unsigned int set4);
+int    tdSetOutputPort(int id, unsigned int set1, unsigned int set2,
+		       unsigned int set3, unsigned int set4);
 unsigned int tdGetTrigCount(int id);
 unsigned int tdGetBusyCounter(int id, int busysrc);
 int    tdPrintBusyCounters(int id);
-
+int    tdReadFiberFifo(int id, int fiber, volatile unsigned int *data,
+		       int maxwords, int rflag);
+int    tdPrintFiberFifo(int id, int fiber);
+int    tdClearFiberFifo(int id, int fiber);
 #endif /* TDLIB_H */

@@ -2,7 +2,7 @@
 
 /*
  * File:
- *    sis3801LibTest.c
+ *    s3801LibTest.c
  *
  * Description:
  *    Program to test sis3801 library
@@ -17,78 +17,62 @@
 #include "jvme.h"
 #include "sis3801.h"
 
-void getFromHost(char** a,int b,int c,char** d){}
-extern unsigned long addr;
+int Nsis = 0;
 
 void
 myISR(int arg)
 {
-  int i, rval, dready = 0, timeout = 0;
+  int i, rval, dready = 0, timeout = 0, isca ;
   const int len = 256;
   unsigned int derta[len];
   static int intCalls = 0;
 
-  printf(" try to lock\n");
   vmeBusLock();
-  printf(" lock\n");
-  memset(&derta, 0, sizeof(derta));
 
-  while((dready == 0) && (timeout++ < 100))
+  intCalls++;
+  for(isca = 0; isca < Nsis; isca++)
     {
-      dready = (sis3801status(addr) & FIFO_EMPTY) ? 0 : 1;
+      while((dready == 0) && (timeout++ < 100))
+	{
+	  dready = (sis3801status(isca) & FIFO_EMPTY) ? 0 : 1;
+	}
+
+      printf("%s(id = %d): Call count = %d    Status = 0x%08x  dready = %d\n",
+	     __func__, isca, intCalls, sis3801status(isca), dready);
+
+      if(dready == 0)
+	{
+	  vmeBusUnlock();
+	  return;
+	}
+
+      derta[0] = len;
+      rval = sis3801read(isca, (unsigned int *)&derta);
+
+      printf(" return length (bytes) = %d\n",
+	     rval);
+
+      for(i = 0; i < (rval>>2); i++)
+	{
+	  if((i%4) == 0)
+	    printf("\n%4d: ", i);
+	  printf(" 0x%08x ",
+		 derta[i]);
+	}
+      printf("\n");
     }
 
-  printf("%s: Call count = %d    Status = 0x%08x  dready = %d\n",
-	 __func__, ++intCalls, sis3801status(addr), dready);
-
-  if(dready == 0)
-    {
-      vmeBusUnlock();
-      return;
-    }
-
-  derta[0] = len;
-  rval = sis3801read(addr, &derta);
-
-  printf(" return length (bytes) = %d\n",
-	 rval);
-
-  for(i = 0; i < (rval>>2); i++)
-    {
-      if((i%4) == 0)
-	printf("\n%4d: ", i);
-      printf(" 0x%08x ",
-	     derta[i]);
-    }
-  printf("\n");
   vmeBusUnlock();
 
-  return (0);
 }
 
 int
 main(int argc, char *argv[])
 {
-  int nsis, iflag=0;
-  int stat;
+  int mode = 0, isca = 0;
 
   if(vmeOpenDefaultWindows() != OK)
     goto CLOSE;
-
-
-
-  nsis = sis3801Init(/*0x11100000*//*0x280800*/0x100000,0x80000,10,iflag);
-  printf("nsis=%d\n",nsis);
-
-
-  exit(0);
-
-
-
-
-
-
-
 
   if(sis3801CheckAddresses() != OK)
     goto CLOSE;
@@ -98,44 +82,51 @@ main(int argc, char *argv[])
   vmeCheckMutexHealth(2);
 
   vmeBusLock();
-  l2_init();
-  sis3801reset(addr);
+
+  mode = 2; /* Control Inputs mode = 2  */
+  Nsis = sis3801Init(0x200000, 0x100000, 2, mode);
+
+  for(isca = 0; isca < Nsis; isca++)
+    {
+      sis3801reset(isca);
+      sis3801clear(isca);
+      sis3801enablenextlogic(isca);
+      printf("    Status = 0x%08x\n",
+	     sis3801status(isca));
+    }
+
+  /* Set up the 0th scaler as the interrupt source */
+  /* 2nd arg: vector = 0 := use default */
+  scalIntInit(0, 0);
+
+  /* Connect service routine */
   scalIntConnect(myISR, 0);
-  sis3801control(addr,
-		 ENABLE_25MHZ|
-		 ENABLE_PRESCALER|
-		 ENABLE_10MHZ_TO_LNE_PRESCALER|
-		 ENABLE_TEST
-		 );
-  sis3801setlneprescaler(addr, 0xffffff);
-  printf("    Status = 0x%08x\n",
-	 sis3801status(addr));
-  sis3801clear(addr);
-  sis3801enablenextlogic(addr);
-  sis3801nextclock(addr); // Start the counters.. will generate interrupt if enabled
-
-  scalIntEnable(0x1);
-
-  sis3801nextclock(addr);
-  sis3801testclock(addr);
-
 
   printf("Press <Enter> to start interrupts\n");
   getchar();
+
+  /* Enable interrupts */
+  scalIntEnable(0x1);
+
+  /* Enable external next (control input #1) */
+  for(isca = 0; isca < Nsis; isca++)
+    {
+      sis3801control(isca, ENABLE_EXT_NEXT);
+    }
 
   vmeBusUnlock();
 
   printf("Press <Enter> to stop interrupts\n");
   getchar();
   vmeBusLock();
-  printf("    Status = 0x%08x\n",
-	 sis3801status(addr));
-  sis3801control(addr,
-		 DISABLE_25MHZ|
-		 DISABLE_PRESCALER|
-		 DISABLE_10MHZ_TO_LNE_PRESCALER|
-		 DISABLE_TEST
-		 );
+
+  for(isca = 0; isca < Nsis; isca++)
+    {
+      printf("    Status = 0x%08x\n",
+	     sis3801status(isca));
+
+      sis3801control(isca, DISABLE_EXT_NEXT);
+    }
   scalIntDisable();
   vmeBusUnlock();
 
@@ -152,6 +143,7 @@ CLOSE:
   compile-command: "make -k -B s3801LibTest"
   End:
  */
+
 
 #else /* dummy version*/
 

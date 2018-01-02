@@ -13,6 +13,8 @@ TI_ADD_SLAVE 1                                 # for every slave need to be adde
 
 TI_FIBER_DELAY_OFFSET 0x80 0xcf                # fiber delay and offsets
 
+TI_SYNC_DELAY_WIDTH 0x52 0x2f                  # sync delay and width
+
 TI_BLOCK_LEVEL 1                               # the number of events in readout block
 
 TI_BUFFER_LEVEL 1                              # 0 - pipeline mode, 1 - ROC Lock mode, >=2 - buffered mode
@@ -57,9 +59,11 @@ static int active;
 static int is_slave;
 static nslave, slave_list[MAXSLAVES];
 static unsigned int delay, offset;
+/*static unsigned int sync_delay, sync_width;*/
 static int block_level;
 static int buffer_level;
 static int input_prescale[6];
+static int input_delays[6];
 static int input_mask;
 static int random_enabled;
 static int random_prescale;
@@ -112,6 +116,10 @@ tiInitGlobals()
   is_slave = 0;
   delay = 0x80;
   offset = 0xcf;
+  /*
+  sync_delay = 0x52;
+  sync_width = 0x2f;
+  */
   block_level = 1;
   buffer_level = 1;
   nslave = 0;
@@ -127,6 +135,7 @@ tiInitGlobals()
   holdoff_timescale[3] = 0;
   for(ii=0; ii<MAXSLAVES; ii++) slave_list[ii] = 0;
   for(ii=0; ii<6; ii++) input_prescale[ii] = 0;
+  for(ii=0; ii<6; ii++) input_delays[ii] = 0;
   input_mask = 0x3f;
   /*fiber_in = 1;*/
 
@@ -244,7 +253,14 @@ tiReadConfigFile(char *filename)
         delay = i1;
         offset = i2;
       }
-
+	  /*
+      else if(active && (strcmp(keyword,"TI_SYNC_DELAY_WIDTH")==0))
+      {
+        sscanf (str_tmp, "%*s %x %x", &i1, &i2);
+        sync_delay = i1;
+        sync_width = i2;
+      }
+	  */
       else if(active && (strcmp(keyword,"TI_BLOCK_LEVEL")==0))
       {
         sscanf (str_tmp, "%*s %d", &i1);
@@ -269,6 +285,20 @@ tiReadConfigFile(char *filename)
           printf("\nReadConfigFile: Invalid prescaler value selection, %s\n",str_tmp);
         }
         input_prescale[i1-1] = i2;
+      }
+
+      else if(active && (strcmp(keyword, "TI_INPUT_DELAY")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d", &i1, &i2);
+        if((i1 < 1) || (i1 > 6))
+        {
+          printf("\nReadConfigFile: Invalid ts inputs selection, %s\n",str_tmp);
+        }
+        if((i2 < 0) || (i2 > 511))
+        {
+          printf("\nReadConfigFile: Invalid ts input delay, %s\n",str_tmp);
+        }
+        input_delays[i1-1] = i2;
       }
 
       else if(active && (strcmp(keyword,"TI_INPUT_MASK")==0))
@@ -365,14 +395,20 @@ tiDownloadAll()
 
   /*for(ii=0; ii<nslave; ii++) tiAddSlave(slave_list[ii]); done automatically in ROL1 */
   for(ii=0; ii<6; ii++) tiSetInputPrescale(ii+1,input_prescale[ii]);
+  for(ii=0; ii<6; ii++) tiSetTSInputDelay(ii+1,input_delays[ii]);
 
   tiDisableTSInput(TI_TSINPUT_ALL);
   tiEnableTSInput(input_mask);
 
   for(ii=0; ii<4; ii++) tiSetTriggerHoldoff(ii+1,holdoff_rules[ii],holdoff_timescale[ii]);
-  
-  tiSetFiberDelay(delay, offset);
 
+#if 1
+  tiSetFiberDelay(delay, offset);
+#endif
+
+  /*
+  tiSetSyncDelayWidth(sync_delay, sync_width, 0);
+  */
   tiSetInstantBlockLevelChange(1); /* enable immediate block level setting */
   printf("tiDownloadAll: setting block_level = %d\n",block_level);
   tiSetBlockLevel(block_level);
@@ -450,10 +486,16 @@ tiUploadAll(char *string, int length)
   for(ii = 0; ii < 6; ii++)
   {
     input_prescale[ii] = tiGetInputPrescale(ii+1);
+    input_delays[ii] = tiGetTSInputDelay(ii+1);
   }
 
   random_enabled = tiGetRandomTriggerEnable(1);
   random_prescale = tiGetRandomTriggerSetting(1);
+
+  /*
+  delay = tiGetFiberDelay();
+  sync_delay = tiGetSyncDelay();
+  */
 
   /*fiber_in = tiGetSlavePort();*/
 
@@ -493,12 +535,27 @@ tiUploadAll(char *string, int length)
 
     for(ii = 0; ii < 6; ii++)
     {
+      sprintf(sss,"TI_INPUT_DELAY %d %d\n",ii+1,input_delays[ii]);
+      ADD_TO_STRING;
+    }
+
+
+    for(ii = 0; ii < 6; ii++)
+    {
       sprintf(sss,"TI_INPUT_PRESCALE %d %d\n",ii+1,input_prescale[ii]);
       ADD_TO_STRING;
     }
 
     sprintf(sss,"TI_RANDOM_TRIGGER %d %d\n",random_enabled,random_prescale);
     ADD_TO_STRING;
+
+	/*
+    sprintf(sss,"TI_FIBER_DELAY_OFFSET %d %d\n",delay,0);
+    ADD_TO_STRING;
+
+    sprintf(sss,"TI_SYNC_DELAY_WIDTH %d %d\n",sync_delay,0);
+    ADD_TO_STRING;
+	*/
 
     CLOSE_STRING;
   }

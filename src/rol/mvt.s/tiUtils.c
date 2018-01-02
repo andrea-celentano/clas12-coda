@@ -61,148 +61,143 @@ void my_tiIntAck()
 	}
 
 	TILOCK;
-	tiAckCount++;
-	resetbits = TI_RESET_BUSYACK;
-	
-	if(!tiReadoutEnabled)
-	{
-		// Readout Acknowledge and decrease the number of available blocks by 1
-		resetbits |= TI_RESET_BLOCK_READOUT;
-	}
-    
-	request = (vmeRead32(&TIp->blockBuffer) & TI_BLOCKBUFFER_SYNCRESET_REQUESTED)>>30;
-  
-  	if( request )  
-	{
-		printf("%s: ERROR : TI_BLOCKBUFFER %x \n",__FUNCTION__, request);
-	}
-	
-	vmeWrite32(&TIp->reset, resetbits);
+		tiAckCount++;
+		resetbits = TI_RESET_BUSYACK;
+		if(!tiReadoutEnabled)
+		{
+			// Readout Acknowledge and decrease the number of available blocks by 1
+			resetbits |= TI_RESET_BLOCK_READOUT;
+		}
+
+		request = (vmeRead32(&TIp->blockBuffer) & TI_BLOCKBUFFER_SYNCRESET_REQUESTED)>>30;
+	  	if( request )  
+		{
+			printf("%s: ERROR : TI_BLOCKBUFFER %x \n",__FUNCTION__, request);
+		}
+
+		vmeWrite32(&TIp->reset, resetbits);
 	TIUNLOCK;
-   
+
 	if( request )
 		tiSyncResetResync();
 }
 
 
-void
-my_tiSyncReset()
+void my_tiSyncReset()
 {
-  int resetbits=0;
-  unsigned int request = 0;
-  if(TIp == NULL) {
-    logMsg("tiIntAck: ERROR: TI not initialized\n",0,0,0,0,0,0);
-    return;
-  }
+	int resetbits=0;
+	unsigned int request = 0;
 
-  	TILOCK;
-    request = (vmeRead32(&TIp->blockBuffer) & TI_BLOCKBUFFER_SYNCRESET_REQUESTED)>>30;
-    
-    if( request )  
+	if(TIp == NULL)
 	{
-	 	printf("%s: ERROR : TI_BLOCKBUFFER  %x \n",__FUNCTION__, request);
-	 	// resetbits |= TI_RESET_BUSYACK;
+		logMsg("tiIntAck: ERROR: TI not initialized\n",0,0,0,0,0,0);
+		return;
 	}
-    vmeWrite32(&TIp->reset, resetbits);
-    TIUNLOCK;
-     
-    if( request )
+
+	TILOCK;
+		request = (vmeRead32(&TIp->blockBuffer) & TI_BLOCKBUFFER_SYNCRESET_REQUESTED)>>30;
+		if( request )  
+		{
+			printf("%s: ERROR : TI_BLOCKBUFFER  %x \n",__FUNCTION__, request);
+			// resetbits |= TI_RESET_BUSYACK;
+		}
+		vmeWrite32(&TIp->reset, resetbits);
+	TIUNLOCK;
+
+	if( request )
 		tiSyncResetResync();
- }
-
-
-
-
-int 
-my_tiIntEnable(int iflag)
-{
-  if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return(-1);
-    }
-
-
-  if(iflag == 1)
-    {
-      tiIntCount = 0;
-      tiAckCount = 0;
-    }
-      return(0);
 }
 
 
-void  my_tiDeadtime()
+
+
+int my_tiIntEnable(int iflag)
 {
-
-  unsigned int livetime, busytime;
-
-  
-  if(TIp==NULL)
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return;
-    }
-
-  /* latch live and busytime scalers */
-  tiLatchTimers();
-
-  TILOCK;
-  /* Latch scalers first */
-  vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH);
-  livetime     = vmeRead32(&TIp->livetime);
-  busytime     = vmeRead32(&TIp->busytime);
-  TIUNLOCK;
-
-  if ( busytime || livetime){ 
-	printf("  deadtime       %7.3f percent ",  (double) busytime  / ( (double)busytime + (double) livetime ) *100.); 
+	if(TIp == NULL)
+	{
+		logMsg("tiIntAck: ERROR: TI not initialized\n",0,0,0,0,0,0);
+		return ERROR;
 	}
 
+	if(iflag == 1)
+	{
+		tiIntCount = 0;
+		tiAckCount = 0;
+	}
+	return(0);
 }
 
-int
-my_tiLive()
+
+void my_tiDeadtime()
 {
-  int reg_bl = 0, bl=0, rval=0;
-  float fval=0;
-  unsigned int newBusy=0, newLive=0, newTotal=0;
-  unsigned int live=0, total=0;
-  static unsigned int oldLive=0, oldTotal=0;
+	unsigned int livetime, busytime;
 
-  if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
+	if(TIp == NULL)
+	{
+		logMsg("tiIntAck: ERROR: TI not initialized\n",0,0,0,0,0,0);
+		return;
+	}
 
-  TILOCK;
-  vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH);
-  newLive = vmeRead32(&TIp->livetime);
-  newBusy = vmeRead32(&TIp->busytime);
-  //reg_bl = vmeRead32(&TIp->blocklevel);
-  TIUNLOCK;
+	/* latch live and busytime scalers */
+	tiLatchTimers();
+
+	TILOCK;
+		/* Latch scalers first */
+		vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH);
+		livetime     = vmeRead32(&TIp->livetime);
+		busytime     = vmeRead32(&TIp->busytime);
+	TIUNLOCK;
+
+	if ( busytime || livetime)
+	{ 
+		fprintf( stdout, "  deadtime %7.3f %% ",  (double) busytime  / ( (double)busytime + (double) livetime ) *100.); 
+	}
+}
+
+int my_tiLive()
+{
+	int reg_bl = 0, bl=0, rval=0;
+	float fval=0;
+	unsigned int newBusy=0, newLive=0, newTotal=0;
+	unsigned int live=0, total=0;
+	static unsigned int oldLive=0, oldTotal=0;
+
+	if(TIp == NULL)
+	{
+		logMsg("tiIntAck: ERROR: TI not initialized\n",0,0,0,0,0,0);
+		return ERROR;
+	}
+
+	TILOCK;
+		vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH);
+		newLive = vmeRead32(&TIp->livetime);
+		newBusy = vmeRead32(&TIp->busytime);
+		//reg_bl = vmeRead32(&TIp->blocklevel);
+	TIUNLOCK;
   
-  bl = (reg_bl & TI_BLOCKLEVEL_CURRENT_MASK)>>16;
+	bl = (reg_bl & TI_BLOCKLEVEL_CURRENT_MASK)>>16;
   
-  newTotal = newLive+newBusy;
-  if((oldTotal<newTotal))
-    { /* Differential */
-      live  = newLive - oldLive;
-      total = newTotal - oldTotal;
-    }
-  else
-    { /* Integrated */
-      live = newLive;
-      total = newTotal;
-    }
-  oldLive = newLive;
-  oldTotal = newTotal;
+	newTotal = newLive+newBusy;
+	if((oldTotal<newTotal))
+	{
+		/* Differential */
+		live  = newLive - oldLive;
+		total = newTotal - oldTotal;
+    	}
+	else
+	{
+		/* Integrated */
+		live = newLive;
+		total = newTotal;
+	}
+	oldLive = newLive;
+	oldTotal = newTotal;
 
-  if(total>0)
-    fval =  (float) total;
-  	rval = total;
+	if(total>0)
+		fval =  (float) total;
+	rval = total;
 
-  return rval;
+	return rval;
 }
 
 

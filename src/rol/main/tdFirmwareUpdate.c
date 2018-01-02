@@ -22,6 +22,17 @@
 /*sergey: 
 
   UNIX:
+
+slot 3:  TD-103
+slot 4:  TD-110
+slot 5:  TD-106
+slot 6:  TD-107
+slot 7:  TD-109
+slot 8:  TD-108
+slot 9:  TD-102
+slot 10: TD-101
+slot 13: TD-104
+
      cd $CLON_PARMS/firmwares
      tdFirmwareUpdate 0 tdp31.svf
         - to obtain all TD boards addresses
@@ -29,17 +40,19 @@
      tdFirmwareUpdate xxxxxxxx tdp31.svf
         - for every TD board found:
 
-     tdFirmwareUpdate 0x00180000 tdp31.svf
-     tdFirmwareUpdate 0x00200000 tdp31.svf
-     tdFirmwareUpdate 0x00280000 tdp31.svf
-     tdFirmwareUpdate 0x00300000 tdp31.svf
-     tdFirmwareUpdate 0x00380000 tdp31.svf
-     tdFirmwareUpdate 0x00400000 tdp31.svf
-     tdFirmwareUpdate 0x00480000 tdp31.svf
-     tdFirmwareUpdate 0x00500000 tdp31.svf
-     tdFirmwareUpdate 0x00680000 tdp31.svf
+     tdFirmwareUpdate 0x00180000 tdp73.svf
+     tdFirmwareUpdate 0x00200000 tdp73.svf
+     tdFirmwareUpdate 0x00280000 tdp73.svf
+     tdFirmwareUpdate 0x00300000 tdp73.svf
+     tdFirmwareUpdate 0x00380000 tdp73.svf
+     tdFirmwareUpdate 0x00400000 tdp73.svf
+     tdFirmwareUpdate 0x00480000 tdp73.svf
+     tdFirmwareUpdate 0x00500000 tdp73.svf
+     tdFirmwareUpdate 0x00680000 tdp73.svf
 
-     (tdFirmwareUpdate xxxxxxxxx tdp52.svf)
+     (tdFirmwareUpdate xxxxxxxxx tdp73.svf)
+
+firmware location: /u/group/da/distribution/coda/Firmware/
 
 */
 

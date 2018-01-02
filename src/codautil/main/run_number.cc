@@ -33,7 +33,7 @@ main(int argc, char **argv){
   char *config, *conffile, *datafile;
 
   decode_command_line(argc,argv);
-  if(session==NULL) session=(char *)"clashps";
+  if(session==NULL) session=(char *)"clasprod";
 
 
   // get run number

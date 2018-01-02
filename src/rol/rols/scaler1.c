@@ -223,8 +223,29 @@ getTdcSlotNumbers(int *slotnumbers)
 
 #ifdef USE_SIS3801
 #include "sis3801.h"
-static int nsis3801;
+static int nsis;
+unsigned int addr;
+#define MASK    0x00000000   /* unmask all 32 channels (0-enable,1-disable) */
 #endif
+
+
+int
+sis3801restore(int addr, int mask)
+{
+  sis3801reset(addr);
+  sis3801mask(addr, mask);
+  sis3801enablenextlogic(addr);
+  sis3801control(addr, ENABLE_MODE2);
+  sis3801control(addr, ENABLE_EXT_DIS);
+  /*sis3801control(addr, ENABLE_EXT_NEXT);calls it separately, at once for all scalers*/
+  /*sis3801ledon(addr);*/
+
+  return(0);
+}
+
+
+
+static unsigned long run_trig_count = 0;
 
 
 
@@ -232,6 +253,8 @@ static void
 __download()
 {
   int i1, i2, i3, ii;
+  int mode = 0, isca = 0;
+  char *ch, tmp[64];
 #ifdef POLLING_MODE
   rol->poll = 1;
 #else
@@ -280,6 +303,8 @@ __download()
 
   /*************************************/
   /* redefine TI settings if neseccary */
+
+  tiSetUserSyncResetReceive(1);
 
 #ifndef TI_SLAVE
   /* TS 1-6 create physics trigger, no sync event pin, no trigger 2 */
@@ -344,20 +369,42 @@ if(rol->pid==18)
   printf("SIS3801 Download() starts =========================\n");
 
 vmeBusLock();
-  nsis3801 = sis3801Init(0x11100000,0x80000,20,0);
-  /*if(nsis3801>0) TDC_READ_CONF_FILE;*/
-vmeBusUnlock();
 
-  for(ii=0; ii<nsis3801; ii++)
+
+  mode = 2; /* Control Inputs mode = 2  */
+  nsis = sis3801Init(0x200000, 0x100000, 2, mode);
+  /*if(nsis>0) TDC_READ_CONF_FILE;*/
+
+  for(isca = 0; isca < nsis; isca++)
   {
-	;
-	/*
-    slot = tdc1190Slot(ii);
-    tdctypebyslot[slot] = tdc1190Type(ii);
-    printf(">>> id=%d slot=%d type=%d\n",ii,slot,tdctypebyslot[slot]);
-	*/
+    sis3801reset(isca);
+    sis3801clear(isca);
+    sis3801enablenextlogic(isca);
+    printf("    Status = 0x%08x\n",sis3801status(isca));
   }
 
+#if 0
+  /* Set up the 0th scaler as the interrupt source */
+  /* 2nd arg: vector = 0 := use default */
+  scalIntInit(0, 0);
+
+  /* Connect service routine */
+  scalIntConnect(myISR, 0);
+#endif
+
+vmeBusUnlock();
+
+
+
+
+/*
+  for(ii=0; ii<nsis; ii++)
+  {
+    addr = sis3801GetAddress(ii);
+    printf("addr[%d]=0x%08x\n",ii,addr);
+	sis3801control(addr,DISABLE_EXT_NEXT);
+  }
+*/
   printf("SIS3801 Download() ends =========================\n\n");
 #endif
 
@@ -383,7 +430,7 @@ static void
 __prestart()
 {
   int ii, i1, i2, i3;
-  int ret;
+  int ret, isca;
 
   /* Clear some global variables etc for a clean start */
   *(rol->nevents) = 0;
@@ -417,6 +464,20 @@ vmeBusUnlock();
 
   /* USER code here */
 
+#ifdef USE_SIS3801
+
+  for(isca = 0; isca < nsis; isca++)
+  {
+    sis3801clear(isca);
+  }
+/*
+  for(ii=0; ii<nsis; ii++)
+  {
+    addr = sis3801GetAddress(ii);
+    sis3801control(addr, DISABLE_EXT_NEXT);
+  }
+*/
+#endif
 
 vmeBusLock();
   tiIntDisable();
@@ -498,9 +559,41 @@ __end()
 {
   int iwait=0;
   int blocksLeft=0;
-  int id;
+  int id, ii, isca;
 
   printf("\n\nINFO: End1 Reached\n");fflush(stdout);
+
+#ifdef USE_SIS3801
+
+  for(isca = 0; isca < nsis; isca++)
+  {
+    printf("    Status = 0x%08x\n",sis3801status(isca));
+    sis3801control(isca, DISABLE_EXT_NEXT);
+  }
+#if 0
+  scalIntDisable();
+#endif
+
+  /*
+  for(ii=0; ii<nsis; ii++)
+  {
+    addr = sis3801GetAddress(ii);
+	sis3801control(addr,DISABLE_EXT_NEXT);
+  }
+
+  for(ii=0; ii<nsis; ii++)
+  {
+    addr = sis3801GetAddress(ii);
+    sis3801reset(addr);
+  }
+
+  for(ii=0; ii<nsis; ii++)
+  {
+    addr = sis3801GetAddress(ii);
+    sis3801clear(addr);
+  }
+  */
+#endif
 
   CDODISABLE(TIPRIMARY,TIR_SOURCE,0);
 
@@ -547,7 +640,7 @@ __pause()
 static void
 __go()
 {
-  int ii, jj, id, slot;
+  int ii, jj, id, slot, isca;
 
   logMsg("INFO: Entering Go 1\n",1,2,3,4,5,6);
 
@@ -558,6 +651,39 @@ vmeBusLock();
 vmeBusUnlock();
 #endif
 
+#ifdef USE_SIS3801
+  run_trig_count = 0;
+
+#if 0
+  /* Enable interrupts */
+  scalIntEnable(0x1);
+#endif
+
+  /* Enable external next (control input #1) */
+
+  /* do it on first event
+  for(isca = 0; isca < nsis; isca++)
+  {
+    sis3801control(isca, ENABLE_EXT_NEXT);
+  }
+  */
+
+  /*
+  for(ii=0; ii<nsis; ii++)
+  {
+    addr = sis3801GetAddress(ii);
+
+    sis3801control(addr, DISABLE_EXT_NEXT);
+    sis3801reset(addr);
+    sis3801clear(addr);
+    sis3801mask(addr, MASK);
+    sis3801enablenextlogic(addr);
+    sis3801control(addr, ENABLE_MODE2);
+    sis3801control(addr, ENABLE_EXT_DIS);
+  }
+  */
+
+#endif
 
   /* always clear exceptions */
   jlabgefClearException(1);
@@ -579,7 +705,8 @@ usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE)
   unsigned int *tdcbuf_save, *tdc, utmp;
   unsigned int *dabufp1, *dabufp2;
   int njjloops, slot, type;
-  int nwords;
+  int nwords, isca;
+  int dready = 0, timeout = 0;
 #ifndef VXWORKS
   TIMERL_VAR;
 #endif
@@ -601,6 +728,18 @@ usleep(100);
   sleep(1);
   */
 
+#ifdef USE_SIS3801
+  run_trig_count++;
+  if(run_trig_count==1)
+  {
+
+    printf("First event - sis3801: ENABLE_EXT_NEXT\n");
+    for(isca = 0; isca < nsis; isca++)
+    {
+      sis3801control(isca, ENABLE_EXT_NEXT);
+    }
+  }
+#endif
 
 
   CEOPEN(EVTYPE, BT_BANKS); /* reformatted on CODA_format.c !!! */
@@ -622,7 +761,7 @@ usleep(100);
   }
   else if((syncFlag==0)&&(EVTYPE==15)) /* helicity strob events */
   {
-    ;
+	;
   }
   else           /* physics and physics_sync events */
   {
@@ -680,105 +819,85 @@ TIMERL_START;
 
 
 
+#ifdef USE_SIS3801
 
-#ifdef USE_V1190
-	if(ntdcs>0)
-	{
-vmeBusLock();
-      tdc1190ReadStart(tdcbuf, rlenbuf);
-vmeBusUnlock();
-	  /*
-	  rlenbuf[0] = tdc1190ReadBoard(0, tdcbuf);
-	  rlenbuf[1] = tdc1190ReadBoard(1, &tdcbuf[rlenbuf[0]]);
-	  */
-
-      /*check if anything left in event buffer; if yes, print warning message and clear event buffer
-      for(jj=0; jj<ntdcs; jj++)
+    if(nsis>0)
+    {
+      for(ii=0; ii<nsis; ii++)
       {
-        nev = tdc1190Dready(jj);
-        if(nev > 0)
-		{
-          printf("WARN: v1290[%2d] has %d events - clear it\n",jj,nev);
-          tdc1190Clear(jj);
-		}
-	  }
-      for(ii=0; ii<rlenbuf[0]; ii++) tdcbuf[ii] = LSWAP(tdcbuf[ii]);
-	  */
+        if(sis3801status(ii) & FIFO_FULL)
+        {
+          printf("SIS3801 IS FULL - CLEAN IT UP AND START AGAIN\n");fflush(stdout);
 
-      itdcbuf = 0;
-      njjloops = ntdcs;
-
-      BANKOPEN(0xe10B,1,rol->pid);
-      for(ii=0; ii<njjloops; ii++)
-      {
-        rlen = rlenbuf[ii];
-		/*
-        printf("rol1(TDCs): ii=%d, rlen=%d\n",ii,rlen);
-		*/
-
-	  /*	  
-#ifdef DEBUG
-        level = tdc1190GetAlmostFullLevel(ii);
-        iii = tdc1190StatusAlmostFull(ii);
-        logMsg("ii=%d, rlen=%d, almostfull=%d level=%d\n",ii,rlen,iii,level,5,6);
-#endif
-	  */	  
-
-        if(rlen <= 0) continue;
-
-        tdc = &tdcbuf[itdcbuf];
-        itdcbuf += rlen;
+          for(isca = 0; isca < nsis; isca++)
+          {
+            sis3801reset(isca);
+            sis3801clear(isca);
+            sis3801enablenextlogic(isca);
+            sis3801control(isca, ENABLE_EXT_NEXT);
+            printf("    Status = 0x%08x\n",sis3801status(isca));
+          }
 
 
-#ifdef SLOTWORKAROUND
-		/* go through current board and fix slot number */
-        for(jj=0; jj<rlen; jj++)
-		{
-          utmp = LSWAP(tdc[jj]);
-
-          if( ((utmp>>27)&0x1F) == 8 ) /* GLOBAL HEADER */
-		  {
-            slot = utmp&0x1f;
-            if( slot != slotnums[ii] )
-			{
-              printf("ERROR: old=0x%08x: WRONG slot=%d IN GLOBAL HEADER, must be %d - fixed\n",utmp,slot,slotnums[ii]);
-              utmp = (utmp & 0xFFFFFFE0) | slotnums[ii];
-              printf("new=0x%08x\n",utmp);
-              tdc[jj] = LSWAP(utmp);
-            }
-		  }
-          else if( ((utmp>>27)&0x1F) == 0x10 ) /* GLOBAL TRAILER */
-		  {
-            slot = utmp&0x1f;
-            if( slot != slotnums[ii] )
-			{
-              printf("ERROR: old=0x%08x: WRONG slot=%d IN GLOBAL TRAILER, must be %d - fixed\n",utmp,slot,slotnums[ii]);
-              utmp = (utmp & 0xFFFFFFE0) | slotnums[ii];
-              printf("new=0x%08x\n",utmp);
-              tdc[jj] = LSWAP(utmp);
-            }
-		  }
+		  /*
+          sis3801restore(ii, MASK);
+          sis3801control(ii, ENABLE_EXT_NEXT);
+		  */
         }
+        else
+        {
+          dready = 0;
+          timeout = 0;
+          while((dready == 0) && (timeout++ < 10))
+          {
+            dready = (sis3801status(ii) & FIFO_EMPTY) ? 0 : 1;
+          }
+
+          if(dready == 0)
+		  {
+            /*printf("NOT READY\n");fflush(stdout)*/;
+		  }
+          else
+          {
+            /*printf("READY =======================================\n");fflush(stdout);*/
+            tdcbuf[0] = 10000;
+vmeBusLock();
+            len = sis3801read(ii, tdcbuf);
+vmeBusUnlock();
+            if(len>=10000) printf("WARN: sis3801[%d] returned %d bytes\n",ii,len);
+            len = len >> 2;
+            /*printf("\nsis3801[%d]: read %d words\n",ii,len);fflush(stdout);
+            for(jj = 0; jj <len; jj++)
+	        {
+	          if((jj%4) == 0) printf("\n%4d: ", jj);
+	          printf(" 0x%08x ",tdcbuf[jj]);
+	        }
+            printf("\n");
+			*/
+            BANKOPEN(0xe125,1,/*rol->pid*/ii);
+            for(jj=0; jj<len; jj++) *rol->dabufp++ = LSWAP(tdcbuf[jj]);
+            BANKCLOSE;
+		  }
+
+		  /*
+          ret = scaler7201readHLS(scaler0, ring0, nHLS);
+          if(ret==0) printRingFull = 1;
+          else if(ret==-1 && printRingFull==1)
+          {
+            printf("scaler: ring0 is full\n",0,0,0,0,0,0);
+            printRingFull = 0;
+          }
+		  */
+        }
+	  }
+    }
 #endif
-
-        for(jj=0; jj<rlen; jj++) *rol->dabufp ++ = tdc[jj];
-      }
-      BANKCLOSE;
-
-	}
-
-
-#endif /* USE_V1190 */
-
-
-
-
 
 
 
 #ifndef TI_SLAVE
 
-  /* create HEAD bank if master and standalone crates, NOT slave */
+    /* create HEAD bank if master and standalone crates, NOT slave */
 
 	event_number = (EVENT_NUMBER) * block_level - block_level;
 
@@ -829,6 +948,7 @@ vmeBusUnlock();
 
 
 
+
 #ifndef VXWORKS
 TIMERL_STOP(100000/block_level,1000+rol->pid);
 #endif
@@ -838,6 +958,8 @@ TIMERL_STOP(100000/block_level,1000+rol->pid);
 
 
 #if 1 /* enable/disable sync events processing */
+
+
 
 
     /* read boards configurations */
@@ -860,53 +982,6 @@ vmeBusUnlock();
       printf(">%s<\n",chptr);*/
       chptr += len;
       nbytes += len;
-
-
-
-#ifdef USE_V1190_HIDE
-	  if(ntdcs>0)
-	  {
-vmeBusLock();
-        len = tdc1190UploadAll(chptr, 10000);
-vmeBusUnlock();
-        /*printf("\nTDC len=%d\n",len);
-        printf("%s\n",chptr);*/
-        chptr += len;
-        nbytes += len;
-	  }
-#endif
-
-
-
-
-#if 0
-	  /* temporary for crates with GTP */
-      if(rol->pid==37||rol->pid==39)
-	  {
-#define TEXT_STR  1000
-        char *roc;
-        int  ii, kk, stt = 0;
-        char result[TEXT_STR];      /* string for messages from tcpClientCmd */
-        char exename[200];          /* command to be executed by tcpServer */
-
-        if(rol->pid==37) roc = "hps1gtp";
-        else             roc = "hps2gtp";
-
-        sprintf(exename,"gtpUploadAllPrint()");
-
-        /*printf("gtptest1: roc >%s< exename >%s<\n",roc,exename);*/
-
-        memset(result,0,TEXT_STR);
-        tcpClientCmd(roc, exename, result);
-
-        len = strlen(result) - 2; /* 'result' has 2 extra chars in the end we do not want ????? */
-        /*printf("gtptest1: len=%d, >%s<",len,result);*/
-
-        strncpy(chptr,result,len);
-        chptr += len;
-        nbytes += len;
-	  }
-#endif
 
       /* 'nbytes' does not includes end_of_string ! */
       chptr[0] = '\n';
@@ -1001,6 +1076,8 @@ vmeBusUnlock();
       printf("SYNC: livetime - done\n");
 	}
 #endif
+
+
 
 
     /* for physics sync event, make sure all board buffers are empty */

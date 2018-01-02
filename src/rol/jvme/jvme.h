@@ -139,4 +139,7 @@ void vmeBusWrite8(int amcode, unsigned int vmeaddr, unsigned char val);
 void vmeBusWrite16(int amcode, unsigned int vmeaddr, unsigned short val);
 void vmeBusWrite32(int amcode, unsigned int vmeaddr, unsigned int val);
 
+/* sergey */
+#include "usrvme.h"
+
 #endif /* __JVME__ */

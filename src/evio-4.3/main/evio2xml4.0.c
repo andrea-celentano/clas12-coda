@@ -1085,6 +1085,7 @@ static void dump_data(unsigned int *data, int type, int length, int padding, int
                 c=start;
                 while((c[0]!=0x4)&&((c-start)<length*4)) {
                     len=strlen(c);
+printf("c=>%c< len=%d\n",c[0],len);
                     indent(0);
                     sprintf(format,"<![CDATA[%%.%ds]]>\n",len);
                     xml+=sprintf(xml,format,c);

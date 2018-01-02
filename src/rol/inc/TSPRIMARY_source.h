@@ -103,6 +103,8 @@ tsprimarytinit(int code)
 
   /*int overall_offset=0x80;*/
 
+/* TEMPORARY!!! this will kill mutex so DiagGuiServer must be restarted after that !!!!!!!!!!!!!!!!!!!!! */
+vmeCheckMutexHealth(1); /*- use 'mutexclean' command if needed !!!!!!!!!!!!!!!!!!!*/
 
   /* DMA setup */
   /*usrVmeDmaSetMemSize(0x200000);*/
@@ -160,12 +162,17 @@ vmeBusUnlock();
   /* only 1 trigger type for physics trigger */
 vmeBusLock();
 
-  /*tsSetFPInput(0x7fffffff); done in config */
-  tsSetFPInputReadout(1); /* enables trigger bit pattern in fifo */
 
-  /* TS back inputs - disabled for now */
-  tsSetGTPInput(0x0);
-  tsSetGTPInputReadout(0);
+  /* enable 1st bitpattern word */
+  tsSetGTPInputReadout(1);
+
+  /* enable 2nd bitpattern word */
+  tsSetFPInputReadout(1);
+
+  /* enable 3rd bitpattern word */
+  tsSetBeforePrescaleReadout(1);
+
+  /*tsSetTrigCoinWindow();*/
 
   tsLoadTriggerTable();
 

@@ -85,8 +85,11 @@ make sure you are doing right FPGA !!!!!!!!!!!!
 HPS UNIX:
 
  cd $CLON_PARMS/firmwares
- fadc250firmware 1 FADC_CTRL_HPS.mcs
- fadc250firmware 2 FADC_ADC_HPS.mcs
+ fadc250firmware 1 fe_fadc_ctrl.mcs
+ fadc250firmware 2 fe_fadc_adc.mcs
+
+ ##fadc250firmware 1 FADC_CTRL_HPS.mcs
+ ##fadc250firmware 2 FADC_ADC_HPS.mcs
 
 HPS VXWORKS:
 

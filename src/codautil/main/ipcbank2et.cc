@@ -80,7 +80,7 @@ static char old_run_status[80];
 #include <time.h>
 
 
-//#include "epicsutil.h"
+#include "codautil.h"
 
 
 #ifdef USE_ACTIVEMQ
@@ -157,9 +157,6 @@ extern "C" {
   //void control_message_callback(T_IPC_CONN, T_IPC_CONN_PROCESS_CB_DATA, T_CB_ARG);
 
 void quit_callback(int sig);
-int get_run_number(char *database, char *session);
-char *get_run_status(char *database, char *session);
-char *get_run_operators(char *database, char *session);
 int create_header(int *p, int evlen, int &banksize,
                   int name1, int name2, int nrun, int nevnt, int nphys, int trig);
 int add_bank(int *p2ev, int evlen, 
@@ -222,10 +219,13 @@ main(int argc,char **argv)
 #ifdef USE_ACTIVEMQ
   server.init(getenv("EXPID"), NULL, "*", (char *)"ipcbank2et", NULL, "*");
 
+  /*
   MessageActionControl *control = new MessageActionControl((char *)"ipcbank2et");
   control->setDebug(debug);
   server.addActionListener(control);
-  MessageActionEVIO2ET *evio2et = new MessageActionEVIO2ET();
+  */
+  //MessageActionEVIO2ET *evio2et = new MessageActionEVIO2ET(session,"clondaq5");
+  MessageActionEVIO2ET *evio2et = new MessageActionEVIO2ET(session);
   server.addActionListener(evio2et);
 #else
   // set ipc parameters and connect to ipc system
@@ -248,6 +248,8 @@ main(int argc,char **argv)
   server.SubjectSubscribe(bank_source,TRUE);
 #endif
 
+  evio2et->set_debug(1);
+
   // initialize et system
   evio2et->init_et();
 
@@ -265,6 +267,7 @@ main(int argc,char **argv)
   fflush(NULL);
 
   strcpy(old_run_status, get_run_status(database,session));
+
   printf("At startup time run state is '%s' (UNIX time=%d)\n",old_run_status,time(NULL));fflush(stdout);
 
   // main loop
@@ -299,13 +302,18 @@ main(int argc,char **argv)
       last_time=now;
       last_rec=nev_rec;
       last_proc=nev_to_et;
-
+	  /*
       control->sendStatistics(nev_rec, nev_to_et, rec_rate, proc_rate);
+	  */
     }
 
+    done = evio2et->get_done();
+
+	/*
     control->sendStatus();
     done = control->getDone();
-	//printf("main: done=%d\n",done);
+	printf("main: done=%d\n",done);
+	*/
   }
 
   printf("exiting ..\n");

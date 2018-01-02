@@ -14,6 +14,12 @@ uthbook1(int id, char *title, int nbinx, float xmin, float xmax)
 }
 
 void
+uthbook2(int id, char *title, int nbinx, float xmin, float xmax, int nbiny, float ymin, float ymax)
+{
+  hbook.hbook2(id, title, nbinx, xmin, xmax, nbiny, ymin, ymax);
+}
+
+void
 uthfill(int id, float x, float y, float weight)
 {
   hbook.hfill(id, x, y, weight);

@@ -27,7 +27,7 @@
 #include "CODA_format.h"
 #include "circbuf.h"
 
-char *loadwholefile(char *file, int *size);
+char *loadwholefile(char *file, int *size, int *padding);
 
 
 /* on arrival from ROCs: bit 7 - coda control events, bit 6 - sync bit, bits 0-5 - TI bit pattern */
@@ -215,6 +215,7 @@ CODA_encode_spec(unsigned int **datap, evDesc desc)
   int len, ii, nw, *ptr;
   char *chbuf;
   int len_in_words;
+  int padding;
 
 #ifdef RESTORE_OLD_SPEC_EVENT_CODING
   (*datap)[1] = 0x10CC | ((desc->type & 0x7F) << 16);
@@ -260,7 +261,7 @@ CODA_encode_spec(unsigned int **datap, evDesc desc)
       printf("confFile >%s<\n",confFile);
       if( strncmp(confFile,"none",4) && strncmp(confFile,"NONE",4) )
       {
-	    chbuf = loadwholefile(confFile, &len_in_words);
+	    chbuf = loadwholefile(confFile, &len_in_words, &padding);
 		printf("chbuf=0x%08x\n",chbuf);
         if(chbuf == NULL)
 	    {
@@ -270,7 +271,9 @@ CODA_encode_spec(unsigned int **datap, evDesc desc)
 	    {
           /* bank header */
           (*datap)[7] = len_in_words + 1;
-          (*datap)[8] = 0xe10E0300; /* bank tag '0xe100E', bank type is 'char', bank number is '0' */
+          (*datap)[8] = 0xe10e0300; /* bank tag '0xe10e', bank type is 'char', bank number is '0' */
+          (*datap)[8] |= (padding&0x3)<<14;
+
           /* bank data */
           ptr = (int *)chbuf;
 		  printf("CODA_encode_spec: len_in_words1=%d\n",len_in_words);fflush(stdout);

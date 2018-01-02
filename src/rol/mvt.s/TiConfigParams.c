@@ -39,6 +39,8 @@ char *TiClkSrc2Str( TiClkSrc src )
 		return ("Internal ");
 	else if( src == TiClkSrc_HFBR1 )
 		return ("HFBR1    ");
+	else if( src == TiClkSrc_HFBR5 )
+		return ("HFBR5    ");
 	else
 		return ("Unknown  ");
 }
@@ -62,6 +64,8 @@ char *TiTrgSrc2Str( TiTrgSrc src )
 		return ("IntCst    ");
 	else if( src == TiTrgSrc_IntRnd )
 		return ("IntRnd    ");
+	else if( src == TiTrgSrc_HFBR5 )
+		return ("HFBR1     ");
 	else
 		return ("Unknown   ");
 }
@@ -88,6 +92,8 @@ char *TiSynSrc2Str( TiSynSrc src )
 		return ("None     ");
 	else if( src == TiSynSrc_HFBR1 )
 		return ("HFBR1    ");
+	else if( src == TiSynSrc_HFBR5 )
+		return ("HFBR5    ");
 	else if( src == TiSynSrc_Soft )
 		return ("Soft     ");
 	else
@@ -186,11 +192,11 @@ int TiParams_Sprintf( TiParams *params, char *buf  )
 			params->BaseAdr_A32m_Com_Min, params->BaseAdr_A32m_Com_Max, MblkRank2Str( params->Mblk_Rank ) );
 	}
 
-	// Global parameters: defived from global parameters
+	// Global parameters: derived from global parameters
 	sprintf( buf, "%s# Ti %s NbOfEvtPerBlk  %d\n",    buf, id_str, params->NbOfEvtPerBlk );
 	sprintf( buf, "%s# Ti %s BlockLilit     %d\n",    buf, id_str, params->BlockLimit );
 
-	// Clk source: defived from global parameters
+	// Clk source: derived from global parameters
 	sprintf( buf, "%s# Ti %s ClkSrc         %s\n",    buf, id_str, TiClkSrc2Str(params->ClkSrc) );
 	// Trg source
 	sprintf( buf, "%sTi %s TrgSrc           %s\n",    buf, id_str, TiTrgSrc2Str(params->TrgSrc) );
@@ -321,6 +327,8 @@ int TiParams_Parse( TiParams *params, int line_num )
 					params->TrgSrc = TiTrgSrc_None;
 				else if( strcmp( argv[3], "HFBR1" ) == 0 )
 					params->TrgSrc = TiTrgSrc_HFBR1;
+				else if( strcmp( argv[3], "HFBR5" ) == 0 )
+					params->TrgSrc = TiTrgSrc_HFBR5;
 				else if( strcmp( argv[3], "Soft" ) == 0 )
 					params->TrgSrc = TiTrgSrc_Soft;
 				else if( strcmp( argv[3], "FpInp1" ) == 0 )
@@ -359,6 +367,8 @@ int TiParams_Parse( TiParams *params, int line_num )
 					params->SynSrc = TiSynSrc_Soft;
 				else if( strcmp( argv[3], "HFBR1" ) == 0 )
 					params->SynSrc = TiSynSrc_HFBR1;
+				else if( strcmp( argv[3], "HFBR5" ) == 0 )
+					params->SynSrc = TiSynSrc_HFBR5;
 				else
 				{
 					params->SynSrc = TiSynSrc_Undefined;

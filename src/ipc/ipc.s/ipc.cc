@@ -131,6 +131,8 @@ epics_json_msg_send(const char *caname, const char *catype, int nelem, void *dat
 
   /* clear message */
   server << clrm;
+  /*a.c. send a first string that is the FORMAT*/
+  //  server << "json"; //Comment for now, but this really should be here (K. Livinston app for scalers is not expetinc this yet)
 
   /* construct json message manually */
   message << "{" << "\"" << caname << "\"" << ":";

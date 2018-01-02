@@ -39,6 +39,7 @@
 #include "BeuConfig.h"
 #include "SysConfig.h"
 
+// System configuration parameters structure
 SysParams sys_params;
 SysParams *sys_params_ptr = &sys_params;
 
@@ -217,7 +218,16 @@ int SysConfigFromFile( char *sys_conf_params_filename )
 	/*
 	 * Configure the system
 	 */
-	if( (ret=SysConfig( &sys_params )) != D_RetCode_Sucsess )
+	if( (ret=SysConfig( &sys_params, 1 )) != D_RetCode_Sucsess )
+	{
+		fprintf( stderr, "%s: SysConfig failed for parameters from conf file %s with %d\n", __FUNCTION__, sys_conf_params_filename, ret );
+		return ret;
+	}
+	usleep(1000000);
+	/*
+	 * Configure the system
+	 */
+	if( (ret=SysConfig( &sys_params, 2 )) != D_RetCode_Sucsess )
 	{
 		fprintf( stderr, "%s: SysConfig failed for parameters from conf file %s with %d\n", __FUNCTION__, sys_conf_params_filename, ret );
 		return ret;
@@ -232,8 +242,11 @@ int SysConfigFromFile( char *sys_conf_params_filename )
 
 /*
  * Configuration function
+ * 	if configs_to_do == 1 do TI/SD config
+ *	if configs_to_do == 2 do MVT config
+ *	if configs_to_do == 3 do TI/SD & MVT config
  */
-int SysConfig( SysParams *params )
+int SysConfig( SysParams *params, int configs_to_do )
 {
 	int ret;
 	int bec;
@@ -274,201 +287,54 @@ int SysConfig( SysParams *params )
 			continue;
 		/* First configure TI */
 		/* But do it only in Clas12 running mode */
-		if( params->RunMode != Clas12 )
+		if( configs_to_do & 0x1 )
 		{
-			if( params->Ti_Params[bec].Id > 0 )
+			if( params->RunMode != Clas12 )
 			{
-				//if( (ret=TiConfig( &(params->Ti_Params[1]))) != D_RetCode_Sucsess )			// SOMETHING STRANGE HERE and below : should it be  params->Ti_Params[bec] ??
-				if( (ret=TiConfig( &(params->Ti_Params[bec]))) != D_RetCode_Sucsess )			// SOMETHING STRANGE HERE and below : should it be  params->Ti_Params[bec] ??
+				if( params->Ti_Params[bec].Id > 0 )
 				{
-					fprintf(stderr, "%s: TiConfig failed with %d for ti %d\n", __FUNCTION__, ret, params->Ti_Params[bec].Id );
+					//if( (ret=TiConfig( &(params->Ti_Params[1]))) != D_RetCode_Sucsess )			// SOMETHING STRANGE HERE and below : should it be  params->Ti_Params[bec] ??
+					if( (ret=TiConfig( &(params->Ti_Params[bec]))) != D_RetCode_Sucsess )			// SOMETHING STRANGE HERE and below : should it be  params->Ti_Params[bec] ??
+					{
+						fprintf(stderr, "%s: TiConfig failed with %d for ti %d\n", __FUNCTION__, ret, params->Ti_Params[bec].Id );
+						return ret;
+					}
+				}
+			}
+
+			// To be understood during the rol merging
+			// For now do it in this library
+			/* Next configure SD */
+			if( params->Sd_Params[bec].Id > 0 )
+			{
+				if( (ret=SdConfig( &(params->Sd_Params[bec]))) != D_RetCode_Sucsess )  // SOMETHING STRANGE HERE and below : should it be  params->Sd_Params[bec] ??
+				{
+					fprintf(stderr, "%s: SdConfig failed with %d\n", __FUNCTION__, ret );
 					return ret;
 				}
 			}
 		}
 
-		/* Next configure SD */
-		if( params->Sd_Params[bec].Id > 0 )
-		{
-			if( (ret=SdConfig( &(params->Sd_Params[bec]))) != D_RetCode_Sucsess )  // SOMETHING STRANGE HERE and below : should it be  params->Sd_Params[bec] ??
-			{
-				fprintf(stderr, "%s: SdConfig failed with %d\n", __FUNCTION__, ret );
-				return ret;
-			}
-		}
-
-		/* Configure BEU-s */
-		for( beu=1; beu<DEF_MAX_NB_OF_BEU; beu++ )
-		{
-			if( params->Bec_Params[bec].Beu_Id[beu] > 0 )
-			{
-				if( (params->Bec_Params[bec].Beu_Slot[beu]<DEF_MIN_BEU_SLOT) || (DEF_MAX_BEU_SLOT<=params->Bec_Params[bec].Beu_Slot[beu]) )
-				{
-					fprintf( stderr, "%s: usupported slot=%d for beu %d in bec %d, must be in [%d;%d] range\n",
-						__FUNCTION__, params->Bec_Params[bec].Beu_Slot[beu], params->Bec_Params[bec].Beu_Id[beu], bec, DEF_MIN_BEU_SLOT, DEF_MAX_BEU_SLOT );
-					return D_RetCode_Err_Wrong_Param;
-				}
-				if( (ret=beusspInit(params->BeuSspConf_Col.beu_conf[beu].base_adr_reg, &(beu_reg_control[beu]), &(beu_fifo[beu]), &(params->BeuSspConf_Col.beu_conf[beu]))) < 0 )
-				{
-					fprintf( stderr, "%s: beusspInit failed for beu %d in bec %d with %d\n",
-						__FUNCTION__, beu, bec, ret );
-					return D_RetCode_Err_Wrong_Param;
-				}
-				// Display BEU registers
-				beusspDisplayAllReg(beu_reg_control[beu]);
-			}
-		} // for( beu=1; beu<DEF_MAX_NB_OF_BEU; feu++ )
-
-		// If needed Multi module block transfer requested
-		if( params->Bec_Params[bec].BaseAdr_A32m_Com_Enb )
-		{
-			if( (ret=beusspInitMblk(beu_reg_control, &BEUSSPmblk)) < 0 )
-			{
-				fprintf( stderr, "%s: beusspInitMblk failed for bec %d with %d\n",
-					__FUNCTION__, bec, ret );
-				return D_RetCode_Err_Wrong_Param;
-			}
-
-			/* Configure BEU-s */
-			for( beu=1; beu<DEF_MAX_NB_OF_BEU; beu++ )
-			{
-				if( params->Bec_Params[bec].Beu_Id[beu] > 0 )
-				{
-					if( (ret=beusspEnableA32m(beu_reg_control[beu])) < 0 )
-					{
-						fprintf( stderr, "%s: beusspEnableA32m failed for beu %d in bec %d with %d\n",
-							__FUNCTION__, beu, bec, ret );
-						return D_RetCode_Err_Wrong_Param;
-					}
-					if( (ret=beusspEnableA32(beu_reg_control[beu])) < 0 )
-					{
-						fprintf( stderr, "%s: beusspEnableA32 failed for beu %d in bec %d with %d\n",
-							__FUNCTION__, beu, bec, ret );
-						return D_RetCode_Err_Wrong_Param;
-					}
-
-/*					if( (ret=beusspDisableA32(beu_reg_control[beu])) < 0 )
-					{
-						fprintf( stderr, "%s: beusspDisableA32 failed for beu %d in bec %d with %d\n",
-							__FUNCTION__, beu, bec, ret );
-						return D_RetCode_Err_Wrong_Param;
-					}
-*/						
-					if( (ret=beusspEnBerrTerm(beu_reg_control[beu])) < 0 )
-					{
-						fprintf( stderr, "%s: beusspEnBerrTerm failed for beu %d in bec %d with %d\n",
-							__FUNCTION__, beu, bec, ret );
-						return D_RetCode_Err_Wrong_Param;
-					}
-					// Display BEU registers
-					beusspDisplayAllReg(beu_reg_control[beu]);
-				}
-			} // for( beu=1; beu<DEF_MAX_NB_OF_BEU; feu++ )
-		}
-		else
+		// Configure MVT staff if requested
+		if( configs_to_do & 0x2 )
 		{
 			/* Configure BEU-s */
 			for( beu=1; beu<DEF_MAX_NB_OF_BEU; beu++ )
 			{
 				if( params->Bec_Params[bec].Beu_Id[beu] > 0 )
 				{
-					if( (ret=beusspDisableA32m(beu_reg_control[beu])) < 0 )
+					if( (params->Bec_Params[bec].Beu_Slot[beu]<DEF_MIN_BEU_SLOT) || (DEF_MAX_BEU_SLOT<=params->Bec_Params[bec].Beu_Slot[beu]) )
 					{
-						fprintf( stderr, "%s: beusspDisableA32m failed for beu %d in bec %d with %d\n",
+						fprintf( stderr, "%s: usupported slot=%d for beu %d in bec %d, must be in [%d;%d] range\n",
+							__FUNCTION__, params->Bec_Params[bec].Beu_Slot[beu], params->Bec_Params[bec].Beu_Id[beu], bec, DEF_MIN_BEU_SLOT, DEF_MAX_BEU_SLOT );
+						return D_RetCode_Err_Wrong_Param;
+					}
+					if( (ret=beusspInit(params->BeuSspConf_Col.beu_conf[beu].base_adr_reg, &(beu_reg_control[beu]), &(beu_fifo[beu]), &(params->BeuSspConf_Col.beu_conf[beu]))) < 0 )
+					{
+						fprintf( stderr, "%s: beusspInit failed for beu %d in bec %d with %d\n",
 							__FUNCTION__, beu, bec, ret );
 						return D_RetCode_Err_Wrong_Param;
 					}
-					if( (ret=beusspEnableA32(beu_reg_control[beu])) < 0 )
-					{
-						fprintf( stderr, "%s: beusspEnableA32 failed for beu %d in bec %d with %d\n",
-							__FUNCTION__, beu, bec, ret );
-						return D_RetCode_Err_Wrong_Param;
-					}
-/*
-					if( (ret=beusspEnBerrTerm(beu_reg_control[beu])) < 0 )
-					{
-						fprintf( stderr, "%s: beusspEnBerrTerm failed for beu %d in bec %d with %d\n",
-							__FUNCTION__, beu, bec, ret );
-						return D_RetCode_Err_Wrong_Param;
-					}	
-*/					
-					//The readout list does not use bus error termination when reading BEUs separately, but it can be done !		
-					if( (ret=beusspDisBerrTerm(beu_reg_control[beu])) < 0 )
-					{
-						fprintf( stderr, "%s: beusspDisBerrTerm failed for beu %d in bec %d with %d\n",
-							__FUNCTION__, beu, bec, ret );
-						return D_RetCode_Err_Wrong_Param;
-					}
-					
-					// Display BEU registers
-					beusspDisplayAllReg(beu_reg_control[beu]);
-				}
-			} // for( beu=1; beu<DEF_MAX_NB_OF_BEU; feu++ )
-		} // if( params->Bec_Params[bec].BaseAdr_A32m_Com_Enb )
-
-		/*
-		 * Take care of FEUs
-		 */
-		/* First reset all FEU-s */
-		for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
-		{
-			beu        = ((feu>>5)&0x07)+1;
-			beu_lnk    = ( feu    &0x1F)-1;
-			if( (1<=params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
-			{
-				feu_cur_params = &(params->FeuParams_Col.feu_params[feu]);
-				// Reset the FEU
-//				if( (ret=FeuReset( feu_cur_params, feu_cur_params->Feu_RunCtrl_Id, beu, beu_lnk )) != D_RetCode_Sucsess )
-				if( (ret=FeuReset( feu_cur_params, feu, beu, beu_lnk )) != D_RetCode_Sucsess )
-				{
-					fprintf( stderr, "%s: FeuReset failed for feu %d beu %d link %d in bec %d with %d\n",
-						__FUNCTION__, feu, beu, beu_lnk, bec, ret );
-					return ret;
-				}
-				usleep(100000);
-			}
-		} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
-		// Wait before the reset is done and links are ready
-		usleep( 1000000 );
-//fprintf(stdout, "%s: Reset all FEUs in bec=%d\n", __FUNCTION__, bec);
-//fprintf(stdout, "Enter CR to synchronise...");
-//getchar();
-		/* Configure FEU-s */
-/*		for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
-		{
-			beu        = ((feu>>5)&0x07)+1;
-			beu_lnk    = ( feu    &0x1F)-1;
-			if( (1<=params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
-			{
-				feu_cur_params = &(params->FeuParams_Col.feu_params[feu]);
-				// Configure the FEU
-				if( (ret=FeuConfig( feu_cur_params, feu, beu, beu_lnk )) != D_RetCode_Sucsess )
-				{
-					fprintf( stderr, "%s: FeuConfig failed for feu %d beu %d link %d in bec %d with %d\n",
-						__FUNCTION__, feu, beu, beu_lnk, bec, ret );
-					return ret;
-				}
-			}
-		} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
-		usleep( 500000 );
-*/
-		// Synchronise links
-		reset_links      = 1;
-#define DEF_NUM_RX_LINK_RST 20
-#define DEF_NUM_RX_LINK_TOLL_ERR 5
-#define DEF_NUM_RX_LINK_CHK_SEC 10
-		reset_links_cntr = DEF_NUM_RX_LINK_RST;
-		while( reset_links && reset_links_cntr )
-		{
-fprintf(stdout, "%s: sync pass reset_links_cntr=%d reset_links=%d in bec=%d\n", __FUNCTION__, reset_links_cntr, reset_links, bec);
-//fprintf(stdout, "Enter CR to synchronise...");
-//getchar();
-
-			/* Synchronize BEU - FEU optical links */
-			for( beu=1; beu<DEF_MAX_NB_OF_BEU; beu++ )
-			{
-				if( params->Bec_Params[bec].Beu_Id[beu] > 0 )
-				{
 					if( (ret=beusspResetGClkPll( beu_reg_control[beu] ) ) < 0 )
 					{
 						fprintf( stderr, "%s: beusspResetGClkPll failed for beu %d in bec %d with %d\n",
@@ -482,15 +348,103 @@ fprintf(stdout, "%s: sync pass reset_links_cntr=%d reset_links=%d in bec=%d\n", 
 							__FUNCTION__, beu, bec, ret );
 						return D_RetCode_Err_Wrong_Param;
 					}
+					usleep( 100000 );
 					// Display BEU registers
-//					beusspDisplayAllReg(beu_reg_control[beu]);
+					beusspDisplayAllReg(beu_reg_control[beu]);
 				}
 			} // for( beu=1; beu<DEF_MAX_NB_OF_BEU; feu++ )
-			usleep( 1000000 );
-//fprintf(stdout, "Enter CR to Clear stat...");
-//getchar();
-			/* Check FEU links */
-			/* First clear stat */
+
+			// If needed Multi module block transfer requested
+			if( params->Bec_Params[bec].BaseAdr_A32m_Com_Enb )
+			{
+				if( (ret=beusspInitMblk(beu_reg_control, &BEUSSPmblk)) < 0 )
+				{
+					fprintf( stderr, "%s: beusspInitMblk failed for bec %d with %d\n",
+						__FUNCTION__, bec, ret );
+					return D_RetCode_Err_Wrong_Param;
+				}
+
+				/* Configure BEU-s */
+				for( beu=1; beu<DEF_MAX_NB_OF_BEU; beu++ )
+				{
+					if( params->Bec_Params[bec].Beu_Id[beu] > 0 )
+					{
+						if( (ret=beusspEnableA32m(beu_reg_control[beu])) < 0 )
+						{
+							fprintf( stderr, "%s: beusspEnableA32m failed for beu %d in bec %d with %d\n",
+								__FUNCTION__, beu, bec, ret );
+							return D_RetCode_Err_Wrong_Param;
+						}
+						if( (ret=beusspEnableA32(beu_reg_control[beu])) < 0 )
+						{
+							fprintf( stderr, "%s: beusspEnableA32 failed for beu %d in bec %d with %d\n",
+								__FUNCTION__, beu, bec, ret );
+							return D_RetCode_Err_Wrong_Param;
+						}
+
+/*						if( (ret=beusspDisableA32(beu_reg_control[beu])) < 0 )
+						{
+							fprintf( stderr, "%s: beusspDisableA32 failed for beu %d in bec %d with %d\n",
+								__FUNCTION__, beu, bec, ret );
+							return D_RetCode_Err_Wrong_Param;
+						}
+*/						
+						if( (ret=beusspEnBerrTerm(beu_reg_control[beu])) < 0 )
+						{
+							fprintf( stderr, "%s: beusspEnBerrTerm failed for beu %d in bec %d with %d\n",
+								__FUNCTION__, beu, bec, ret );
+							return D_RetCode_Err_Wrong_Param;
+						}
+						// Display BEU registers
+						beusspDisplayAllReg(beu_reg_control[beu]);
+					}
+				} // for( beu=1; beu<DEF_MAX_NB_OF_BEU; feu++ )
+			}
+			else
+			{
+				/* Configure BEU-s */
+				for( beu=1; beu<DEF_MAX_NB_OF_BEU; beu++ )
+				{
+					if( params->Bec_Params[bec].Beu_Id[beu] > 0 )
+					{
+						if( (ret=beusspDisableA32m(beu_reg_control[beu])) < 0 )
+						{
+							fprintf( stderr, "%s: beusspDisableA32m failed for beu %d in bec %d with %d\n",
+								__FUNCTION__, beu, bec, ret );
+							return D_RetCode_Err_Wrong_Param;
+						}
+						if( (ret=beusspEnableA32(beu_reg_control[beu])) < 0 )
+						{
+							fprintf( stderr, "%s: beusspEnableA32 failed for beu %d in bec %d with %d\n",
+								__FUNCTION__, beu, bec, ret );
+							return D_RetCode_Err_Wrong_Param;
+						}
+/*	
+						if( (ret=beusspEnBerrTerm(beu_reg_control[beu])) < 0 )
+						{
+							fprintf( stderr, "%s: beusspEnBerrTerm failed for beu %d in bec %d with %d\n",
+								__FUNCTION__, beu, bec, ret );
+							return D_RetCode_Err_Wrong_Param;
+						}	
+*/					
+						//The readout list does not use bus error termination when reading BEUs separately, but it can be done !		
+						if( (ret=beusspDisBerrTerm(beu_reg_control[beu])) < 0 )
+						{
+							fprintf( stderr, "%s: beusspDisBerrTerm failed for beu %d in bec %d with %d\n",
+								__FUNCTION__, beu, bec, ret );
+							return D_RetCode_Err_Wrong_Param;
+						}
+
+						// Display BEU registers
+						beusspDisplayAllReg(beu_reg_control[beu]);
+					}
+				} // for( beu=1; beu<DEF_MAX_NB_OF_BEU; feu++ )
+			} // if( params->Bec_Params[bec].BaseAdr_A32m_Com_Enb )
+
+			/*
+			 * Take care of FEUs
+			 */
+			/* First reset all FEU-s */
 			for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
 			{
 				beu        = ((feu>>5)&0x07)+1;
@@ -498,25 +452,82 @@ fprintf(stdout, "%s: sync pass reset_links_cntr=%d reset_links=%d in bec=%d\n", 
 				if( (1<=params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
 				{
 					feu_cur_params = &(params->FeuParams_Col.feu_params[feu]);
-					// Clear stat
-					if( (ret = FeuToggleCommand( feu_cur_params, feu, beu, beu_lnk, ClearStat ) ) != D_RetCode_Sucsess )
+					// Reset the FEU
+//					if( (ret=FeuReset( feu_cur_params, feu_cur_params->Feu_RunCtrl_Id, beu, beu_lnk )) != D_RetCode_Sucsess )
+					if( (ret=FeuReset( feu_cur_params, feu, beu, beu_lnk )) != D_RetCode_Sucsess )
 					{
-							fprintf( stderr,       "%s: FeuToggleCommand ClearStat failed for feu=%d beu=%d lnk=%d with %d\n",
-									__FUNCTION__, feu, beu, beu_lnk, ret );
-						if( sys_log_fptr != (FILE *)NULL )
-							fprintf( sys_log_fptr, "%s: FeuToggleCommand ClearStat failed for feu=%d beu=%d lnk=%d with %d\n",
-									__FUNCTION__, feu, beu, beu_lnk, ret );
-						return D_RetCode_Err_NetIO;
+						fprintf( stderr, "%s: FeuReset failed for feu %d beu %d link %d in bec %d with %d\n",
+							__FUNCTION__, feu, beu, beu_lnk, bec, ret );
+						return ret;
+					}
+					usleep(100000);
+				}
+			} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+			// Wait before the reset is done and links are ready
+			usleep( 500000 );
+//fprintf(stdout, "%s: Reset all FEUs in bec=%d\n", __FUNCTION__, bec);
+//fprintf(stdout, "Enter CR to synchronise...");
+//getchar();
+			/* Configure FEU-s */
+/*			for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+			{
+				beu        = ((feu>>5)&0x07)+1;
+				beu_lnk    = ( feu    &0x1F)-1;
+				if( (1<=params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
+				{
+					feu_cur_params = &(params->FeuParams_Col.feu_params[feu]);
+					// Configure the FEU
+					if( (ret=FeuConfig( feu_cur_params, feu, beu, beu_lnk )) != D_RetCode_Sucsess )
+					{
+						fprintf( stderr, "%s: FeuConfig failed for feu %d beu %d link %d in bec %d with %d\n",
+							__FUNCTION__, feu, beu, beu_lnk, bec, ret );
+						return ret;
 					}
 				}
 			} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
-//fprintf(stdout, "Enter CR to Latch stats...");
-//getchar();
-			fprintf( stdout, "%s: checking during %d secs\n", __FUNCTION__, DEF_NUM_RX_LINK_CHK_SEC);
-			for( index=0; index<DEF_NUM_RX_LINK_CHK_SEC; index++ )
+			usleep( 500000 );
+*/
+			// Synchronise links
+			reset_links      = 0;
+#define DEF_NUM_RX_LINK_RST 20
+#define DEF_NUM_RX_LINK_TOLL_ERR 4
+#define DEF_NUM_RX_LINK_CHK_SEC 8
+			reset_links_cntr = DEF_NUM_RX_LINK_RST;
+			while( reset_links_cntr )
 			{
-				usleep( 1000000 );
-				/* Latch stat */
+				fprintf(stdout, "%s: sync pass reset_links_cntr=%d reset_links=%d in bec=%d\n", __FUNCTION__, reset_links_cntr, reset_links, bec);
+//fprintf(stdout, "Enter CR to synchronise...");
+//getchar();
+				/* Synchronize BEU - FEU optical links */
+				if( reset_links )
+				{
+					for( beu=1; beu<DEF_MAX_NB_OF_BEU; beu++ )
+					{
+						if( params->Bec_Params[bec].Beu_Id[beu] > 0 )
+						{
+							if( (ret=beusspResetGClkPll( beu_reg_control[beu] ) ) < 0 )
+							{
+								fprintf( stderr, "%s: beusspResetGClkPll failed for beu %d in bec %d with %d\n",
+									__FUNCTION__, beu, bec, ret );
+								return D_RetCode_Err_Wrong_Param;
+							}
+							usleep( 100000 );
+							if( (ret=beusspResetMultiGTX( beu_reg_control[beu] ) ) < 0 )
+							{
+								fprintf( stderr, "%s: beusspResetMultiGTX failed for beu %d in bec %d with %d\n",
+									__FUNCTION__, beu, bec, ret );
+								return D_RetCode_Err_Wrong_Param;
+							}
+							// Display BEU registers
+//							beusspDisplayAllReg(beu_reg_control[beu]);
+						}
+					} // for( beu=1; beu<DEF_MAX_NB_OF_BEU; feu++ )
+					usleep( 300000 );
+				}
+//fprintf(stdout, "Enter CR to Clear stat...");
+//getchar();
+				/* Check FEU links */
+				/* First clear stat */
 				for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
 				{
 					beu        = ((feu>>5)&0x07)+1;
@@ -525,113 +536,140 @@ fprintf(stdout, "%s: sync pass reset_links_cntr=%d reset_links=%d in bec=%d\n", 
 					{
 						feu_cur_params = &(params->FeuParams_Col.feu_params[feu]);
 						// Clear stat
-						if( (ret = FeuToggleCommand( feu_cur_params, feu, beu, beu_lnk, LatchStat ) ) != D_RetCode_Sucsess )
+						if( (ret = FeuToggleCommand( feu_cur_params, feu, beu, beu_lnk, ClearStat ) ) != D_RetCode_Sucsess )
 						{
-								fprintf( stderr,  "%s: FeuToggleCommand LatchStat failed for feu=%d beu=%d lnk=%d with %d\n",
-									__FUNCTION__, feu, beu, beu_lnk, ret );
+								fprintf( stderr,       "%s: FeuToggleCommand ClearStat failed for feu=%d beu=%d lnk=%d with %d\n",
+										__FUNCTION__, feu, beu, beu_lnk, ret );
 							if( sys_log_fptr != (FILE *)NULL )
-								fprintf( sys_log_fptr,  "%s: FeuToggleCommand LatchStat failed for feu=%d beu=%d lnk=%d with %d\n",
-									__FUNCTION__, feu, beu, beu_lnk, ret );
+								fprintf( sys_log_fptr, "%s: FeuToggleCommand ClearStat failed for feu=%d beu=%d lnk=%d with %d\n",
+										__FUNCTION__, feu, beu, beu_lnk, ret );
 							return D_RetCode_Err_NetIO;
 						}
 					}
 				} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
-//fprintf(stdout, "Enter CR to get errors...");
+//fprintf(stdout, "Enter CR to Latch stats...");
 //getchar();
-                        	reset_links = 0;
-				/* Next get error registers */
-				for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+				fprintf( stdout, "%s: checking during %d secs\n", __FUNCTION__, DEF_NUM_RX_LINK_CHK_SEC);
+				for( index=0; index<DEF_NUM_RX_LINK_CHK_SEC; index++ )
 				{
-					beu        = ((feu>>5)&0x07)+1;
-					beu_lnk    = ( feu    &0x1F)-1;
-					if( (1<=params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
+					usleep( 1000000 );
+					/* Latch stat */
+					for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
 					{
-						feu_cur_params = &(params->FeuParams_Col.feu_params[feu]);
-						// Get error registers
-						if( (ret = FeuComChanRxErr_Get( feu_cur_params, feu, beu, beu_lnk, &feu_rx_err_cntr, &feu_par_err_cntr, &feu_pac_err_cntr ) ) != D_RetCode_Sucsess )
+						beu        = ((feu>>5)&0x07)+1;
+						beu_lnk    = ( feu    &0x1F)-1;
+						if( (1<=params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
 						{
-								fprintf( stderr,  "%s: FeuComChanRxErr_Get ClearStat failed for feu=%d beu=%d lnk=%d with %d\n",
-									__FUNCTION__, feu, beu, beu_lnk, ret );
-							if( sys_log_fptr != (FILE *)NULL )
-								fprintf( sys_log_fptr,  "%s: FeuComChanRxErr_Get ClearStat failed for feu=%d beu=%d lnk=%d with %d\n",
-									__FUNCTION__, feu, beu, beu_lnk, ret );
-							return D_RetCode_Err_NetIO;
-						}
-						if( (feu_rx_err_cntr > 0) || (feu_par_err_cntr != 0) )
-						{
-								fprintf( stderr,  "%s: feu_rx_err_cntr=%d feu_par_err_cntr=%d feu_pac_err_cntr=%d for feu=%d beu=%d lnk=%d in pass %d\n",
-									__FUNCTION__, feu_rx_err_cntr, feu_par_err_cntr, feu_pac_err_cntr, feu, beu, beu_lnk, reset_links_cntr );
-//fprintf(stdout, "Enter CR to before reset the FEU...");
-//getchar();
-							if( sys_log_fptr != (FILE *)NULL )
-								fprintf( sys_log_fptr,  "%s: feu_rx_err_cntr=%d feu_par_err_cntr=%d feu_pac_err_cntr=%d for feu=%d beu=%d lnk=%d in pass %d\n",
-									__FUNCTION__, feu_rx_err_cntr, feu_par_err_cntr, feu_pac_err_cntr, feu, beu, beu_lnk, reset_links_cntr );
-							if
-							(
-								( reset_links_cntr > (DEF_NUM_RX_LINK_RST/2) )
-								||
-								( feu_rx_err_cntr  > DEF_NUM_RX_LINK_TOLL_ERR )
-								||
-								( feu_par_err_cntr != 0 )
-							)
+							feu_cur_params = &(params->FeuParams_Col.feu_params[feu]);
+							// Latch stat
+							if( (ret = FeuToggleCommand( feu_cur_params, feu, beu, beu_lnk, LatchStat ) ) != D_RetCode_Sucsess )
 							{
-								reset_links++;
-								if( (ret = FeuReset( feu_cur_params, feu, beu, beu_lnk ) ) != D_RetCode_Sucsess )
-								{	
-		                                                		fprintf( stderr,  "%s: FeuReset failed for feu=%d beu=%d lnk=%d with %d\n",
-		                                                        		__FUNCTION__, feu, beu, beu_lnk, ret );
-									if( sys_log_fptr != (FILE *)NULL )
-		                                                		fprintf( sys_log_fptr,  "%s: FeuReset failed for feu=%d beu=%d lnk=%d with %d\n",
-		                                                        		__FUNCTION__, feu, beu, beu_lnk, ret );
-		                                                	return D_RetCode_Err_NetIO;
-		                                        	}
-								usleep( 100000 );
+									fprintf( stderr,  "%s: FeuToggleCommand LatchStat failed for feu=%d beu=%d lnk=%d with %d\n",
+										__FUNCTION__, feu, beu, beu_lnk, ret );
+								if( sys_log_fptr != (FILE *)NULL )
+									fprintf( sys_log_fptr,  "%s: FeuToggleCommand LatchStat failed for feu=%d beu=%d lnk=%d with %d\n",
+										__FUNCTION__, feu, beu, beu_lnk, ret );
+								return D_RetCode_Err_NetIO;
 							}
 						}
-					}
-				} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+					} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+//fprintf(stdout, "Enter CR to get errors...");
+//getchar();
+		                	reset_links = 0;
+					/* Next get error registers */
+					for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+					{
+						beu        = ((feu>>5)&0x07)+1;
+						beu_lnk    = ( feu    &0x1F)-1;
+						if( (1<=params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
+						{
+							feu_cur_params = &(params->FeuParams_Col.feu_params[feu]);
+							// Get error registers
+							if( (ret = FeuComChanRxErr_Get( feu_cur_params, feu, beu, beu_lnk, &feu_rx_err_cntr, &feu_par_err_cntr, &feu_pac_err_cntr ) ) != D_RetCode_Sucsess )
+							{
+									fprintf( stderr,  "%s: FeuComChanRxErr_Get ClearStat failed for feu=%d beu=%d lnk=%d with %d\n",
+										__FUNCTION__, feu, beu, beu_lnk, ret );
+								if( sys_log_fptr != (FILE *)NULL )
+									fprintf( sys_log_fptr,  "%s: FeuComChanRxErr_Get ClearStat failed for feu=%d beu=%d lnk=%d with %d\n",
+										__FUNCTION__, feu, beu, beu_lnk, ret );
+								return D_RetCode_Err_NetIO;
+							}
+							if( (feu_rx_err_cntr > 0) || (feu_par_err_cntr != 0) )
+							{
+									fprintf( stderr,  "%s: feu_rx_err_cntr=%d feu_par_err_cntr=%d feu_pac_err_cntr=%d for feu=%d beu=%d lnk=%d in pass %d\n",
+										__FUNCTION__, feu_rx_err_cntr, feu_par_err_cntr, feu_pac_err_cntr, feu, beu, beu_lnk, reset_links_cntr );
+//fprintf(stdout, "Enter CR to before reset the FEU...");
+//getchar();
+								if( sys_log_fptr != (FILE *)NULL )
+									fprintf( sys_log_fptr,  "%s: feu_rx_err_cntr=%d feu_par_err_cntr=%d feu_pac_err_cntr=%d for feu=%d beu=%d lnk=%d in pass %d\n",
+										__FUNCTION__, feu_rx_err_cntr, feu_par_err_cntr, feu_pac_err_cntr, feu, beu, beu_lnk, reset_links_cntr );
+								if
+								(
+									( reset_links_cntr > (DEF_NUM_RX_LINK_RST/2) )
+									||
+									( feu_rx_err_cntr  > DEF_NUM_RX_LINK_TOLL_ERR )
+									||
+									( feu_par_err_cntr != 0 )
+								)
+								{
+									reset_links++;
+									if( (ret = FeuReset( feu_cur_params, feu, beu, beu_lnk ) ) != D_RetCode_Sucsess )
+									{	
+				                                        		fprintf( stderr,  "%s: FeuReset failed for feu=%d beu=%d lnk=%d with %d\n",
+				                                                		__FUNCTION__, feu, beu, beu_lnk, ret );
+										if( sys_log_fptr != (FILE *)NULL )
+				                                        		fprintf( sys_log_fptr,  "%s: FeuReset failed for feu=%d beu=%d lnk=%d with %d\n",
+				                                                		__FUNCTION__, feu, beu, beu_lnk, ret );
+				                                        	return D_RetCode_Err_NetIO;
+				                                	}
+									usleep( 100000 );
+								}
+							}
+						}
+					} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+					if( reset_links )
+						break;
+				} // for( index=0; index<DEF_NUM_RX_LINK_CHK_SEC; index++ )
 				if( reset_links )
-					break;
-			} // for( index=0; index<DEF_NUM_RX_LINK_CHK_SEC; index++ )
+				{
+					reset_links_cntr--;
+						fprintf( stderr,  "%s: failed to synchronise %d feu links; %d attemps left\n", __FUNCTION__, reset_links, reset_links_cntr );
+					if( sys_log_fptr != (FILE *)NULL )
+						fprintf( sys_log_fptr,  "%s: failed to synchronise %d feu links; %d attemps left\n", __FUNCTION__, reset_links, reset_links_cntr );
+				}
+				else
+					reset_links_cntr = 0;
+			} // while( reset_links )
 			if( reset_links )
 			{
-				reset_links_cntr--;
-					fprintf( stderr,  "%s: failed to synchronise %d feu links; %d attemps left\n", __FUNCTION__, reset_links, reset_links_cntr );
+					fprintf( stderr, "%s: failed to synchronise %d feu links\n", __FUNCTION__, reset_links );
 				if( sys_log_fptr != (FILE *)NULL )
-					fprintf( sys_log_fptr,  "%s: failed to synchronise %d feu links; %d attemps left\n", __FUNCTION__, reset_links, reset_links_cntr );
+					fprintf( sys_log_fptr,  "%s: failed to synchronise %d feu links\n", __FUNCTION__, reset_links );
+				return D_RetCode_Err_NetIO;
 			}
-			else
-				reset_links_cntr = 0;
-		} // while( reset_links )
-		if( reset_links )
-		{
-				fprintf( stderr, "%s: failed to synchronise %d feu links\n", __FUNCTION__, reset_links );
-			if( sys_log_fptr != (FILE *)NULL )
-				fprintf( sys_log_fptr,  "%s: failed to synchronise %d feu links\n", __FUNCTION__, reset_links );
-			return D_RetCode_Err_NetIO;
-		}
 
-		/* Configure FEU-s */
-		for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
-		{
-			beu        = ((feu>>5)&0x07)+1;
-			beu_lnk    = ( feu    &0x1F)-1;
-			if( (1<=params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
+			/* Configure FEU-s */
+			for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
 			{
-				feu_cur_params = &(params->FeuParams_Col.feu_params[feu]);
-				// Configure the FEU
-				if( (ret=FeuConfig( feu_cur_params, feu, beu, beu_lnk )) != D_RetCode_Sucsess )
+				beu        = ((feu>>5)&0x07)+1;
+				beu_lnk    = ( feu    &0x1F)-1;
+				if( (1<=params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (params->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
 				{
-						fprintf( stderr, "%s: FeuConfig failed for feu %d beu %d link %d in bec %d with %d\n",
-							__FUNCTION__, feu, beu, beu_lnk, bec, ret );
-					if( sys_log_fptr != (FILE *)NULL )
-						fprintf( sys_log_fptr, "%s: FeuConfig failed for feu %d beu %d link %d in bec %d with %d\n",
-							__FUNCTION__, feu, beu, beu_lnk, bec, ret );
-					return ret;
+					feu_cur_params = &(params->FeuParams_Col.feu_params[feu]);
+					// Configure the FEU
+					if( (ret=FeuConfig( feu_cur_params, feu, beu, beu_lnk )) != D_RetCode_Sucsess )
+					{
+							fprintf( stderr, "%s: FeuConfig failed for feu %d beu %d link %d in bec %d with %d\n",
+								__FUNCTION__, feu, beu, beu_lnk, bec, ret );
+						if( sys_log_fptr != (FILE *)NULL )
+							fprintf( sys_log_fptr, "%s: FeuConfig failed for feu %d beu %d link %d in bec %d with %d\n",
+								__FUNCTION__, feu, beu, beu_lnk, bec, ret );
+						return ret;
+					}
 				}
-			}
-		} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
-		usleep( 500000 );
+			} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+			usleep( 500000 );
+		} // if( configs_to_do & 0x2 )
 	} // for( bec=1; bec<DEF_MAX_NB_OF_BEC; bec++ )
 
 	return D_RetCode_Sucsess;
@@ -1433,3 +1471,88 @@ int SysScanFeuMonit( char *sys_conf_params_filename, int store_period_sec )
 	return D_RetCode_Sucsess;
 }
 
+
+
+int SysDumpFeuOptLnk()
+{
+	int ret;
+	int bec;
+	int feu;
+	int beu;
+	int beu_lnk;
+	FeuParams *feu_params;
+	FeuMonit   feu_monit;
+	char       feu_monit_str[256];
+	int run;
+	int iter;
+
+	int feu_rx_err_cntr;
+	int feu_par_err_cntr;
+	int feu_pac_err_cntr;
+
+	// Check for Null pointer
+	if( sys_params_ptr == (SysParams *)NULL )
+	{
+		fprintf( stderr, "%s: params=0\n", __FUNCTION__ );
+		return D_RetCode_Err_Null_Pointer;
+	}
+
+
+	// Go through back end crates
+	for( bec=1; bec<DEF_MAX_NB_OF_BEC; bec++ )
+	{
+		/* Configure FEU-s */
+		for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+		{
+			beu        = ((feu>>5)&0x07)+1;
+			beu_lnk    = ( feu    &0x1F)-1;
+			if( (1<=sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]) && (sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]<=DEF_MAX_FEU_SN) )
+			{
+				feu_params = &(sys_params_ptr->FeuParams_Col.feu_params[feu]);
+				// Latch stat
+				if( (ret = FeuToggleCommand( feu_params, feu, beu, beu_lnk, LatchStat ) ) != D_RetCode_Sucsess )
+				{
+						fprintf( stderr,  "%s: FeuToggleCommand LatchStat failed for feu=%d beu=%d lnk=%d with %d\n",
+							__FUNCTION__, feu, beu, beu_lnk, ret );
+					if( sys_log_fptr != (FILE *)NULL )
+						fprintf( sys_log_fptr,  "%s: FeuToggleCommand LatchStat failed for feu=%d beu=%d lnk=%d with %d\n",
+							__FUNCTION__, feu, beu, beu_lnk, ret );
+					return D_RetCode_Err_NetIO;
+				}
+				// Get error registers
+				if( (ret = FeuComChanRxErr_Get( feu_params, feu, beu, beu_lnk, &feu_rx_err_cntr, &feu_par_err_cntr, &feu_pac_err_cntr ) ) != D_RetCode_Sucsess )
+				{
+						fprintf( stderr,  "%s: FeuComChanRxErr_Get ClearStat failed for feu=%d beu=%d lnk=%d with %d\n",
+							__FUNCTION__, feu, beu, beu_lnk, ret );
+					if( sys_log_fptr != (FILE *)NULL )
+						fprintf( sys_log_fptr,  "%s: FeuComChanRxErr_Get ClearStat failed for feu=%d beu=%d lnk=%d with %d\n",
+							__FUNCTION__, feu, beu, beu_lnk, ret );
+					return D_RetCode_Err_NetIO;
+				}
+				if( (feu_rx_err_cntr > 0) || (feu_par_err_cntr != 0) || (feu_pac_err_cntr != 0) )
+				{
+						fprintf
+						(
+							stdout,
+							"%s: Feu=%2d Sn=%3d (beu=%d lnk=%2d) rx_err_cntr=%d par_err_cntr=%d pac_err_cntr=%d\n",
+							__FUNCTION__,
+							feu, sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk], beu, beu_lnk,
+							feu_rx_err_cntr, feu_par_err_cntr, feu_pac_err_cntr
+						);
+					if( sys_log_fptr != (FILE *)NULL )
+						fprintf
+						(
+							sys_log_fptr,
+							"%s: Feu=%2d Sn=%3d (beu=%d lnk=%2d) rx_err_cntr=%d par_err_cntr=%d pac_err_cntr=%d\n",
+							__FUNCTION__,
+							feu, sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk], beu, beu_lnk,
+							feu_rx_err_cntr, feu_par_err_cntr, feu_pac_err_cntr
+						);
+				}
+			} // if( (1<=sys_params_ptr->Bec_Params[bec].BeuFeuConnectivity[beu][beu_lnk]
+		} // for( feu=1; feu<DEF_MAX_NB_OF_FEU; feu++ )
+	} // for( bec=1; bec<DEF_MAX_NB_OF_BEC; bec++ )
+
+
+	return D_RetCode_Sucsess;
+}

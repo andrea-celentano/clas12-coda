@@ -19,11 +19,7 @@ using namespace std;
 char *msql_database = getenv("EXPID");
 char *session       = getenv("SESSION");
 
-extern "C" {
-int get_run_number(char *msql_database, char *session);
-void get_run_config(char *msql_database, char *session, int *run, char **config, char **, char **);
-char *get_run_status(char *msql_database, char *session);
-}
+#include "codautil.h"
 
 void decode_command_line(int argc, char **argv);
 
@@ -45,7 +41,7 @@ main(int argc, char **argv)
 
   decode_command_line(argc,argv);
 
-  if(session==NULL) session=(char*)"clashps";
+  if(session==NULL) session=(char*)"clasprod";
 
   // try get_run_status
   config = get_run_status(msql_database,session);

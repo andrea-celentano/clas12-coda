@@ -564,3 +564,19 @@ usrVmeDmaShow()
 }
 
 
+/* interface to CODA group DMA functions */
+int
+vmeDmaSend(unsigned int laddr, unsigned int vmeAdr, int bytes);
+{
+  int retVal;
+  retVal = usrVme2MemDmaStart(vmeAdr, laddr, bytes);
+  return(retVal);
+}
+
+int
+vmeDmaDone()
+{
+  int retVal;
+  retVal = usrVme2MemDmaDone();
+  return(retVal);
+}

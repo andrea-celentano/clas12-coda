@@ -24,6 +24,7 @@
   UNIX:
      cd $CLON_PARMS/firmwares
      tsFirmwareUpdate 0x00A80000 tsp43.svf
+     tsFirmwareUpdate 0x00A80000 tsp72.svf (hall D - 71)
 */
 
 #include <stdio.h>

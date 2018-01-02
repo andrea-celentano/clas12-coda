@@ -68,6 +68,10 @@
 #define PROCESS_TABLE_NAME  "process"
 #define DEFAULTS_TABLE_NAME "defaults"
 
+#define QUERY_LEN 4096
+#define VAL_LEN 4096
+#define KEY_LEN 1024
+
 static MYSQL* mysql = NULL;           /* connection socket to the database */
 static char   dbaseServerHost[128];   /* database server host name         */
 static char*  dbasename = 0;          /* current database name             */
@@ -184,7 +188,7 @@ cleanDatabaseMiscInfo (void)
 int
 createNewDatabase (char *name)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
 
   if (mysql == NULL)
     return -1;
@@ -297,7 +301,7 @@ currentDatabase (void)
 int
 removeDatabase (char *name)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
 
   if (!databaseIsOpen()) return(-1);
 
@@ -327,8 +331,8 @@ removeDatabase (char *name)
 int
 createConfigTable (char* config)
 {
-  char queryString[1024];
-  char valString[256];
+  char queryString[QUERY_LEN];
+  char valString[VAL_LEN];
   int  num;
 
   if (!databaseIsOpen()) return(-1);
@@ -393,7 +397,7 @@ createConfigTable (char* config)
 int
 createPositionTable (char* config)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
 
   printf("createPositionTable for config >%s<\n",config);
 
@@ -424,7 +428,7 @@ createPositionTable (char* config)
 int
 createExpInfoTable (void)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
 
   if (!databaseIsOpen ())
     return -1;
@@ -453,7 +457,7 @@ createExpInfoTable (void)
 int
 createProcessTable (void)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
 
   if (!databaseIsOpen ())
     return -1;
@@ -482,8 +486,8 @@ createProcessTable (void)
 int 
 createOptionTable (char* config)
 {
-  char queryString[1024];
-  char valString  [256];
+  char queryString[QUERY_LEN];
+  char valString  [VAL_LEN];
   MYSQL_RES *res;
 
   if (!databaseIsOpen ())
@@ -561,7 +565,7 @@ createOptionTable (char* config)
 int 
 createScriptTable (char* config)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
 
   if (!databaseIsOpen ()) return(-1);
 
@@ -593,8 +597,8 @@ createScriptTable (char* config)
 int
 createPriorityTable (void)
 {
-  char queryString[1024];
-  char valString[256];
+  char queryString[QUERY_LEN];
+  char valString[VAL_LEN];
   int  status;
 
   if (!databaseIsOpen ())
@@ -692,7 +696,7 @@ createPriorityTable (void)
 int
 createRunTypeTable (void)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
 
   if (!databaseIsOpen ())
     return(-1);
@@ -751,7 +755,7 @@ listAllTables (char* tables[], int* num)
 int
 listAllConfigs (char* configs[], int* num)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
   MYSQL_RES *res;
   MYSQL_ROW row;
   int      i = 0;
@@ -795,7 +799,7 @@ listAllConfigs (char* configs[], int* num)
 int
 numberConfigs(void)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
   MYSQL_RES *res;
   MYSQL_ROW row;
   int       i = 0;
@@ -881,7 +885,7 @@ isTableCreated (char* name)
 int
 removePositionTable (char* config)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
   
   if (databaseSelected ())
   {
@@ -901,7 +905,7 @@ removePositionTable (char* config)
 int
 removeScriptTable (char* config)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
   
   if (databaseSelected ())
   {
@@ -922,7 +926,7 @@ removeScriptTable (char* config)
 int
 removeOptionTable (char* config)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
   
   if (databaseSelected ())
   {
@@ -943,8 +947,8 @@ removeOptionTable (char* config)
 int
 removeConfigTable (char* config)
 {
-  char queryString[1024];
-  char valString[256];
+  char queryString[QUERY_LEN];
+  char valString[VAL_LEN];
   char* configs[200];
   int   num, i, j;
   char* tables[200];
@@ -1023,8 +1027,8 @@ removeConfigTable (char* config)
 int
 insertValToPosTable (char* config, char* name, int row, int col)
 {
-  char queryString[1024];
-  char valString[256];
+  char queryString[QUERY_LEN];
+  char valString[VAL_LEN];
 
   if (databaseSelected ())
   {
@@ -1052,8 +1056,8 @@ insertValToPosTable (char* config, char* name, int row, int col)
 int
 insertValToOptionTable (char* config, char* name, char* value)
 {
-  char queryString[1024];
-  char valString[256];
+  char queryString[QUERY_LEN];
+  char valString[VAL_LEN];
 #ifdef _CODA_DEBUG
   printf("Editor_database: insertValToOptionTable(%s,%s,%s)\n",config,name,value);
 #endif
@@ -1095,8 +1099,8 @@ insertValToOptionTable (char* config, char* name, char* value)
 int
 insertValToScriptTable (char* config, char* name, codaScript* list)
 {
-  char queryString[1024];
-  char valString[256];
+  char queryString[QUERY_LEN];
+  char valString[VAL_LEN];
   codaScript* p;
 
   if (list == 0)
@@ -1126,8 +1130,8 @@ int
 insertValToConfigTable (char* config, char* name, char* code,
 						char* inputs, char* outputs, char* next, int first, short order_num)
 {
-  char queryString[1024];
-  char valString[4096];  
+  char queryString[QUERY_LEN];
+  char valString[VAL_LEN];  
 
   printf("Editor_database: insertValToConfigTable(%s,%s, >%s<, %s,%s,%s,%d,%d)\n",config,name,code,inputs,outputs,next,first,order_num);
 
@@ -1160,8 +1164,8 @@ insertValToConfigTable (char* config, char* name, char* code,
 int
 removeDaqCompFromProcTable (char* name)
 {
-  char queryString[1024];
-  char keyString[256];
+  char queryString[QUERY_LEN];
+  char keyString[KEY_LEN];
 
 
   if (databaseSelected ()) {
@@ -1178,8 +1182,8 @@ removeDaqCompFromProcTable (char* name)
 int
 isDaqCompInProcTable (char* name)
 {
-  char queryString[1024];
-  char keyString[256];
+  char queryString[QUERY_LEN];
+  char keyString[KEY_LEN];
   MYSQL_RES *res;
   MYSQL_ROW row;
 
@@ -1215,9 +1219,9 @@ isDaqCompInProcTable (char* name)
 int
 insertDaqCompToProcTable (daqComp* comp)
 {
-  char queryString[1024];
-  char keyString[256];
-  char valString[512];
+  char queryString[QUERY_LEN];
+  char keyString[KEY_LEN];
+  char valString[VAL_LEN];
 
   if (databaseSelected ()) {
     sprintf (queryString, "insert into %s\n", PROCESS_TABLE_NAME);
@@ -1244,7 +1248,7 @@ insertDaqCompToProcTable (daqComp* comp)
 int
 updateDaqCompToProcTable (daqComp* comp)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
 
   if (databaseSelected ()) {
     if (comp->boot_string != 0)
@@ -1314,7 +1318,7 @@ removeMiscConfigInfo (void)
 int
 createRcNetCompsFromDbase (rcNetComp** comp, int *num)
 {
-  char queryString [1024];
+  char queryString [QUERY_LEN];
   int  i = 0;
   MYSQL_RES *res = 0;
   MYSQL_ROW row;
@@ -1371,7 +1375,7 @@ createRcNetCompsFromDbase (rcNetComp** comp, int *num)
 int
 retrieveConfigInfoFromDbase (char* config, ConfigInfo** cinfo, int* num)
 {
-  char queryString[1024];
+  char queryString[QUERY_LEN];
   MYSQL_RES *res = 0;
   MYSQL_ROW row;
   int  i = 0, j = 0;
@@ -1532,7 +1536,7 @@ int
 getDefaultCodeFromDbase (char* class, char *rols[3])
 {
   int i;
-  char queryString[1024];
+  char queryString[QUERY_LEN];
   MYSQL_RES *res = 0;
   MYSQL_ROW row;
   int num;
@@ -1636,7 +1640,7 @@ getDefaultCodeFromDbase (char* class, char *rols[3])
 int
 getAllOptionInfos (char* config, char*** names, char*** values)
 {
-  char queryString[256];
+  char queryString[QUERY_LEN];
   MYSQL_RES *res;
   MYSQL_ROW row;
   int      i, j;
@@ -1700,7 +1704,7 @@ compInConfigTables (char* name)
 {
   char* configs[200];
   int  num, i;
-  char queryString[1024];
+  char queryString[QUERY_LEN];
   MYSQL_RES *res;
   MYSQL_ROW row;
   char      errmsg[256];

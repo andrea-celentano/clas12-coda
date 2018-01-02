@@ -17,15 +17,12 @@
 
 using namespace std;
 
+#include "codautil.h"
+
 // online and coda stuff
 extern "C"{
 #include "libdb.h"
 }
-
-
-//--------------------------------------------------------------------------
-
-extern "C" {
 
 char *
 get_run_operators(char *mysql_database, char *session)
@@ -38,8 +35,12 @@ get_run_operators(char *mysql_database, char *session)
   struct tm *tm_info;
   char tmp[1000], tmp1[100], chdate[30], chtime[30], expert_shift[10], worker_shift[10];
   int ii, jj, len, numRows;
+  /*
   char *user = "hpsshiftbot";
   char *passwd = "88hIMrBzLqwKHQaO";
+  */
+  char *user = "shiftbot";
+  char *passwd = "manageshiftdb";
   static char chres[1000];
 
   chres[0] = '\0';
@@ -56,7 +57,10 @@ get_run_operators(char *mysql_database, char *session)
 
 
   // connect to mysql database
+  /*
   dbsock = dbConnectFull("clasdb", "hpsshift", user, passwd);
+  */
+  dbsock = dbConnectFull("clasdb", "shift", user, passwd);
 
 
   /* get experiment */
@@ -184,7 +188,3 @@ get_run_operators(char *mysql_database, char *session)
 
 }
 
-} // extern "C"
-
-
-//--------------------------------------------------------------------------

@@ -35,7 +35,8 @@ typedef enum _SysRunMode
 	SysModUdef = -1,
 	Clas12     =  0,
 	Standalone =  1,
-	Expert     =  2
+	Expert     =  2,
+	Spy        =  3
 } SysRunMode;
 char *SysRunMode2Str( SysRunMode mode );
 
