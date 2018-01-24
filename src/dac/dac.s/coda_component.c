@@ -1799,8 +1799,9 @@ codaUpdateStatus(char *status)
   char tmp[1000];
 
   /* update database */
-  printf("codaUpdateStatus: dbConnecting ..\n");fflush(stdout);
+  printf("codaUpdateStatus: dbConnecting! ..\n");fflush(stdout);
   dbsock = dbConnect(mysql_host, expid);
+  printf("codaUpdateStatus: dbConnecting2 ..\n");fflush(stdout);
   if(dbsock==NULL)
   {
     printf("cannot connect to the database 7 - exit\n");

@@ -110,7 +110,7 @@ int mynev; /*defined in tttrans.c */
 //#define MAXFEU 32    
 
 #define MAXBLOCK    2  /* MVT/FTT with not more than 2 SSP blocks=boards */
-#define MAXEVENT   20  /* max number of events in one block */
+#define MAXEVENT   40  /* max number of events in one block */
 #define MAXSAMPLES 128
 #define MAXFEU     24
 
@@ -131,7 +131,6 @@ int MVT_NBR_OF_FEU[DEF_MAX_NB_OF_BEU] = {0}; // PROBLEM WITH THIS ARRAY !!! Pour
 					     // Il me faut une correspondance beuID numero de beu ... bref, il faut harmoniser tout cela !!			
 int mvt_event_number = 0; 
 
-
 #define MVT_ERROR_NBR_OF_BEU            0x00000001
 #define MVT_ERROR_NBR_EVENTS_PER_BLOCK  0x00000002
 #define MVT_ERROR_NBR_SAMPLES_PER_EVENT 0x00000004
@@ -139,6 +138,27 @@ int mvt_event_number = 0;
 #define MVT_ERROR_EVENT_NUM             0x00000010
 #define MVT_ERROR_BLOCK_NUM             0x00000020
 
+/* Reshufling tables moved outside the function */
+int nB[  MAXBANKS]={0};
+int iB[  MAXBANKS][MAXBLOCK]={0};
+int sB[  MAXBANKS][MAXBLOCK]={0};
+
+int nBT[ MAXBANKS]={0};
+int iBT[ MAXBANKS][MAXBLOCK]={0}; 
+
+int nE[  MAXBANKS][MAXBLOCK]={0};
+int iE[  MAXBANKS][MAXBLOCK][MAXEVENT]={0};
+int lenE[MAXBANKS][MAXBLOCK][MAXEVENT]={0};
+
+int nSMP[MAXBANKS][MAXBLOCK][MAXEVENT]={0};
+int iSMP[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES]={0};
+
+int nFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES]={0};
+int iFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES][MAXFEU]={0};
+unsigned int mFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES]={0};
+
+int nbchannelsFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES][MAXFEU]={0};
+int sizeFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES][MAXFEU]={0};
 
 /* daq stuff */
 static int rol2_report_raw_data;
@@ -158,19 +178,32 @@ FILE *mvt_fptr_err_2 = (FILE *)NULL;
 static void
 __download()
 {
-  char logfilename[128];
-  if( mvt_fptr_err_2 == (FILE *)NULL )
-    {
-      sprintf(logfilename, "mvt_roc_%d_rol_2.log", rol->pid);
-      if( (mvt_fptr_err_2 = fopen(logfilename, "w")) == (FILE *)NULL )
+	char logfilename[128];
+	// time variables
+	time_t      cur_time;
+	struct tm  *time_struct;
+
+	// Get current time
+	cur_time = time(NULL);
+	time_struct = localtime(&cur_time);
+	if( mvt_fptr_err_2 == (FILE *)NULL )
 	{
-	  fprintf(stderr, "%s: fopen failed to open log file %s in write mode with %d\n", __FUNCTION__, logfilename, errno);
-	  perror("fopen failed");
+		sprintf(logfilename, "mvt_roc_%d_rol_2.log", rol->pid);
+		if( (mvt_fptr_err_2 = fopen(logfilename, "w")) == (FILE *)NULL )
+		{
+			fprintf(stderr, "%s: fopen failed to open log file %s in write mode with %d %s\n",
+				__FUNCTION__, logfilename, errno, strerror( errno ));
+		}
 	}
-	fprintf( mvt_fptr_err_2,"%s : Opend at download\n", __FUNCTION__ );
-	fflush(  mvt_fptr_err_2 );
-    }
-  rol->poll = 1;
+	if( mvt_fptr_err_2 != (FILE *)NULL )
+	{
+		fprintf( mvt_fptr_err_2, "**************************************************\n" );
+		fprintf( mvt_fptr_err_2, "%s at %02d%02d%02d %02dH%02d\n", __FUNCTION__,
+			time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
+			time_struct->tm_hour, time_struct->tm_min );
+		fflush(  mvt_fptr_err_2 );
+	}
+	rol->poll = 1;
   return;
 }
 
@@ -178,7 +211,12 @@ static void
 __prestart()
 {
 	int ii,ibeu;
+//	int bank, block, event, sample, feu;
+
 	char logfilename[128];
+	// time variables
+	time_t      cur_time;
+	struct tm  *time_struct;
 
 	printf("INFO: Entering Prestart ROL2\n");
 
@@ -198,15 +236,24 @@ __prestart()
 
 	rol->recNb = 0;
 
+	// Get current time
+	cur_time = time(NULL);
+	time_struct = localtime(&cur_time);
 	if( mvt_fptr_err_2 == (FILE *)NULL )
 	{
 		sprintf(logfilename, "mvt_roc_%d_rol_2.log", rol->pid);
 		if( (mvt_fptr_err_2 = fopen(logfilename, "w")) == (FILE *)NULL )
 		{
-			fprintf(stderr, "%s: fopen failed to open log file %s in write mode with %d\n", __FUNCTION__, logfilename, errno);
-			perror("fopen failed");
+			fprintf(stderr, "%s: fopen failed to open log file %s in write mode with %d %s\n",
+				__FUNCTION__, logfilename, errno, strerror( errno ));
 		}
-		fprintf( mvt_fptr_err_2,"%s : Opend at prestart\n", __FUNCTION__ );
+	}
+	if( mvt_fptr_err_2 != (FILE *)NULL )
+	{
+		fprintf( mvt_fptr_err_2, "**************************************************\n" );
+		fprintf( mvt_fptr_err_2, "%s at %02d%02d%02d %02dH%02d\n", __FUNCTION__,
+			time_struct->tm_year%100, time_struct->tm_mon+1, time_struct->tm_mday,
+			time_struct->tm_hour, time_struct->tm_min );
 		fflush(  mvt_fptr_err_2 );
 	}
 	if( (MVT_ZS_MODE = mvtGetZSMode(rol->pid)) < 0 )
@@ -215,7 +262,7 @@ __prestart()
 		if( mvt_fptr_err_2 != (FILE *)NULL )
 		{
 			fprintf(mvt_fptr_err_2,"%s: ERROR MVT_ZS_MODE=%d\n", __FUNCTION__,  MVT_ZS_MODE  );
-			fflush(mvt_fptr_err_2);
+			fflush( mvt_fptr_err_2);
 		}
 	}
 	MVT_PRESCALE              = mvtGetPrescale(rol->pid);
@@ -236,7 +283,39 @@ __prestart()
 	{
 		printf("INFO: MVT_NBR_OF_FEU %d %d\n", ibeu, MVT_NBR_OF_FEU[ibeu] );
 	}
-
+/*
+	// Clean reshafling tables
+	for( bank=0; bank<MAXBANKS; bank++ )
+	{
+		nB[bank]=0;
+		nBT[bank]=0;
+		for( block=0; block<MAXBLOCK; block++ )
+		{
+			iB[ bank][block]=0;
+			sB[ bank][block]=0;
+			iBT[bank][block]=0; 
+			nE[ bank][block]=0;
+			for( event=0; event<MAXEVENT; event++ )
+			{
+				iE[  bank][block][event]=0;
+				lenE[bank][block][event]=0;
+				nSMP[bank][block][event]=0;
+				for( sample=0; sample<MAXSAMPLES; sample++ )
+				{
+					iSMP[bank][block][event][sample]=0;
+					nFEU[bank][block][event][sample]=0;
+					mFEU[bank][block][event][sample]=0;
+					for( feu=0; feu<MAXFEU; feu++ )
+					{
+						iFEU[         bank][block][event][sample][feu]=0;
+						nbchannelsFEU[bank][block][event][sample][feu]=0;
+						sizeFEU      [bank][block][event][sample][feu]=0;
+					} // for( feu=0; feu<MAXFEU; feu++ )
+				} // for( sample=0; sample<MAXSAMPLES; sample++ )
+			} // for( event=0; event<MAXEVENT; event++ )
+		} // for( block=0; block<MAXBLOCK; block++ )
+	} //for( bank=0; bank<MAXBANKS; bank++ )
+*/
 	printf("INFO: Prestart ROL22 executed\n");
 	return;
 }
@@ -275,30 +354,6 @@ __go()
 	return;
 }
 
-/* Reshufling tables moved outside the function */
-	int nB[  MAXBANKS]={0};
-	int iB[  MAXBANKS][MAXBLOCK]={0};
-	int sB[  MAXBANKS][MAXBLOCK]={0};
-
-	int nBT[ MAXBANKS]={0};
-	int iBT[ MAXBANKS][MAXBLOCK]={0}; 
-
-	int nE[  MAXBANKS][MAXBLOCK]={0};
-	int iE[  MAXBANKS][MAXBLOCK][MAXEVENT]={0};
-	int lenE[MAXBANKS][MAXBLOCK][MAXEVENT]={0};
-
-	int nSMP[MAXBANKS][MAXBLOCK][MAXEVENT]={0};
-	int iSMP[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES]={0};
-
-	int nFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES]={0};
-	int iFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES][MAXFEU]={0};
-	unsigned int mFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES]={0};
-
-	int nbchannelsFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES][MAXFEU]={0};
-	int sizeFEU[MAXBANKS][MAXBLOCK][MAXEVENT][MAXSAMPLES][MAXFEU]={0};
-
-	
-	
 #ifdef PASS_AS_IS
 	int nASIS;
 	int iASIS[MAXBANKS]={0};
@@ -445,7 +500,7 @@ rol2trig(int a, int b)
 					{
 						/* event header */
 						a_event_type = ((datain[ii]>>24)&0xFF);
-						if(a_event_type==0)               printf("%s: 1st pass ERROR in TI event header word: datain[%d]=0x%08X : event type = %d for event %d\n", __FUNCTION__, ii, datain[ii], a_event_type, datain[ii+1]);
+//						if(a_event_type==0)               printf("%s: 1st pass ERROR in TI event header word: datain[%d]=0x%08X : event type = %d for event %d\n", __FUNCTION__, ii, datain[ii], a_event_type, datain[ii+1]);
 						if(((datain[ii]>>16)&0xFF)!=0x01) printf("%s: 1st pass ERROR in TI event header word: datain[%d]=0x%08X : (0x%02x) != 0x01\n",__FUNCTION__, ii, datain[ii], ((datain[ii]>>16)&0xFF));
 						a_nwords = datain[ii]&0xFF;
 #ifdef DEBUG1
@@ -751,10 +806,10 @@ if( mvt_fptr_err_2 != (FILE *)NULL )
 	fflush(mvt_fptr_err_2);
 }
 #endif
-				
-
-					ii+= ((sizeFEU[jj][k][m][l][p]  -2) >> 1 ) ;   //big jump over the data 
-
+					if( nbchannelsFEU[jj][k][m][l][p] > 0 )
+						ii+= ((sizeFEU[jj][k][m][l][p]  -2) >> 1 ) ;   //big jump over the data
+					else
+						ii++;
 #ifdef DEBUG6								
 if( mvt_fptr_err_2 != (FILE *)NULL )
 {

@@ -19,7 +19,7 @@
 #define FADC_READ_CONF_FILE {fadc250SetExpid(expid);                    fadc250Config(""); if(strncasecmp(rol->confFile,"none",4)) fadc250Config(rol->confFile);}
 #define SSP_READ_CONF_FILE  {sspSetExpid(expid);     sspInitGlobals();  sspConfig("");     if(strncasecmp(rol->confFile,"none",4)) sspConfig(rol->confFile);}
 #define GTP_READ_CONF_FILE  {gtpSetExpid(expid);                        gtpConfig("");     if(strncasecmp(rol->confFile,"none",4)) gtpConfig(rol->confFile);}
-#define TDC_READ_CONF_FILE  {tdc1290SetExpid(expid);                    tdc1190Config(""); /*if(strncasecmp(rol->confFile,"none",4)) tdc1190Config(rol->confFile);*/}
+#define TDC_READ_CONF_FILE  {tdc1290SetExpid(expid);                    tdc1190Config(""); if(strncasecmp(rol->confFile,"none",4)) tdc1190Config(rol->confFile);}
 #define MVT_READ_CONF_FILE  {mvtSetExpid(expid);                        mvtConfig("");     if(strncasecmp(rol->confFile,"none",4)) mvtConfig(rol->confFile);}
 #define FTT_READ_CONF_FILE  {fttConfig("");                                                if(strncasecmp(rol->confFile,"none",4)) fttConfig(rol->confFile);}
 #define FLP_READ_CONF_FILE  {flpSetExpid(expid);                        flpConfig("");     if(strncasecmp(rol->confFile,"none",4)) flpConfig(rol->confFile);}
@@ -137,7 +137,7 @@ tiprimarytinit(int code)
 
 
 /* TEMPORARY!!! this will kill mutex so DiagGuiServer must be restarted after that !!!!!!!!!!!!!!!!!!!!! */
-/*vmeCheckMutexHealth(1); - use 'mutexclean' command if needed !!!!!!!!!!!!!!!!!!!*/
+vmeCheckMutexHealth(1); /*- use 'mutexclean' command if needed !!!!!!!!!!!!!!!!!!!*/
 
 
   printf("tiprimaryinit: code is %i - TIADDR is: 0x%08x  ---- %i \n",code,TI_ADDR,TI_ADDR);
@@ -204,9 +204,13 @@ vmeBusUnlock();
   /* only 1 trigger type for physics trigger */
 vmeBusLock();
 /*tiSetTriggerSource(TI_TRIGGER_TSINPUTS); move to config */
+
+/* moved to config
   tiDisableTSInput(TI_TSINPUT_ALL);
   tiEnableTSInput( TI_TSINPUT_1 | TI_TSINPUT_2 | TI_TSINPUT_3 | TI_TSINPUT_4 | TI_TSINPUT_5 | TI_TSINPUT_6);
+*/
   tiLoadTriggerTable(3);
+
 vmeBusUnlock();
 
 #endif
@@ -331,7 +335,7 @@ vmeBusUnlock();
 
 
 
-#if 1 /* for HPS */
+#ifdef USE_HPS
 vmeBusLock();
   if(rol->pid==37||rol->pid==39) tiRemoveRocSWA(); /*temporary: remove GTPs by default*/
 vmeBusUnlock();
@@ -420,7 +424,7 @@ vmeBusUnlock();
         roc_id_db = atoi(row[2]);
         printf("TIPRIMARY: roc_id_db = %d\n",roc_id_db);
 
-#if 1 /*for HPS*/
+#ifdef USE_HPS
 
         if(roc_id_db==38 && rol->pid==37) /*hps1/hps1gtp, temporary until resolved in hardware*/
 		{

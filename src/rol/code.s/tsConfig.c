@@ -18,9 +18,11 @@ TS_BLOCK_LEVEL 1                               # the number of events in readout
 
 TS_BUFFER_LEVEL 1                              # 0 - pipeline mode, 1 - ROC Lock mode, >=2 - buffered mode
 
-TS_INPUT_PRESCALE bit prescale                 # bit: 0-5, prescale: 0-15, actual prescale value is 2^prescale
+TS_GTP_PRESCALE bit prescale                   # bit: 0-31, prescale: 0-15, actual prescale value is 2^prescale
+TS_FP_PRESCALE bit prescale                    # bit: 0-31, prescale: 0-15, actual prescale value is 2^prescale
 
-TS_INPUT_MASK 0x7FFFFFFF                       # 32-bit mask in HEX
+TS_GTP_INPUT_MASK 0x7FFFFFFF                   # 32-bit mask in HEX
+TS_FP_INPUT_MASK 0x7FFFFFFF                    # 32-bit mask in HEX
 
 TS_RANDOM_TRIGGER en prescale                  # en: 0=disabled 1=enabled, prescale: 0-15, nominal rate = 500kHz/2^prescale
 
@@ -60,8 +62,10 @@ static nslave, slave_list[MAXSLAVES];
 static unsigned int delay, offset;
 static int block_level;
 static int buffer_level;
-static int input_prescale[6];
-static int input_mask;
+static int gtp_prescale[32];
+static int fp_prescale[32];
+static int gtp_input_mask;
+static int fp_input_mask;
 static int random_enabled;
 static int random_prescale;
 static int holdoff_rules[4];
@@ -126,8 +130,10 @@ tsInitGlobals()
   holdoff_timescale[2] = 0;
   holdoff_timescale[3] = 0;
   for(ii=0; ii<MAXSLAVES; ii++) slave_list[ii] = 0;
-  for(ii=0; ii<6; ii++) input_prescale[ii] = 0;
-  input_mask = 0x7fffffff;
+  for(ii=0; ii<32; ii++) gtp_prescale[ii] = 0;
+  for(ii=0; ii<32; ii++) fp_prescale[ii] = 0;
+  gtp_input_mask = 0xFFFFFFFF;
+  fp_input_mask = 0xFFFFFFFF;
   fiber_in = 1;
 
   return(0);
@@ -257,25 +263,56 @@ tsReadConfigFile(char *filename)
         buffer_level = i1;
       }
 
-      else if(active && (strcmp(keyword,"TS_INPUT_PRESCALE")==0))
+      else if(active && (strcmp(keyword,"TS_GTP_PRESCALE")==0))
       {
         sscanf (str_tmp, "%*s %d %d", &i1, &i2);
-        if((i1 < 1) || (i1 > 6))
+        if((i1 < 1) || (i1 > 32))
         {
-          printf("\nReadConfigFile: Invalid prescaler inputs selection, %s\n",str_tmp);
+          printf("\nReadConfigFile: Invalid GTP prescaler inputs selection, %s\n",str_tmp);
         }
         if((i2 < 0) || (i2 > 15))
         {
-          printf("\nReadConfigFile: Invalid prescaler value selection, %s\n",str_tmp);
+          printf("\nReadConfigFile: Invalid GTP prescaler value selection, %s\n",str_tmp);
         }
-        input_prescale[i1-1] = i2;
+        gtp_prescale[i1-1] = i2;
       }
+
+      else if(active && (strcmp(keyword,"TS_FP_PRESCALE")==0))
+      {
+        sscanf (str_tmp, "%*s %d %d", &i1, &i2);
+        if((i1 < 1) || (i1 > 32))
+        {
+          printf("\nReadConfigFile: Invalid FP prescaler inputs selection, %s\n",str_tmp);
+        }
+        if((i2 < 0) || (i2 > 15))
+        {
+          printf("\nReadConfigFile: Invalid FP prescaler value selection, %s\n",str_tmp);
+        }
+        fp_prescale[i1-1] = i2;
+      }
+
+
 
       else if(active && (strcmp(keyword,"TS_INPUT_MASK")==0))
       {
         sscanf (str_tmp, "%*s 0x%X",&i1);
-        input_mask = i1;
-        printf("\nReadConfigFile: input_mask = 0x%08x\n",input_mask);
+        fp_input_mask = i1;
+        printf("\nReadConfigFile: fp_input_mask = 0x%08x\n",fp_input_mask);
+      }
+      else if(active && (strcmp(keyword,"TS_FP_INPUT_MASK")==0))
+      {
+        sscanf (str_tmp, "%*s 0x%X",&i1);
+        fp_input_mask = i1;
+        printf("\nReadConfigFile: fp_input_mask = 0x%08x\n",fp_input_mask);
+      }
+
+
+
+      else if(active && (strcmp(keyword,"TS_GTP_INPUT_MASK")==0))
+      {
+        sscanf(str_tmp, "%*s 0x%X", &i1);
+        gtp_input_mask = i1;
+        printf("\nReadConfigFile: gtp_input_mask = 0x%08x\n",gtp_input_mask);
       }
 
       else if(active && (strcmp(keyword,"TS_RANDOM_TRIGGER")==0))
@@ -360,12 +397,18 @@ tsDownloadAll()
 
   printf("tsDownloadAll reached\n");
 
-  /*for(ii=0; ii<6; ii++) tsSetInputPrescale(ii+1,input_prescale[ii]);TS*/
+  for(ii=0; ii<32; ii++) tsSetTriggerPrescale(1, ii, gtp_prescale[ii]);
+  for(ii=0; ii<32; ii++) tsSetTriggerPrescale(2, ii, fp_prescale[ii]);
 
-  tsSetFPInput(input_mask);
-  printf("tsDownloadAll: setting input_mask=0x%08x\n",input_mask);
-  input_mask = tsGetFPInput();
-  printf("tsDownloadAll: reading back input_mask=0x%08x\n",input_mask);
+  tsSetFPInput(fp_input_mask);
+  printf("tsDownloadAll: setting fp_input_mask=0x%08x\n",fp_input_mask);
+  fp_input_mask = tsGetFPInput();
+  printf("tsDownloadAll: reading back fp_input_mask=0x%08x\n",fp_input_mask);
+
+  tsSetGTPInput(gtp_input_mask);
+  printf("tsDownloadAll: setting gtp_input_mask=0x%08x\n",gtp_input_mask);
+  gtp_input_mask = tsGetGTPInput();
+  printf("tsDownloadAll: reading back gtp_input_mask=0x%08x\n",gtp_input_mask);
 
   for(ii=0; ii<4; ii++) tsSetTriggerHoldoff(ii+1,holdoff_rules[ii],holdoff_timescale[ii]);
   
@@ -404,21 +447,12 @@ tsMon(int slot)
 }
 
 
-/*
-static int is_slave;
-static nslave, slave_list[MAXSLAVES];
-static unsigned int delay, offset;
-static int block_level;
-static int buffer_level;
-static int input_prescale[6];
-*/
-
 /* upload setting */
 int
 tsUploadAll(char *string, int length)
 {
   int slot, i, ii, jj, kk, ifiber, len1, len2;
-  char *str, sss[1024];
+  char *str, sss[4096];
   unsigned int tmp;
   int connectedfibers;
   unsigned short sval;
@@ -445,11 +479,13 @@ tsUploadAll(char *string, int length)
   printf("tsUploadAll: block_level=%d, buffer_level=%d\n",block_level,buffer_level);
   */
 
-  input_mask = tsGetFPInput();
+  fp_input_mask = tsGetFPInput();
+  gtp_input_mask = tsGetGTPInput();
 
-  for(ii = 0; ii < 6; ii++)
+  for(ii=0; ii<32; ii++)
   {
-    /*input_prescale[ii] = tsGetInputPrescale(ii+1);TS*/
+    gtp_prescale[ii] = tsGetTriggerPrescale(1, ii);
+    fp_prescale[ii] = tsGetTriggerPrescale(2, ii);
   }
 
   /*random_enabled = tsGetRandomTriggerEnable(1);TS*/
@@ -486,12 +522,21 @@ tsUploadAll(char *string, int length)
       ADD_TO_STRING;
     }
 
-    sprintf(sss,"TS_INPUT_MASK 0x%08x\n",input_mask);
+    sprintf(sss,"TS_GTP_INPUT_MASK 0x%08X\n",gtp_input_mask);
     ADD_TO_STRING;
 
-    for(ii = 0; ii < 6; ii++)
+    sprintf(sss,"TS_FP_INPUT_MASK 0x%08x\n",fp_input_mask);
+    ADD_TO_STRING;
+
+    for(ii = 0; ii < 32; ii++)
     {
-      sprintf(sss,"TS_INPUT_PRESCALE %d %d\n",ii+1,input_prescale[ii]);
+      sprintf(sss,"TS_GTP_PRESCALE %d %d\n",ii+1,gtp_prescale[ii]);
+      ADD_TO_STRING;
+    }
+
+    for(ii = 0; ii < 32; ii++)
+    {
+      sprintf(sss,"TS_FP_PRESCALE %d %d\n",ii+1,fp_prescale[ii]);
       ADD_TO_STRING;
     }
 

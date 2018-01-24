@@ -291,9 +291,9 @@ static unsigned int MAXTIWORDS = 0;
 /* IC lookup tables */
 
 /*tdc's in slots 19 and 20*/
-int ic_tdc_high[2][128] = { 0 * 256 };
+int ic_tdc_high[2][128] = {0 * 256};
 
-int ic_tdc_low[2][128] = { 0 * 256 };
+int ic_tdc_low[2][128] = {0 * 256};
 
 /*adc's in slots 3-10 and 13-18*/
 
@@ -314,7 +314,7 @@ getFadcPedsFilename(int rocid) {
 	 return(NULL);
 	 }
 	 */
-	sprintf(fname, "%s/peds/%s/fadc_%02d.ped", dir, expid, rocid);
+	sprintf(fname, "%s/peds/%s/run%02d.ped", dir, expid, rocid);
 
 	return (fname);
 }
@@ -349,7 +349,7 @@ getV1725PedsFilename(int rocid) {
 	 return(NULL);
 	 }
 	 */
-	sprintf(fname, "%s/peds/%s/v1725_%02d.ped", dir, expid, rocid);
+	sprintf(fname, "%s/peds/%s/run%02d.ped", dir, expid, rocid);
 
 	return (fname);
 }
@@ -374,7 +374,7 @@ static void __download() {
 
 	char *clonParmsEnv;
 	char tmp2[100];
-	int iFlag=0;
+	int iFlag = 0;
 #ifdef USE_FADC250
 
 	int ret, ii, id, isl, ichan, slot;
@@ -459,11 +459,10 @@ static void __download() {
 	/*worked for bit pattern latch tiSetSyncDelayWidth(0x54,127,1);*/
 	vmeBusUnlock();
 
-/*	usrVmeDmaSetConfig(1, 5, 2);  /*A24,2eSST,320MB/s*/
-	usrVmeDmaSetConfig(2, 5, 1);  /*A24,2eSST,267MB/s*/
+	/*	usrVmeDmaSetConfig(1, 5, 2);  /*A24,2eSST,320MB/s*/
+	usrVmeDmaSetConfig(2, 5, 1); /*A32,2eSST,267MB/s*/
 	/*usrVmeDmaSetConfig(2,5,0);*//*A32,2eSST,160MB/s*/
-	/*usrVmeDmaSetConfig(2,3,0);*///*A32,MBLT*/
-
+	/*usrVmeDmaSetConfig(2,3,0);*/	//*A32,MBLT*/
 	/*
 	 if(rol->pid==18)
 	 {
@@ -603,12 +602,12 @@ static void __download() {
 
 	if (nfadc > 0) {
 		if (nfadc == 1)
-			FADC_ROFLAG = 1; /*no chainedDMA if one board only*/
+		FADC_ROFLAG = 1; /*no chainedDMA if one board only*/
 
 		if (FADC_ROFLAG == 2)
-			faEnableMultiBlock(1);
+		faEnableMultiBlock(1);
 		else
-			faDisableMultiBlock();
+		faDisableMultiBlock();
 
 		/* configure all modules based on config file */
 		FADC_READ_CONF_FILE
@@ -903,7 +902,6 @@ static void __download() {
 
 #ifdef USE_V895
 
-
 	printf("v895 Download() starts =========================\n");
 	v895Init();
 
@@ -931,16 +929,14 @@ static void __download() {
 	}
 
 	printf("v1725 Download() ends ========================\n");
-
-
-
+#endif
 #ifdef USE_V1495
 	printf("v1495 Download() starts =======================\n");
-	iFlag=0;
-	v1495Init(V1495_ADDR,iFlag);
+	iFlag = 0;
+	v1495Init(V1495_ADDR, iFlag);
 	printf("v1495 Download() ends =======================\n");
 #endif
-#endif
+
 
 	sprintf(rcname, "RC%02d", rol->pid);
 	printf("rcname >%4.4s<\n", rcname);
@@ -956,9 +952,9 @@ static void __download() {
 
 static void __prestart() {
 	int ii, i1, i2, i3;
-	int ret;
+	int ret, id;
 #ifdef USE_FADC250
-	int id, isl, ichan, slot;
+	int isl, ichan, slot;
 	unsigned short iflag;
 	int iFlag = 0;
 	int ich;
@@ -1213,16 +1209,22 @@ static void __prestart() {
 	printf("V1725 Prestart() starts =========================\n");
 
 	if (nv1725 > 0) {
-
-
-		printf("V1725 pedestals computetion and writing starts\n");fflush(stdout);
+		printf("V1725 calibration starts\n");
+		for (id = 0; id < nv1725; id++) {
+			v1725DoCalibration(id);
+		}
+		sleep(1);
+		printf("V1725 pedestals computetion and writing starts\n");
+		fflush(stdout);
 		v1725peds(getV1725PedsFilename(rol->runNumber), 1);
-		printf("V1725 pedestals computation and writing ends\n");fflush(stdout);
+		printf("V1725 pedestals computation and writing ends\n");
+		fflush(stdout);
 
-		printf("V1725 final configuration starts\n");fflush(stdout);
+		printf("V1725 final configuration starts\n");
+		fflush(stdout);
 		v1725DownloadAll(); //Will update thresholds with the pedestal value!
-		printf("V1725 final configuration ends\n");fflush(stdout);
-
+		printf("V1725 final configuration ends\n");
+		fflush(stdout);
 
 	}
 
@@ -1463,8 +1465,8 @@ static void __end() {
 #ifdef USE_V1725
 	/*Disable V1725*/
 	for (id = 0; id < nv1725; id++) {
-		v1725SetBLTRange(id,0);
-		v1725SetAcquisition(id,0,0,0,0,0,0,0); /*stop v1725*/
+		v1725SetBLTRange(id, 0);
+		v1725SetAcquisition(id, 0, 0, 0, 0, 0, 0, 0); /*stop v1725*/
 	}
 #endif
 
@@ -1482,7 +1484,6 @@ static void __end() {
 	sdStatus();
 	vmeBusUnlock();
 #endif
-
 
 	vmeBusLock();
 	tiStatus(1);
@@ -1530,11 +1531,15 @@ static void __go() {
 #ifdef USE_V1725
 	/*Enable V1725*/
 	for (id = 0; id < nv1725; id++) {
-		v1725SetAcquisition(id,0,0,0,0,0,1,0); /*start fadc (last 1)*/
+		v1725SetAcquisition(id, 0, 0, 0, 0, 0, 1, 0); /*start fadc (last 1)*/
 		//v1725SetBLTRange(id,1); //should stay here for proper DMA - not anywhere else
 	}
-
 #endif
+
+#ifdef USE_V1495
+	v1495Reset();
+#endif
+
 #ifdef USE_V1190
 	for (jj = 0; jj < ntdcs; jj++) {
 		vmeBusLock();
@@ -1641,10 +1646,11 @@ void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE) {
 	int *jw, ind, ind2, i, ii, jj, jjj, blen, len, rlen, itdcbuf, nbytes;
 	unsigned int *tdcbuf_save, *tdc, utmp;
 	unsigned int *dabufp1, *dabufp2;
+	unsigned int tmpWord;
 	int njjloops, slot, type;
 	int nwords;
 	int nev, rlenbuf[22];
-	int dCnt,stat,gbready;
+	int dCnt, stat, gbready;
 	unsigned int mask;
 #ifndef VXWORKS
 	TIMERL_VAR;
@@ -1652,24 +1658,24 @@ void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE) {
 #ifdef USE_FADC250
 			unsigned int datascan;
 
-	unsigned short *dabufp16, *dabufp16_save;
-	int id;
-	int idata;
-	int itime;
+			unsigned short *dabufp16, *dabufp16_save;
+			int id;
+			int idata;
+			int itime;
 #endif
 #ifdef USE_V1190
-	unsigned long tdcslot, tdcchan, tdcval, tdc14, tdcedge, tdceventcount;
-	unsigned long tdceventid, tdcbunchid, tdcwordcount, tdcerrorflags;
-	unsigned int *tdchead;
+			unsigned long tdcslot, tdcchan, tdcval, tdc14, tdcedge, tdceventcount;
+			unsigned long tdceventid, tdcbunchid, tdcwordcount, tdcerrorflags;
+			unsigned int *tdchead;
 #ifdef SLOTWORKAROUND
-	unsigned long tdcslot_h, tdcslot_t, remember_h;
+			unsigned long tdcslot_h, tdcslot_t, remember_h;
 #endif
 #endif
 
 #ifdef DMA_TO_BIGBUF
-	unsigned int pMemBase, uMemBase, mSize;
+			unsigned int pMemBase, uMemBase, mSize;
 #endif
-	char *chptr, *chptr0;
+char	*chptr, *chptr0;
 
 	/*printf("EVTYPE=%d syncFlag=%d\n",EVTYPE,syncFlag);*/
 
@@ -1717,7 +1723,7 @@ void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE) {
 
 		/* Grab the data from the TI */
 		vmeBusLock();
-		len	= 0;
+		len = 0;
 		len = tiReadBlock(tdcbuf, 900 >> 2, 1); //Andrea was 1
 		vmeBusUnlock();
 		if (len <= 0) {
@@ -2058,7 +2064,7 @@ void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE) {
 #ifndef DMA_TO_BIGBUF
 
 					for (jj = 0; jj < dCnt; jj++)
-						*rol->dabufp++ = tdcbuf[jj];
+					*rol->dabufp++ = tdcbuf[jj];
 #endif
 				}
 
@@ -2071,7 +2077,7 @@ void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE) {
 				for (jj = 1; jj < 21; jj++) {
 					mask = 1 << jj;
 					if ((fadcSlotMask & mask) && !(gbready & mask))
-						printf("%3d", jj);
+					printf("%3d", jj);
 				}
 				printf("\n");
 			}
@@ -2629,7 +2635,7 @@ void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE) {
 			stat = 1; //A.C. need to do something here..
 
 			if (stat > 0) {
-				BANKOPEN(0xe119, 1, rol->pid); /*Andrea> 0x119 is for v1725 raw data*/
+				BANKOPEN(0xe119, 1, rol->pid); /*Andrea-> 0x119 is for v1725 raw data*/
 
 				V1725_SLOT = v1725GetSlot(0);
 				if (V1725_ROFLAG == 2) {
@@ -2642,12 +2648,33 @@ void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE) {
 					printf("v1725: Starting DMA\n");fflush(stdout);
 #endif
 					vmeBusLock();
-					v1725ReadStart(tdcbuf, rlenbuf,2); //THIS READS ALL BOARDS
+					v1725ReadStart(tdcbuf, rlenbuf, 2); //THIS READS ALL BOARDS
 					vmeBusUnlock();
 					dCnt = 0;
 					for (ii = 0; ii < nv1725; ii++) {
 						for (jj = 0; jj < rlenbuf[ii]; jj++) {
-							*rol->dabufp++ = tdcbuf[dCnt++];
+							if (jj == 1) { /*A.C. manual fix the GEO addr*/
+								tmpWord = tdcbuf[dCnt++];
+#ifndef VXWORKS
+#ifndef NIOS
+#ifndef Linux_armv7l
+								tmpWord = LSWAP(tmpWord);
+#endif
+#endif
+#endif
+								tmpWord = tmpWord & 0x7FFFFFF;
+								tmpWord = tmpWord | ((v1725GetSlot(ii) & 0x1F) << 27);
+#ifndef VXWORKS
+#ifndef NIOS
+#ifndef Linux_armv7l
+								tmpWord = LSWAP(tmpWord);
+#endif
+#endif
+#endif
+								*rol->dabufp++ = tmpWord;
+							} else {
+								*rol->dabufp++ = tdcbuf[dCnt++];
+							}
 						}
 					}
 
@@ -2662,17 +2689,38 @@ void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE) {
 
 #else
 					vmeBusLock();
-					v1725ReadStart(tdcbuf, rlenbuf,2); //THIS READS ALL BOARDS
+					v1725ReadStart(tdcbuf, rlenbuf, 2); //THIS READS ALL BOARDS
 					vmeBusUnlock();
 #endif
 					dCnt = 0;
 					for (ii = 0; ii < nv1725; ii++) {
 						for (jj = 0; jj < rlenbuf[ii]; jj++) {
-							*rol->dabufp++ = tdcbuf[dCnt++];
+							if (jj == 1) { /*A.C. manual fix the GEO addr*/
+								tmpWord = tdcbuf[dCnt++];
+#ifndef VXWORKS
+#ifndef NIOS
+#ifndef Linux_armv7l
+								tmpWord = LSWAP(tmpWord);
+#endif
+#endif
+#endif
+								tmpWord = tmpWord & 0x7FFFFFF;
+								tmpWord = tmpWord | ((v1725GetSlot(ii) & 0x1F) << 27);
+#ifndef VXWORKS
+#ifndef NIOS
+#ifndef Linux_armv7l
+								tmpWord = LSWAP(tmpWord);
+#endif
+#endif
+#endif
+								*rol->dabufp++ = tmpWord;
+							} else {
+								*rol->dabufp++ = tdcbuf[dCnt++];
+							}
 						}
-						#ifdef DEBUG
+#ifdef DEBUG
 						printf("v1725: [%d] len=%d dCnt=%d\n",jj,rlenbuf[ii],dCnt);
-						#endif
+#endif
 					}
 				}
 
@@ -2706,6 +2754,42 @@ void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE) {
 
 #endif /* USE_V1725 */
 
+#ifdef USE_V1495
+		/*Also read the FPGA. Return number of read 32-bit words*/
+		blen = v1495ReadStart(tdcbuf);
+		BANKOPEN(0xe125, 1, rol->pid); /*Tag type num*/
+		dabufp1 = rol->dabufp;
+
+		/*First two words are inserted "by hand"
+		 *   ** First word contain pattern + nwords
+		 *   ** Second word contains slot
+		 */
+		tmpWord = (V1495_HEADER_PATTERN) << 28 | ((blen+2) & 0xFFFFFFF);
+#ifndef VXWORKS
+#ifndef NIOS
+#ifndef Linux_armv7l
+		tmpWord = LSWAP(tmpWord);
+#endif
+#endif
+#endif
+		*rol->dabufp++ = tmpWord;
+
+		tmpWord = v1495Slot();
+#ifndef VXWORKS
+#ifndef NIOS
+#ifndef Linux_armv7l
+		tmpWord = LSWAP(tmpWord);
+#endif
+#endif
+#endif
+		*rol->dabufp++ = tmpWord;
+
+		for (ii = 0; ii < blen; ii++) {
+			*rol->dabufp++ = tdcbuf[ii];
+		}
+		BANKCLOSE;
+#endif
+
 #ifndef TI_SLAVE
 
 		/* create HEAD bank if master and standalone crates, NOT slave */
@@ -2720,10 +2804,10 @@ void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE) {
 
 		for (ii = 0; ii < block_level; ii++) {
 			event_number++;
-			/*
-			 printf(">>>>>>>>>>>>> %d %d\n",(EVENT_NUMBER),event_number);
-			 sleep(1);
-			 */
+
+			//printf(">>>>>>>>>>>>> %d %d\n",(EVENT_NUMBER),event_number);
+			//sleep(1);
+
 			*rol->dabufp++ = LSWAP((0x12 << 27) + (event_number & 0x7FFFFFF)); /*event header*/
 
 			nwords = 5; /* UPDATE THAT IF THE NUMBER OF WORDS CHANGED BELOW !!! */
@@ -2741,7 +2825,6 @@ void usrtrig(unsigned int EVTYPE, unsigned int EVSOURCE) {
 				*rol->dabufp++ = 0;
 			}
 			/* END OF DATA WORDS */
-
 		}
 
 		nwords = ((int) rol->dabufp - (int) dabufp1) / 4 + 1;

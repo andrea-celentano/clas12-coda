@@ -8,7 +8,6 @@
 #include "DCRBScalersModule.h"
 #include "DSC2Module.h"
 #include "FADC250Module.h"
-#include "V1725Module.h"
 #include "SDModule.h"
 #include "SSPModule.h"
 #include "SSP_HPSModule.h"
@@ -309,8 +308,8 @@ void DiagGUI::ProcessParam(char *paramA, char *paramB, char *paramC, int count)
 				pFrameModule->AddFrame(pModuleFrames[iModuleCount] = new V1495PulserModule(pFrameModule, pCrateMsgClientLast, addr), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 			else if(!stricmp("MOD_TYPE_VETROC", paramB))
 				pFrameModule->AddFrame(pModuleFrames[iModuleCount] = new vetroc_module(pFrameModule, pCrateMsgClientLast, addr), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
-			else if(!stricmp("MOD_TYPE_V1725", paramB))
-				pFrameModule->AddFrame(pModuleFrames[iModuleCount] = new V1725_module(pFrameModule, pCrateMsgClientLast, addr), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+			  /*	else if(!stricmp("MOD_TYPE_V1725", paramB))
+				pFrameModule->AddFrame(pModuleFrames[iModuleCount] = new V1725_module(pFrameModule, pCrateMsgClientLast, addr), new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));*/
 			else
 			{
 				printf("Error: Unknown module type: %s\n", paramB);

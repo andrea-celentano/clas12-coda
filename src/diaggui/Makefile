@@ -12,7 +12,7 @@ MAIN = diaggui
 # generic Makefile
 #------------------
 include $(CODA)/src/Makefile.include
-include $(CODA)/src/Makefile.arch
+###include $(CODA)/src/Makefile.arch
 
 #-----------------------
 # customize definitions
@@ -24,7 +24,10 @@ ifeq ("$(OSTYPE_MACHINE)","SunOS_i86pc")
 #  LDCXX += -m64
 endif
 
+CLON_FLAGS = -std=c++11
+
 CLON_FLAGS += -I./src.s \
+				-I$(ROOTSYS)/include \
 				-I./inc/CTP \
 				-I./inc/DCRB \
 				-I./inc/DCRBScalers \
@@ -43,11 +46,38 @@ CLON_FLAGS += -I./src.s \
 				-I./inc/vetroc \
 				-I$(CODA)/common/include
 
+CLON_FLAGS += -I$(IPC_HOME)/src/main -I$(CODA)/src/ipc/ipc.s
+
+ifeq ("$(OSTYPE_MACHINE)","Linux_i686")
+  CLON_FLAGS += -I/usr/local/include/apr-1
+else ifeq ("$(OSTYPE_MACHINE)","Linux_i686_vme")
+  CLON_FLAGS += -I/usr/local/include/apr-1
+else
+  CLON_FLAGS += -I/usr/include/apr-1
+endif
+
+LIBNAMES += $(CODA)/$(OSTYPE_MACHINE)/lib/libipc.a
+ifeq ("$(OSTYPE_MACHINE)","Linux_i686")
+  LIBNAMES += /usr/local/lib/libactivemq-cpp.so
+  LIBNAMES += /usr/local/lib/libapr-1.so
+  LIBNAMES += -luuid -lrt -lcrypt -lssl -lcrypto -ldl -lz
+  LIBNAMES += -L/usr/kerberos/lib -lpthread -pthread -Wl,-rpath -Wl,/usr/local/lib
+else
+  LIBNAMES += /usr/local/lib/libactivemq-cpp.so
+  LIBNAMES += -lapr-1
+  LIBNAMES += -lrt -lcrypt -lssl -lcrypto -ldl -lz
+  LIBNAMES += -L/usr/kerberos/lib -lpthread -pthread -Wl,-rpath -Wl,/usr/local/lib
+endif
+
+
 ifneq ("$(OSTYPE)","VXWORKS")
 #  LIBNAMES += $(CODA)/$(OSTYPE_MACHINE)/lib/librol.a
 #  LIBNAMES += $(CODA)/$(OSTYPE_MACHINE)/lib/libmysql4.1.20.a
 #  LIBNAMES += $(CODA)/src/rol/jvme/libjvme.so
-  LIBNAMES += $(ROOTGLIBS)
+
+##  LIBNAMES += $(ROOTGLIBS)
+  LIBNAMES += $(shell root-config --glibs)
+
 ##  LIBNAMES += $(SYSLIBS)
 endif
 

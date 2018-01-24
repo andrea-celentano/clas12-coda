@@ -45,7 +45,7 @@
 #undef DEBUG
 
 /* the number of roc spaces */
-#define NSPACE 8
+#define NSPACE 11
 
 int root_height;
 XtAppContext app_context;

@@ -21,7 +21,7 @@
  *
  * </pre>
  *----------------------------------------------------------------------------*/
-#if defined(VXWORKS) || defined(Linux_vme)
+#if defined(VXWORKS) || defined(Linux_vme) /*sergey*/
 
 #ifdef VXWORKS
 #include <vxWorks.h>
@@ -64,6 +64,7 @@ unsigned long tsA32Offset=0;                            /**< Difference in CPU A
 int tsCrateID=0x59;                           /**< Crate ID */
 int tsBlockLevel=0;                           /**< Current Block level for TS */
 int tsNextBlockLevel=0;                       /**< Next Block level for TS */
+int tsBlockBufferLevel=0;                     /**< Current Block Buffer level for TS */
 unsigned int        tsIntCount    = 0;
 unsigned int        tsAckCount    = 0;
 unsigned int        tsDaqCount    = 0;       /**< Block count from previous update (in daqStatus) */
@@ -119,7 +120,6 @@ IMPORT  STATUS sysVmeDmaSend(UINT32, UINT32, int, BOOL);
 /** This is either 20 or 21 */
 #define MAX_VME_SLOTS 21    
 /** VXS Payload Port to VME Slot map */
-/*sergey: renamed PayloadPort[] to tsPayloadPort[] here and everywhere to avoid conflict with tiLib */
 unsigned short tsPayloadPort[MAX_VME_SLOTS+1] =
   {
     0,     /**< Filler for mythical VME slot 0 */ 
@@ -332,6 +332,9 @@ tsInit(unsigned int tAddr, unsigned int mode, int iFlag)
     {
       return OK;
     }
+
+  /* Perform soft reset */
+  tsReset();
 
   /* Get the Firmware Information and print out some details */
   firmwareInfo = tsGetFirmwareVersion();
@@ -681,7 +684,7 @@ void
 tsStatus(int pflag)
 {
   unsigned int boardID, fiber, intsetup;
-  unsigned int adr32, blocklevel, vmeControl, trigger, sync;
+  unsigned int adr32, blocklevel, dataFormat, vmeControl, trigger, sync;
   unsigned int busy, clock,prescale, blockBuffer;
   unsigned int GTPtrigger, fpInput;
   unsigned int output;
@@ -693,8 +696,9 @@ tsStatus(int pflag)
   unsigned int ifiber, fibermask;
   unsigned int part_blockBuffer=0, part_busyConfig=0, part_busytime=0;
   unsigned long long int l1a_count=0;
-  unsigned int blocklimit;
-
+  unsigned int syncEventCtrl, blocklimit;
+  unsigned int GTPtriggerBufferLength;
+  
   if(TSp==NULL)
     {
       printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
@@ -710,6 +714,7 @@ tsStatus(int pflag)
 
   adr32        = vmeRead32(&TSp->adr32);
   blocklevel   = vmeRead32(&TSp->blocklevel);
+  dataFormat   = vmeRead32(&TSp->dataFormat);
   vmeControl   = vmeRead32(&TSp->vmeControl);
   trigger      = vmeRead32(&TSp->trigger);
   sync         = vmeRead32(&TSp->sync);
@@ -722,12 +727,15 @@ tsStatus(int pflag)
   fpInput      = vmeRead32(&TSp->fpInput);
 
   output       = vmeRead32(&TSp->output);
+  syncEventCtrl= vmeRead32(&TSp->syncEventCtrl);
   blocklimit   = vmeRead32(&TSp->blocklimit);
-  
+
   /* Latch scalers before readout */
   vmeWrite32(&TSp->reset, TS_RESET_LATCH_TIMERS);
   livetime     = vmeRead32(&TSp->livetime);
   busytime     = vmeRead32(&TSp->busytime);
+
+  GTPtriggerBufferLength = vmeRead32(&TSp->GTPtriggerBufferLength);
 
   inputCounter = vmeRead32(&TSp->inputCounter);
 
@@ -778,16 +786,18 @@ tsStatus(int pflag)
   printf("     L1A Count: %llu\n",l1a_count);
   printf("   Block Count: %d\n",nblocks & TS_NBLOCKS_COUNT_MASK);
   printf("   Block Limit: %d   %s\n",blocklimit,
-	 (blockBuffer & TS_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT)?"* Finished *":"- In Progress -");
+	 (blockBuffer & TS_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT)?"* Finished *":"");
 
   if(pflag>0)
     {
+      printf("\n");
       printf(" Registers (offset):\n");
       printf("  boardID     (0x%04lx) = 0x%08x\t", (unsigned long)(&TSp->boardID) - TSBase, boardID);
       printf("  fiber       (0x%04lx) = 0x%08x\n", (unsigned long)(&TSp->fiber) - TSBase, fiber);
       printf("  intsetup    (0x%04lx) = 0x%08x\t", (unsigned long)(&TSp->intsetup) - TSBase, intsetup);
       printf("  adr32       (0x%04lx) = 0x%08x\n", (unsigned long)(&TSp->adr32) - TSBase, adr32);
-      printf("  blocklevel  (0x%04lx) = 0x%08x\n", (unsigned long)(&TSp->blocklevel) - TSBase, blocklevel);
+      printf("  blocklevel  (0x%04lx) = 0x%08x\t", (unsigned long)(&TSp->blocklevel) - TSBase, blocklevel);
+      printf("  dataFormat  (0x%04lx) = 0x%08x\n", (unsigned long)(&TSp->dataFormat) - TSBase, dataFormat);
       printf("  vmeControl  (0x%04lx) = 0x%08x\t", (unsigned long)(&TSp->vmeControl) - TSBase, vmeControl);
       printf("  trigger     (0x%04lx) = 0x%08x\n", (unsigned long)(&TSp->trigger) - TSBase, trigger);
       printf("  sync        (0x%04lx) = 0x%08x\t", (unsigned long)(&TSp->sync) - TSBase, sync);
@@ -795,19 +805,31 @@ tsStatus(int pflag)
       printf("  clock       (0x%04lx) = 0x%08x\t", (unsigned long)(&TSp->clock) - TSBase, clock);
       printf("  blockBuffer (0x%04lx) = 0x%08x\n", (unsigned long)(&TSp->blockBuffer) - TSBase, blockBuffer);
 
-      printf("  output      (0x%04lx) = 0x%08x\n", (unsigned long)(&TSp->output) - TSBase, output);
+      printf("  output      (0x%04lx) = 0x%08x\t", (unsigned long)(&TSp->output) - TSBase, output);
+      printf("  nblocks     (0x%04lx) = 0x%08x\n", (unsigned long)(&TSp->nblocks) - TSBase, nblocks);
 
       printf("  livetime    (0x%04lx) = 0x%08x\t", (unsigned long)(&TSp->livetime) - TSBase, livetime);
       printf("  busytime    (0x%04lx) = 0x%08x\n", (unsigned long)(&TSp->busytime) - TSBase, busytime);
-      printf("  nblocks     (0x%04lx) = 0x%08x\t", (unsigned long)(&TSp->nblocks) - TSBase, nblocks);
+      printf("  GTPtrgBufLen(0x%04lx) = 0x%08x\n", (unsigned long)(&TSp->GTPtriggerBufferLength) - TSBase, GTPtriggerBufferLength);
     }
   printf("\n");
 
-  printf(" Block Level = %d ", tsBlockLevel);
+  printf(" Block Level        = %d ", tsBlockLevel);
   if(tsBlockLevel != tsNextBlockLevel)
     printf("(To be set = %d)\n", tsNextBlockLevel);
   else
     printf("\n");
+
+  printf(" Block Buffer Level = %d\n",
+	 blockBuffer & TS_BLOCKBUFFER_BUFFERLEVEL_MASK);
+  
+  if((syncEventCtrl & TS_SYNCEVENTCTRL_NBLOCKS_MASK) == 0)
+    printf(" Sync Events DISABLED\n");
+  else
+    printf(" Sync Event period  = %d blocks\n",
+	   syncEventCtrl & TS_SYNCEVENTCTRL_NBLOCKS_MASK);
+
+  printf("\n");
 
   if(tsSlaveMask)
     {
@@ -868,6 +890,8 @@ tsStatus(int pflag)
 	printf("   Front Panel Input\n");
       if(sync & TS_SYNC_LOOPBACK)
 	printf("   Loopback\n");
+      if(sync & TS_SYNC_USER_SYNCRESET_ENABLED)
+	printf("   User SYNCRESET Receieve Enabled\n");
     }
   else
     {
@@ -909,6 +933,10 @@ tsStatus(int pflag)
   printf(" External Trigger Inputs:\n");
   printf("         GTP Input MASK = 0x%08x\n",GTPtrigger);
   printf("          FP Input MASK = 0x%08x\n",fpInput);
+
+  printf("\n");
+  printf(" Trigger Rules:\n");
+  tsPrintTriggerHoldoff(pflag);
   
   if(intsetup&TS_INTSETUP_ENABLE)
     printf(" Interrupts ENABLED\n");
@@ -922,7 +950,7 @@ tsStatus(int pflag)
   else
     printf(" Bus Errors Disabled\n");
 
-
+  printf("\n");
   printf(" Blocks ready for readout: %d\n",(blockBuffer&TS_BLOCKBUFFER_BLOCKS_READY_MASK)>>24);
 
   /* Slave block status */
@@ -962,6 +990,7 @@ tsStatus(int pflag)
       printf("  busytime    = 0x%08x\n",part_busytime);
     }
 
+  printf("\n");
   printf(" Input counter %d\n",inputCounter);
 
   printf("--------------------------------------------------------------------------------\n");
@@ -1448,12 +1477,15 @@ tsBroadcastNextBlockLevel(int blockLevel)
   TSLOCK;
   trigger = vmeRead32(&TSp->trigger);
 
-  if(!(trigger & TS_TRIGGER_VME)) /* Turn on the VME trigger, if not enabled */
+  /* Turn on the VME trigger, if not enabled */
+  if(!(trigger & TS_TRIGGER_VME))
     vmeWrite32(&TSp->trigger, TS_TRIGGER_VME | trigger);
 
+  /* Broadcast using trigger command */
   vmeWrite32(&TSp->triggerCommand, TS_TRIGGERCOMMAND_SET_BLOCKLEVEL | blockLevel);
 
-  if(!(trigger & TS_TRIGGER_VME)) /* Turn off the VME trigger, if it was initially disabled */
+ /* Turn off the VME trigger, if it was initially disabled */
+  if(!(trigger & TS_TRIGGER_VME))
     vmeWrite32(&TSp->trigger, trigger);
 
   TSUNLOCK;
@@ -1588,6 +1620,70 @@ tsGetInstantBlockLevelChange()
   return rval;
 }
 
+/**
+ * @ingroup Config
+ * @brief Set option to mix FP and GTP inputs
+ *      Effectively swaps the FP(16:1) -> GTP'(32:17) and GTP(32:17) -> FP'(16:1)
+ *      in both trigger table and data pattern output.
+ * @param  enable
+ * <pre>
+ *    0 - disable
+ *   !1 - enable
+ * </pre>
+ *
+ * @return OK if successful, ERROR otherwise
+ *
+ */
+int
+tsSetInputMix(int enable)
+{
+  int bitset=0;
+  if(TSp==NULL)
+    {
+      printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(enable)
+    bitset = TS_CLOCK_INPUT_MIX_ENABLE;
+
+  TSLOCK;
+  vmeWrite32(&TSp->clock, 
+	     (vmeRead32(&TSp->clock) & ~TS_CLOCK_INPUT_MIX_CONTROL_MASK) | bitset);
+  TSUNLOCK;
+
+  return OK;
+}
+
+/**
+ * @ingroup 
+ * @brief Get option to mix FP and GTP inputs
+ *      Effectively swaps the FP(16:1) -> GTP'(32:17) and GTP(32:17) -> FP'(16:1)
+ *      in both trigger table and data pattern output.
+ * @return 0 if disabled, 1 if enabled, ERROR otherwise
+ *
+ */
+int
+tsGetInputMix()
+{
+  int rval=0;
+  if(TSp==NULL)
+    {
+      printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TSLOCK;
+  rval = (vmeRead32(&TSp->clock) & TS_CLOCK_INPUT_MIX_CONTROL_MASK)>>4;
+  TSUNLOCK;
+
+  if((rval == 0) || (rval == 3))
+    rval = 0;
+  else
+    rval = 1;
+
+  return rval;
+}
 
 /**
  * @ingroup Config
@@ -1638,7 +1734,6 @@ tsSetFPInput(unsigned int inputmask)
 }
 
 
-
 /*sergey*/
 unsigned int
 tsGetFPInput()
@@ -1658,6 +1753,24 @@ tsGetFPInput()
   return(inputmask);
 }
 
+unsigned int
+tsGetGTPInput()
+{
+  unsigned int inputmask;
+
+  if(TSp==NULL)
+  {
+    printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
+    return ERROR;
+  }
+
+  TSLOCK;
+  inputmask = vmeRead32(&TSp->GTPtrigger);
+  TSUNLOCK;
+
+  return(inputmask);
+}
+/*sergey*/
 
 
 /**
@@ -1898,8 +2011,8 @@ tsSetEventFormat(int format)
     }
 
   TSLOCK;
-  /* preserve the bits we're not setting */
-/*   formatset = vmeRead32(&TSp->dataFormat) & (~TS_DATAFORMAT_WORDS_MASK); */
+  /* preserve the bits not being set */
+  formatset = vmeRead32(&TSp->dataFormat) & (~TS_DATAFORMAT_WORDS_MASK);
 
   switch(format)
     {
@@ -2157,14 +2270,13 @@ tsReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 	}
       
       vmeAdr = ((unsigned long)(TSpd) - tsA32Offset);
-
-/*sergey
+	  /*sergey
 #ifdef VXWORKS
       retVal = sysVmeDmaSend((UINT32)laddr, vmeAdr, (nwrds<<2), 0);
 #else
       retVal = vmeDmaSend((unsigned long)laddr, vmeAdr, (nwrds<<2));
 #endif
-*/
+	  */
     retVal = usrVme2MemDmaStart(vmeAdr, (unsigned int)laddr, (nwrds<<2));
 
       if(retVal != 0) 
@@ -2175,19 +2287,19 @@ tsReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 	}
 
       /* Wait until Done or Error */
-/*sergey
+	  /*sergey
 #ifdef VXWORKS
       retVal = sysVmeDmaDone(10000,1);
 #else
       retVal = vmeDmaDone();
 #endif
-*/
-    retVal = usrVme2MemDmaDone();
+	  */
+      retVal = usrVme2MemDmaDone();
 
       if(retVal > 0)
 	{
 #ifdef VXWORKS
-	  xferCount = (/*sergey nwrds - */(retVal>>2) + dummy); /* Number of longwords transfered */
+	  xferCount = (/*sergey nwrds -*/ (retVal>>2) + dummy); /* Number of longwords transfered */
 #else
 	  xferCount = ((retVal>>2) + dummy); /* Number of longwords transfered */
 #endif
@@ -2436,10 +2548,15 @@ tsReadTriggerBlock(volatile unsigned int *data)
 /**
  * @ingroup Readout
  * @brief Readout input scalers
- *
+ *   Returned data:
+ *    bit 31
+ *       0: As stored
+ *       1: Shifted by 7 bits (must multiply by 2**7)
+ *   
  * @param data  - local memory address to place scaler data
  * @param choice
  *   - 1-4: Scaler set (1-4)
+ *
  *
  * @return Number of words transferred to data if successful, ERROR otherwise
  *
@@ -2450,6 +2567,7 @@ tsReadScalers(volatile unsigned int *data, int choice)
   int iscal=0, ichan=0;
   int banks=0;
   int nwrds=0;
+  unsigned int tmpData=0;
   volatile struct ScalerStruct *scalers[4];
 
   if(TSp==NULL)
@@ -2478,7 +2596,16 @@ tsReadScalers(volatile unsigned int *data, int choice)
 	{
 	  for(ichan=0; ichan<banks; ichan++)
 	    {
-	      data[nwrds] = vmeRead32(&scalers[iscal]->GTP[ichan]);
+	      tmpData = vmeRead32(&scalers[iscal]->GTP[ichan]);
+	      if(tmpData & TS_SCALER_SCALE_HI)
+		{
+		  data[nwrds] = TS_SCALER_SCALE_HI |
+		    ((tmpData & TS_SCALER_SCALE_HI_LSB_MASK) >> 7) |
+		    ((tmpData & TS_SCALER_SCALE_HI_MSB_MASK) << 24);
+		}
+	      else
+		data[nwrds] = tmpData;
+
 	      nwrds++;
 	    }
 	}
@@ -2490,7 +2617,16 @@ tsReadScalers(volatile unsigned int *data, int choice)
 	{
 	  for(ichan=0; ichan<banks; ichan++)
 	    {
-	      data[nwrds] = vmeRead32(&scalers[iscal]->fp[ichan]);
+	      tmpData = vmeRead32(&scalers[iscal]->fp[ichan]);
+	      if(tmpData & TS_SCALER_SCALE_HI)
+		{
+		  data[nwrds] = TS_SCALER_SCALE_HI |
+		    ((tmpData & TS_SCALER_SCALE_HI_LSB_MASK) >> 7) |
+		    ((tmpData & TS_SCALER_SCALE_HI_MSB_MASK) << 24);
+		}
+	      else
+		data[nwrds] = tmpData;
+
 	      nwrds++;
 	    }
 	}
@@ -2502,7 +2638,16 @@ tsReadScalers(volatile unsigned int *data, int choice)
 	{
 	  for(ichan=0; ichan<banks; ichan++)
 	    {
-	      data[nwrds] = vmeRead32(&scalers[iscal]->gen[ichan]);
+	      tmpData = vmeRead32(&scalers[iscal]->gen[ichan]);
+	      if(tmpData & TS_SCALER_SCALE_HI)
+		{
+		  data[nwrds] = TS_SCALER_SCALE_HI |
+		    ((tmpData & TS_SCALER_SCALE_HI_LSB_MASK) >> 7) |
+		    ((tmpData & TS_SCALER_SCALE_HI_MSB_MASK) << 24);
+		}
+	      else
+		data[nwrds] = tmpData;
+
 	      nwrds++;
 	    }
 	}
@@ -2556,7 +2701,11 @@ tsPrintScalers(int choice)
   for(ichan=0; ichan<nwrds; ichan++)
     {
       if((ichan%4)==0) printf("\n%2d: ",ichan);
-      printf("%16d ", data[ichan]);
+      
+      if(data[ichan] & TS_SCALER_SCALE_HI)
+	printf("%16d ", (data[ichan] & ~TS_SCALER_SCALE_HI)*(2^7));
+      else
+	printf("%16d ", data[ichan]);
     }
   
   printf("\n\n");
@@ -2807,7 +2956,7 @@ tsGetPrescale()
  *    - 1: GTP
  *    - 2: FP
  *  @param chan  Channel of specified type
- *  @return Current prescale factor, otherwise ERROR.
+ *  @return Set prescale factor, otherwise ERROR.
  */
 int
 tsSetTriggerPrescale(int type, int chan, unsigned int prescale)
@@ -2820,7 +2969,7 @@ tsSetTriggerPrescale(int type, int chan, unsigned int prescale)
       return ERROR;
     }
 
-  if(type<1 || type>2)
+  if((type<1) || (type>2))
     {
       printf("%s: ERROR: Invalid Trigger Prescale type %d\n",
 	     __FUNCTION__,type);
@@ -2833,37 +2982,29 @@ tsSetTriggerPrescale(int type, int chan, unsigned int prescale)
 	     __FUNCTION__,prescale);
       return ERROR;
     }
-  
+
+  if(chan>32)
+    {
+      printf("%s: ERROR: Invalid Prescale Channel %d\n",
+	     __FUNCTION__,chan);
+      rval = ERROR;
+    }
+
   TSLOCK;
+  bank = (int) (chan / 8);
+  bitshift = (4 * (int) (chan % 8));
+  chanmask = (0XF) << bitshift;
+  prescale = prescale << bitshift;
+
   switch(type)
     {
     case 1: /* GTP */
-      if(chan>32)
-	{
-	  printf("%s: ERROR: Invalid GTP Prescale Channel %d\n",
-		 __FUNCTION__,chan);
-	  rval = ERROR;
-	}
-      bank = (int)(chan/8);
-      bitshift = (4*(int)(chan%8));
-      chanmask = (0XF)<<bitshift;
-      prescale = prescale<<bitshift;
       vmeWrite32(&TSp->GTPprescale[bank],
 		 (vmeRead32(&TSp->GTPprescale[bank]) & ~chanmask) |
 		 (prescale & chanmask));
       break;
 
     case 2: /* FP */
-      if(chan>32)
-	{
-	  printf("%s: ERROR: Invalid FP Prescale Channel %d\n",
-		 __FUNCTION__,chan);
-	  rval = ERROR;
-	}
-      bank = (int)(chan/8);
-      bitshift = (4*(int)(chan%8));
-      chanmask = (0XF)<<bitshift;
-      prescale = prescale<<bitshift;
       vmeWrite32(&TSp->fpInputPrescale[bank],
 		 (vmeRead32(&TSp->fpInputPrescale[bank]) & ~chanmask) |
 		 (prescale & chanmask));
@@ -2877,61 +3018,62 @@ tsSetTriggerPrescale(int type, int chan, unsigned int prescale)
 
 /**
  *  @ingroup Status
- *  @brief FIXME: This is not quite right
+ *  @brief Get the prescale for specified type and channel
+ *  @param type  Type of input
+ *    - 1: GTP
+ *    - 2: FP
+ *  @param chan  Channel of specified type
+ *  @return Channel's prescale factor, otherwise ERROR.
  *
 */
-unsigned int
-tsGetTriggerPrescaleMask(int type, int bank)
+int
+tsGetTriggerPrescale(int type, int chan)
 {
-  unsigned int rval=0;
+  int rval=OK;
+  int bank=0,bitshift=0,chanmask=0xFFFF;
+
   if(TSp==NULL)
     {
       printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
-  if(type<1 || type>2)
+  if((type<1) || (type>2))
     {
       printf("%s: ERROR: Invalid Trigger Prescale type %d\n",
 	     __FUNCTION__,type);
       return ERROR;
     }
 
+  if(chan>32)
+    {
+      printf("%s: ERROR: Invalid Prescale Channel %d\n",
+	     __FUNCTION__,chan);
+      rval = ERROR;
+    }
+
   TSLOCK;
+  bank = (int) (chan / 8);
+  bitshift = (4 * (int) (chan % 8));
+  chanmask = (0XF) << bitshift;
+
   switch(type)
     {
-    case 1:
-      if(bank>3) 
-	{
-	  printf("%s: ERROR: Invalid GTP Trigger Prescale Bank %d\n",
-		 __FUNCTION__,bank);
-	  rval = ERROR;
-	}
-      else
-	{
-	  rval = vmeRead32(&TSp->GTPprescale[bank]);
-	}
-      break;
-      
-    case 2:
-      if(bank>3) 
-	{
-	  printf("%s: ERROR: Invalid FP Trigger Prescale Bank %d\n",
-		 __FUNCTION__,bank);
-	  rval = ERROR;
-	}
-      else
-	{
-	  rval = vmeRead32(&TSp->fpInputPrescale[bank]);
-	}
+    case 1: /* GTP */
+      rval = vmeRead32(&TSp->GTPprescale[bank]) & chanmask;
       break;
 
+    case 2: /* FP */
+      rval = vmeRead32(&TSp->fpInputPrescale[bank]) & chanmask;
+      break;
     }
-  TSUNLOCK;
 
+  rval = rval >> bitshift;
+  TSUNLOCK;
 
   return rval;
 }
+
 
 /**
  *  @ingroup Config
@@ -3141,15 +3283,17 @@ tsSyncReset(int blflag)
   TSLOCK;
   vmeWrite32(&TSp->syncCommand,tsSyncResetType); 
   taskDelay(1);
-  vmeWrite32(&TSp->syncCommand,TS_SYNCCOMMAND_RESET_EVNUM);
+  vmeWrite32(&TSp->syncCommand,TS_SYNCCOMMAND_RESET_EVNUM); 
   taskDelay(1);
   TSUNLOCK;
 
   if(blflag) /* Set the block level from "Next" to Current */
     {
-      printf("%s: INFO: Setting Block Level to %d\n",
-	     __FUNCTION__,tsNextBlockLevel);
+      printf("%s: INFO: Broadcasting Block Level %d, Buffer Level %d\n",
+	     __FUNCTION__,
+	     tsNextBlockLevel, tsBlockBufferLevel);
       tsBroadcastNextBlockLevel(tsNextBlockLevel);
+      tsSetBlockBufferLevel(tsBlockBufferLevel);
     }
 
 }
@@ -3231,6 +3375,38 @@ tsUserSyncReset(int enable)
     printf("LOW\n");
 
 }
+
+/**
+ * @ingroup Config
+ * @brief Enable/Disable operation of User SyncReset
+ * @sa tsUserSyncReset
+ * @param enable
+ *   - >0: Enable
+ *   - 0: Disable
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tsSetUserSyncResetReceive(int enable)
+{
+  if(TSp == NULL)
+    {
+      printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TSLOCK;
+  if(enable)
+    vmeWrite32(&TSp->sync, (vmeRead32(&TSp->sync) & TS_SYNC_SOURCEMASK) |
+	       TS_SYNC_USER_SYNCRESET_ENABLED);
+  else
+    vmeWrite32(&TSp->sync, (vmeRead32(&TSp->sync) & TS_SYNC_SOURCEMASK) &
+	       ~TS_SYNC_USER_SYNCRESET_ENABLED);
+  TSUNLOCK;
+
+  return OK;
+}
+
 
 /**
  * @ingroup Config
@@ -3506,6 +3682,38 @@ tsSetFPInputReadout(int enable)
   else
     vmeWrite32(&TSp->dataFormat,
 	       vmeRead32(&TSp->dataFormat) & ~TS_DATAFORMAT_FPINPUT_READOUT);
+  TSUNLOCK;
+
+  return OK;
+}
+
+/**
+ * @ingroup Config
+ * @brief Enable readout of FP (0-15) + GTP (0-15) before prescale latch pattern
+ *
+ * @param enable
+ *    - 0: Disable
+ *    - >0: Enable
+ *
+ * @return OK if successful, otherwise ERROR
+ *
+ */
+int
+tsSetBeforePrescaleReadout(int enable)
+{
+  if(TSp == NULL)
+    {
+      printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TSLOCK;
+  if(enable)
+    vmeWrite32(&TSp->dataFormat,
+               vmeRead32(&TSp->dataFormat) | TS_DATAFORMAT_BEFORE_PRESCALE_READOUT);
+  else
+    vmeWrite32(&TSp->dataFormat,
+               vmeRead32(&TSp->dataFormat) & ~TS_DATAFORMAT_BEFORE_PRESCALE_READOUT);
   TSUNLOCK;
 
   return OK;
@@ -4082,14 +4290,14 @@ tsGetSyncEventReceived()
 /**
  * @ingroup Config
  * @brief Set the block buffer level for the number of blocks in the system
- *     that need to be read out.
+ *     that need to be read out. This value is also broadcasted to TI-Slaves
  *
- *     If this buffer level is full, the TI will go BUSY.
+ *     If this buffer level is full, the TS will go BUSY.
  *     The BUSY is released as soon as the number of buffers in the system
  *     drops below this level.
  *
  *  @param     level
- *    -  0:  No Buffer Limit  -  Pipeline mode
+ *    -  0:  No Buffer Limit -  Pipeline mode
  *    -  1:  One Block Limit - "ROC LOCK" mode
  *    -  2-65535:  "Buffered" mode.
  *
@@ -4100,6 +4308,7 @@ tsGetSyncEventReceived()
 int
 tsSetBlockBufferLevel(unsigned int level)
 {
+  unsigned int trigger = 0;
   if(TSp == NULL) 
     {
       printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
@@ -4114,7 +4323,24 @@ tsSetBlockBufferLevel(unsigned int level)
     }
 
   TSLOCK;
+  /* Set local buffer level */
   vmeWrite32(&TSp->blockBuffer, level);
+
+  tsBlockBufferLevel = level;
+  
+  /* Broadcast buffer level to TI-slaves */
+  trigger = vmeRead32(&TSp->trigger);
+
+  /* Turn on the VME trigger, if not enabled */
+  if(!(trigger & TS_TRIGGER_VME))
+    vmeWrite32(&TSp->trigger, TS_TRIGGER_VME | trigger);
+
+  /* Broadcast using trigger command */
+  vmeWrite32(&TSp->triggerCommand, TS_TRIGGERCOMMAND_SET_BUFFERLEVEL | level);
+
+ /* Turn off the VME trigger, if it was initially disabled */
+  if(!(trigger & TS_TRIGGER_VME))
+    vmeWrite32(&TSp->trigger, trigger);
   TSUNLOCK;
 
   return OK;
@@ -4141,6 +4367,7 @@ tsGetBlockBufferLevel()
 
   return(level);
 }
+/*sergey*/
 
 
 /**
@@ -4378,6 +4605,13 @@ tsRemoveSlave(unsigned int fiber)
   return OK;
 }
 
+static int tsTriggerRuleClockPrescale[3][4] =
+  {
+    {4, 4, 8, 16}, // 250 MHz ref
+    {16, 32, 64, 128}, // 33.3 MHz ref
+    {16, 32, 64, 128} // 33.3 MHz ref prescaled by 32
+  };
+
 /**
  * @ingroup Config
  * @brief Set the value for a specified trigger rule.
@@ -4387,9 +4621,15 @@ tsRemoveSlave(unsigned int fiber)
  *                         specified time period
  *
  * @param   value  the specified time period (in steps of timestep)
- * @param timestep 
- *     - 0: 16ns
- *     - 1: 500ns
+ * @param timestep Timestep that is dependent on the trigger rule selected
+ *<pre>
+ *                           rule
+ *    timestep    1       2       3       4
+ *    --------  ------ ------- ------- --------
+ *       0        16ns    16ns    32ns     64ns
+ *       1       480ns   960ns  1920ns   3840ns
+ *       2     15360ns 30720ns 61440ns 122880ns
+ *</pre>
  *
  * @return OK if successful, otherwise ERROR.
  *
@@ -4397,9 +4637,11 @@ tsRemoveSlave(unsigned int fiber)
 int
 tsSetTriggerHoldoff(int rule, unsigned int value, int timestep)
 {
-  unsigned int wval=0, rval=0;
-  unsigned int maxvalue=0x3f;
-
+  unsigned int wval = 0, rval = 0;
+  unsigned int maxvalue = 0x7f;
+  unsigned int vmeControl = 0;
+  static int slow_clock_previously_switched = 0;
+  
   if(TSp == NULL) 
     {
       printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
@@ -4425,6 +4667,7 @@ tsSetTriggerHoldoff(int rule, unsigned int value, int timestep)
   /* Read the previous values */
   TSLOCK;
   rval = vmeRead32(&TSp->triggerRule);
+  vmeControl = vmeRead32(&TSp->vmeControl);
   
   switch(rule)
     {
@@ -4443,6 +4686,37 @@ tsSetTriggerHoldoff(int rule, unsigned int value, int timestep)
     }
 
   vmeWrite32(&TSp->triggerRule,wval);
+
+  if(timestep == 2)
+    {
+      if(!(vmeControl & TS_VMECONTROL_SLOWER_TRIGGER_RULES))
+	{
+	  if(slow_clock_previously_switched == 1)
+	    {
+	      printf("%s: WARNING: Using slower clock for trigger rules.\n",
+		     __FUNCTION__);
+	      printf("\tThis may affect previously set rules!\n");
+	    }
+	  vmeWrite32(&TSp->vmeControl, 
+		     vmeControl | TS_VMECONTROL_SLOWER_TRIGGER_RULES);
+	  slow_clock_previously_switched = 1;
+	}
+    }
+  else
+    {
+      if(vmeControl & TS_VMECONTROL_SLOWER_TRIGGER_RULES)
+	{
+	  if(slow_clock_previously_switched == 1)
+	    {
+	      printf("%s: WARNING: Using faster clock for trigger rules.\n",
+		     __FUNCTION__);
+	      printf("\tThis may affect previously set rules!\n");
+	    }
+	  vmeWrite32(&TSp->vmeControl,
+		     vmeControl & ~TS_VMECONTROL_SLOWER_TRIGGER_RULES);
+	  slow_clock_previously_switched = 1;
+	}
+    }
   TSUNLOCK;
 
   return OK;
@@ -4504,6 +4778,85 @@ tsGetTriggerHoldoff(int rule)
 
   return rval;
 
+}
+
+int
+tsPrintTriggerHoldoff(int dflag)
+{
+  unsigned long TSBase = 0;
+  unsigned int triggerRule = 0, triggerRuleMin = 0, vmeControl = 0;
+  int irule = 0, slowclock = 0, clockticks = 0, timestep = 0, minticks = 0;
+  float clock[3] = {250, 33.3, 33.3/32.}, stepsize = 0., time = 0., min = 0.;
+
+  if(TSp == NULL) 
+    {
+      printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  TSLOCK;
+  triggerRule    = vmeRead32(&TSp->triggerRule);
+  triggerRuleMin = vmeRead32(&TSp->part1.triggerRuleMin);
+  vmeControl     = vmeRead32(&TSp->vmeControl);
+  TSUNLOCK;
+
+  if(dflag)
+    {
+      printf("  Registers:\n");
+      TSBase = (unsigned long)TSp;
+      printf("   triggerRule    (0x%04lx) = 0x%08x\t",
+	     (unsigned long)(&TSp->triggerRule) - TSBase, triggerRule);
+      printf(" triggerRuleMin (0x%04lx) = 0x%08x\n",
+	     (unsigned long)(&TSp->part1.triggerRuleMin) - TSBase, triggerRuleMin);
+    }
+
+  printf("\n");
+  printf("    Rule   Timesteps    + Up to     Minimum  ");
+  if(dflag)
+    printf("  ticks   clock   prescale\n");
+  else
+    printf("\n");
+  printf("    ----   ---[ns]---  ---[ns]---  ---[ns]---");
+  if(dflag)
+    printf("  -----  -[MHz]-  --------\n");
+  else
+    printf("\n");
+
+  slowclock = (vmeControl & (1 << 31)) >> 31;
+  for(irule = 0; irule < 4; irule++)
+    {
+      clockticks = (triggerRule >> (irule*8)) & 0x7F;
+      timestep   = ((triggerRule >> (irule*8)) >> 7) & 0x1;
+      if((triggerRuleMin >> (irule*8)) & 0x80)
+	minticks = (triggerRuleMin >> (irule*8)) & 0x7F;
+      else
+	minticks = 0;
+      
+      if((timestep == 1) && (slowclock == 1))
+	{
+	  timestep = 2;
+	}
+
+      stepsize = ((float) tsTriggerRuleClockPrescale[timestep][irule] /
+		  (float) clock[timestep]);
+
+      time = (float)clockticks * stepsize;
+
+      min = (float) minticks * stepsize;
+      
+      printf("    %4d     %8.1f    %8.1f    %8.1f ",
+	     irule + 1, 1E3 * time, 1E3 * stepsize, min);
+
+      if(dflag)
+	printf("   %3d    %5.1f       %3d\n",
+	       clockticks, clock[timestep],
+	       tsTriggerRuleClockPrescale[timestep][irule]);
+	printf("\n");
+
+    }
+  printf("\n");
+  
+  return OK;
 }
 
 /**
@@ -5247,6 +5600,54 @@ tsGetBusyTime()
 
 /**
  * @ingroup Status
+ * @brief Return the current "live" time of the module
+ *
+ * @returns The current live time in units of 7.68 us
+ *
+ */
+unsigned int
+tsGetLiveTime_InputHigh()
+{
+  unsigned int rval=0;
+  if(TSp == NULL) 
+    {
+      printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TSLOCK;
+  rval = vmeRead32(&TSp->part1.hel_livetime);
+  TSUNLOCK;
+
+  return rval;
+}
+
+/**
+ * @ingroup Status
+ * @brief Return the current "busy" time of the module
+ *
+ * @returns The current live time in units of 7.68 us
+ *
+ */
+unsigned int
+tsGetBusyTime_InputHigh()
+{
+  unsigned int rval=0;
+  if(TSp == NULL) 
+    {
+      printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TSLOCK;
+  rval = vmeRead32(&TSp->part1.hel_busytime);
+  TSUNLOCK;
+
+  return rval;
+}
+
+/**
+ * @ingroup Status
  * @brief Calculate the live time (percentage) from the live and busy time scalers
  *
  * @param sflag if > 0, then returns the integrated live time
@@ -5668,8 +6069,8 @@ tsSetFPDelay(int chan, int delay)
     }
 
   TSLOCK;
-  vmeWrite32(&TSp->fpDelay[chan%3],
-	     (vmeRead32(&TSp->fpDelay[chan%3]) & ~TS_FPDELAY_MASK(chan))
+  vmeWrite32(&TSp->fpDelay[chan/3],
+	     (vmeRead32(&TSp->fpDelay[chan/3]) & ~TS_FPDELAY_MASK(chan))
 	     | delay<<(10*(chan%3)));
   TSUNLOCK;
 
@@ -5700,7 +6101,7 @@ tsGetFPDelay(int chan)
     }
 
   TSLOCK;
-  rval = (vmeRead32(&TSp->fpDelay[chan%3]) & TS_FPDELAY_MASK(chan))>>(10*(chan%3));
+  rval = (vmeRead32(&TSp->fpDelay[chan/3]) & TS_FPDELAY_MASK(chan))>>(10*(chan%3));
   TSUNLOCK;
 
   return rval;
@@ -5730,7 +6131,7 @@ tsPrintFPDelay()
   printf("%s: Front panel delays:", __FUNCTION__);
   for(ichan=0;ichan<31;ichan++) 
     {
-      delay = reg[ichan%3] & TS_FPDELAY_MASK(ichan)>>(10*(ichan%3));
+      delay = reg[ichan/3] & TS_FPDELAY_MASK(ichan)>>(10*(ichan%3));
       if((ichan%4)==0) 
 	{
 	  printf("\n");
@@ -5811,6 +6212,10 @@ tsGetDriverSupportedVersion()
 /**
  * @ingroup Readout
  * @brief Readout input scalers
+ *   Returned data:
+ *    bit 31
+ *       0: As stored
+ *       1: Shifted by 7 bits (must multiply by 2**7)
  *
  * @param data  - local memory address to place scaler data
  *
@@ -5825,6 +6230,7 @@ tsReadScalersMon(volatile unsigned int *data)
   int iscal = 0, ichan = 0;
   int banks = 0;
   int nwrds = 0;
+  unsigned int tmpData=0;
   volatile struct ScalerStruct *scalers[4];
 
   if(TSp==NULL)
@@ -5852,21 +6258,43 @@ tsReadScalersMon(volatile unsigned int *data)
 
   /* GTP */
   banks = 8;
-  for(iscal = 0; iscal < 4; iscal++){
-    for(ichan = 0; ichan < banks; ichan++){
-      data[nwrds] = vmeRead32(&scalers[iscal]->GTP[ichan]);
-      nwrds++;
+  for(iscal = 0; iscal < 4; iscal++)
+    {
+      for(ichan = 0; ichan < banks; ichan++)
+	{
+	  tmpData = vmeRead32(&scalers[iscal]->GTP[ichan]);
+	  if(tmpData & TS_SCALER_SCALE_HI)
+	    {
+	      data[nwrds] = TS_SCALER_SCALE_HI |
+		((tmpData & TS_SCALER_SCALE_HI_LSB_MASK) >> 7) |
+		((tmpData & TS_SCALER_SCALE_HI_MSB_MASK) << 24);
+	    }
+	  else
+	    data[nwrds] = tmpData;
+	  
+	  nwrds++;
+	}
     }
-  }
   
   /* Gen */
   banks = 8;
-  for(iscal = 0; iscal < 4; iscal++){
-    for(ichan=0; ichan<banks; ichan++){
-      data[nwrds] = vmeRead32(&scalers[iscal]->gen[ichan]);
-      nwrds++;
+  for(iscal = 0; iscal < 4; iscal++)
+    {
+      for(ichan=0; ichan<banks; ichan++)
+	{
+	  tmpData = vmeRead32(&scalers[iscal]->gen[ichan]);
+	  if(tmpData & TS_SCALER_SCALE_HI)
+	    {
+	      data[nwrds] = TS_SCALER_SCALE_HI |
+		((tmpData & TS_SCALER_SCALE_HI_LSB_MASK) >> 7) |
+		((tmpData & TS_SCALER_SCALE_HI_MSB_MASK) << 24);
+	    }
+	  else
+	    data[nwrds] = tmpData;
+	  
+	  nwrds++;
+	}
     }
-  }
   
   /* LiveTime */
   data[64] = vmeRead32(&TSp->livetime);  
@@ -6695,13 +7123,13 @@ tsPartIntEnable(int iflag)
 
   taskDelay(30); /* maybe replace with a condition variable? */
 
-/*sergey  vmeBusLock();*/ /* Make sure things don't change while we're doing this */
+/*sergey vmeBusLock();*/ /* Make sure things don't change while we're doing this */
   /* Enable the bits we need */
   vmeWrite32(&TSp->trigger,
 	     vmeRead32(&TSp->trigger) |
 	     TS_TRIGGER_ENABLE |
 	     TS_TRIGGER_PART(tsPartitionID));
-/*sergey  vmeBusUnlock();*/
+/*sergey vmeBusUnlock();*/
   TSUNLOCK;
 
   return(OK);
@@ -6732,7 +7160,7 @@ tsPartIntDisable()
 /*sergey  vmeBusLock();*/
   vmeWrite32(&TSp->trigger,
 	     vmeRead32(&TSp->trigger) & ~(TS_TRIGGER_PART(tsPartitionID)));
-/*sergey  vmeBusUnlock();*/
+/*sergey vmeBusUnlock();*/
 
   tsIntRunning = 0;
   TSUNLOCK;
@@ -7686,7 +8114,6 @@ tsBusy()
 
   return(rval);
 }
-
 
 
 #else /* dummy version*/

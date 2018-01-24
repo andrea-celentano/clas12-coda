@@ -23,9 +23,7 @@
 #ifndef VXWORKS
 #include <pthread.h>
 
-/*sergey
-pthread_mutex_t tsISR_mutex=PTHREAD_MUTEX_INITIALIZER;
-*/
+/*pthread_mutex_t tsISR_mutex=PTHREAD_MUTEX_INITIALIZER; sergey*/
 #else
 /* #include <intLib.h> */
 extern int intLock();
@@ -71,7 +69,9 @@ struct PartitionStruct
   /* 0x00n54 */ volatile unsigned int blockBufferInfo;
   /* 0x00n58 */ volatile unsigned int busyConfig;
   /* 0x00n5C */ volatile unsigned int busytime;
-  /* 0x00n60 */          unsigned int blank[(0x180-0x160)/4];
+  /* 0x00n60 */ volatile unsigned int hel_livetime;
+  /* 0x00n64 */ volatile unsigned int hel_busytime;
+  /* 0x00n68 */          unsigned int blank[(0x180-0x168)/4];
 };
 
 struct PartTrigTableStruct
@@ -177,7 +177,7 @@ struct TS_A24RegStruct
 #define TS_FIRMWARE_MAJOR_VERSION_MASK   0x00000FF0
 #define TS_FIRWMARE_MINOR_VERSION_MASK   0x0000000F
 
-#define TS_SUPPORTED_FIRMWARE 0x32
+#define TS_SUPPORTED_FIRMWARE 0x71
 #define TS_SUPPORTED_TYPE     TS_FIRMWARE_TYPE_P
 
 
@@ -231,6 +231,7 @@ struct TS_A24RegStruct
 #define TS_DATAFORMAT_WORDS_MASK           0x00000007
 #define TS_DATAFORMAT_GTPINPUT_READOUT     (1<<3)
 #define TS_DATAFORMAT_FPINPUT_READOUT      (1<<4)
+#define TS_DATAFORMAT_BEFORE_PRESCALE_READOUT (1<<5)
 
 /* 0x1C vmeControl bits and masks */
 #define TS_VMECONTROL_BERR              (1<<0)
@@ -246,6 +247,7 @@ struct TS_A24RegStruct
 #define TS_VMECONTROL_BUFFER_DISABLE    (1<<12)
 #define TS_VMECONTROL_DRIVE_TSIO_EN     (1<<20)
 #define TS_VMECONTROL_BLOCKLEVEL_UPDATE (1<<21)
+#define TS_VMECONTROL_SLOWER_TRIGGER_RULES (1<<31)
 
 /* 0x20 trigger bits and masks */
 #define TS_TRIGGER_SOURCEMASK       0x000003FF
@@ -269,6 +271,7 @@ struct TS_A24RegStruct
 #define TS_SYNC_HFBR5            (1<<2)
 #define TS_SYNC_FP               (1<<3)
 #define TS_SYNC_LOOPBACK         (1<<4)
+#define TS_SYNC_USER_SYNCRESET_ENABLED  (1<<7)
 #define TS_SYNC_MONITOR_MASK     0xFFFF0000
 
 /* 0x28 busy bits and masks */
@@ -311,6 +314,8 @@ struct TS_A24RegStruct
 /* 0x2C clock bits and mask  */
 #define TS_CLOCK_INTERNAL    (0)
 #define TS_CLOCK_EXTERNAL    (1)
+#define TS_CLOCK_INPUT_MIX_CONTROL_MASK 0x00000030
+#define TS_CLOCK_INPUT_MIX_ENABLE       (1<<4)
 
 /* 0x30 trig1Prescale bits and masks */
 #define TS_TRIG1PRESCALE_MASK          0x0000FFFF
@@ -386,12 +391,13 @@ struct TS_A24RegStruct
 #define TS_SYNCWIDTH_LONGWIDTH_ENABLE  (1<<7)
 
 /* 0x84 triggerCommand bits and masks */
-#define TS_TRIGGERCOMMAND_VALUE_MASK     0x000000FF
-#define TS_TRIGGERCOMMAND_CODE_MASK      0x00000F00
-#define TS_TRIGGERCOMMAND_TRIG1          0x00000100
-#define TS_TRIGGERCOMMAND_TRIG2          0x00000200
-#define TS_TRIGGERCOMMAND_SYNC_EVENT     0x00000300
-#define TS_TRIGGERCOMMAND_SET_BLOCKLEVEL 0x00000800
+#define TS_TRIGGERCOMMAND_VALUE_MASK      0x000000FF
+#define TS_TRIGGERCOMMAND_CODE_MASK       0x00000F00
+#define TS_TRIGGERCOMMAND_TRIG1           0x00000100
+#define TS_TRIGGERCOMMAND_TRIG2           0x00000200
+#define TS_TRIGGERCOMMAND_SYNC_EVENT      0x00000300
+#define TS_TRIGGERCOMMAND_SET_BLOCKLEVEL  0x00000800
+#define TS_TRIGGERCOMMAND_SET_BUFFERLEVEL 0x00000C00
 
 
 /* 0x88 randomPulser bits and masks */
@@ -513,6 +519,11 @@ struct TS_A24RegStruct
 #define TS_I2C_DATA_MASK             0x0000ffff
 #define TS_I2C_8BIT_DATA_MASK        0x000000ff
 
+/* Scaler registers */
+#define TS_SCALER_SCALE_HI_MSB_MASK 0x0000007f
+#define TS_SCALER_SCALE_HI_LSB_MASK 0x7fffff80
+#define TS_SCALER_SCALE_HI          (1<<31)
+
 /* Partition registers */
 #define TS_PART_BLOCKBUFFER_EVENTS_LEFT_IN_BLOCK_MASK 0xFF000000
 #define TS_PART_BLOCKBUFFER_BLOCKS_READY_MASK         0x00FFFF00
@@ -584,9 +595,10 @@ int  tsGetNextBlockLevel();
 int  tsGetCurrentBlockLevel();
 int  tsSetInstantBlockLevelChange(int enable);
 int  tsGetInstantBlockLevelChange();
+int  tsSetInputMix(int enable);
+int  tsGetInputMix();
 int  tsSetGTPInput(unsigned int inputmask);
 int  tsSetFPInput(unsigned int inputmask);
-unsigned int tsGetFPInput();
 int  tsSetTriggerSource(int trig);
 int  tsSetTriggerSourceMask(int trigmask);
 int  tsDisableTriggerSource(int fflag);
@@ -608,6 +620,9 @@ int  tsVMESlot2PayloadPort(int vmeslot);
 int  tsVMESlotMask2PayloadPortMask(int vmeslot_mask);
 int  tsSetPrescale(int prescale);
 int  tsGetPrescale();
+int  tsSetTriggerPrescale(int type, int chan, unsigned int prescale);
+int  tsGetTriggerPrescale(int type, int chan);
+
 int  tsSetTriggerPulse(int trigger, int delay, int width);
 void tsTrigLinkReset();
 void tsSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep);
@@ -615,6 +630,7 @@ void tsSyncReset(int blflag);
 void tsSyncResetResync();
 void tsClockReset();
 void tsUserSyncReset(int enable);
+int  tsSetUserSyncResetReceive(int enable);
 void tsTriggerReadyReset();
 int  tsSetAdr32(unsigned int a32base);
 int  tsResetEventCounter();
@@ -624,7 +640,7 @@ unsigned int tsGetBlockLimit();
 int  tsGetBlockLimitStatus();
 int  tsSetGTPInputReadout(int enable);
 int  tsSetFPInputReadout(int enable);
-
+int  tsSetBeforePrescaleReadout(int enable);
 
 int  tsIntPoll();
 unsigned int  tsGetIntCount();
@@ -669,6 +685,8 @@ int  tsGetTriggerHoldoffMin(int rule, int pflag);
 int  tsLoadTriggerTable();
 unsigned int tsGetLiveTime();
 unsigned int tsGetBusyTime();
+unsigned int tsGetLiveTime_InputHigh();
+unsigned int tsGetBusyTime_InputHigh();
 int  tsLive(int sflag);
 unsigned int tsBlockStatus(int fiber, int pflag);
 int  tsGetBusyStatus(int pflag);
@@ -715,6 +733,7 @@ unsigned int tsDuplGetLocalTrigComboMask();
 int  tsDuplSetLocalTrigCombo(unsigned int mask, int set);
 int  tsDuplSetTriggerHoldoff(unsigned int value);
 int  tsDuplGetTriggerHoldoff();
+int  tsPrintTriggerHoldoff(int dflag);
 int  tsDuplSetLocalTriggerWidth(int width);
 int  tsDuplGetLocalTriggerWidth();
 int  tsDuplSetFastClearWidth(int width);

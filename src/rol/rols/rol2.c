@@ -35,12 +35,13 @@ static char ssname[80];
 /*#define DEBUG2*//*TDC*/
 /*#define DEBUG3*//*SSP*/
 /*#define DEBUG4*//*VSCM*/
-/*#define DEBUG5*//*HEAD*/
+//#define DEBUG5	/*HEAD*/
 /*#define DEBUG6*//*MVT*/
 /*#define DEBUG7*//*VTP*/
 /*#define DEBUG8*//*DCRB*/
 /*#define DEBUG9*//*SSP_RICH*/
 //#define DEBUG_V1725
+/*#define DEBUG_V1495*/
 
 #define ROL_NAME__ "ROL2"
 #define INIT_NAME rol2__init
@@ -331,7 +332,7 @@ void rol2trig(int a, int b) {
 	int i, j, k, m, iii, ind, bank, nhits = 0, mux_index, rlen, printing, nnE, iev, ibl;
 	int nr = 0;
 	int ncol = 2;
-	int a_channel, a_chan1, a_chan2, a_nevents, a_blocknumber, a_triggernumber, a_module_id, a_chmask,a_pattern, a_activechannels,
+	int a_channel, a_chan1, a_chan2, a_nevents, a_blocknumber, a_triggernumber, a_module_id, a_chmask, a_pattern, a_activechannels,
 			a_activechannelslist[16];
 	int a_windowwidth, a_pulsenumber, a_firstsample, samplecount, a_fiber;
 	int a_adc1, a_adc2, a_valid1, a_valid2, a_nwords, a_slot, a_slot2, a_slot3;
@@ -409,9 +410,10 @@ void rol2trig(int a, int b) {
 	;
 
 #ifdef DEBUG
-	printf("\n\n\n\n\n nbanks=%d\n",nbanks);
-	for(jj=0; jj<nbanks; jj++) printf("bankscan[%d]: tag 0x%08x typ=%d nr=%d nw=%d dataptr=0x%08x\n",
-			jj,banktag[jj],banktyp[jj],banknr[jj],banknw[jj],bankdata[jj]);
+	printf("\n\n\n\n\n nbanks=%d\n", nbanks);
+	for (jj = 0; jj < nbanks; jj++)
+		printf("bankscan[%d]: tag 0x%08x typ=%d nr=%d nw=%d dataptr=0x%08x\n", jj, banktag[jj], banktyp[jj], banknr[jj], banknw[jj],
+				bankdata[jj]);
 #endif
 
 	/* first for() over banks from rol1 */
@@ -431,7 +433,9 @@ void rol2trig(int a, int b) {
 #endif
 #endif
 #endif
-
+#ifdef DEBUG
+		printf("first loop: jj: %i, banktag: 0x%08x nbanks: %i \n", jj, banktag[jj], nbanks);
+#endif
 		if (banktag[jj] == 0xe109) /* FADC250 hardware format */
 		{
 			banknum = rol->pid;
@@ -460,7 +464,7 @@ void rol2trig(int a, int b) {
 			nB[jj] = 0; /*cleanup block counter*/
 			while (ii < lenin) {
 #ifdef DEBUG
-				printf("[%3d] 0x%08x\n",ii,datain[ii]);
+				printf("[%3d] 0x%08x\n", ii, datain[ii]);
 #endif
 				if (((datain[ii] >> 27) & 0x1F) == 0x10) /*block header*/
 				{
@@ -470,8 +474,8 @@ void rol2trig(int a, int b) {
 					a_blocknumber = ((datain[ii] >> 8) & 0x3FF);
 					a_nevents = (datain[ii] & 0xFF);
 #ifdef DEBUG
-					printf("[%3d] BLOCK HEADER: slot %d, nevents %d, block number %d module id %d\n",ii,
-							a_slot,a_nevents,a_blocknumber,a_module_id);
+					printf("[%3d] BLOCK HEADER: slot %d, nevents %d, block number %d module id %d\n", ii, a_slot, a_nevents, a_blocknumber,
+							a_module_id);
 					printf(">>> update iB and nB\n");
 #endif
 					nB[jj]++; /*increment block counter*/
@@ -479,7 +483,7 @@ void rol2trig(int a, int b) {
 					sB[jj][nB[jj] - 1] = a_slot; /*remember slot number*/
 					nE[jj][nB[jj] - 1] = 0; /*cleanup event counter in current block*/
 #ifdef DEBUG
-					printf("0xe109: jj=%d nB[jj]=%d\n",jj,nB[jj]);
+					printf("0xe109: jj=%d nB[jj]=%d\n", jj, nB[jj]);
 #endif
 					ii++;
 				} else if (((datain[ii] >> 27) & 0x1F) == 0x11) /*block trailer*/
@@ -487,8 +491,7 @@ void rol2trig(int a, int b) {
 					a_slot2 = ((datain[ii] >> 22) & 0x1F);
 					a_nwords = (datain[ii] & 0x3FFFFF);
 #ifdef DEBUG
-					printf("[%3d] BLOCK TRAILER: slot %d, nwords %d\n",ii,
-							a_slot2,a_nwords);
+					printf("[%3d] BLOCK TRAILER: slot %d, nwords %d\n", ii, a_slot2, a_nwords);
 					printf(">>> data check\n");
 #endif
 
@@ -525,8 +528,7 @@ void rol2trig(int a, int b) {
 					a_slot3 = ((datain[ii] >> 22) & 0x1F);
 					a_triggernumber = (datain[ii] & 0x3FFFFF);
 #ifdef DEBUG
-					printf("[%3d] EVENT HEADER: slot number %d, trigger number %d\n",ii,
-							a_slot3, a_triggernumber);
+					printf("[%3d] EVENT HEADER: slot number %d, trigger number %d\n", ii, a_slot3, a_triggernumber);
 					printf(">>> update iE and nE\n");
 #endif
 
@@ -548,7 +550,7 @@ void rol2trig(int a, int b) {
 				{
 					a_trigtime[0] = (datain[ii] & 0xFFFFFF);
 #ifdef DEBUG
-					printf("[%3d] TRIGGER TIME: 0x%06x\n",ii,a_trigtime[0]);
+					printf("[%3d] TRIGGER TIME: 0x%06x\n", ii, a_trigtime[0]);
 #endif
 					ii++;
 					iii = 1;
@@ -556,8 +558,8 @@ void rol2trig(int a, int b) {
 					{
 						a_trigtime[iii] = (datain[ii] & 0xFFFFFF);
 #ifdef DEBUG
-						printf("   [%3d] TRIGGER TIME: 0x%06x\n",ii,a_trigtime[iii]);
-						printf(">>> remember timestamp 0x%06x 0x%06x\n",a_trigtime[0],a_trigtime[1]);
+						printf("   [%3d] TRIGGER TIME: 0x%06x\n", ii, a_trigtime[iii]);
+						printf(">>> remember timestamp 0x%06x 0x%06x\n", a_trigtime[0], a_trigtime[1]);
 #endif
 						iii++;
 						ii++;
@@ -567,9 +569,8 @@ void rol2trig(int a, int b) {
 					a_channel = ((datain[ii] >> 23) & 0xF);
 					a_windowwidth = (datain[ii] & 0xFFF);
 #ifdef DEBUG
-					printf("[%3d] WINDOW RAW DATA: slot %d, channel %d, window width %d\n",ii,
-							a_slot,a_channel,a_windowwidth);
-					printf(">>> remember channel %d\n",a_channel);
+					printf("[%3d] WINDOW RAW DATA: slot %d, channel %d, window width %d\n", ii, a_slot, a_channel, a_windowwidth);
+					printf(">>> remember channel %d\n", a_channel);
 #endif
 					ii++;
 					samplecount = 0;
@@ -580,8 +581,8 @@ void rol2trig(int a, int b) {
 						a_valid2 = ((datain[ii] >> 13) & 0x1);
 						a_adc2 = (datain[ii] & 0xFFF);
 #ifdef DEBUG
-						printf("   [%3d] WINDOW RAW DATA: valid1 %d, adc1 0x%04x, valid2 %d, adc2 0x%04x\n",ii,
-								a_valid1,a_adc1,a_valid2,a_adc2);
+						printf("   [%3d] WINDOW RAW DATA: valid1 %d, adc1 0x%04x, valid2 %d, adc2 0x%04x\n", ii, a_valid1, a_adc1, a_valid2,
+								a_adc2);
 #endif
 						samplecount += 2;
 
@@ -600,7 +601,7 @@ void rol2trig(int a, int b) {
 				} else if (((datain[ii] >> 27) & 0x1F) == 0x15) /*window sum: obsolete*/
 				{
 #ifdef DEBUG
-					printf("[%3d] WINDOW SUM: must be obsolete\n",ii);
+					printf("[%3d] WINDOW SUM: must be obsolete\n", ii);
 #endif
 					ii++;
 				} else if (((datain[ii] >> 27) & 0x1F) == 0x16) /*pulse raw data*/
@@ -609,8 +610,8 @@ void rol2trig(int a, int b) {
 					a_pulsenumber = ((datain[ii] >> 21) & 0x3);
 					a_firstsample = (datain[ii] & 0x3FF);
 #ifdef DEBUG
-					printf("[%3d] PULSE RAW DATA: channel %d, pulse number %d, first sample %d\n",ii,
-							a_channel,a_pulsenumber,a_firstsample);
+					printf("[%3d] PULSE RAW DATA: channel %d, pulse number %d, first sample %d\n", ii, a_channel, a_pulsenumber,
+							a_firstsample);
 #endif
 
 					ii++;
@@ -621,8 +622,8 @@ void rol2trig(int a, int b) {
 						a_valid2 = ((datain[ii] >> 13) & 0x1);
 						a_adc2 = (datain[ii] & 0xFFF);
 #ifdef DEBUG
-						printf("   [%3d] PULSE RAW DATA: valid1 %d, adc1 0x%04x, valid2 %d, adc2 0x%04x\n",ii,
-								a_valid1,a_adc1,a_valid2,a_adc2);
+						printf("   [%3d] PULSE RAW DATA: valid1 %d, adc1 0x%04x, valid2 %d, adc2 0x%04x\n", ii, a_valid1, a_adc1, a_valid2,
+								a_adc2);
 #endif
 
 						ii++;
@@ -648,8 +649,8 @@ void rol2trig(int a, int b) {
 #endif
 
 #ifdef DEBUG
-					printf("[%3d] PULSE INTEGRAL: channel %d, pulse number %d, quality %d, integral %d\n",ii,
-							a_channel,a_pulsenumber,a_qualityfactor,a_pulseintegral);
+					printf("[%3d] PULSE INTEGRAL: channel %d, pulse number %d, quality %d, integral %d\n", ii, a_channel, a_pulsenumber,
+							a_qualityfactor, a_pulseintegral);
 #endif
 
 					ii++;
@@ -673,8 +674,8 @@ void rol2trig(int a, int b) {
 #endif
 
 #ifdef DEBUG
-					printf("[%3d] PULSE TIME: channel %d, pulse number %d, quality %d, time %d\n",ii,
-							a_channel,a_pulsenumber,a_qualityfactor,a_pulsetime);
+					printf("[%3d] PULSE TIME: channel %d, pulse number %d, quality %d, time %d\n", ii, a_channel, a_pulsenumber,
+							a_qualityfactor, a_pulsetime);
 #endif
 
 					ii++;
@@ -682,7 +683,7 @@ void rol2trig(int a, int b) {
 
 				else if (((datain[ii] >> 27) & 0x1F) == 0x19) {
 #ifdef DEBUG
-					printf("[%3d] STREAMING RAW DATA: \n",ii);
+					printf("[%3d] STREAMING RAW DATA: \n", ii);
 #endif
 					ii++;
 				}
@@ -706,15 +707,14 @@ void rol2trig(int a, int b) {
 #endif
 
 #ifdef DEBUG
-					printf("[%3d] PULSE VmVp: channel %d, pulse number %d, Vm %d, Vp %d\n",ii,
-							a_channel,a_pulsenumber,a_vm,a_vp);
+					printf("[%3d] PULSE VmVp: channel %d, pulse number %d, Vm %d, Vp %d\n", ii, a_channel, a_pulsenumber, a_vm, a_vp);
 #endif
 					ii++;
 				}
 
 				else if (((datain[ii] >> 27) & 0x1F) == 0x1D) {
 #ifdef DEBUG
-					printf("[%3d] EVENT TRAILER: \n",ii);
+					printf("[%3d] EVENT TRAILER: \n", ii);
 #endif
 					ii++;
 				} else if (((datain[ii] >> 27) & 0x1F) == 0x1E) {
@@ -723,7 +723,7 @@ void rol2trig(int a, int b) {
 					ii++;
 				} else if (((datain[ii] >> 27) & 0x1F) == 0x1F) {
 #ifdef DEBUG
-					printf("[%3d] FILLER WORD: \n",ii);
+					printf("[%3d] FILLER WORD: \n", ii);
 					printf(">>> do nothing\n");
 #endif
 					ii++;
@@ -761,13 +761,11 @@ void rol2trig(int a, int b) {
 
 #ifdef DEBUG
 			printf("\n=================\n");
-			for(k=0; k<nB[jj]; k++)
-			{
-				printf("Block %2d, block index %2d\n",k,iB[jj][k]);
-				for(m=0; m<nnE; m++)
-				{
-					printf("Event %2d, event index %2d, event lenght %2d\n",m,iE[jj][k][m],lenE[jj][k][m]);
-					sprintf(errmsg,"Event %2d, event index %2d, event lenght %2d\n",m,iE[jj][k][m],lenE[jj][k][m]);
+			for (k = 0; k < nB[jj]; k++) {
+				printf("Block %2d, block index %2d\n", k, iB[jj][k]);
+				for (m = 0; m < nnE; m++) {
+					printf("Event %2d, event index %2d, event lenght %2d\n", m, iE[jj][k][m], lenE[jj][k][m]);
+					sprintf(errmsg, "Event %2d, event index %2d, event lenght %2d\n", m, iE[jj][k][m], lenE[jj][k][m]);
 				}
 			}
 			printf("\n=================\n");
@@ -830,57 +828,57 @@ void rol2trig(int a, int b) {
 			printing = 1;
 			a_slot_prev = -1;
 			nB[jj] = 0; /*cleanup block counter*/
-			while (ii < lenin) {
+//			while (ii < lenin) {
 #ifdef DEBUG_V1725
-				printf("[%3d] 0x%08x\n", ii, datain[ii]);
+			printf("[%3d] 0x%08x 0x%08x\n", ii, datain[ii], datain[ii+1]);
 #endif
-				if (((datain[ii] >> 28) & 0xF) == 0x0A) /*block header*/
+			if (((datain[ii] >> 28) & 0xF) == 0x0A) /*block header*/
+			{
+				/*First word: event size*/
+				a_nwords = datain[ii] & (0xFFFFFFF);
+				a_slot_prev = a_slot;
+				ii++;
+
+				/*Second word: board id - pattern - channel mask (first part)*/
+				a_slot = ((datain[ii] >> 27) & 0x1F);
+				a_pattern = ((datain[ii]) >> 8) & 0xFFFF;
+				a_chmask = ((datain[ii]) & 0xFF);
+				ii++;
+
+				/*Third word: event counter + channel mask (second part)*/
+				a_chmask = (a_chmask) + (((datain[ii] >> 24) & 0xFF) << 8);
+				a_triggernumber = (datain[ii] & 0xFFFFFF);
+				ii++;
+
+				/*fourth word: trigger time*/
+				a_trigtime[1] = datain[ii];
+				ii++;
+				/*Here ends the header*/
+#ifdef DEBUG_V1725
+				printf("[%3d] BLOCK HEADER: slot %d, nevents %d, block number %d module id %d\n", ii, a_slot, a_nevents, a_blocknumber,
+						a_module_id);
+				printf(">>> update iB and nB\n");
+				printf("BLOCK HEADER: nwords %i, chmask 0x%08x, triggernumber: %i \n", a_nwords, a_chmask, a_triggernumber);
+#endif
+				nB[jj]++; /*increment block counter*/
+				iB[jj][nB[jj] - 1] = ii - 4; /*remember block start index*/
+				sB[jj][nB[jj] - 1] = a_slot; /*remember slot number*/
+				nE[jj][nB[jj] - 1] = 1; /*cleanup event counter in current block*//*For v1725, one block = one event, always*/
+				lenE[jj][nB[jj] - 1][0] = a_nwords; /*Here is the length*/
+				iE[jj][nB[jj] - 1][0] = ii - 4; /*Here starts the event */
+#ifdef DEBUG_V1725
+				printf("0xe119: jj=%d nB[jj]=%d\n", jj, nB[jj]);
+#endif
+				samplecount = 0;
+				while (ii < lenin) /*loop over all samples*/
 				{
-					/*First word: event size*/
-					a_nwords = datain[ii] & (0xFFFFFFF);
-					a_slot_prev = a_slot;
+					a_adc1 = ((datain[ii] >> 16) & 0xFFFF);
+					a_adc2 = (datain[ii] & 0xFFFF);
 					ii++;
-
-					/*Second word: board id - pattern - channel mask (first part)*/
-					a_slot = ((datain[ii] >> 27) & 0x1F);
-					a_pattern = ((datain[ii]) >> 8) & 0xFFFF;
-					a_chmask = ((datain[ii]) & 0xFF);
-					ii++;
-
-					 /*Third word: event counter + channel mask (second part)*/
-					a_chmask = (a_chmask) + (((datain[ii] >> 24) & 0xFF) << 8);
-					a_triggernumber = (datain[ii] & 0xFFFFFF);
-					ii++;
-
-					/*fourth word: trigger time*/
-					a_trigtime[1] = datain[ii];
-					ii++;
-					/*Here ends the header*/
-#ifdef DEBUG_V1725
-					printf("[%3d] BLOCK HEADER: slot %d, nevents %d, block number %d module id %d\n", ii, a_slot, a_nevents, a_blocknumber,
-							a_module_id);
-					printf(">>> update iB and nB\n");
-					printf("BLOCK HEADER: nwords %i, chmask 0x%08x, triggernumber: %i \n", a_nwords, a_chmask, a_triggernumber);
-#endif
-					nB[jj]++; /*increment block counter*/
-					iB[jj][nB[jj] - 1] = ii - 4; /*remember block start index*/
-					sB[jj][nB[jj] - 1] = a_slot; /*remember slot number*/
-					nE[jj][nB[jj] - 1] = 1; /*cleanup event counter in current block*//*For v1725, one block = one event, always*/
-					lenE[jj][nB[jj] - 1][0] = a_nwords; /*Here is the length*/
-					iE[jj][nB[jj] - 1][0] = ii - 4; /*Here starts the event */
-#ifdef DEBUG_V1725
-					printf("0xe119: jj=%d nB[jj]=%d\n", jj, nB[jj]);
-#endif
-					samplecount = 0;
-					while (ii < lenin) /*loop over all samples*/
-					{
-						a_adc1 = ((datain[ii] >> 16) & 0xFFFF);
-						a_adc2 = (datain[ii] & 0xFFFF);
-						ii++;
-						samplecount += 2;
-					}
+					samplecount += 2;
 				}
-			} /* loop over 'lenin' words */
+			}
+			//		} /* loop over 'lenin' words */
 
 			/***********************************************************/
 			/* if any error was found, create raw data bank and return */
@@ -914,8 +912,42 @@ void rol2trig(int a, int b) {
 			/***********************************************************/
 
 		} /* if(0xe119) */
+		else if (banktag[jj] == 0xe125) /* 0xe125 v1495 hardware format */
+		{
+			banknum = rol->pid;
+#ifdef DEBUG_V1495
+			printf("\nFIRST PASS v1495\n\n");
+#endif
+			error = 0;
+			ii = 0;
+			printing = 1;
+			a_slot_prev = -1;
+			nB[jj] = 0; /*cleanup block counter*/
+//			while (ii < lenin) {
+#ifdef DEBUG_V1495
+			printf("[%3d] 0x%08x 0x%08x\n", ii, datain[ii], datain[ii + 1]);
+#endif
+			if (((datain[ii] >> 28) & 0xF) == 0x0A) { /*block header*/
+				/*First word: nwords TOTAL*/
+				a_nwords = datain[ii] & (0xFFFFFFF);
+				a_slot_prev = a_slot;
+				ii++;
+				/*Second word: board id*/
+				a_slot = ((datain[ii]) & 0x1F);
+				ii++;
+#ifdef DEBUG_V1495
+				printf("v1495 nwords and slot: %i %i\n", a_nwords, a_slot);
+#endif
+				nB[jj]++; /*increment block counter*/
+				iB[jj][nB[jj] - 1] = ii - 2; /*remember block start index*/
+				sB[jj][nB[jj] - 1] = 0; /*Slot number -> put 0 here*/
+				nE[jj][nB[jj] - 1] = 1; /*cleanup event counter in current block*//*For v1495, one block = one event, always*/
+				lenE[jj][nB[jj] - 1][0] = a_nwords; /*Here is the length*/
+				iE[jj][nB[jj] - 1][0] = ii - 2; /*Here starts the event */
 
-		else if (banktag[jj] == 0xe10A) /* TI/TS hardware format */
+			}
+//			} /*end while ii<lenin*/
+		} else if (banktag[jj] == 0xe10A) /* TI/TS hardware format */
 		{
 			banknum = rol->pid;
 
@@ -1125,7 +1157,6 @@ void rol2trig(int a, int b) {
 			} /* while() */
 
 		} /* else if(0xe10A) */
-
 		else if (banktag[jj] == 0xe10B) /* v1190/v1290 hardware format */
 		{
 			banknum = rol->pid;
@@ -2028,7 +2059,6 @@ void rol2trig(int a, int b) {
 		else if (banktag[jj] == 0xe112) /* HEAD bank raw format */
 		{
 			banknum = rol->pid;
-
 #ifdef DEBUG5
 			printf("\nFIRST PASS HEAD bank\n\n");
 #endif
@@ -2521,7 +2551,7 @@ void rol2trig(int a, int b) {
 		exit(0);
 	}
 #ifdef DEBUG
-	printf("nnE=%d\n",nnE);
+	printf("nnE=%d\n", nnE);
 #endif
 
 	/*loop over events*/
@@ -2536,9 +2566,11 @@ void rol2trig(int a, int b) {
 			datain = bankdata[jj];
 
 #ifdef DEBUG
-			printf("iev=%d jj=%d nB=%d\n",iev,jj,nB[jj]);
+			printf("iev=%d jj=%d nB=%d\n", iev, jj, nB[jj]);
 #endif
-
+#ifdef DEBUG
+			printf("second loop: iev: %i, nnE: %i, jj: %i, banktag: 0x%08x nbanks: %i\n", iev, nnE, jj, banktag[jj], nbanks);
+#endif
 			if (banktag[jj] == 0xe109) /* FADC250 hardware format */
 			{
 #ifdef DEBUG
@@ -2552,8 +2584,8 @@ void rol2trig(int a, int b) {
 					a_channel_old = -1;
 
 #ifdef DEBUG
-					printf("0xe109: Block %d, Event %2d, event index %2d, event lenght %2d\n",
-							ibl,iev,iE[jj][ibl][iev],lenE[jj][ibl][iev]);
+					printf("0xe109: Block %d, Event %2d, event index %2d, event lenght %2d\n", ibl, iev, iE[jj][ibl][iev],
+							lenE[jj][ibl][iev]);
 #endif
 					a_slot = sB[jj][ibl];
 					ii = iE[jj][ibl][iev];
@@ -2564,16 +2596,15 @@ void rol2trig(int a, int b) {
 							a_slot3 = ((datain[ii] >> 22) & 0x1F);
 							a_triggernumber = (datain[ii] & 0x3FFFFF);
 #ifdef DEBUG
-							printf("[%3d] EVENT HEADER: slot number %d, trigger number %d\n",ii,
-									a_slot3, a_triggernumber);
-							printf(">>> remember trigger %d\n",a_triggernumber);
+							printf("[%3d] EVENT HEADER: slot number %d, trigger number %d\n", ii, a_slot3, a_triggernumber);
+							printf(">>> remember trigger %d\n", a_triggernumber);
 #endif
 							ii++;
 						} else if (((datain[ii] >> 27) & 0x1F) == 0x13) /*trigger time: remember timestamp*/
 						{
 							a_trigtime[0] = (datain[ii] & 0xFFFFFF);
 #ifdef DEBUG
-							printf("[%3d] TRIGGER TIME: 0x%06x\n",ii,a_trigtime[0]);
+							printf("[%3d] TRIGGER TIME: 0x%06x\n", ii, a_trigtime[0]);
 #endif
 							ii++;
 							iii = 1;
@@ -2581,8 +2612,8 @@ void rol2trig(int a, int b) {
 							{
 								a_trigtime[iii] = (datain[ii] & 0xFFFFFF);
 #ifdef DEBUG
-								printf("   [%3d] TRIGGER TIME: 0x%06x\n",ii,a_trigtime[iii]);
-								printf(">>> remember timestamp 0x%06x 0x%06x\n",a_trigtime[0],a_trigtime[1]);
+								printf("   [%3d] TRIGGER TIME: 0x%06x\n", ii, a_trigtime[iii]);
+								printf(">>> remember timestamp 0x%06x 0x%06x\n", a_trigtime[0], a_trigtime[1]);
 #endif
 								iii++;
 								ii++;
@@ -2592,21 +2623,20 @@ void rol2trig(int a, int b) {
 							a_channel = ((datain[ii] >> 23) & 0xF);
 							a_windowwidth = (datain[ii] & 0xFFF);
 #ifdef DEBUG
-							printf("[%3d] WINDOW RAW DATA: slot %d, channel %d, window width %d\n",ii,
-									a_slot,a_channel,a_windowwidth);
-							printf(">>> remember channel %d\n",a_channel);
+							printf("[%3d] WINDOW RAW DATA: slot %d, channel %d, window width %d\n", ii, a_slot, a_channel, a_windowwidth);
+							printf(">>> remember channel %d\n", a_channel);
 #endif
 
 #ifdef DEBUG
-							printf("0x%08x: befor CCOPEN(1)\n",b08);
-							printf("0x%08x: befor CCOPEN(1), dataout=0x%08x\n",b08,dataout);
+							printf("0x%08x: befor CCOPEN(1)\n", b08);
+							printf("0x%08x: befor CCOPEN(1), dataout=0x%08x\n", b08, dataout);
 #endif
 
 							CCOPEN(0xe101, "c,i,l,N(c,Ns)", banknum);
 
 #ifdef DEBUG
-							printf("0x%08x: after CCOPEN(1)\n",b08);
-							printf("0x%08x: after CCOPEN(1), dataout=0x%08x\n",b08,dataout);
+							printf("0x%08x: after CCOPEN(1)\n", b08);
+							printf("0x%08x: after CCOPEN(1), dataout=0x%08x\n", b08, dataout);
 #endif
 
 #ifdef DO_PEDS
@@ -2717,13 +2747,13 @@ void rol2trig(int a, int b) {
 
 							Nchan[0]++; /* increment channel counter */
 #ifdef DEBUG
-							printf("0x%08x: increment Nchan[0]=%d\n",b08,Nchan[0]);
+							printf("0x%08x: increment Nchan[0]=%d\n", b08, Nchan[0]);
 #endif
 
 							*b08++ = a_channel; /* channel number */
 
 #ifdef DEBUG
-							printf("0x%08x: #samples %d\n",b08,a_windowwidth);
+							printf("0x%08x: #samples %d\n", b08, a_windowwidth);
 #endif
 							b32 = (unsigned int *) b08;
 							*b32 = a_windowwidth; /* the number of samples (same as window width) */
@@ -2744,9 +2774,9 @@ void rol2trig(int a, int b) {
 								a_adc2 = (datain[ii] & 0xFFF);
 
 #ifdef DEBUG
-								printf("   [%3d] WINDOW RAW DATA: valid1 %d, adc1 0x%04x, valid2 %d, adc2 0x%04x\n",ii,
-										a_valid1,a_adc1,a_valid2,a_adc2);
-								printf("0x%08x: samples: %d %d\n",b08,a_adc1,a_adc2);
+								printf("   [%3d] WINDOW RAW DATA: valid1 %d, adc1 0x%04x, valid2 %d, adc2 0x%04x\n", ii, a_valid1, a_adc1,
+										a_valid2, a_adc2);
+								printf("0x%08x: samples: %d %d\n", b08, a_adc1, a_adc2);
 #endif
 
 								b16 = (unsigned short *) b08;
@@ -2771,7 +2801,7 @@ void rol2trig(int a, int b) {
 						} else if (((datain[ii] >> 27) & 0x1F) == 0x15) /*window sum: obsolete*/
 						{
 #ifdef DEBUG
-							printf("[%3d] WINDOW SUM: must be obsolete\n",ii);
+							printf("[%3d] WINDOW SUM: must be obsolete\n", ii);
 #endif
 							ii++;
 						} else if (((datain[ii] >> 27) & 0x1F) == 0x16) /*pulse raw data*/
@@ -2780,13 +2810,13 @@ void rol2trig(int a, int b) {
 							a_pulsenumber = ((datain[ii] >> 21) & 0x3);
 							a_firstsample = (datain[ii] & 0x3FF);
 #ifdef DEBUG
-							printf("[%3d] PULSE RAW DATA: channel %d, pulse number %d, first sample %d\n",ii,
-									a_channel,a_pulsenumber,a_firstsample);
+							printf("[%3d] PULSE RAW DATA: channel %d, pulse number %d, first sample %d\n", ii, a_channel, a_pulsenumber,
+									a_firstsample);
 #endif
 
 							CCOPEN(0xe110, "c,i,l,N(c,N(c,Ns))", banknum);
 #ifdef DEBUG
-							printf("0x%08x: CCOPEN(2)\n",b08);
+							printf("0x%08x: CCOPEN(2)\n", b08);
 #endif
 
 							if (a_channel != a_channel_old) {
@@ -2794,7 +2824,7 @@ void rol2trig(int a, int b) {
 
 								Nchan[0]++; /* increment channel counter */
 #ifdef DEBUG
-								printf("0x%08x: increment Nchan[0]=%d\n",b08,Nchan[0]);
+								printf("0x%08x: increment Nchan[0]=%d\n", b08, Nchan[0]);
 #endif
 
 								*b08++ = a_channel; /* channel number */
@@ -2819,8 +2849,8 @@ void rol2trig(int a, int b) {
 								a_valid2 = ((datain[ii] >> 13) & 0x1);
 								a_adc2 = (datain[ii] & 0xFFF);
 #ifdef DEBUG
-								printf("   [%3d] PULSE RAW DATA: valid1 %d, adc1 0x%04x, valid2 %d, adc2 0x%04x\n",ii,
-										a_valid1,a_adc1,a_valid2,a_adc2);
+								printf("   [%3d] PULSE RAW DATA: valid1 %d, adc1 0x%04x, valid2 %d, adc2 0x%04x\n", ii, a_valid1, a_adc1,
+										a_valid2, a_adc2);
 #endif
 
 								b16 = (unsigned short *) b08;
@@ -2841,12 +2871,12 @@ void rol2trig(int a, int b) {
 							a_qualityfactor = ((datain[ii] >> 19) & 0x3);
 							a_pulseintegral = (datain[ii] & 0x7FFFF);
 #ifdef DEBUG
-							printf("[%3d] PULSE INTEGRAL: channel %d, pulse number %d, quality %d, integral %d\n",ii,
-									a_channel,a_pulsenumber,a_qualityfactor,a_pulseintegral);
+							printf("[%3d] PULSE INTEGRAL: channel %d, pulse number %d, quality %d, integral %d\n", ii, a_channel,
+									a_pulsenumber, a_qualityfactor, a_pulseintegral);
 #endif
 
 #ifdef DEBUG
-							printf("0x%08x: pulseintegral = %d\n",b08,a_pulseintegral);
+							printf("0x%08x: pulseintegral = %d\n", b08, a_pulseintegral);
 #endif
 
 #ifdef MODE7
@@ -2870,8 +2900,8 @@ void rol2trig(int a, int b) {
 							a_qualityfactor = ((datain[ii] >> 19) & 0x3);
 							a_pulsetime = (datain[ii] & 0xFFFF);
 #ifdef DEBUG
-							printf("[%3d] PULSE TIME: channel %d, pulse number %d, quality %d, time %d\n",ii,
-									a_channel,a_pulsenumber,a_qualityfactor,a_pulsetime);
+							printf("[%3d] PULSE TIME: channel %d, pulse number %d, quality %d, time %d\n", ii, a_channel, a_pulsenumber,
+									a_qualityfactor, a_pulsetime);
 #endif
 
 #ifdef MODE7
@@ -2880,14 +2910,14 @@ void rol2trig(int a, int b) {
 								if (a_pulsenumber == 0) {
 									CCOPEN(0xe102, "c,i,l,N(c,N(s,i,s,s))", banknum);
 #ifdef DEBUG
-									printf("0x%08x: CCOPEN(2), dataout=0x%08x\n",b08,dataout);
+									printf("0x%08x: CCOPEN(2), dataout=0x%08x\n", b08, dataout);
 #endif
 								}
 							} else {
 #endif
 								CCOPEN(0xe103, "c,i,l,N(c,N(s,i))", banknum);
 #ifdef DEBUG
-								printf("0x%08x: CCOPEN(3), dataout=0x%08x\n",b08,dataout);
+								printf("0x%08x: CCOPEN(3), dataout=0x%08x\n", b08, dataout);
 #endif
 #ifdef MODE7
 							}
@@ -2898,18 +2928,18 @@ void rol2trig(int a, int b) {
 
 								Nchan[0]++; /* increment channel counter */
 #ifdef DEBUG
-								printf("0x%08x: increment Nchan[0]=%d\n",b08,Nchan[0]);
+								printf("0x%08x: increment Nchan[0]=%d\n", b08, Nchan[0]);
 #endif
 
 #ifdef DEBUG
-								printf("0x%08x: channel %d\n",b08,a_channel);
+								printf("0x%08x: channel %d\n", b08, a_channel);
 #endif
 								*b08++ = a_channel; /* channel number */
 
 								Npuls = (unsigned int *) b08; /* remember the place to put the number of pulses */
 								Npuls[0] = 0;
 #ifdef DEBUG
-								printf("0x%08x: Npuls[0]\n",b08);
+								printf("0x%08x: Npuls[0]\n", b08);
 #endif
 								b08 += 4;
 							}
@@ -2961,7 +2991,7 @@ void rol2trig(int a, int b) {
 
 						else if (((datain[ii] >> 27) & 0x1F) == 0x19) {
 #ifdef DEBUG
-							printf("[%3d] STREAMING RAW DATA: \n",ii);
+							printf("[%3d] STREAMING RAW DATA: \n", ii);
 #endif
 							ii++;
 						}
@@ -2973,8 +3003,8 @@ void rol2trig(int a, int b) {
 							a_vm = ((datain[ii] >> 12) & 0x1FF);
 							a_vp = (datain[ii] & 0xFFF);
 #ifdef DEBUG
-							printf("[%3d] PULSE VmVp: channel %d, pulse number %d, Vm %d, Vp %d\n",ii,
-									a_channel,a_pulsenumber,a_vm,a_vp);
+							printf("[%3d] PULSE VmVp: channel %d, pulse number %d, Vm %d, Vp %d\n", ii, a_channel, a_pulsenumber, a_vm,
+									a_vp);
 #endif
 
 							/* do not output anything, will be done above in 'pulse time' processing */
@@ -2984,7 +3014,7 @@ void rol2trig(int a, int b) {
 
 						else if (((datain[ii] >> 27) & 0x1F) == 0x1D) {
 #ifdef DEBUG
-							printf("[%3d] EVENT TRAILER: \n",ii);
+							printf("[%3d] EVENT TRAILER: \n", ii);
 #endif
 							ii++;
 						} else if (((datain[ii] >> 27) & 0x1F) == 0x1E) {
@@ -2993,7 +3023,7 @@ void rol2trig(int a, int b) {
 							ii++;
 						} else if (((datain[ii] >> 27) & 0x1F) == 0x1F) {
 #ifdef DEBUG
-							printf("[%3d] FILLER WORD: \n",ii);
+							printf("[%3d] FILLER WORD: \n", ii);
 							printf(">>> do nothing\n");
 #endif
 							ii++;
@@ -3015,17 +3045,16 @@ void rol2trig(int a, int b) {
 					CCCLOSE
 				; /*call CCCLOSE only if CCOPEN was called*/
 #ifdef DEBUG
-				printf("0x%08x: CCCLOSE1, dataout=0x%08x\n",b08,dataout);
-				printf("0x%08x: CCCLOSE2, dataout=0x%08x\n",b08,(unsigned int *) ( ( ((unsigned int)b08+3)/4 ) * 4));
-				printf("-> 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-						(unsigned int)b08+3,((unsigned int)b08+3),
-						((unsigned int)b08+3) / 4,(((unsigned int)b08+3) / 4)*4,
-						(unsigned int *)((((unsigned int)b08+3) / 4)*4) );
+				printf("0x%08x: CCCLOSE1, dataout=0x%08x\n", b08, dataout);
+				printf("0x%08x: CCCLOSE2, dataout=0x%08x\n", b08, (unsigned int *) ((((unsigned int) b08 + 3) / 4) * 4));
+				printf("-> 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n", (unsigned int) b08 + 3, ((unsigned int) b08 + 3),
+						((unsigned int) b08 + 3) / 4, (((unsigned int) b08 + 3) / 4) * 4,
+						(unsigned int *) ((((unsigned int) b08 + 3) / 4) * 4));
 #endif
 
 			} /* FADC250 hardware format */
 
-			if (banktag[jj] == 0xe119) /* 0Xe119 v1725 hardware format */
+			else if (banktag[jj] == 0xe119) /* 0xe119 v1725 hardware format */
 			{
 #ifdef DEBUG_V1725
 				printf("SECOND PASS V1725\n");
@@ -3066,8 +3095,8 @@ void rol2trig(int a, int b) {
 						 *  2^32 -> 17 s
 						 *  Do we need extended trig time tag???
 						 */
-						a_trigtime[1] = datain[ii]&0xFFFFFF;
-						a_trigtime[0] = (datain[ii]>>24) & 0xFF;
+						a_trigtime[1] = datain[ii] & 0xFFFFFF;
+						a_trigtime[0] = (datain[ii] >> 24) & 0xFF;
 						ii++; /*now datain[ii] should be first word with data*/
 
 						/*Here I need to do some math to read the samples. The default behavior of v1725 is to have the SAME number of samples for each channel in the same board*/
@@ -3079,16 +3108,17 @@ void rol2trig(int a, int b) {
 								a_activechannels++;
 							}
 						}
-						if ( ( (2*(lenE[jj][ibl][iev] - 4)) % a_activechannels )!=0){
-							printf("v1725 error in data-count: words with data are %i, channels are %i\n",(lenE[jj][ibl][iev] - 4),a_activechannels);
+						if (((2 * (lenE[jj][ibl][iev] - 4)) % a_activechannels) != 0) {
+							printf("v1725 error in data-count: words with data are %i, channels are %i\n", (lenE[jj][ibl][iev] - 4),
+									a_activechannels);
 							fflush(stdout);
 						}
-						a_windowwidth = (2*(lenE[jj][ibl][iev] - 4)) / a_activechannels; /*number of 32-bit words per channel*/
+						a_windowwidth = (2 * (lenE[jj][ibl][iev] - 4)) / a_activechannels; /*number of 32-bit words per channel*/
 
 #ifdef DEBUG_V1725
 
 						printf("saved: %d window_width: %d - activechannels: %d \n",lenE[jj][ibl][iev],a_windowwidth,a_activechannels);
-						for (iii = 0; iii < a_activechannels; iii++){
+						for (iii = 0; iii < a_activechannels; iii++) {
 							printf("Channel n. %d is %d \n",iii,a_activechannelslist[iii]);fflush(stdout);
 						}
 						printf("0x%08x: before CCOPEN(1)\n",b08);fflush(stdout);
@@ -3102,21 +3132,21 @@ void rol2trig(int a, int b) {
 #ifdef DEBUG_V1725
 						printf("before loop on a_activechannels (%d) \n",a_activechannels);fflush(stdout);
 #endif
-						for (jj=0;jj<a_activechannels;jj++){
-							a_channel = a_activechannelslist[jj];
+						for (iii = 0; iii < a_activechannels; iii++) {
+							a_channel = a_activechannelslist[iii];
 
 							*b08++ = a_channel; /* channel number */
-							b32 = (unsigned int *)b08;
+							b32 = (unsigned int *) b08;
 							*b32 = a_windowwidth; /* the number of samples (same as window width - same for all channels) */
 							b08 += 4;
 #ifdef DEBUG_V1725
 							printf("a_channel written: %d\n",a_channel);fflush(stdout);
 							printf("a_windowwidth written: %d\n",a_windowwidth);fflush(stdout);
 #endif
-							for (kk = 0 ; kk < a_windowwidth/2 ; kk++){ //window_width is always event
+							for (kk = 0; kk < a_windowwidth / 2; kk++) { //window_width is always event
 								a_adc2 = ((datain[ii] >> 16) & 0x3FFF);
 								a_adc1 = (datain[ii] & 0x3FFF);
-								b16 = (unsigned short *)b08;
+								b16 = (unsigned short *) b08;
 								*b16++ = a_adc1;
 								*b16++ = a_adc2;
 								b08 += 4;
@@ -3124,7 +3154,6 @@ void rol2trig(int a, int b) {
 							}
 						}
 					} /*while ii<rlen*/
-
 				} /* loop over blocks */
 
 				if (b08 != NULL)
@@ -3138,7 +3167,6 @@ void rol2trig(int a, int b) {
 						((unsigned int)b08+3) / 4,(((unsigned int)b08+3) / 4)*4,
 						(unsigned int *)((((unsigned int)b08+3) / 4)*4) );
 #endif
-
 			} /* v1725 hardware format */
 
 			else if (banktag[jj] == 0xe10A) /* TI/TS hardware format */
@@ -3807,7 +3835,6 @@ void rol2trig(int a, int b) {
 
 			else if (banktag[jj] == 0xe112) /* HEAD bank raw format */
 			{
-
 				banknum = iev; /*rol->pid;*/
 
 #ifdef DEBUG5
@@ -3824,7 +3851,6 @@ void rol2trig(int a, int b) {
 					printf("CPOPEN(0xe10F,,)\n");
 #endif
 					CPOPEN(0xe10F, 1, banknum);
-
 					ii = iE[jj][ibl][iev];
 					rlen = ii + lenE[jj][ibl][iev];
 					while (ii < rlen) {
@@ -3865,12 +3891,10 @@ void rol2trig(int a, int b) {
 							printf("PASS2 HEAD UNKNOWN data: [%3d] 0x%08x\n", ii, datain[ii]);
 							ii++;
 						}
-
 					} /* while() */
 
 					CPCLOSE
 					;
-
 				} /* loop over blocks */
 
 			} /* HEAD bank raw format */
@@ -4262,7 +4286,6 @@ void rol2trig(int a, int b) {
 						}
 
 					} /* while() */
-
 				} /* loop over blocks */
 
 				if (b08 != NULL)
@@ -4278,6 +4301,59 @@ void rol2trig(int a, int b) {
 #endif
 
 			} /* RICH composite format */
+
+			else if (banktag[jj] == 0xe125) /* V1495 bank raw format */
+			{
+				banknum = iev; /*rol->pid;*/
+
+#ifdef DEBUG_V1495
+				printf("\n\nSECOND PASS v1495\n");
+#endif
+				for (ibl = 0; ibl < nB[jj]; ibl++) /*loop over blocks -> there will be 1 only*/
+				{
+#ifdef DEBUG_V1495
+					printf("\n\n\n0xe112: Block %d, Event %2d, event index %2d, event lenght %2d\n", ibl, iev, iE[jj][ibl][iev],
+							lenE[jj][ibl][iev]);
+#endif
+
+#ifdef DEBUG_V1495
+					printf("CPOPEN(0xe126,,)\n");
+#endif
+					CPOPEN(0xe126, 1, banknum);
+					ii = iE[jj][ibl][iev];
+					rlen = ii + lenE[jj][ibl][iev];
+					while (ii < rlen) {
+#ifdef DEBUG_V1495
+						printf("[%5d] 0x%08x (rlen=%d)\n", ii, datain[ii], rlen);
+#endif
+						if (((datain[ii] >> 28) & 0xF) == 0xA) /*event header*/
+						{
+							nw = (datain[ii] & 0xFFFFFF);
+							nw -=2; //header and slot
+#ifdef DEBUG_V1495
+							printf("[%3d]  data words = %d\n", ii, nw);
+#endif
+							ii++;
+							ii++; //next word contains slot number
+
+							iii = 0;
+							while (iii < nw) /*get all data words*/
+							{
+#ifdef DEBUG_V1495
+								printf("   [%3d][%3d]: 0x%08x\n", ii, iii, datain[ii]);
+#endif
+								*dataout++ = datain[ii];
+								b08 += 4;
+								iii++;
+								ii++;
+							}
+						}
+					} /* while() */
+
+					CPCLOSE
+					;
+				} /* loop over blocks */
+			}/* V1495 bank raw format */
 
 		} /* loop over banks  */
 
@@ -4371,7 +4447,7 @@ void rol2trig(int a, int b) {
 	/* returns full fragment length (long words) */
 
 #ifdef DEBUG
-	printf("return lenout=%d\n**********************\n\n",lenout);
+	printf("return lenout=%d\n**********************\n\n", lenout);
 #endif
 
 	/*

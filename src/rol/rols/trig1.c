@@ -195,11 +195,81 @@ getTdcSlotNumbers(int *slotnumbers)
 
 
 
+/* GTP bits: 0-HTCC, */
+/* FP bits: 0..5 - hit-based sec1..6, 6..11 - ltcc sec1..6, 12..15 - helicity t_settle,quartet,clock,helicity */
+/*
+static unsigned int tsTrigPatternData[8][256] - use 12 low bits from 32
+
+                    [256]: bits 0-4
+*/
+#if 0
+void
+tsTriggerTable1()
+{
+  unsigned int imem=0, iword=0;
+
+
+
+  /******************************* GTP *******************************/
+
+  /* Fill in the single bit patterns with "single trigger" patterns */
+  for (imem=0; imem<4; imem++)
+  {
+    /* Start by initializing all bit patterns to their numerical event types,
+	and setting them all to be "multiple trigger" patterns */
+    for (iword=0; iword<256; iword++)
+	{
+	  /* set bit(8) to 1 (hw trig1), and bit(11:10) to 3 for multi-bit trigger */
+	  tsTrigPatternData[imem][iword] = 0xD00 + iword;
+	}
+      
+    /* Zero inputs, No triggers */
+    tsTrigPatternData[imem][0] = 0;
+
+    for (iword=0; iword<8; iword++)
+	{
+	  /* set bit(8) to 1 (hw trig1), and bit(10) to 1 for single-bit trigger */
+	  tsTrigPatternData[imem][((1<<iword)%0xff)] = 0x500 + iword + 1 + imem*8;
+	}
+  }
+
+
+  /******************************* FP *******************************/
+
+  /* Fill in the single bit patterns with "single trigger" patterns */
+  for (imem=4; imem<8; imem++)
+  {
+    /* Start by initializing all bit patterns to their numerical event types,
+	and setting them all to be "multiple trigger" patterns */
+    for (iword=0; iword<256; iword++)
+	{
+	  /* set bit(8) to 1 (hw trig1), and bit(11:10) to 3 for multi-bit trigger */
+	  tsTrigPatternData[imem][iword] = 0xD00 + iword;
+	}
+      
+    /* Zero inputs, No triggers */
+    tsTrigPatternData[imem][0] = 0;
+
+    for (iword=0; iword<8; iword++)
+	{
+	  /* set bit(8) to 1 (hw trig1), and bit(10) to 1 for single-bit trigger */
+	  tsTrigPatternData[imem][((1<<iword)%0xff)] = 0x500 + iword + 1 + imem*8;
+	}
+  }
+
+
+
+}
+#endif
+
+
+
 
 static void
 __download()
 {
   int ii, i1, i2, i3, id, slot;
+  char filename[1024];
 #ifdef POLLING_MODE
   rol->poll = 1;
 #else
@@ -215,7 +285,7 @@ __download()
   /**/
   CTRIGINIT;
 
-  /* initialize OS windows and TI board */
+  /* initialize OS windows and TS board */
 #ifdef VXWORKS
   CDOINIT(TSPRIMARY);
 #else
@@ -232,6 +302,9 @@ __download()
 
   /*************************************/
   /* redefine TS settings if neseccary */
+
+  tsSetUserSyncResetReceive(1);
+
 
   /* TS 1-6 create physics trigger, no sync event pin, no trigger 2 */
 vmeBusLock();
@@ -284,17 +357,25 @@ vmeBusUnlock();
   }
   printf("TDSLOTMASK: tdslotmask=0x%08x (from library 0x%08x)\n",tdslotmask,tdSlotMask());
 
-  tdGStatus(0);
+  sprintf(filename,"%s/portnames.txt",getenv("CLON_PARMS"));
+  printf("loading portnames from file >%s<\n",filename);
+  tdLoadPortNames(filename);
 
+  /*
+  tdGStatus(0);
+  */
 
   /***************************************
    *   SD SETUP
    ***************************************/
+  printf("SD init starts\n");
 vmeBusLock();
+  printf("SD init 1\n");
   sdInit(1);   /* Initialize the SD library */
   sdSetActiveVmeSlots(tdslotmask); /* Use the tdslotmask to configure the SD */
   sdStatus();
 vmeBusUnlock();
+  printf("SD init done\n");
 
 
 
@@ -496,6 +577,15 @@ vmeBusUnlock();
 
 
 
+/*
+  {
+  char portfile[1024];
+  sprintf(portfile,"%s/portnames.txt",getenv("CLON_PARMS"));
+  printf("Loading port names from file >%s<\n",portfile);
+  tdLoadPortNames(portfile);
+  }
+*/
+
 
 vmeBusLock();
   tsStatus(1);
@@ -657,7 +747,7 @@ usleep(100);
 
     /* Grab the data from the TS */
 vmeBusLock();
-    len = tsReadBlock(tdcbuf,900>>2,1);
+    len = tsReadBlock(tdcbuf,1000,1);
 vmeBusUnlock();
     if(len<=0)
     {
@@ -922,7 +1012,7 @@ vmeBusUnlock();
 	}
 
 
-    /* print livetime */
+    /* print and send livetime, event rate, event count */
     if(syncFlag==1)
 	{
       printf("SYNC: livetime\n");

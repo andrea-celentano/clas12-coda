@@ -99,11 +99,22 @@ main(int argc, char *argv[])
   while(1)
   {
 	
-    slot=4;
-
+    slot=13;
     ret = tcp->ReadScalers(slot, &buf, &len);
     printf("cratemsgclienttest: ret=%d, len=%d slot=%d\n",ret,len, slot);
-    //for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    for(ii=0; ii<len; ii++) printf("  [%2d] %7d 0x%08x (swap 0x%08x)\n",ii,buf[ii],buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    slot=14;
+    ret = tcp->ReadScalers(slot, &buf, &len);
+    printf("cratemsgclienttest: ret=%d, len=%d slot=%d\n",ret,len, slot);
+    for(ii=0; ii<len; ii++) printf("  [%2d] %7d 0x%08x (swap 0x%08x)\n",ii,buf[ii],buf[ii],LSWAP(buf[ii]));fflush(stdout);
+    slot=15;
+    ret = tcp->ReadScalers(slot, &buf, &len);
+    printf("cratemsgclienttest: ret=%d, len=%d slot=%d\n",ret,len, slot);
+    for(ii=0; ii<len; ii++) printf("  [%2d] %7d 0x%08x (swap 0x%08x)\n",ii,buf[ii],buf[ii],LSWAP(buf[ii]));fflush(stdout);
+
+
+
+
 
 //    ii = 35;
 //    printf("lead glass sum: %10d \n",buf[ii]);fflush(stdout);
@@ -112,7 +123,7 @@ main(int argc, char *argv[])
 
     delete [] buf;
 
-
+#if 0
     ret = tcp->ReadData(slot, &buf, &len);
     printf("cratemsgclienttest: ret=%d, len=%d slot=%d\n",ret,len, slot);
     //for(ii=0; ii<len; ii++) printf("  [%2d] 0x%08x (swap 0x%08x)\n",ii,buf[ii],LSWAP(buf[ii]));fflush(stdout);
@@ -123,7 +134,7 @@ main(int argc, char *argv[])
 //    printf("total sum:      %10d \n",buf[ii]);fflush(stdout);
 
     delete [] buf;
-
+#endif
 
 
 

@@ -1568,6 +1568,24 @@ dsc2SetTestInput(UINT32 id, UINT32 flag)
   return OK;
 }
 
+int
+dsc2GetTestInput(UINT32 id)
+{
+  int ret;  
+
+  CHECKID(id);  
+
+  DSCLOCK;
+
+  ret = (vmeRead32(&dscp[id]->testCtrl)) & 0x3;
+
+  DSCUNLOCK;
+
+  return(ret);
+}
+
+
+
 /*******************************************************************
  *   Function : dsc2TestPulse
  *                      
