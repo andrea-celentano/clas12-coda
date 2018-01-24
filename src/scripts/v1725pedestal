@@ -1,0 +1,21 @@
+#!/bin/tcsh -f
+
+if ($#argv != 1) then
+        echo "use: v1725pedestal rocName"
+        exit
+endif
+
+#echo "testPrestart is here"
+set runNumber = `getRunNumber.csh bdxtest`
+echo "runNumber is: " $runNumber
+setenv DISPLAY :0.0
+  
+tcpClient $1 'v1725peds("pedestals.dat",1)'
+
+set ofile = $CLON_PARMS/peds/$EXPID/v1725_$1_$runNumber.ped
+mv pedestals.dat $ofile
+
+ssh -l clasana bdxana1 'cd $BDXRECO_ROOT/calib ; pwd ; echo $CCDB_USER ; setenv CCDB_USER bdxCT ; echo $CCDB_USER ; python loadPedestals.py --variation JLabFlux0 --connection mysql://bdxwriter:e1tocome@jdaq3/BDX --firstRun '"$runNumber" 
+
+ 
+ 

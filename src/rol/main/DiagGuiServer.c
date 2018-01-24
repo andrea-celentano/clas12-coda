@@ -282,6 +282,7 @@ static int vmeScalersRead() {
 			nw = v1495ReadAllChannelScaler(&(adcbuf[0]), chmask, 0x3/*rflag*/);
 			nw += v1495ReadAllLogicScaler(&(adcbuf[nw]), chmask, 0x3/*rflag*/);
 			nw += v1495ReadAllTrgScaler(&(adcbuf[nw]), chmask, 0x3/*rflag*/);
+			printf("AAA %i \n",adcbuf[95]);
 			vmeBusUnlock();
 			vmescalerslen[slot] = nw;
 //			printf("DiagGuiServer vmeScalerRead v1495 n is: %i \n",nw);

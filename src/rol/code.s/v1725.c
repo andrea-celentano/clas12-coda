@@ -62,8 +62,8 @@ pthread_mutex_t c1725_mutex = PTHREAD_MUTEX_INITIALIZER;
 		unsigned int adcAddrOffsetv1725 = 0; /* Difference in CPU (USERSPACE) Base */
 
 		int Nc1725 = 0; /* Number of ADCs in crate */
-		int v1725ID[V1725_MAX_MODULES]; /* array of IDs for FADCs indexed by slot number */
-		int v1725Slot[V1725_MAX_MODULES]; /* array of slot numbers for FADCs indexed by id */
+		int v1725ID[V1725_MAX_MODULES]; /* array of slot numbers for FADCs indexed by id */
+		int v1725Slot[V1725_MAX_MODULES]; /* array of IDs for FADCs indexed by slot */
 		unsigned int v1725AddrList[V1725_MAX_MODULES]; /* array of addresses for FADCs indexed by id */
 		unsigned int c1725vme[V1725_MAX_MODULES]; /* jumper addresses for Dma */
 
@@ -91,7 +91,7 @@ int v1725Init(UINT32 addr, UINT32 addr_inc, int nadc, int iFlag) {
 	unsigned short rdata = 0;
 	int boardID = 0;
 	unsigned int laddr;
-	unsigned int firmwareRev;
+	unsigned int firmwareRev, geo;
 	volatile struct v1725_ROM_struct *rp;
 
 	/* Check for valid address */
@@ -174,9 +174,17 @@ int v1725Init(UINT32 addr, UINT32 addr_inc, int nadc, int iFlag) {
 			}
 
 			/*Get the board ID from GEO - actually this works in VME64x only!*/
-			v1725Slot[ii] = v1725GetGeoAddress(ii);
-			v1725ID[v1725Slot[ii]] = ii;
-
+			/*For non vme-64x boards, use a running index from 1*/
+			geo = v1725GetGeoAddress(ii); /*This is 0 in case of non VME64x boards!*/
+			if (geo == 0) {
+				geo = ii + 1;
+				v1725SetGeoAddress(ii, geo);
+				printf("v1725GeoAddr from board %i is 0 - non VME64x, set to: %i - readback %i \n", ii, geo, v1725GetGeoAddress(ii));
+			} else {
+				printf("v1725GeoAddr from board %i is %i ", ii, geo);
+			}
+			v1725ID[ii] = geo;
+			v1725Slot[geo] = ii;
 			firmwareRev = vmeRead32(&(c1725p[ii]->roc_fpga_firmware_rev));
 			firmwareRev &= 0xFFFF; //take 16 LSB where fir. rev is coded
 			/* Check if this is the firmware we expect V1725_FIRMWARE_REV */
@@ -220,12 +228,11 @@ int v1725GetSlot(unsigned int id) {
 		printf("%s: ERROR: Index (%d) >= v1725 initialized (%d).\n", __FUNCTION__, id, Nc1725);
 		return ERROR;
 	}
-
-	return v1725Slot[id];
+	return v1725ID[id];
 }
 
 int v1725GetID(unsigned int slot) {
-	return v1725ID[slot];
+	return v1725Slot[slot];
 }
 
 /*input:
@@ -1073,10 +1080,10 @@ int v1725SetBLTRange(int id, UINT32 flag) {
 	reg = vmeRead32(&(c1725p[id]->readout_control));
 
 	if (flag == 1) {
-	//	printf("set BLT_RANGE\n");
+		//	printf("set BLT_RANGE\n");
 		reg = reg | V1725_BLT_RANGE;
 	} else if (flag == 0) {
-	//	printf("reset BLT_RANGE\n");
+		//	printf("reset BLT_RANGE\n");
 		reg = reg & ~V1725_BLT_RANGE;
 	}
 
@@ -1105,7 +1112,6 @@ unsigned int v1725GetRelocationAddress(int id) {
 	CHECKID(id);
 	LOCK_1725;
 	ret = vmeRead32(&(c1725p[id]->relocation_address));
-	UNLOCK_1725;
 	return (ret);
 }
 
@@ -1117,8 +1123,56 @@ int v1725ReadOne(int id) {
 
 }
 
+int v1725DoCalibration(int id) {
+	int flag = 0;
+	int ich = 0;
+	int count = 40;
+	UINT32 ret;
+	CHECKID(id);
+	for (ich = 0; ich < V1725_MAX_CHANNELS; ich++) {
+		LOCK_1725;
+		ret = vmeRead32(&(c1725p[id]->chan[ich].status));
+		UNLOCK_1725;
+		ret = ret & V1725_CHANNEL_STATUS_DAC_BUSY;
+		if (ret != 0)
+			flag = flag + (1 << ich);
+	}
+	if (flag != 0) {
+		printf("ADC calibration not possible, DAC busy: 0x%08x\n", flag);
+		fflush(stdout);
+	}
+	LOCK_1725;
+	vmeWrite32(&(c1725p[id]->channel_calibration), 0x1234); /*Write any value!*/
+	UNLOCK_1725;
+
+	while (count) {
+		flag = 0;
+		for (ich = 0; ich < V1725_MAX_CHANNELS; ich++) {
+			LOCK_1725;
+			ret = vmeRead32(&(c1725p[id]->chan[ich].status));
+			UNLOCK_1725;
+			ret = ret & V1725_CHANNEL_STATUS_ADC_CALIBRATION;
+			if (ret == 0)
+				flag = flag + (1 << ich);
+		}
+		if (flag != 0) {
+			printf("ADC calibration still in progress, iteration: %i ADC: 0x%08x\n", count, flag);
+			fflush(stdout);
+		}
+		usleep(100000);
+		count--;
+	}
+	if (count == 0) {
+		printf("ADC calibration failed \n");
+		return -1;
+	} else {
+		return 0;
+	}
+
+}
+
 int v1725MeasureChannelPedestal(int id, unsigned int chan, v1725Ped *ped) {
-	int status, i, j, reg_bit, n_words, n_samples, slot;
+	int status, i, j, reg_bit, n_words, n_words_for_ped, n_samples, slot;
 	int var_t;
 	int iters;
 	double adc_val;
@@ -1129,7 +1183,9 @@ int v1725MeasureChannelPedestal(int id, unsigned int chan, v1725Ped *ped) {
 	UINT32 trigger_mask, channel_mask;
 	UINT32 old_trigger_mask, old_channel_mask;
 	UINT32 old_acquisition_mask, old_buffer;
+	UINT32 old_readout_control;
 	UINT32 buffp[20000];
+	UINT32 rlenbuf[22];
 	UINT32 *buff_point;
 
 	if (chan > 16) {
@@ -1144,6 +1200,7 @@ int v1725MeasureChannelPedestal(int id, unsigned int chan, v1725Ped *ped) {
 	old_channel_mask = vmeRead32(&(c1725p[id]->channel_enable_mask));
 	old_acquisition_mask = vmeRead32(&(c1725p[id]->acquisition_control));
 	old_buffer = vmeRead32(&(c1725p[id]->buffer_organization));
+	old_readout_control = vmeRead32(&(c1725p[id]->readout_control));
 	trigger_mask = 1;
 	trigger_mask = (trigger_mask << 31); /*enable sw_trigger and disable any external*/
 	UNLOCK_1725;
@@ -1153,8 +1210,10 @@ int v1725MeasureChannelPedestal(int id, unsigned int chan, v1725Ped *ped) {
 	v1725Clear(id); /*Clear memories but not reset!*/
 	v1725SetBuffer(id, 0x0A); /*1024 buffers 640-10 samples max size*/
 	v1725SetTriggerEnableMask(id, 1, 0, 0, 0, 0, 0); /*enable SW-trg only*/
-	v1725SetAcquisition(id, 0, 0, 0, 0, 0, 1, 0); /*last two: armed, sw-controlled*/
 	v1725SetChannelEnableMask(id, 0x1 << chan);
+	v1725SetAlign64(id, 0);
+
+	v1725SetAcquisition(id, 0, 0, 0, 0, 0, 1, 0); /*last two: armed, sw-controlled*/
 
 	CHECKID(id);
 
@@ -1169,24 +1228,31 @@ int v1725MeasureChannelPedestal(int id, unsigned int chan, v1725Ped *ped) {
 
 	//v1725Status(0);
 
+	usleep(200);
 	for (i = 0; i < iters; i++) {
 		v1725GenerateSoftwareTrigger(id);
 
+		usleep(20);
+
 		buffp[0] = 0;
-		buff_point = buffp;
-
+		buff_point = &(buffp[0]);
 		var_t = 0;
-
-		while (((*buffp) >> 28) != 0xA) { /*Seems that, reading one by one, the REAL first word could be later*/
+		while ((((*buff_point) >> 28) & 0xF) != 0xa) { /*Seems that, reading one by one, the REAL first word could be later*/
 			var_t++;
-			if (var_t > 40)
+			if (var_t > 40) {
+				printf("var_t is too big, break\n");
+				fflush(stdout);
 				break;
+			}
 			LOCK_1725;
 			(*buff_point) = vmeRead32(&(c1725p[id]->data[0]));
 			UNLOCK_1725;
+			//printf("data iteration %i var_t: %i : 0x%08x 0x%08x \n",i,var_t,*buff_point,*buffp);fflush(stdout);
+			usleep(10);
 		}
 		if (var_t > 40) {
 			printf("initial loop failed. Next iteration! \n");
+			fflush(stdout);
 			continue;
 		}
 		n_words = (*buff_point) & 0xFFFFFFF; /*first word,first 28 bits is total number of words in the data */
@@ -1206,7 +1272,10 @@ int v1725MeasureChannelPedestal(int id, unsigned int chan, v1725Ped *ped) {
 		n_words = n_words - 3; /*This is the number of words containing data */
 		if (n_words > 2000)
 			break;
-		for (j = 0; j < n_words; j++) {
+
+		//	n_words_for_ped=10;
+		n_words_for_ped = n_words;
+		for (j = 0; j < n_words_for_ped; j++) {
 			adc_val1 = ((*buff_point) & 0x3FFF);
 			adc_val2 = (((*buff_point) >> 16) & 0x3FFF);
 			n_samples += 2;
@@ -1235,17 +1304,20 @@ int v1725MeasureChannelPedestal(int id, unsigned int chan, v1725Ped *ped) {
 
 	printf("v1725MeasureChannelPedestal: ID %d,slot %d, chan %d => avg %6.3f, rms %6.3f, min %.0f, max %.0f\n", id, slot, chan, p.avg,
 			p.rms, p.min, p.max);
+	fflush(stdout);
 
 	if (ped)
 		*ped = p;
 
 	v1725SetChannelPedestal(id, chan, (int) p.avg); /*upload this info to the board too*/
+	v1725Clear(id); /*Clear memories but not reset!*/
 
 	LOCK_1725;
 	vmeWrite32(&(c1725p[id]->buffer_organization), old_buffer);
 	vmeWrite32(&(c1725p[id]->trigger_source_enable_mask), old_trigger_mask);
 	vmeWrite32(&(c1725p[id]->channel_enable_mask), old_channel_mask);
 	vmeWrite32(&(c1725p[id]->acquisition_control), old_acquisition_mask);
+	vmeWrite32(&(c1725p[id]->readout_control), old_readout_control);
 	UNLOCK_1725;
 
 	return (OK);
@@ -1456,6 +1528,7 @@ int v1725peds(char *filename, int newfile) {
 
 int v1725ReadBoard(int iadc, UINT32 *tdata) {
 	UINT32 *output = tdata;
+	UINT32 word;
 	int i, ndata;
 
 	/* get event length in words */
@@ -1464,9 +1537,20 @@ int v1725ReadBoard(int iadc, UINT32 *tdata) {
 	logMsg("v1725ReadBoard: ndata=%d\n", ndata, 2, 3, 4, 5, 6);
 
 	for (i = 0; i < ndata; i++) {
-		*output++ = vmeRead32(&(c1725p[iadc]->data[0]));
+		word = vmeRead32(&(c1725p[iadc]->data[0]));
+		/*Following lines are needed because rol2 assumes readout is done via block transfer, without swapping,
+		 * while above ReadMulti instruction reads 1 by 1 words and swaps them (see source code of vmeRead16)
+		 */
+#ifndef VXWORKS
+#ifndef NIOS
+#ifndef Linux_armv7l
+		word = LSWAP(word);
+#endif
+#endif
+#endif
+		*output++ = word;
 		if (i < 6 || i > (ndata - 7))
-			logMsg("v1725ReadBoard:  [%d] 0x%08x \n", i, *(output - 1), 3, 4, 5, 6);
+			logMsg("v1725ReadBoard:  [%d] 0x%08x \n", i, LSWAP(*(output - 1)), 3, 4, 5, 6);
 	}
 
 	return (ndata);
@@ -1594,7 +1678,8 @@ int v1725ReadBoardDmaDone(int ib) {
 /* generic readout for v1725 ADC boards */
 /* time profiling data for 2 boards 550 bytes event size */
 /* Mode=0 programmed transfer
- * Mode=1 DMA
+ * Mode=1 DMA with limited readout window
+ * Mode=2 DMA with large window
  */
 int v1725ReadStart(INT32 *adcbuf, INT32 *rlenbuf, int mode) {
 	int ii, jj, nev, iadcbuf, itmp1, itmp2;
@@ -1637,8 +1722,8 @@ int v1725ReadStart(INT32 *adcbuf, INT32 *rlenbuf, int mode) {
 			logMsg("v1725ReadStart: there are %i (>1) events ready \n", nev, 2, 3, 4, 5, 6);
 		}
 
-		if (nev == 0){
-			rlenbuf[jj]=0;
+		if (nev == 0) {
+			rlenbuf[jj] = 0;
 			return 0;
 		}
 		/* Trigger Supervisor has 6 event buffer, but we can get 7
@@ -1665,7 +1750,7 @@ int v1725ReadStart(INT32 *adcbuf, INT32 *rlenbuf, int mode) {
 		} else if (mode == 1) {
 			itmp1 = 0;
 			itmp2 = 0;
-			nWords=v1725GetNextEventSize(jj);
+			nWords = v1725GetNextEventSize(jj);
 			while (itmp1 < nWords) {
 				v1725ReadBoardDmaStart(jj, &adcbuf[iadcbuf]);
 				itmp2 = v1725ReadBoardDmaDone(jj); //number of 32-bit words read*/
@@ -1685,12 +1770,12 @@ int v1725ReadStart(INT32 *adcbuf, INT32 *rlenbuf, int mode) {
 			v1725SetBLTRange(jj, 1);
 			v1725ReadBoardDmaStart(jj, &adcbuf[iadcbuf]);
 			rlenbuf[jj] = v1725ReadBoardDmaDone(jj);
+			v1725SetBLTRange(jj, 0);
 			if (rlenbuf[jj] <= 0) {
 				logMsg("[%2d] ERROR: v1725ReadEvent mode2 returns %d\n", jj, rlenbuf[jj], 3, 4, 5, 6);
 			} else {
 				iadcbuf += rlenbuf[jj];
 			}
-			v1725SetBLTRange(jj, 0);
 		}
 	}
 
@@ -1844,7 +1929,9 @@ STATUS v1725Status(int slot) {
 
 	unsigned int vmeCtrl, vmeStatus, vmeGEO, vmeAddr;
 
-	unsigned int tet[16], tet_logic[16], gain[16], dac_offset[16], ped[16];
+	unsigned int tet[16], tet_logic[16], gain[16], dac_offset[16], ped[16], chstatus[16];
+	unsigned int temperature[16];
+	char strTFlag[5];
 
 	id = v1725GetID(slot);
 	CHECKID(id);
@@ -1885,6 +1972,8 @@ STATUS v1725Status(int slot) {
 	adcChanDisabled = (~chEnableMask) & 0xFFFF;
 
 	for (ii = 0; ii < V1725_MAX_CHANNELS; ii++) {
+		chstatus[ii] = vmeRead32(&(c1725p[id]->chan[ii].status));
+		temperature[ii] = vmeRead32(&(c1725p[id]->chan[ii].temperature_monitor));
 		gain[ii] = vmeRead32(&(c1725p[id]->chan[ii].gain));
 		tet[ii] = vmeRead32(&(c1725p[id]->chan[ii].threshold));
 		tet_logic[ii] = vmeRead32(&(c1725p[id]->chan[ii].self_trigger_logic));
@@ -2059,10 +2148,15 @@ STATUS v1725Status(int slot) {
 
 	printf("\n");
 
-	printf("  Ch| Threshold     |  GAIN   | PED   | DAC_OFFSET \n");
-	printf("  --|---------------|---------|-------|------------\n");
+	printf("  Ch| Threshold     |  GAIN   | PED   | DAC_OFFSET | TEMPERATURE  | TFLAG\n");
+	printf("  --|---------------|---------|-------|------------| -------------| -----\n");
 	for (ii = 0; ii < V1725_MAX_CHANNELS; ii++) {
-		printf("  %2d|          %4d |    %4d |   %4d|%4d\n", ii, tet[ii], gain[ii], ped[ii], dac_offset[ii]);
+		if (chstatus[ii] & V1725_CHANNEL_STATUS_POWER_DOWN)
+			strcpy(strTFlag, "BAD");
+		else
+			strcpy(strTFlag, "OK");
+		printf("  %2d|          %4d |    %4d |   %4d|%4d |%4d | %s \n", ii, tet[ii], gain[ii], ped[ii], dac_offset[ii], temperature[ii],
+				strTFlag);
 	}
 	printf("\n");
 

@@ -26,7 +26,10 @@ typedef struct v1495_struct
   /*0x02004-0x200E*/ unsigned short blank1[6];
   /*0x2010-0x204E*/ volatile unsigned short prescale[32];
   /*0x2050-0x20FE*/ unsigned short blank2[88];
-  /*0x2100-0x21FE*/ unsigned short blank3[128];
+  /*0x2100*/		volatile unsigned short triggerStatus;
+  /*0x2102*/ 		volatile unsigned short triggerNWords;
+  /*0x2104-0x210A*/ volatile unsigned short triggerWords[4];
+  /*0x210C-0x21FE*/ unsigned short blank3[122];
   /*0x2200*/		volatile unsigned short scalerChannelCtrl;
   /*0x2202*/		volatile unsigned short scalerChannelDataL;
   /*0x2204*/		volatile unsigned short scalerChannelDataH;
@@ -53,7 +56,7 @@ typedef struct v1495_struct
   /*0x8016*/ volatile unsigned short configUSER;    	 /* R/W */
   /*0x8018*/ volatile unsigned short scratch16;     	 /* R/W */
   /*0x801A*/ volatile unsigned short res1[3];
-  /*0x8020*/ volatile unsigned int scratch32;       	 /* R/W */
+  /*0x8020*/ volatile unsigned int   scratch32;       	 /* R/W */
   /*0x8024*/ volatile unsigned short res2[110];
   /*0x8100*/ volatile unsigned short configROM[127]; /* R */
 
@@ -63,8 +66,9 @@ typedef struct v1495_struct
 #define V1495_NSCALERS_CHANNEL 	 32
 #define V1495_NSCALERS_LOGIC	 32
 #define V1495_SLOT_NONGEO 0x1F /*content of GEO addr for non-vme64x boards*/
-#define V1495_SLOT_VME64  0x1
+#define V1495_SLOT_VME64  0x14 /*Slot 20, before last (21) where TI should sit*/
 
+#define V1495_HEADER_PATTERN 0xa
 
 /*INIT*/
 #define V1495_INIT_SKIP                (1<<16)
@@ -75,6 +79,27 @@ typedef struct v1495_struct
 
 int v1495Init(unsigned int addr,int iflag);
 unsigned int v1495Slot();
+
+int v1495GetTriggerStatus();
+int v1495GetTriggerEmptyFifo();
+int v1495GetTriggerFullFifo();
+void v1495PrintTriggerStatus();
+
+int v1495GetNTriggerWords();
+void v1495PrintNTriggerWords();
+
+void v1495ReadSingleTrgWord(int *buf);
+void v1495PrintSingleTrgWord();
+
+void v1495ReadMultiTrgWord(int N,int *buf);
+void v1495PrintMultiTrgWord(int N);
+
+
+int v1495ReadStart(int *adcbuf);
+
+void v1495SetPrescale(int logicCh, int factor);
+int v1495GetPrescale(int logicCh);
+int v1495PrintPrescale(int logicCh);
 
 /*Scalers routine - channels*/
 unsigned int v1495ReadChannelScaler(int scaler,int clear,int latch);
@@ -94,3 +119,6 @@ unsigned int v1495ReadLogicScaler(int scaler,int clear,int latch);
 int v1495ReadAllTrgScaler(volatile unsigned int *data, unsigned int chmask, int rflag);
 void v1495PrintTrgScaler(int scaler,int clear,int latch);
 void v1495PrintAllTrgScaler(int clear,int latch);
+
+
+void v1495Reset();

@@ -1,0 +1,36 @@
+#/bin/tcsh -f
+
+if ($HOST != jdaq3) then
+   echo ""
+   echo "The script runs only on jdaq3"
+   echo ""
+   exit
+endif
+
+if ($#argv != 1) then
+        echo "use: syncBDXdb dir"
+	echo "dir can be: daqtojlab or jlabtodaq"
+	echo "daqtojlab is from jdaq3 to clasdb"
+	echo "jlabtodaq is from clasdb to jdaq3"
+        exit
+endif
+
+
+if ($1 == "daqtojlab") then
+   set hto = clasdb
+   set hfrom = jdaq3
+else if ($1 == "jlabtodaq") then
+   set hfrom = clasdb
+   set hto = jdaq3
+else
+   echo "option $1 not recognized"
+   exit 
+endif
+   
+   
+echo "Going to copy BDX db from $hfrom to $hto"
+
+cd ~/
+mysqldump -u bdxwriter -pe1tocome -h $hfrom BDX > .out.db
+mysql -u bdxwriter -pe1tocome -h $hto BDX < .out.db
+rm .out.db

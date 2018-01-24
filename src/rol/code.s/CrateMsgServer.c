@@ -272,7 +272,7 @@ ConnectionThread(void *parm)
       printf("break 3: result=%d, pParm->msg.len=%d\n",result,pParm->msg.len);
 	  break;
 	}
-    printf("ConnectionThread after recv2, result=%d\n",result);
+  //  printf("ConnectionThread after recv2, result=%d\n",result);
 
 	result = -1;
 

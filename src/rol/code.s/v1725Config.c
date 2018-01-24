@@ -478,8 +478,7 @@ int v1725UploadAll(char *string, int length) {
 
 			if (v1725[slot].thr[i] > 0)
 				v1725[slot].thr[i] = v1725[slot].thr[i] - v1725[slot].ped[i]; /* MUST SUBTRACT PEDESTAL TO BE CONSISTENT WITH DOWNLOADED THRESHOLD */
-
-			v1725[slot].gain[i] = v1725GetChannelGain(slot, i);
+				v1725[slot].gain[i] = v1725GetChannelGain(jj, i);
 		}
 	}
 

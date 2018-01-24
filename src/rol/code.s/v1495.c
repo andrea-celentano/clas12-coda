@@ -354,12 +354,10 @@ int v1495firmware(unsigned int baseaddr, char *filename, int page, int user_vme)
 	exit(0);
 }
 
-
 /*Assumes A24 mode*/
 /*
  *
  *  bit 16:  Exit before board initialization
- *             0 Initialize FADC (default behavior)
  *             1 Skip initialization (just setup register map pointers)
  *
  */
@@ -436,14 +434,226 @@ unsigned int v1495Slot() {
 	slot = vmeRead16((volatile unsigned short*) &v1495->geoAddr) & 0xFFFF;
 	UNLOCK_1495;
 	if (slot == V1495_SLOT_NONGEO) {
-	//	printf("v1495Slot info: non vme-64x board model, returning dflt value: %i\n", V1495_SLOT_VME64);fflush(stdout);
+		//printf("v1495Slot info: non vme-64x board model, returning dflt value: %i\n", V1495_SLOT_VME64);fflush(stdout);
 		slot = V1495_SLOT_VME64;
 	}
 	return slot;
 }
 
+void v1495Reset() {
+	if (v1495 == 0) {
+		printf("v1495Rest Error! v1495 not initialized \n");
+		return;
+	}
+	LOCK_1495;
+	vmeWrite16((volatile unsigned short*) &(v1495->moduleReset), 0x0);
+	UNLOCK_1495;
+}
+
+void v1495SetPrescale(int logicCh, int factor) {
+	if (v1495 == 0) {
+		printf("v1495SetPrescale Error! v1495 not initialized \n");
+		return;
+	}
+	if (factor <= 0 || (factor >= 65536)) {
+		printf("v1495SetPrescale Error! Prescale factor must be >0 and < 2^16 \n");
+		return;
+	}
+	if ((logicCh < 0) || (logicCh >= 32)) {
+		printf("v1495SetPrescale Error! LogicChannle must be >=0 and <31\n");
+	}
+	LOCK_1495;
+	vmeWrite16((volatile unsigned short*) &(v1495->prescale[logicCh]), factor);
+	UNLOCK_1495;
+
+}
+
+int v1495GetPrescale(int logicCh) {
+	int data;
+	if (v1495 == 0) {
+		printf("v1495SetPrescale Error! v1495 not initialized \n");
+		return -1;
+	}
+	if ((logicCh < 0) || (logicCh >= 32)) {
+		printf("v1495SetPrescale Error! LogicChannle must be >=0 and <31\n");
+	}
+	LOCK_1495;
+	data = vmeRead16((volatile unsigned short*) &(v1495->prescale[logicCh]));
+	UNLOCK_1495;
+	return data;
+}
+
+int v1495PrintPrescale(int logicCh) {
+	int data;
+	data=v1495GetPrescale(logicCh);
+	printf("v1495PrintPrescale: bit %i -> %i\n",logicCh,data);
+	return data;
+}
 
 
+int v1495GetTriggerStatus() {
+	int N = 0;
+	if (v1495 == 0) {
+		printf("v1495Slot Error! v1495 not initialized \n");
+		return 0;
+	}
+	LOCK_1495;
+	N = vmeRead16((volatile unsigned short*) &(v1495->triggerStatus)) & 0xFFFF;
+	UNLOCK_1495;
+	return N;
+}
+
+int v1495GetTriggerEmptyFifo() {
+	int N = 0;
+	int ret;
+	if (v1495 == 0) {
+		printf("v1495Slot Error! v1495 not initialized \n");
+		return 0;
+	}
+	N = v1495GetTriggerStatus();
+	if (N & 0x1)
+		ret = 1;
+	return ret;
+}
+
+int v1495GetTriggerFullFifo() {
+	int N = 0;
+	int ret;
+	if (v1495 == 0) {
+		printf("v1495Slot Error! v1495 not initialized \n");
+		return 0;
+	}
+	N = v1495GetTriggerStatus();
+	if (N & 0x2)
+		ret = 1;
+	return ret;
+}
+
+void v1495PrintTriggerStatus() {
+	int N;
+	N = v1495GetTriggerStatus();
+	printf("v1495PrintTriggerStatus: %x \n", N);
+	return;
+}
+
+int v1495GetNTriggerWords() {
+	int N = 0;
+	if (v1495 == 0) {
+		printf("v1495Slot Error! v1495 not initialized \n");
+		return 0;
+	}
+	LOCK_1495;
+	N = vmeRead16((volatile unsigned short*) &(v1495->triggerNWords)) & 0xFFFF;
+	UNLOCK_1495;
+	return N;
+}
+
+void v1495PrintNTriggerWords() {
+	int N;
+	N = v1495GetNTriggerWords();
+	printf("v1495PrintNTriggerWords: %i \n", N);
+	return;
+}
+
+/*Due to the way firmware works, when reading word n.4 the FPGA will load in the FIFO output the NEXT word to be read*/
+void v1495ReadSingleTrgWord(int *buf) {
+
+	unsigned int dataL, dataH;
+	if (v1495 == 0) {
+		printf("v1495ReadSingleTrgWord Error! v1495 not initialized \n");
+		return;
+	}
+	LOCK_1495;
+	dataL = vmeRead16((volatile unsigned short*) &(v1495->triggerWords[0]));
+	dataH = vmeRead16((volatile unsigned short*) &(v1495->triggerWords[1]));
+	buf[0] = (dataH << 16) | dataL;
+
+	dataL = vmeRead16((volatile unsigned short*) &(v1495->triggerWords[2]));
+	dataH = vmeRead16((volatile unsigned short*) &(v1495->triggerWords[3]));
+	buf[1] = (dataH << 16) | dataL;
+
+	UNLOCK_1495;
+	return;
+}
+
+void v1495PrintSingleTrgWord() {
+	int *buf = malloc(2 * sizeof(int));
+
+	v1495ReadSingleTrgWord(buf);
+
+	printf("Data read: 0x%08x 0x%08x \n", buf[0], buf[1]);
+
+	free(buf);
+
+}
+
+void v1495ReadMultiTrgWord(int N, int *buf) {
+
+	unsigned int dataL, dataH;
+	int ii;
+	if (v1495 == 0) {
+		printf("v1495ReadMultiTrgWord Error! v1495 not initialized \n");
+		return;
+	}
+	if (N <= 0) {
+		printf("v1495ReadMultiTrgWord Error ! N<=0  \n");
+		fflush(stdout);
+		return;
+	}
+	LOCK_1495;
+	for (ii = 0; ii < N; ii++) {
+
+		dataL = vmeRead16((volatile unsigned short*) &(v1495->triggerWords[0]));
+		dataH = vmeRead16((volatile unsigned short*) &(v1495->triggerWords[1]));
+		buf[2 * ii] = (dataH << 16) | dataL;
+
+		dataL = vmeRead16((volatile unsigned short*) &(v1495->triggerWords[2]));
+		dataH = vmeRead16((volatile unsigned short*) &(v1495->triggerWords[3]));
+		buf[2 * ii + 1] = (dataH << 16) | dataL;
+	}
+	UNLOCK_1495;
+	return;
+}
+
+void v1495PrintMultiTrgWord(int N) {
+	int *buf = malloc(2 * N * sizeof(int));
+	int ii;
+
+	v1495ReadMultiTrgWord(N, buf);
+	for (ii = 0; ii < N; ii++) {
+		printf("Data read: %i --> 0x%08x 0x%08x (time: %f ) \n", ii, buf[2 * ii], buf[2 * ii + 1], buf[2 * ii + 1] * 25E-9);
+	}
+	free(buf);
+}
+
+int v1495ReadStart(int *adcbuf) {
+	int N;
+	int ii;
+	if (v1495 == 0) {
+		printf("v1495ReadStart Error! v1495 not initialized \n");
+		return 0;
+	}
+
+	N = v1495GetNTriggerWords();
+	if (N > 0) {
+		v1495ReadMultiTrgWord(N, adcbuf);
+	}
+
+	/*Following lines are needed because rol2 assumes readout is done via block transfer, without swapping,
+	 * while above ReadMulti instruction reads 1 by 1 words and swaps them (see source code of vmeRead16)
+	 */
+#ifndef VXWORKS
+#ifndef NIOS
+#ifndef Linux_armv7l
+	for (ii = 0; ii < 2 * N; ii++) {
+		adcbuf[ii] = LSWAP(adcbuf[ii]);
+	}
+#endif
+#endif
+#endif
+
+	return 2 * N; //2* since we return the number of 32-bit words and FIFO is organized as 64-bit words
+}
 
 unsigned int v1495ReadChannelScaler(int scaler, int clear, int latch) {
 	unsigned int addr;
@@ -494,16 +704,14 @@ void v1495PrintAllChannelScaler(int clear, int latch) {
 	unsigned int counter;
 	unsigned int scaler;
 	for (scaler = 0; scaler < V1495_NSCALERS_CHANNEL; scaler++) {
-		counter = v1495ReadChannelScaler(scaler,clear, latch);
+		counter = v1495ReadChannelScaler(scaler, clear, latch);
 		if (counter) {
 			printf("v1495PrintAllChannelsScaler: scaler %i %u \n", scaler, counter);
 		} else {
-			printf("v1495PrintAllChannelsScaler: scaler %i returned 0\n",scaler);
+			printf("v1495PrintAllChannelsScaler: scaler %i returned 0\n", scaler);
 		}
 	}
 }
-
-
 
 unsigned int v1495ReadLogicScaler(int scaler, int clear, int latch) {
 	unsigned int addr;
@@ -538,7 +746,6 @@ unsigned int v1495ReadLogicScaler(int scaler, int clear, int latch) {
 	return counter;
 }
 
-
 void v1495PrintLogicScaler(int scaler, int clear, int latch) {
 	unsigned int counter;
 
@@ -555,18 +762,14 @@ void v1495PrintAllLogicScaler(int clear, int latch) {
 	unsigned int counter;
 	unsigned int scaler;
 	for (scaler = 0; scaler < V1495_NSCALERS_LOGIC; scaler++) {
-		counter = v1495ReadLogicScaler(scaler,clear, latch);
+		counter = v1495ReadLogicScaler(scaler, clear, latch);
 		if (counter) {
 			printf("v1495PrintAllLogicScaler: scaler %i %u \n", scaler, counter);
 		} else {
-			printf("v1495PrintAllLogicScaler: scaler %i returned 0\n",scaler);
+			printf("v1495PrintAllLogicScaler: scaler %i returned 0\n", scaler);
 		}
 	}
 }
-
-
-
-
 
 unsigned int v1495ReadTrgScaler(int scaler, int clear, int latch) {
 	unsigned int addr;
@@ -601,7 +804,6 @@ unsigned int v1495ReadTrgScaler(int scaler, int clear, int latch) {
 	return counter;
 }
 
-
 void v1495PrintTrgScaler(int scaler, int clear, int latch) {
 	unsigned int counter;
 
@@ -618,31 +820,14 @@ void v1495PrintAllTrgScaler(int clear, int latch) {
 	unsigned int counter;
 	unsigned int scaler;
 	for (scaler = 0; scaler < V1495_NSCALERS_LOGIC; scaler++) {
-		counter = v1495ReadTrgScaler(scaler,clear, latch);
+		counter = v1495ReadTrgScaler(scaler, clear, latch);
 		if (counter) {
 			printf("v1495PrintAllTrgScaler: scaler %i %u \n", scaler, counter);
 		} else {
-			printf("v1495PrintAllTrgScaler: scaler %i returned 0\n",scaler);
+			printf("v1495PrintAllTrgScaler: scaler %i returned 0\n", scaler);
 		}
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /**************************************************************************************
  *
@@ -684,7 +869,6 @@ int v1495ReadAllChannelScaler(volatile unsigned int *data, unsigned int chmask, 
 //	printf("v1495ReadAllChannelScaler done: %i \n",dCnt);
 	return dCnt;
 }
-
 
 int v1495ReadAllLogicScaler(volatile unsigned int *data, unsigned int chmask, int rflag) {
 	int doLatch = 0, doClear = 0, ichan = 0;
@@ -737,11 +921,7 @@ int v1495ReadAllTrgScaler(volatile unsigned int *data, unsigned int chmask, int 
 //	printf("v1495ReadAllLogicScaler done: %i \n",dCnt);
 	return dCnt;
 }
-
-
-
 #endif
-
 
 /* firmware upgrade vxworks*/
 #ifdef VXWORKS

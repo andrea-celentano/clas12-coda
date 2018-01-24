@@ -147,6 +147,11 @@ typedef struct v1725_struct
 
 #define V1725_ROM_OFFSET    0xF000
 
+/*Channel status*/
+#define V1725_CHANNEL_STATUS_DAC_BUSY 0x04
+#define V1725_CHANNEL_STATUS_ADC_CALIBRATION 0x08
+#define V1725_CHANNEL_STATUS_POWER_DOWN 0x100
+
 /*Trg mask*/
 #define V1725_TRIGGER_SWT 0x80000000
 #define V1725_TRIGGER_EXT 0x40000000
@@ -278,5 +283,8 @@ int v1725ReadStart(INT32 *adcbuf, INT32 *rlenbuf,int mode);
 int v1725ReadListStart(INT32 *adcbuf, INT32 *rlenbuf);
 int v1725ReadDone();
 STATUS v1725Status(int slot);
+
+int v1725DoCalibration(int id);
+
 
 #endif
